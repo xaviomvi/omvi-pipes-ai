@@ -173,3 +173,4 @@ services/python/logs
 services/python/data
 services/python/default_config*.json
 *.DS_Store
+token.pickle
