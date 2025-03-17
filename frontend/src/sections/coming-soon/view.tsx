@@ -10,7 +10,6 @@ import { outlinedInputClasses } from '@mui/material/OutlinedInput';
 import { useCountdownDate } from 'src/hooks/use-countdown';
 
 import { varAlpha } from 'src/theme/styles';
-import { ComingSoonIllustration } from 'src/assets/illustrations';
 
 // ----------------------------------------------------------------------
 
@@ -26,8 +25,6 @@ export function ComingSoonView() {
       <Typography sx={{ color: 'text.secondary' }}>
         We are currently working hard on this page!
       </Typography>
-
-      <ComingSoonIllustration sx={{ my: { xs: 5, sm: 10 } }} />
 
       <Stack
         direction="row"
