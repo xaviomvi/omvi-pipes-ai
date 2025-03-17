@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+
+<html>
+  {{>head}}
+  <main>
+    <body>
+      <table
+ {{{containerstyle}}}
+    
+      >
+        <tr> 
+          <td>{{> header}}</td>
+        </tr>
+        <tr>
+          <td> 
+            <table
+              class="mobile-width"
+ {{{bodytablestyle}}}
+              
+            >
+              <tr>
+                <td>
+                  <div {{{divstyle}}}>
+                    <p>Dear User,</p>
+                    <p>
+                      You have been mentioned in activity section of {{workflowname}} by {{invitee}}.
+                    </p>
+                  </div>
+                  <div {{{divstyle}}}>
+                    {{{message}}}
+                    <p>Click the button below to open workflow activity link.</p>
+                    <p {{{pstyle}}}>
+                      <a href={{link}} target="_blank">
+                        <button
+                          {{{buttonstyle}}}
+                        >
+                          Open activity
+                        </button>
+                      </a>
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td>{{> footer}}</td>
+        </tr>
+      </table>
+    </body>
+  </main>
+</html>

@@ -1,0 +1,20 @@
+- google slides
+- html, md, txt 
+- pptx, ppt
+
+- rocksdb
+-- recordID | blockID 
+-- recordID | pageNumber | blockID 
+
+- openai, azureopenai, amazon bedrock, ollama
+for embedding models too.
+
+-- store user platform id in google workspace user (handle orders and events)
+-- populate org id
+-- fix quadrant fields
+-- block merge properly (block number and block type)
+
+
+sync status in app-user edges
+check historyID for gmail pub sub
+org id and user id pass as parameters from events.

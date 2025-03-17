@@ -1,0 +1,64 @@
+
+<!DOCTYPE html>
+
+<html>
+  {{>head}}
+  <main>
+    <body>
+      <table
+ {{{containerstyle}}}
+    
+      >
+        <tr> 
+          <td>{{> header}}</td>
+        </tr>
+        <tr>
+          <td> 
+            <table
+              class="mobile-width"
+ {{{bodytablestyle}}}
+              
+            >
+              <tr>
+                <td>
+
+
+                <div style="width: 90%; margin: 0 auto; background-color: red; color: white; text-align: center; padding: 10px; border-radius: 5px;">Alert</div>
+                <br>
+                  <div {{{divstyle}}}>
+                      <p>Dear User,<br>
+                        A suspicious attempt to login to your account has been made on <b>PipesHub</b> <br>
+                        Multiple attempts were made using the wrong OTP.
+                        <br><br>
+                        If it was you who was trying to enter the platform, kindly wait for sometime and enter the latest OTP sent to your email, and if not then contact the support team at <b>PipesHub</b> by clicking the button given below.
+
+                      </p>
+                    
+                  </div>
+
+                    <div {{{divstyle}}}>
+                     
+                    <p {{{pstyle}}}>
+                      <a href={{link}} target="_blank">
+                        <button
+                          {{{buttonstyle}}}
+                        >
+                          Contact Support 
+                        </button>
+                      </a>
+                    </p>
+                  </div>
+ 
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td>{{> footer}}</td>
+        </tr>
+      </table>
+    </body>
+  </main>
+</html>

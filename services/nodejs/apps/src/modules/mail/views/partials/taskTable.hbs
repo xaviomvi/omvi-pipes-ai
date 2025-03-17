@@ -1,0 +1,28 @@
+<div {{{divstyle}}}>
+  <table  {{{tablestyle}}} >
+    {{#if workflowName}}
+      <tr>
+        <td {{{tabledata}}} >Workflow Name</td>
+        <td {{{tabledata}}} >{{workflowName}}</td>
+      </tr>
+    {{/if}}
+    {{#if title}}
+      <tr>
+        <td {{{tabledata}}} >Task Title</td>
+        <td {{{tabledata}}} >{{title}}</td>
+      </tr>
+    {{/if}}
+    {{#if duedate}}
+      <tr>
+        <td {{{tabledata}}} >Task Due date</td>
+        <td {{{tabledata}}} >{{duedate}}</td>
+      </tr>
+    {{/if}}
+    {{#if description}}
+      <tr>
+        <td {{{tabledata}}} >Task Description</td>
+        <td {{{tabledata}}} >{{description}}</td>
+      </tr>
+    {{/if}}
+  </table>
+</div>

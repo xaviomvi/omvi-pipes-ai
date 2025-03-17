@@ -1,0 +1,84 @@
+from typing import Optional, Dict
+from app.utils.logger import logger
+import os
+from app.connectors.utils.decorators import exponential_backoff
+from app.config.configuration_service import ConfigurationService
+from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
+from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
+from app.connectors.google.google_drive.core.drive_admin_service import DriveAdminService
+
+class GmailDriveInterface:
+    """Interface for getting Drive files from Gmail, supporting both individual and enterprise setups"""
+
+    def __init__(
+        self,
+        config: ConfigurationService,
+        rate_limiter: GoogleAPIRateLimiter,
+        drive_service=None,
+        credentials=None
+    ):
+        self.config = config
+        self.rate_limiter = rate_limiter
+        self.drive_service = drive_service
+        self.credentials = credentials
+        self.user_type = os.getenv('USER_TYPE', 'individual')
+
+    @exponential_backoff()
+    async def get_drive_file(self, file_id: str, user_email: Optional[str] = None) -> Optional[Dict]:
+        """Get Drive file metadata using file ID
+
+        Args:
+            file_id (str): The Google Drive file ID
+            user_email (str, optional): Required for enterprise setup to specify user context
+
+        Returns:
+            Optional[Dict]: File metadata if found, None otherwise
+        """
+        try:
+            # For enterprise setup
+            if self.user_type == 'enterprise' or self.user_type == 'business':
+                if not user_email:
+                    logger.error("❌ User email required for enterprise setup")
+                    return None
+
+                # Create admin service if not provided
+                if not isinstance(self.drive_service, DriveAdminService):
+                    self.drive_service = DriveAdminService(
+                        config=self.config,
+                        rate_limiter=self.rate_limiter
+                    )
+                    if not await self.drive_service.connect_admin():
+                        logger.error(
+                            "❌ Failed to connect to Drive Admin service")
+                        return None
+
+                # Get user-specific service
+                user_service = await self.drive_service.create_user_service(user_email)
+                if not user_service:
+                    logger.error(
+                        f"❌ Failed to create user service for {user_email}")
+                    return None
+
+                metadata = await user_service.batch_fetch_metadata_and_permissions([file_id])
+                return metadata[0]
+
+            # For individual setup
+            else:
+                # Create user service if not provided
+                if not isinstance(self.drive_service, DriveUserService):
+                    self.drive_service = DriveUserService(
+                        config=self.config,
+                        rate_limiter=self.rate_limiter,
+                        credentials=self.credentials
+                    )
+                    if not await self.drive_service.connect_individual_user():
+                        logger.error(
+                            "❌ Failed to connect to Drive User service")
+                        return None
+
+                metadata = await self.drive_service.batch_fetch_metadata_and_permissions([file_id])
+                return metadata[0]
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get Drive file {file_id}: {str(e)}")
+            return None

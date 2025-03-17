@@ -1,0 +1,273 @@
+import { z } from 'zod';
+import {
+  googleWorkspaceTypes,
+  storageTypes,
+} from '../constants/constants';
+
+export const baseStorageSchema = z.object({
+  storageType: z.enum([
+    storageTypes.LOCAL,
+    storageTypes.S3,
+    storageTypes.AZURE_BLOB,
+  ]),
+});
+
+export const s3ConfigSchema = baseStorageSchema.extend({
+  storageType: z.literal(storageTypes.S3),
+  s3AccessKeyId: z.string().min(1, { message: 'S3 access key ID is required' }),
+  s3SecretAccessKey: z.string().min(1, {
+    message: 'S3 secret access key is required',
+  }),
+  s3Region: z.string().min(1, { message: 'S3 region is required' }),
+  s3BucketName: z.string().min(1, { message: 'S3 bucket name is required' }),
+});
+
+export const azureBlobConfigSchema = baseStorageSchema.extend({
+  storageType: z.literal(storageTypes.AZURE_BLOB),
+  // Option 1: Connection string approach
+  azureBlobConnectionString: z.string().optional(),
+  // Option 2: Individual parameter approach
+  endpointProtocol: z.enum(['http', 'https']).optional().default('https'),
+  accountName: z
+    .string()
+    .min(1, { message: 'Azure account name is required' })
+    .optional(),
+  accountKey: z
+    .string()
+    .min(1, { message: 'Azure account key is required' })
+    .optional(),
+  endpointSuffix: z
+    .string()
+    .min(1, { message: 'Azure endpoint suffix is required' })
+    .optional()
+    .default('core.windows.net'),
+  containerName: z
+    .string()
+    .min(1, { message: 'Azure container name is required' }),
+});
+
+export const azureBlobConfigSchemaRefined = azureBlobConfigSchema.refine(
+  (data) => {
+    const option1Params =
+      !!data.azureBlobConnectionString && !!data.containerName;
+    const option2Params = !!(
+      data.accountName &&
+      data.accountKey &&
+      data.containerName
+    );
+    return option1Params || option2Params;
+  },
+  {
+    message:
+      'You must provide either a (connection string OR all of these parameters: accountName, accountKey), and containerName',
+    path: ['body'],
+  },
+);
+
+export const localConfigSchema = baseStorageSchema.extend({
+  storageType: z.literal(storageTypes.LOCAL),
+  // You can add local storage specific fields here if needed
+  mountName: z.string().optional(),
+  baseUrl: z.string().url().optional(),
+});
+
+export const storageValidationSchema = z.object({
+  body: z.discriminatedUnion('storageType', [
+    s3ConfigSchema,
+    azureBlobConfigSchema,
+    localConfigSchema,
+  ]),
+});
+
+export const smtpConfigSchema = z.object({
+  body: z.object({
+    host: z.string().min(1, { message: 'SMTP host is required' }),
+    port: z.number().min(1, { message: 'SMTP port is required' }),
+    username: z.string().optional(),
+    password: z.string().optional(),
+    fromEmail: z.string().min(1, { message: 'SMTP from is required' }),
+  }),
+});
+
+export const azureAdConfigSchema = z.object({
+  body: z.object({
+    clientId: z.string().min(1, { message: 'Azure client ID is required' }),
+    tenantId: z.string().optional().default('common'),
+  }),
+});
+
+export const ssoConfigSchema = z.object({
+  body: z.object({
+    entryPoint: z.string().min(1, { message: 'SSO entry point is required' }),
+    certificate: z.string().min(1, { message: 'SSO certificate is required' }),
+    emailKey: z.string().min(1, { message: 'SSO Email Key is required' }),
+  }),
+});
+
+export const googleAuthConfigSchema = z.object({
+  body: z.object({
+    clientId: z.string().min(1, { message: 'Google client ID is required' }),
+  }),
+});
+
+export const microsoftConfigSchema = z.object({
+  clientId: z.string().min(1, { message: 'Microsoft client ID is required' }),
+  tenantId: z.string().optional().default('common'),
+});
+
+export const mongoDBConfigSchema = z.object({
+  body: z.object({
+    uri: z.string().url(),
+    db: z.string().min(1, { message: 'MongoDB database name is required' }),
+  }),
+});
+
+export const arangoDBConfigSchema = z.object({
+  body: z.object({
+    uri: z.string().url(),
+    username: z.string().optional(),
+    password: z.string().optional(),
+    db: z.string().min(1, { message: 'ArangoDB database name is required' }),
+  }),
+});
+
+// Unified database configuration schema
+export const dbConfigSchema = z.object({
+  body: z
+    .object({
+      mongodb: mongoDBConfigSchema.optional(),
+      arangodb: arangoDBConfigSchema.optional(),
+    })
+    .refine(
+      (data) => {
+        // Count how many database configs are provided
+        const configCount = [data.mongodb, data.arangodb].filter(
+          Boolean,
+        ).length;
+
+        // Ensure at least one database configuration is provided
+        return configCount >= 1;
+      },
+      {
+        message:
+          "At least one database configuration must be provided: 'mongodb' and/or 'arangodb'",
+        path: ['body'],
+      },
+    ),
+});
+
+export const redisConfigSchema = z.object({
+  body: z.object({
+    host: z.string().min(1, { message: 'Redis host is required' }),
+    port: z.number().min(1, { message: 'Redis port is required' }),
+    password: z.string().optional(),
+    tls: z.boolean().optional(),
+  }),
+});
+
+export const kafkaConfigSchema = z.object({
+  body: z.object({
+    clientId: z.string().min(1, { message: 'Kafka client ID is required' }),
+    brokers: z.string().url(),
+    groupId: z.string().min(1, { message: 'Kafka group ID is required' }),
+  }),
+});
+
+export const googleWorkspaceBusinessCredentialsSchema = z.object({
+  type: z.string().min(1, { message: 'Account type is required' }),
+  project_id: z
+    .string()
+    .min(1, { message: 'Google workspace project ID is required' }),
+  private_key_id: z
+    .string()
+    .min(1, { message: 'Google workspace private key ID is required' }),
+  private_key: z
+    .string()
+    .min(1, { message: 'Google workspace private key is required' }),
+  client_email: z
+    .string()
+    .min(1, { message: 'Google workspace client email is required' }),
+  client_id: z
+    .string()
+    .min(1, { message: 'Google workspace client ID is required' }),
+  auth_uri: z
+    .string()
+    .min(1, { message: 'Google workspace auth URI is required' }),
+  token_uri: z
+    .string()
+    .min(1, { message: 'Google workspace token URI is required' }),
+  auth_provider_x509_cert_url: z.string().min(1, {
+    message: 'Google workspace auth provider X509 certificate URL is required',
+  }),
+  client_x509_cert_url: z.string().min(1, {
+    message: 'Google workspace client X509 certificate URL is required',
+  }),
+  universe_domain: z
+    .string()
+    .min(1, { message: 'Google workspace universe domain is required' }),
+});
+
+export const googleWorkspaceIndividualCredentialsSchema = z.object({
+  access_token: z
+    .string()
+    .min(1, { message: 'Google workspace access token is required' }),
+  refresh_token: z
+    .string()
+    .min(1, { message: 'Google workspace refresh token is required' }),
+});
+
+export const googleWorkspaceCredentialsSchema = z.object({
+  body: z.object({
+    userType: z.enum([
+      googleWorkspaceTypes.BUSINESS,
+      googleWorkspaceTypes.INDIVIDUAL,
+    ]),
+  }),
+  files: z.record(
+    z.string(),
+    z
+      .any()
+      .refine(
+        (file) => file.mimetype === 'application/json',
+        'All configuration files must be JSON files',
+      ),
+  ),
+});
+export const googleWorkspaceConfigSchema = z.object({
+  body: z.object({
+    clientId: z.string().min(1, { message: 'Google client ID is required' }),
+    clientSecret: z
+      .string()
+      .min(1, { message: 'Google client Secret is required' }),
+    redirectUri: z
+      .string()
+      .min(1, { message: 'Google redirect Uri is required' }),
+  }),
+});
+
+export const aiModelsConfigSchema = z.object({
+  body: z
+    .object({
+      ocr: z.array(z.record(z.any())).optional(),
+      embedding: z.array(z.record(z.any())).optional(),
+      slm: z.array(z.record(z.any())).optional(),
+      llm: z.array(z.record(z.any())).optional(),
+      reasoning: z.array(z.record(z.any())).optional(),
+      multiModal: z.array(z.record(z.any())).optional(),
+    })
+    .strict({
+      message:
+        'ai models can be ocr, embedding, llm, slm, reasoning, multimodal',
+    })
+    .refine(
+      (data) => {
+        // Ensure at least one field is present and non-empty
+        return Object.values(data).some(
+          (value) => Array.isArray(value) && value.length > 0,
+        );
+      },
+      {
+        message: 'At least one AI model type must be configured',
+      },
+    ),
+});

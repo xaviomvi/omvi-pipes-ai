@@ -1,0 +1,66 @@
+
+<!DOCTYPE html>
+
+<html>
+  {{>head}}
+  <main>
+    <body>
+      <table
+ {{{containerstyle}}}
+    
+      >
+        <tr> 
+          <td>{{> header}}</td>
+        </tr>
+        <tr>
+          <td> 
+            <table
+              class="mobile-width"
+ {{{bodytablestyle}}}
+              
+            >
+              <tr>
+                <td>
+                  <div {{{divstyle}}}>
+                    <p>Dear User,</p>
+                    <p>
+              {{invitee}} has added you as a <b>reviewer</b> to the following workflow:
+                    </p>
+                  </div>
+                {{#if workflowformdata}}
+                    {{> workflowinternaltable}}
+                {{/if}}
+                  <div {{{divstyle}}}>
+                    {{#if workflowformdata}}
+                      <p style="margin-top: 8px; margin-bottom: 8px; font-weight: 700;font-size: 16px">
+                        Workflow details
+                      </p>
+                    {{/if}}
+                  </div>
+                  {{{workflowformdata}}}
+
+
+                  <div {{{divstyle}}}>
+                    <p>Click the button below to open the workflow </p>
+                    <p {{{pstyle}}}>
+                      <a href={{link}} target="_blank">
+                        <button
+                          {{{buttonstyle}}}
+                        >
+                          Open Workflow 
+                        </button>
+                      </a>
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td>{{> footer}}</td>
+        </tr>
+      </table>
+    </body>
+  </main>
+</html>

@@ -1,0 +1,184 @@
+{{!-- <header>
+    <table border="0" width="100%" align="center" bgcolor="#008080" cellpadding="0" cellspacing="0"
+        style="padding-top: 15px; font-size: 13px; color: #333; font-family: 'Lucida Grande','Lucida Sans Unicode',Verdana,sans-serif;">
+        <tr bgcolor="#004C82" style="background-color: #004C82;">
+            <td align="center">
+                <a href="https://pipeshub.com">
+                    <img style="height: 50px; width: 130px; margin: 6px 15px; margin-top: 12px;"
+                        alt="PipesHub" />
+                </a>
+            </td>
+        </tr>
+    </table>
+</header> --}}
+
+ <header style="margin-top: 20px">
+  <table
+    width="560px"
+    cellspacing="0"
+    cellpadding="0"
+    class="mobile-width"
+    border="0"
+    width="560px"
+    cellspacing="0"
+    cellpadding="0"
+    style="
+      padding-top: 15px;
+      font-size: 13px;
+      color: #333;
+      border-collapse: collapse;
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      overflow: hidden;
+      background-color: #f5f5f5;
+      width: 560px;
+	max-width: 560px;
+    "
+    align="center"
+    valign="middle"
+  >
+    <tr>
+      <td style="max-width: 600px; margin: 0 auto; width: 100%">
+        <!-- Dark Background Strip -->
+        <div
+          style="background-color: #003768; min-height: 17px; width: 100%"
+        ></div>
+
+        <!-- Inner Container -->
+        <table
+          width="100%"
+          cellspacing="0"
+          cellpadding="0"
+          style="border-collapse: collapse; text-align: center"
+        >
+          <tr>
+            <!-- Logo Image -->
+
+            <td style="width: 37%; text-align: space-between; padding-top: 6px">
+              <div style="margin-top: 30px; margin-bottom: -15px">
+                <img
+                  width= "48"
+                  height= "35"
+                  
+                  class="mobile-logo"
+                  {{!-- style="
+                    aspect-ratio: 1.13;
+                    object-fit: contain;
+                    object-position: center;
+                    width: 48;
+                    max-width: 100%;
+                    height: 35;
+                  " --}}
+                  loading="lazy"
+                  alt="Logo Image"
+                />
+                <span
+                  class="mobile-font"
+                  style="
+                    font-weight: 550;
+                    font-family: 'DM Sans', sans-serif;
+                    font-size: 40px;
+                    letter-spacing: 6px;
+                    line-height: 78px;
+                    padding-left: 20px;
+                  "
+                  >
+                  
+                  {{#if orgShortName}}
+  {{orgShortName}}
+  {{#checkIfLengthLT5 orgShortName}}
+  <sub style="
+                  font-weight: 10;
+                  font-family: 'DM Sans', sans-serif;
+                  font-size: 10px;
+                  line-height: 15px;
+                  font-weight: 100;
+                  letter-spacing: 1px;
+                  margin-left: 0px;
+                  text-align: center;
+              ">Powered by PipesHub</sub>
+  {{else}}
+  <span></span>
+  {{/checkIfLengthLT5}}
+
+{{else}}
+  <span
+    class="mobile-font"
+    style="
+      font-weight: 550;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 40px;
+      letter-spacing: 6px;
+      line-height: 78px;
+      padding-left: 20px;
+    "
+  >PIPES</span>
+  <span
+    class="mobile-font"
+    style="
+      font-weight: 100;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 40px;
+      line-height: 58px;
+      letter-spacing: 6px;
+      font-weight: 100;
+      margin-left: 0px;
+    "
+  >HUB</span>
+{{/if}}
+
+                  </span
+                >{{#checkIfLengthGTE5 orgShortName}}
+                <div style="
+                  font-weight: 10;
+                  font-family: 'DM Sans', sans-serif;
+                  font-size: 10px;
+                  line-height: 15px;
+                  font-weight: 100;
+                  margin-left: 0px;
+                  text-align: center;
+              ">
+    <span> Powered by PipesHub</span>
+    {{else}}
+    <span></span>
+
+                {{/checkIfLengthGTE5}}
+                {{!-- <div style="
+                  font-weight: 10;
+                  font-family: 'DM Sans', sans-serif;
+                  font-size: 10px;
+                  line-height: 15px;
+                  font-weight: 100;
+                  margin-left: 0px;
+                  text-align: center;
+              ">
+    <span> Powered by PipesHub</span>
+</div> --}}
+                {{!-- <sub>(Powered by PipesHub)</sub> --}}
+                {{!-- <span
+                  class="mobile-font"
+                  style="
+                    font-weight: 10;
+                    font-family: 'DM Sans', sans-serif;
+                    font-size: 40px;
+                    line-height: 58px;
+                    letter-spacing: 6px;
+                    font-weight: 100;
+                    margin-left: 0px;
+                  "
+                  >SYNC</span
+                > --}}
+              </div>
+
+              <hr style="border-top: 1px solid #ddd; width: 90%" />
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</header>
+
+
+ 
+

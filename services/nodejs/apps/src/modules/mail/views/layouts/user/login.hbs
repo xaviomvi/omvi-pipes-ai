@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+
+<html>
+  {{>head}}
+  <main>
+    <body>
+      <table
+ {{{containerstyle}}}
+    
+      >
+        <tr> 
+          <td>{{> header}}</td>
+        </tr>
+        <tr>
+          <td> 
+            <table
+              class="mobile-width"
+ {{{bodytablestyle}}}
+              
+            >
+              <tr>
+                <td>
+                  <div {{{divstyle}}}>
+                      <p>Dear {{name}},<p>
+                       <p>Your OTP to login is {{otp}}</p>
+                  </div>
+ 
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td>{{> footer}}</td>
+        </tr>
+      </table>
+    </body>
+  </main>
+</html>
