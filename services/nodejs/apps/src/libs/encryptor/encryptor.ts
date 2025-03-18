@@ -1,5 +1,9 @@
 import crypto from 'crypto';
-import { DecryptionError, EncryptionError, InvalidKeyFormatError } from '../errors/encryption.errors';
+import {
+  DecryptionError,
+  EncryptionError,
+  InvalidKeyFormatError,
+} from '../errors/encryption.errors';
 import { Logger } from '../services/logger.service';
 
 const logger = Logger.getInstance({

@@ -2,13 +2,13 @@ import { Response, NextFunction } from 'express';
 import { isJwtTokenValid } from '../utils/validateJwt';
 import { AuthSessionRequest } from './types';
 import { SessionService } from '../services/session.service';
-import { AuthConfig } from '../config/config';
 import {
   BadRequestError,
   NotFoundError,
   UnauthorizedError,
 } from '../../../libs/errors/http.errors';
 import { UserGroups } from '../../user_management/schema/userGroup.schema';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 export const userValidator = (
   req: AuthSessionRequest,
@@ -20,9 +20,9 @@ export const userValidator = (
     if (!container) {
       throw new NotFoundError('Auth Container not found');
     }
-    const config = container.get<AuthConfig>('AuthConfig');
+    const config = container.get<AppConfig>('AppConfig');
 
-    const decodedData = isJwtTokenValid(req, config.jwtPrivateKey!);
+    const decodedData = isJwtTokenValid(req, config.jwtSecret);
     if (!decodedData) {
       throw new UnauthorizedError('Invalid Token');
     }
@@ -43,8 +43,8 @@ export const adminValidator = async (
     if (!container) {
       throw new NotFoundError('Auth Container not found');
     }
-    const config = container.get<AuthConfig>('AuthConfig');
-    const decodedData = isJwtTokenValid(req, config.jwtPrivateKey!);
+    const config = container.get<AppConfig>('AppConfig');
+    const decodedData = isJwtTokenValid(req, config.jwtSecret);
     if (!decodedData) {
       throw new UnauthorizedError('Invalid Token');
     }

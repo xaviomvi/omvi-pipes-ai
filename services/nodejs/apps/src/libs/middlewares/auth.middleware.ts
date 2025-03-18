@@ -22,7 +22,6 @@ export class AuthMiddleware {
   ) {
     try {
       const token = this.extractToken(req);
-      console.log(token);
       if (!token) {
         throw new UnauthorizedError('No token provided');
       }

@@ -33,7 +33,6 @@ import mongoose from 'mongoose';
 import { OAuth2Client } from 'google-auth-library';
 import { validateAzureAdUser } from '../utils/azureAdTokenValidation';
 import { IamService } from '../services/iam.service';
-import { AuthConfig } from '../config/config';
 import { MailService } from '../services/mail.service';
 
 import {
@@ -53,6 +52,7 @@ import {
   GOOGLE_AUTH_CONFIG_PATH,
   MICROSOFT_AUTH_CONFIG_PATH,
 } from '../services/cm.service';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 const {
   LOGIN,
@@ -67,7 +67,7 @@ export const SALT_ROUNDS = 10;
 @injectable()
 export class UserAccountController {
   constructor(
-    @inject('AuthConfig') private config: AuthConfig,
+    @inject('AppConfig') private config: AppConfig,
     @inject('IamService') private iamService: IamService,
     @inject('MailService') private mailService: MailService,
     @inject('SessionService') private sessionService: SessionService,
@@ -215,6 +215,7 @@ export class UserAccountController {
       if (allowedMethods.includes('google')) {
         const configManagerResponse =
           await this.configurationManagerService.getConfig(
+            this.config.cmUrl,
             GOOGLE_AUTH_CONFIG_PATH,
             user,
             this.config.scopedJwtSecret,
@@ -225,6 +226,7 @@ export class UserAccountController {
       if (allowedMethods.includes('microsoft')) {
         const configManagerResponse =
           await this.configurationManagerService.getConfig(
+            this.config.cmUrl,
             MICROSOFT_AUTH_CONFIG_PATH,
             user,
             this.config.scopedJwtSecret,
@@ -235,6 +237,7 @@ export class UserAccountController {
       if (allowedMethods.includes(AuthMethodType.AZURE_AD)) {
         const configManagerResponse =
           await this.configurationManagerService.getConfig(
+            this.config.cmUrl,
             AZURE_AD_AUTH_CONFIG_PATH,
             user,
             this.config.scopedJwtSecret,
@@ -428,7 +431,7 @@ export class UserAccountController {
       // Start transaction if a replica set is available
       session = await mongoose.startSession();
       try {
-        if (this.config.rs_available === 'true') {
+        if (this.config.rsAvailable === 'true') {
           session.startTransaction();
           await orgAuth.save({ session });
           await session.commitTransaction();
@@ -454,55 +457,6 @@ export class UserAccountController {
     const buffer = Buffer.from(certString, 'utf-8'); // Convert string to Buffer
     return buffer.toString('base64'); // Convert to Base64
   }
-
-  // async setSamlConfig(
-  //   req: AuthSessionRequest,
-  //   res: Response,
-  //   next: NextFunction,
-  // ): Promise<void> {
-  //   try {
-  //     const { samlConfig } = req.body; // Get auth method and organization ID from request
-  //     if (!req.user) {
-  //       throw new NotFoundError('User not found');
-  //     }
-
-  //     // Example usage
-  //     const certString = samlConfig.samlCertificate;
-  //     const base64Cert = this.x509ToBase64(certString);
-  //     samlConfig.samlCertificate = base64Cert;
-
-  //     const orgId = req.user.orgId;
-  //     const userId = req.user.userId;
-
-  //     const adminCheckResult = await this.iamService.checkAdminUser(
-  //       userId,
-  //       authJwtGenerator(null, userId, orgId),
-  //     );
-
-  //     if (adminCheckResult.statusCode !== 200) {
-  //       throw new NotFoundError(adminCheckResult.data);
-  //     }
-
-  //     if (!samlConfig) {
-  //       throw new BadRequestError('saml Configuration is required');
-  //     }
-
-  //     // Fetch organization's authentication config
-  //     const orgAuthConfig = await OrgAuthConfig.findOne({ orgId });
-
-  //     if (!orgAuthConfig) {
-  //       throw new NotFoundError('Organization config not found');
-  //     }
-  //     orgAuthConfig.samlConfig = samlConfig;
-  //     await orgAuthConfig.save();
-
-  //     res
-  //       .status(200)
-  //       .json({ message: 'Saml configuration updated', samlConfig });
-  //   } catch (error) {
-  //     throw error;
-  //   }
-  // }
   async getAuthMethod(
     req: AuthSessionRequest,
     res: Response,
@@ -518,7 +472,7 @@ export class UserAccountController {
 
       const adminCheckResult = await this.iamService.checkAdminUser(
         userId,
-        authJwtGenerator(this.config.jwtPrivateKey, null, userId, orgId),
+        authJwtGenerator(this.config.jwtSecret, null, userId, orgId),
       );
 
       if (adminCheckResult.statusCode !== 200) {
@@ -558,7 +512,7 @@ export class UserAccountController {
 
       const adminCheckResult = await this.iamService.checkAdminUser(
         userId,
-        authJwtGenerator(this.config.jwtPrivateKey, null, userId, orgId),
+        authJwtGenerator(this.config.jwtSecret, null, userId, orgId),
       );
 
       if (adminCheckResult.statusCode !== 200) {
@@ -820,10 +774,7 @@ export class UserAccountController {
         );
       }
 
-      const accessToken = await generateAuthToken(
-        user,
-        this.config.jwtPrivateKey,
-      );
+      const accessToken = await generateAuthToken(user, this.config.jwtSecret);
 
       res.status(200).json({ user: user, accessToken: accessToken });
       return;
@@ -969,6 +920,7 @@ export class UserAccountController {
   ) {
     const configManagerResponse =
       await this.configurationManagerService.getConfig(
+        this.config.cmUrl,
         GOOGLE_AUTH_CONFIG_PATH,
         user,
         this.config.scopedJwtSecret,
@@ -1011,6 +963,7 @@ export class UserAccountController {
   ) {
     const configManagerResponse =
       await this.configurationManagerService.getConfig(
+        this.config.cmUrl,
         MICROSOFT_AUTH_CONFIG_PATH,
         user,
         this.config.scopedJwtSecret,
@@ -1034,6 +987,7 @@ export class UserAccountController {
   ) {
     const configManagerResponse =
       await this.configurationManagerService.getConfig(
+        this.config.cmUrl,
         AZURE_AD_AUTH_CONFIG_PATH,
         user,
         this.config.scopedJwtSecret,
@@ -1134,6 +1088,7 @@ export class UserAccountController {
         if (allowedMethods.includes(AuthMethodType.GOOGLE)) {
           const configManagerResponse =
             await this.configurationManagerService.getConfig(
+              this.config.cmUrl,
               GOOGLE_AUTH_CONFIG_PATH,
               user,
               this.config.scopedJwtSecret,
@@ -1144,6 +1099,7 @@ export class UserAccountController {
         if (allowedMethods.includes(AuthMethodType.MICROSOFT)) {
           const configManagerResponse =
             await this.configurationManagerService.getConfig(
+              this.config.cmUrl,
               MICROSOFT_AUTH_CONFIG_PATH,
               user,
               this.config.scopedJwtSecret,
@@ -1154,6 +1110,7 @@ export class UserAccountController {
         if (allowedMethods.includes(AuthMethodType.AZURE_AD)) {
           const configManagerResponse =
             await this.configurationManagerService.getConfig(
+              this.config.cmUrl,
               AZURE_AD_AUTH_CONFIG_PATH,
               user,
               this.config.scopedJwtSecret,
@@ -1173,7 +1130,7 @@ export class UserAccountController {
         await this.sessionService.completeAuthentication(sessionInfo);
         const accessToken = await generateAuthToken(
           user,
-          this.config.jwtPrivateKey,
+          this.config.jwtSecret,
         );
         this.logger.debug('accessToken', accessToken);
         if (!user.hasLoggedIn) {
@@ -1230,7 +1187,7 @@ export class UserAccountController {
           designation,
           fullName,
         },
-        jwt.sign({ userId, orgId }, this.config.jwtPrivateKey || ' ', {
+        jwt.sign({ userId, orgId }, this.config.jwtSecret, {
           expiresIn: '24h',
         }),
       );

@@ -5,26 +5,30 @@ import { Logger } from '../../../libs/services/logger.service';
 import { MailController } from '../controller/mail.controller';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 export class MailServiceContainer {
   private static instance: Container;
-  static async initialize(): Promise<Container> {
+  static async initialize(appConfig: AppConfig): Promise<Container> {
     const container = new Container();
     const mailConfig: MailConfig = await loadMailConfig();
     container.bind<MailConfig>('MailConfig').toConstantValue(mailConfig);
     container.bind<Logger>('Logger').toConstantValue(new Logger());
     // Initialize and bind services
-    await this.initializeServices(container);
+    await this.initializeServices(container, appConfig);
 
     this.instance = container;
     return container;
   }
 
-  private static async initializeServices(container: Container): Promise<void> {
+  private static async initializeServices(
+    container: Container,
+    appConfig: AppConfig,
+  ): Promise<void> {
     try {
       const config = container.get<MailConfig>('MailConfig');
 
-      const mongoService = new MongoService();
+      const mongoService = new MongoService(appConfig.mongo);
       await mongoService.initialize();
       container
         .bind<MongoService>('MongoService')
@@ -37,8 +41,8 @@ export class MailServiceContainer {
       container
         .bind<MailController>('MailController')
         .toConstantValue(mailController);
-      const jwtSecret = config.jwtSecret;
-      const scopedJwtSecret = config.scopedJwtSecret;
+      const jwtSecret = appConfig.jwtSecret;
+      const scopedJwtSecret = appConfig.scopedJwtSecret;
       const authTokenService = new AuthTokenService(jwtSecret, scopedJwtSecret);
       const authMiddleware = new AuthMiddleware(
         container.get('Logger'),

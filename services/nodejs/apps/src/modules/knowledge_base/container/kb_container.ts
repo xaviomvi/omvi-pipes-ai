@@ -1,17 +1,13 @@
 import { Container } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
-import { AppConfig } from '../../tokens_manager/config/config';
 import { MongoService } from '../../../libs/services/mongo.service';
 import { ArangoService } from '../../../libs/services/arango.service';
 import { ConfigurationManagerConfig } from '../../configuration_manager/config/config';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { RecordsEventProducer } from '../services/records_events.service';
-import { EncryptionService } from '../../../libs/encryptor/encryptor';
-import { configPaths } from '../../configuration_manager/paths/paths';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
-import { configTypes } from '../../../libs/utils/config.utils';
-
+import { AppConfig } from '../../tokens_manager/config/config';
 const loggerConfig = {
   service: 'Knowledge Base Service',
 };
@@ -21,36 +17,40 @@ export class KnowledgeBaseContainer {
   private static logger: Logger = Logger.getInstance(loggerConfig);
 
   static async initialize(
-    appConfig: AppConfig,
     configurationManagerConfig: ConfigurationManagerConfig,
+    appConfig: AppConfig,
   ): Promise<Container> {
     const container = new Container();
     this.logger.info(' In the init  kb conatiner');
     // Bind configuration
-    container.bind<AppConfig>('AppConfig').toConstantValue(appConfig);
     // Bind logger
     container.bind<Logger>('Logger').toConstantValue(this.logger);
     container
       .bind<ConfigurationManagerConfig>('ConfigurationManagerConfig')
       .toConstantValue(configurationManagerConfig);
+    container.bind<AppConfig>('AppConfig').toConstantValue(appConfig);
 
     // Initialize and bind services
-    await this.initializeServices(container);
+    await this.initializeServices(container, appConfig);
 
     this.instance = container;
     return container;
   }
 
-  private static async initializeServices(container: Container): Promise<void> {
+  private static async initializeServices(
+    container: Container,
+    appConfig: AppConfig,
+  ): Promise<void> {
     try {
       // Initialize services
-      const mongoService = new MongoService();
+
+      const mongoService = new MongoService(appConfig.mongo);
       await mongoService.initialize();
       container
         .bind<MongoService>('MongoService')
         .toConstantValue(mongoService);
 
-      const arangoService = new ArangoService();
+      const arangoService = new ArangoService(appConfig.arango);
       await arangoService.initialize();
       container
         .bind<ArangoService>('ArangoService')
@@ -66,20 +66,10 @@ export class KnowledgeBaseContainer {
         .bind<KeyValueStoreService>('KeyValueStoreService')
         .toConstantValue(keyValueStoreService);
 
-      const encryptedKafkaConfig = await keyValueStoreService.get<string>(
-        configPaths.broker.kafka,
-      );
-
-      const kafkaConfig = JSON.parse(
-        EncryptionService.getInstance(
-          configurationManagerConfig.algorithm,
-          configurationManagerConfig.secretKey,
-        ).decrypt(encryptedKafkaConfig),
-      );
       this.logger.info('before events producer');
 
       const recordsEventProducer = new RecordsEventProducer(
-        kafkaConfig,
+        appConfig.kafka,
         this.logger,
       );
 
@@ -91,16 +81,9 @@ export class KnowledgeBaseContainer {
         .toConstantValue(recordsEventProducer);
 
       this.logger.info('After events producer binding');
-
-      const jwtSecret = await keyValueStoreService.get<string>(
-        configTypes.JWT_SECRET,
-      );
-      const scopedJwtSecret = await keyValueStoreService.get<string>(
-        configTypes.SCOPED_JWT_SECRET,
-      );
       const authTokenService = new AuthTokenService(
-        jwtSecret || ' ',
-        scopedJwtSecret || ' ',
+        appConfig.jwtSecret,
+        appConfig.scopedJwtSecret,
       );
       const authMiddleware = new AuthMiddleware(
         container.get('Logger'),

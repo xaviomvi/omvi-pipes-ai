@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
 import { Container } from 'inversify';
-import { loadAppConfig } from './modules/tokens_manager/config/config';
 import { TokenManagerContainer } from './modules/tokens_manager/container/token-manager.container';
 import { Logger } from './libs/services/logger.service';
 import { createHealthRouter } from './modules/tokens_manager/routes/health.routes';
@@ -29,10 +28,10 @@ import { loadConfigurationManagerConfig } from './modules/configuration_manager/
 import { ConfigurationManagerContainer } from './modules/configuration_manager/container/cm_container';
 import { MailServiceContainer } from './modules/mail/container/mailService.container';
 import { createMailServiceRouter } from './modules/mail/routes/mail.routes';
-import { setConfig } from './libs/utils/setConfig';
 import { createConnectorRouter } from './modules/tokens_manager/routes/connectors.routes';
 import { PrometheusService } from './libs/services/prometheus/prometheus.service';
 import { StorageContainer } from './modules/storage/container/storage.container';
+import { loadAppConfig } from './modules/tokens_manager/config/config';
 
 const loggerConfig = {
   service: 'Application',
@@ -58,40 +57,47 @@ export class Application {
 
   async initialize(): Promise<void> {
     try {
-      setConfig();
       // Initialize Logger
       this.logger = new Logger(loggerConfig);
       // Loads configuration
-      const appConfig = loadAppConfig();
       const configurationManagerConfig = loadConfigurationManagerConfig();
-      // TODO: Initialize Logger separately and not in token manager
+      const appConfig = await loadAppConfig();
+      this.logger.debug('centralised config:', appConfig);
       this.tokenManagerContainer = await TokenManagerContainer.initialize(
         configurationManagerConfig,
       );
+
+      this.configurationManagerContainer =
+        await ConfigurationManagerContainer.initialize(
+          configurationManagerConfig,
+          appConfig,
+        );
+      // TODO: Initialize Logger separately and not in token manager
+
       this.storageServiceContainer = await StorageContainer.initialize(
-        appConfig,
         configurationManagerConfig,
+        appConfig,
       );
 
       this.entityManagerContainer = await UserManagerContainer.initialize(
         configurationManagerConfig,
+        appConfig,
       );
       this.authServiceContainer = await AuthServiceContainer.initialize(
         configurationManagerConfig,
+        appConfig,
       );
       this.esAgentContainer = await EnterpriseSearchAgentContainer.initialize(
-        appConfig,
         configurationManagerConfig,
+        appConfig,
       );
       this.knowledgeBaseContainer = await KnowledgeBaseContainer.initialize(
-        appConfig,
         configurationManagerConfig,
+        appConfig,
       );
-      this.configurationManagerContainer =
-        await ConfigurationManagerContainer.initialize(
-          configurationManagerConfig,
-        );
-      this.mailServiceContainer = await MailServiceContainer.initialize();
+
+      this.mailServiceContainer =
+        await MailServiceContainer.initialize(appConfig);
 
       // binding prometheus to all services routes
       this.logger.debug('Binding Prometheus Service with other services');
@@ -135,7 +141,6 @@ export class Application {
       this.configureRoutes();
       this.configureErrorHandling();
 
-
       // Serve static frontend files\
       this.app.use(express.static(path.join(__dirname, 'public')));
       // SPA fallback route\
@@ -144,8 +149,11 @@ export class Application {
       });
 
       this.logger.info('Application initialized successfully');
-    } catch (error : any) {
-      this.logger.error(`Failed to initialize application: ${error.message}`, error.stack);
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to initialize application: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -199,9 +207,6 @@ export class Application {
       createUserGroupRouter(this.entityManagerContainer),
     );
     this.app.use('/api/v1/org', createOrgRouter(this.entityManagerContainer));
-    // API routes
-    //this.app.use('/api/oauth', createOAuthRouter(this.container));
-    //this.app.use('/api/tokens', createTokenRouter(this.container));
 
     this.app.use('/api/v1/saml', createSamlRouter(this.authServiceContainer));
 

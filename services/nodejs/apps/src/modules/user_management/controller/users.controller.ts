@@ -14,7 +14,6 @@ import {
   UnauthorizedError,
 } from '../../../libs/errors/http.errors';
 import { inject, injectable } from 'inversify';
-import { UserManagementConfig } from '../config/config';
 import { MailService } from '../services/mail.service';
 import { PrometheusService } from '../../../libs/services/prometheus/prometheus.service';
 import {
@@ -26,10 +25,11 @@ import {
   UserUpdatedEvent,
 } from '../services/entity_events.service';
 import { Logger } from '../../../libs/services/logger.service';
+import { AppConfig } from '../../tokens_manager/config/config';
 @injectable()
 export class UserController {
   constructor(
-    @inject('UserManagementConfig') private config: UserManagementConfig,
+    @inject('AppConfig') private config: AppConfig,
     @inject('MailService') private mailService: MailService,
     @inject('Logger') private logger: Logger,
     @inject('EntitiesEventProducer')
@@ -635,7 +635,7 @@ export class UserController {
           email,
           scope: 'account-setup',
         },
-        this.config.jwtPrivateKey,
+        this.config.jwtSecret,
         {
           expiresIn: '7d',
         },
@@ -644,10 +644,7 @@ export class UserController {
       const result = await this.mailService.sendMail({
         emailTemplateType: 'appuserInvite',
         initiator: {
-          jwtAuthToken: mailJwtGenerator(
-            email,
-            this.config.scopedJwtPrivateKey,
-          ),
+          jwtAuthToken: mailJwtGenerator(email, this.config.scopedJwtSecret),
         },
         usersMails: [email],
         subject: 'You are invited to join pipeshub',
@@ -774,7 +771,7 @@ export class UserController {
             email,
             scope: 'account-setup',
           },
-          this.config.jwtPrivateKey,
+          this.config.jwtSecret,
           {
             expiresIn: '7d',
           },
@@ -783,10 +780,7 @@ export class UserController {
         const result = await this.mailService.sendMail({
           emailTemplateType: 'appuserInvite',
           initiator: {
-            jwtAuthToken: mailJwtGenerator(
-              email,
-              this.config.scopedJwtPrivateKey,
-            ),
+            jwtAuthToken: mailJwtGenerator(email, this.config.scopedJwtSecret),
           },
           usersMails: [email],
           subject: 'You are invited to join pipeshub',
@@ -838,7 +832,7 @@ export class UserController {
             email,
             scope: 'account-setup',
           },
-          this.config.jwtPrivateKey,
+          this.config.jwtSecret,
           {
             expiresIn: '7d',
           },
@@ -846,10 +840,7 @@ export class UserController {
         const result = await this.mailService.sendMail({
           emailTemplateType: 'appuserInvite',
           initiator: {
-            jwtAuthToken: mailJwtGenerator(
-              email,
-              this.config.scopedJwtPrivateKey,
-            ),
+            jwtAuthToken: mailJwtGenerator(email, this.config.scopedJwtSecret),
           },
           usersMails: [email],
           subject: 'You are invited to re-join PipesHub',

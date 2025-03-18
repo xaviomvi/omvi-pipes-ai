@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import {
   BadRequestError,
@@ -7,13 +7,12 @@ import {
 } from '../../../libs/errors/http.errors';
 
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
-import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
-import axios from 'axios';
 import {
-  ConfigurationManagerCommandOptions,
-  ConfigurationManagerServiceCommand,
-} from '../../../libs/commands/configuration_manager/cm.service.command';
-import { HttpMethod } from '../../../libs/enums/http-methods.enum';
+  AuthenticatedUserRequest,
+  ScopedTokenRequest,
+} from '../../../libs/middlewares/types';
+import axios from 'axios';
+
 import { ValidationMiddleware } from '../../../libs/middlewares/validation.middleware';
 import { FileProcessorFactory } from '../../../libs/middlewares/file_processor/fp.factory';
 import { FileProcessingType } from '../../../libs/middlewares/file_processor/fp.constant';
@@ -28,6 +27,25 @@ import {
   AppEnabledEvent,
 } from '../../user_management/services/entity_events.service';
 import { GoogleWorkspaceApp } from '../types/connector.types';
+import { AppConfig } from '../config/config';
+import {
+  GOOGLE_WORKSPACE_BUSINESS_CREDENTIALS_PATH,
+  GOOGLE_WORKSPACE_INDIVIDUAL_CREDENTIALS_PATH,
+  GOOGLE_WORKSPACE_TOKEN_EXCHANGE_PATH,
+  REFRESH_TOKEN_PATH,
+} from '../consts/constants';
+import {
+  deleteGoogleWorkspaceCredentials,
+  getGoogleWorkspaceConfig,
+  getGoogleWorkspaceBusinessCredentials,
+  setGoogleWorkspaceConfig,
+  setGoogleWorkspaceBusinessCredentials,
+  setGoogleWorkspaceIndividualCredentials,
+  getRefreshTokenCredentials,
+  getRefreshTokenConfig,
+  setRefreshTokenCredentials,
+} from '../services/connectors-config.service';
+import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
 
 const CONNECTORS = [{ key: 'googleWorkspace', name: 'Google Workspace' }];
 const logger = Logger.getInstance({
@@ -67,11 +85,13 @@ const ServiceValidationSchema = z.object({
   params: z.object({}),
   headers: z.object({}),
 });
+
 export function createConnectorRouter(container: Container) {
   const router = Router();
   const eventService = container.get<EntitiesEventProducer>(
     'EntitiesEventProducer',
   );
+  const config = container.get<AppConfig>('AppConfig');
   const authMiddleware = container.get<AuthMiddleware>('AuthMiddleware');
 
   router.get(
@@ -83,33 +103,22 @@ export function createConnectorRouter(container: Container) {
       next: NextFunction,
     ) => {
       try {
-        const { service } = req.query;
-        if (service === 'googleWorkspace') {
-          const configurationManagerCommandOptions: ConfigurationManagerCommandOptions =
-            {
-              uri: 'http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceCredentials',
-              method: HttpMethod.GET,
-              headers: req.headers as Record<string, string>,
-            };
-
-          const cmCommand = new ConfigurationManagerServiceCommand(
-            configurationManagerCommandOptions,
+        const response = await getGoogleWorkspaceBusinessCredentials(
+          req,
+          config.cmUrl,
+          config.scopedJwtSecret,
+        );
+        if (response.statusCode !== 200) {
+          throw new InternalServerError(
+            'Error getting credentials',
+            response?.data,
           );
-          const response = await cmCommand.execute();
-          if (response.statusCode !== 200) {
-            throw new InternalServerError(
-              'Error updating access token',
-              response?.data,
-            );
-          } else {
-            if (response.data.client_id) {
-              res.status(200).json({ isConfigured: true });
-            } else {
-              res.status(200).json({ isConfigured: false });
-            }
-          }
         } else {
-          res.status(404).json({ message: 'this service is not allowed' });
+          if (response.data.client_id) {
+            res.status(200).json({ isConfigured: true });
+          } else {
+            res.status(200).json({ isConfigured: false });
+          }
         }
       } catch (err) {
         next(err);
@@ -134,35 +143,53 @@ export function createConnectorRouter(container: Container) {
       next: NextFunction,
     ) => {
       try {
-        const { service } = req.query;
-        if (service === 'googleWorkspace') {
-          const configurationManagerCommandOptions: ConfigurationManagerCommandOptions =
-            {
-              uri: 'http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceCredentials',
-              method: HttpMethod.POST,
-              headers: { Authorization: req.headers.authorization as string },
-              body: req.body,
-            };
-          const cmCommand = new ConfigurationManagerServiceCommand(
-            configurationManagerCommandOptions,
+        const response = await setGoogleWorkspaceBusinessCredentials(
+          req,
+          config.cmUrl,
+          config.scopedJwtSecret,
+        );
+        if (response.statusCode !== 200) {
+          throw new InternalServerError(
+            'Error updating credentials',
+            response?.data,
           );
-          const response = await cmCommand.execute();
-          if (response.statusCode !== 200) {
-            throw new InternalServerError(
-              'Error updating access token',
-              response?.data,
-            );
-          } else {
-            res.status(200).json({ isConfigured: true });
-          }
         } else {
-          throw new NotFoundError('this service is not allowed');
+          res.status(200).json({ isConfigured: true });
         }
       } catch (err) {
         next(err);
       }
     },
   );
+
+  router.delete(
+    '/credentials',
+    authMiddleware.authenticate,
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        const response = await deleteGoogleWorkspaceCredentials(
+          req,
+          config.cmUrl,
+          config.scopedJwtSecret,
+        );
+        if (response.statusCode !== 200) {
+          throw new InternalServerError(
+            'Error updating access token',
+            response?.data,
+          );
+        } else {
+          res.status(200).json({ message: 'Credentials uccessfully deleted' });
+        }
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
   router.get(
     '/credentials/download',
     authMiddleware.authenticate,
@@ -172,39 +199,28 @@ export function createConnectorRouter(container: Container) {
       next: NextFunction,
     ) => {
       try {
-        const { service } = req.query;
-        if (service === 'googleWorkspace') {
-          const configurationManagerCommandOptions: ConfigurationManagerCommandOptions =
-            {
-              uri: 'http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceCredentials',
-              method: HttpMethod.GET,
-              headers: req.headers as Record<string, string>,
-            };
-
-          const cmCommand = new ConfigurationManagerServiceCommand(
-            configurationManagerCommandOptions,
+        const response = await getGoogleWorkspaceBusinessCredentials(
+          req,
+          config.cmUrl,
+          config.scopedJwtSecret,
+        );
+        if (response.statusCode !== 200) {
+          throw new InternalServerError(
+            'Error updating access token',
+            response?.data,
           );
-          const response = await cmCommand.execute();
-          if (response.statusCode !== 200) {
-            throw new InternalServerError(
-              'Error updating access token',
-              response?.data,
-            );
-          } else {
-            if (!response.data.client_id) {
-              throw new NotFoundError('No file found for credentials');
-            }
-            res.setHeader('Content-Type', 'application/json');
-            res.setHeader(
-              'Content-Disposition',
-              'attachment; filename="credentials.json"',
-            );
-
-            // Send JSON response as a downloadable file
-            res.status(200).send(JSON.stringify(response.data, null, 2));
-          }
         } else {
-          throw new NotFoundError('this service is not allowed');
+          if (!response.data.client_id) {
+            throw new NotFoundError('No file found for credentials');
+          }
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader(
+            'Content-Disposition',
+            'attachment; filename="credentials.json"',
+          );
+
+          // Send JSON response as a downloadable file
+          res.status(200).send(JSON.stringify(response.data, null, 2));
         }
       } catch (err) {
         next(err);
@@ -223,13 +239,11 @@ export function createConnectorRouter(container: Container) {
         if (!req.user) {
           throw new NotFoundError('User not Found');
         }
-        const orgId = req.user.orgId; // Get orgId from query params
-
+        const orgId = req.user.orgId;
         const connectors = await ConnectorsConfig.find({ orgId }).select(
           'name isEnabled',
         );
 
-        // Transform the result into an array with { key, isEnabled }
         const statuses = CONNECTORS.map(({ key, name }) => {
           const connector = connectors.find((c) => c.name === name);
           return { key, isEnabled: connector ? connector.isEnabled : false };
@@ -242,6 +256,7 @@ export function createConnectorRouter(container: Container) {
       }
     },
   );
+
   router.get(
     '/config',
     authMiddleware.authenticate,
@@ -252,49 +267,37 @@ export function createConnectorRouter(container: Container) {
       next: NextFunction,
     ) => {
       try {
-        const { service } = req.query;
-        let configurationManagerCommandOptions: ConfigurationManagerCommandOptions;
-        if (service === 'googleWorkspace') {
-          configurationManagerCommandOptions = {
-            uri: `http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceOauthConfig`,
-            method: HttpMethod.GET,
-            headers: req.headers as Record<string, string>,
-          };
-          const getConfigCommand = new ConfigurationManagerServiceCommand(
-            configurationManagerCommandOptions,
-          );
-          let response = await getConfigCommand.execute();
+        let response = await getGoogleWorkspaceConfig(
+          req,
+          config.cmUrl,
+          config.scopedJwtSecret,
+        );
 
-          if (response.statusCode !== 200) {
-            throw new InternalServerError(
-              'Error getting config',
-              response?.data,
-            );
-          }
-          const configData = response.data;
-          if (!configData.clientId) {
-            throw new NotFoundError('Client Id is missing');
-          }
-          if (!configData.redirectUri) {
-            throw new NotFoundError('Redirect Uri is missing');
-          }
-          if (!configData.clientSecret) {
-            throw new NotFoundError('Client Secret is missing');
-          }
-
-          res.status(200).json({
-            googleClientId: configData.clientId,
-            googleRedirectUri: configData.redirectUri,
-            googleClientSecret: configData.clientSecret,
-          });
-        } else {
-          throw new NotFoundError('this service is not allowed');
+        if (response.statusCode !== 200) {
+          throw new InternalServerError('Error getting config', response?.data);
         }
+        const configData = response.data;
+        if (!configData.clientId) {
+          throw new NotFoundError('Client Id is missing');
+        }
+        if (!configData.redirectUri) {
+          throw new NotFoundError('Redirect Uri is missing');
+        }
+        if (!configData.clientSecret) {
+          throw new NotFoundError('Client Secret is missing');
+        }
+
+        res.status(200).json({
+          googleClientId: configData.clientId,
+          googleRedirectUri: configData.redirectUri,
+          googleClientSecret: configData.clientSecret,
+        });
       } catch (error) {
         next(error);
       }
     },
   );
+
   router.post(
     '/config',
     authMiddleware.authenticate,
@@ -305,32 +308,18 @@ export function createConnectorRouter(container: Container) {
       next: NextFunction,
     ) => {
       try {
-        const { service } = req.query;
-        let configurationManagerCommandOptions: ConfigurationManagerCommandOptions;
-        if (service === 'googleWorkspace') {
-          configurationManagerCommandOptions = {
-            uri: `http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceOauthConfig`,
-            method: HttpMethod.POST,
-            headers: req.headers as Record<string, string>,
-            body: req.body,
-          };
-          const setConfigCommand = new ConfigurationManagerServiceCommand(
-            configurationManagerCommandOptions,
-          );
-          let response = await setConfigCommand.execute();
+        let response = await setGoogleWorkspaceConfig(
+          req,
+          config.cmUrl,
+          config.scopedJwtSecret,
+        );
 
-          if (response.statusCode !== 200) {
-            throw new InternalServerError(
-              'Error setting config',
-              response?.data,
-            );
-          }
-          res.status(200).json({
-            message: 'config successfully updated',
-          });
-        } else {
-          throw new NotFoundError('this service is not allowed');
+        if (response.statusCode !== 200) {
+          throw new InternalServerError('Error setting config', response?.data);
         }
+        res.status(200).json({
+          message: 'config successfully updated',
+        });
       } catch (error) {
         next(error);
       }
@@ -432,6 +421,7 @@ export function createConnectorRouter(container: Container) {
               orgId: req.user.orgId,
               appGroup: connector.name,
               appGroupId: connector._id,
+              credentialsRoute: `${config.cmUrl}/${GOOGLE_WORKSPACE_BUSINESS_CREDENTIALS_PATH}`,
               apps: [
                 GoogleWorkspaceApp.Drive,
                 GoogleWorkspaceApp.Gmail,
@@ -469,6 +459,7 @@ export function createConnectorRouter(container: Container) {
               orgId: req.user.orgId,
               appGroup: connector.name,
               appGroupId: connector._id,
+              credentialsRoute: `${config.cmUrl}/${GOOGLE_WORKSPACE_BUSINESS_CREDENTIALS_PATH}`,
               apps: [
                 GoogleWorkspaceApp.Drive,
                 GoogleWorkspaceApp.Gmail,
@@ -504,18 +495,13 @@ export function createConnectorRouter(container: Container) {
     ) => {
       try {
         if (!req.user) {
-          throw new NotFoundError('User not found');
+          throw new NotFoundError('User Not Found');
         }
-        let configurationManagerCommandOptions: ConfigurationManagerCommandOptions =
-          {
-            uri: `http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceOauthConfig`,
-            method: HttpMethod.GET,
-            headers: req.headers as Record<string, string>,
-          };
-        const getConfigCommand = new ConfigurationManagerServiceCommand(
-          configurationManagerCommandOptions,
+        let response = await getGoogleWorkspaceConfig(
+          req,
+          config.cmUrl,
+          config.scopedJwtSecret,
         );
-        let response = await getConfigCommand.execute();
 
         if (response.statusCode !== 200) {
           throw new InternalServerError('Error getting config', response?.data);
@@ -531,7 +517,7 @@ export function createConnectorRouter(container: Container) {
           throw new NotFoundError('Redirect Uri is missing');
         }
         let googleResponse = await axios.post(
-          'https://oauth2.googleapis.com/token',
+          GOOGLE_WORKSPACE_TOKEN_EXCHANGE_PATH,
           {
             code: req.body.tempCode,
             client_id: configData.clientId,
@@ -540,24 +526,19 @@ export function createConnectorRouter(container: Container) {
             grant_type: 'authorization_code',
           },
         );
+
         if (googleResponse.status !== 200) {
           throw new BadRequestError('Error getting code');
         }
         const data = googleResponse.data;
-        configurationManagerCommandOptions = {
-          uri: 'http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceCredentials',
-          method: HttpMethod.POST,
-          headers: req.headers as Record<string, string>,
-          body: {
-            access_token: data.access_token,
-            refresh_token: data.refresh_token,
-          },
-        };
 
-        const cmCommand = new ConfigurationManagerServiceCommand(
-          configurationManagerCommandOptions,
+        response = await setGoogleWorkspaceIndividualCredentials(
+          req,
+          config.cmUrl,
+          config.scopedJwtSecret,
+          data.access_token,
+          data.refresh_token,
         );
-        response = await cmCommand.execute();
         if (response.statusCode !== 200) {
           throw new InternalServerError(
             'Error updating access token',
@@ -590,6 +571,8 @@ export function createConnectorRouter(container: Container) {
               orgId: req.user.orgId,
               appGroup: connector.name,
               appGroupId: connector._id,
+              credentialsRoute: `${config.cmUrl}/${GOOGLE_WORKSPACE_INDIVIDUAL_CREDENTIALS_PATH}`,
+              refreshTokenRoute: `${config.cmUrl}/${REFRESH_TOKEN_PATH}`,
               apps: [
                 GoogleWorkspaceApp.Drive,
                 GoogleWorkspaceApp.Gmail,
@@ -627,6 +610,8 @@ export function createConnectorRouter(container: Container) {
               orgId: req.user.orgId,
               appGroup: connector.name,
               appGroupId: connector._id,
+              credentialsRoute: `${config.cmUrl}/${GOOGLE_WORKSPACE_INDIVIDUAL_CREDENTIALS_PATH}`,
+              refreshTokenRoute: `${config.cmUrl}/${REFRESH_TOKEN_PATH}`,
               apps: [
                 GoogleWorkspaceApp.Drive,
                 GoogleWorkspaceApp.Gmail,
@@ -649,19 +634,13 @@ export function createConnectorRouter(container: Container) {
     },
   );
   router.post(
-    '/refreshIndividualConnectorToken',
-    authMiddleware.authenticate,
-    async (req: Request, res: Response, next: NextFunction) => {
-      const getRefreshTokenCommand: ConfigurationManagerCommandOptions = {
-        uri: 'http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceCredentials',
-        method: HttpMethod.GET,
-        headers: req.headers as Record<string, string>,
-      };
-      const refreshTokenCommand = new ConfigurationManagerServiceCommand(
-        getRefreshTokenCommand,
+    '/internal/refreshIndividualConnectorToken',
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
+    async (req: ScopedTokenRequest, res: Response, next: NextFunction) => {
+      const refreshTokenCommandResponse = await getRefreshTokenCredentials(
+        req,
+        config.cmUrl,
       );
-
-      const refreshTokenCommandResponse = await refreshTokenCommand.execute();
       if (refreshTokenCommandResponse.statusCode !== 200) {
         throw new InternalServerError(
           'Error getting refresh token from etcd',
@@ -669,16 +648,7 @@ export function createConnectorRouter(container: Container) {
         );
       }
       try {
-        let configurationManagerCommandOptions: ConfigurationManagerCommandOptions =
-          {
-            uri: `http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceOauthConfig`,
-            method: HttpMethod.GET,
-            headers: req.headers as Record<string, string>,
-          };
-        const getConfigCommand = new ConfigurationManagerServiceCommand(
-          configurationManagerCommandOptions,
-        );
-        let response = await getConfigCommand.execute();
+        let response = await getRefreshTokenConfig(req, config.cmUrl);
 
         if (response.statusCode !== 200) {
           throw new InternalServerError('Error getting config', response?.data);
@@ -695,7 +665,7 @@ export function createConnectorRouter(container: Container) {
         }
 
         const { data } = await axios.post(
-          'https://oauth2.googleapis.com/token',
+          GOOGLE_WORKSPACE_TOKEN_EXCHANGE_PATH,
           {
             refresh_token: refreshTokenCommandResponse?.data.refresh_token,
             client_id: configData.clientId,
@@ -704,21 +674,13 @@ export function createConnectorRouter(container: Container) {
           },
         );
 
-        const updateAcessTokenCommand: ConfigurationManagerCommandOptions = {
-          uri: 'http://localhost:3000/api/v1/configurationManager/connectors/googleWorkspaceCredentials',
-          method: HttpMethod.POST,
-          headers: req.headers as Record<string, string>,
-          body: {
-            userType: 'individual',
-            access_token: data.access_token,
-            refresh_token: refreshTokenCommandResponse?.data.refresh_token,
-          },
-        };
-        const accessTokenCommand = new ConfigurationManagerServiceCommand(
-          updateAcessTokenCommand,
-        );
-
-        const accessTokenCommandResponse = await accessTokenCommand.execute();
+        const accessTokenCommandResponse = (response =
+          await setRefreshTokenCredentials(
+            req,
+            config.cmUrl,
+            data.access_token,
+            refreshTokenCommandResponse?.data.refresh_token,
+          ));
         if (accessTokenCommandResponse.statusCode !== 200) {
           throw new InternalServerError(
             'Error updating access token',

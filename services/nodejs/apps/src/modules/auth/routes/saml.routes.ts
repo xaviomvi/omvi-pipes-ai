@@ -5,7 +5,6 @@ import passport from 'passport';
 import session from 'express-session';
 import { attachContainerMiddleware } from '../middlewares/attachContainer.middleware';
 import { AuthSessionRequest } from '../middlewares/types';
-import { AuthConfig } from '../config/config';
 import { refreshTokenJwtGenerator } from '../../../libs/utils/createJwt';
 import { IamService } from '../services/iam.service';
 import {
@@ -17,11 +16,12 @@ import { SessionService } from '../services/session.service';
 import { SamlController } from '../controller/saml.controller';
 import { Logger } from '../../../libs/services/logger.service';
 import { generateAuthToken } from '../utils/generateAuthToken';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 export function createSamlRouter(container: Container) {
   const router = Router();
 
-  const config = container.get<AuthConfig>('AuthConfig');
+  const config = container.get<AppConfig>('AppConfig');
   const sessionService = container.get<SessionService>('SessionService');
   const iamService = container.get<IamService>('IamService');
   const samlController = container.get<SamlController>('SamlController');
@@ -29,7 +29,7 @@ export function createSamlRouter(container: Container) {
   router.use(attachContainerMiddleware(container));
   router.use(
     session({
-      secret: config.cookieSecretKey!,
+      secret: config.cookieSecret,
       resave: true,
       saveUninitialized: true,
       cookie: {
@@ -115,7 +115,7 @@ export function createSamlRouter(container: Container) {
         const userId = user._id;
 
         await sessionService.completeAuthentication(req.sessionInfo);
-        const accessToken = await generateAuthToken(user, config.jwtPrivateKey);
+        const accessToken = await generateAuthToken(user, config.jwtSecret);
         const refreshToken = refreshTokenJwtGenerator(
           userId,
           orgId,

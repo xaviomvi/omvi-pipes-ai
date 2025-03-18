@@ -1,6 +1,5 @@
 import { Container } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
-import { AuthConfig, loadAuthConfig } from '../config/config';
 import { MongoService } from '../../../libs/services/mongo.service';
 import { RedisService } from '../../../libs/services/redis.service';
 import { IamService } from '../services/iam.service';
@@ -13,35 +12,37 @@ import { ConfigurationManagerConfig } from '../../configuration_manager/config/c
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
+import { AppConfig } from '../../tokens_manager/config/config';
 export class AuthServiceContainer {
   private static instance: Container;
 
   static async initialize(
     configurationManagerConfig: ConfigurationManagerConfig,
+    appConfig: AppConfig,
   ): Promise<Container> {
     const container = new Container();
-    const config: AuthConfig = await loadAuthConfig();
-    container.bind<AuthConfig>('AuthConfig').toConstantValue(config);
     container.bind<Logger>('Logger').toConstantValue(new Logger());
     container
       .bind<ConfigurationManagerConfig>('ConfigurationManagerConfig')
       .toConstantValue(configurationManagerConfig);
-    await this.initializeServices(container);
+    container.bind<AppConfig>('AppConfig').toConstantValue(appConfig);
+    await this.initializeServices(container, appConfig);
     this.instance = container;
     return container;
   }
-  private static async initializeServices(container: Container): Promise<void> {
+  private static async initializeServices(
+    container: Container,
+    appConfig: AppConfig,
+  ): Promise<void> {
     try {
-      const mongoService = new MongoService();
+      const mongoService = new MongoService(appConfig.mongo);
       await mongoService.initialize();
       container
         .bind<MongoService>('MongoService')
         .toConstantValue(mongoService);
       const logger = container.get<Logger>('Logger');
-      // Initialize Redis
-      const config = container.get<AuthConfig>('AuthConfig');
       const redisService = new RedisService(
-        config.redis,
+        appConfig.redis,
         container.get('Logger'),
       );
       container
@@ -55,16 +56,17 @@ export class AuthServiceContainer {
       container
         .bind<KeyValueStoreService>('KeyValueStoreService')
         .toConstantValue(keyValueStoreService);
-      const jwtSecret = config.jwtPrivateKey;
-      const scopedJwtSecret = config.scopedJwtSecret;
-      const authTokenService = new AuthTokenService(jwtSecret, scopedJwtSecret);
+      const authTokenService = new AuthTokenService(
+        appConfig.jwtSecret,
+        appConfig.scopedJwtSecret,
+      );
       const authMiddleware = new AuthMiddleware(logger, authTokenService);
       container
         .bind<AuthMiddleware>('AuthMiddleware')
         .toConstantValue(authMiddleware);
-      const iamService = new IamService(config, logger);
+      const iamService = new IamService(appConfig, logger);
       container.bind<IamService>('IamService').toConstantValue(iamService);
-      const mailService = new MailService(config, logger);
+      const mailService = new MailService(appConfig, logger);
       container.bind<MailService>('MailService').toConstantValue(mailService);
       const sessionService = new SessionService(redisService);
       container
@@ -76,13 +78,13 @@ export class AuthServiceContainer {
         .bind<ConfigurationManagerService>('ConfigurationManagerService')
         .toConstantValue(configurationService);
 
-      const samlController = new SamlController(iamService, config, logger);
+      const samlController = new SamlController(iamService, appConfig, logger);
       container
         .bind<SamlController>('SamlController')
         .toConstantValue(samlController);
 
       const userAccountController = new UserAccountController(
-        config,
+        appConfig,
         iamService,
         mailService,
         sessionService,

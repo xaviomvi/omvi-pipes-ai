@@ -57,6 +57,7 @@ import { FileProcessingType } from '../../../libs/middlewares/file_processor/fp.
 import { FileBufferInfo } from '../../../libs/middlewares/file_processor/fp.interface';
 import { ErrorMetadata } from '../../../libs/errors/base.error';
 import { serveFileFromLocalStorage } from '../utils/utils';
+import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
 
 const logger = Logger.getInstance({ service: 'StorageRoutes' });
 
@@ -83,6 +84,7 @@ async function getOrSetDefault(
 async function getStorageConfig(
   req: AuthenticatedUserRequest,
   keyValueStoreService: KeyValueStoreService,
+  defaultConfig: DefaultStorageConfig,
 ) {
   if (storageConfig != null) {
     return storageConfig;
@@ -90,7 +92,7 @@ async function getStorageConfig(
   const endpoint = await getOrSetDefault(
     keyValueStoreService,
     storageEtcdPaths.endpoint,
-    'http://localhost:3000',
+    defaultConfig.endpoint,
   );
   const token = req.headers.authorization?.split(' ')[1];
   const configurationManagerServiceCommand =
@@ -115,6 +117,7 @@ async function watchStorageType(keyValueStoreService: KeyValueStoreService) {
 
 export function createStorageRouter(container: Container): Router {
   const router = Router();
+  const defaultConfig = container.get<DefaultStorageConfig>('StorageConfig');
   const keyValueStoreService = container.get<KeyValueStoreService>(
     'KeyValueStoreService',
   );
@@ -124,13 +127,18 @@ export function createStorageRouter(container: Container): Router {
   const initializeStorageAdapter = async (
     req: AuthenticatedUserRequest,
   ): Promise<StorageServiceAdapter> => {
-    storageConfig = await getStorageConfig(req, keyValueStoreService);
+    storageConfig = await getStorageConfig(
+      req,
+      keyValueStoreService,
+      defaultConfig,
+    );
     if (!storageConfig) {
       throw new InternalServerError('Storage configuration not found');
     }
     const storageService = new StorageService(
       keyValueStoreService,
       storageConfig,
+      defaultConfig,
     );
     await storageService.initialize();
     const adapter = storageService.getAdapter();
@@ -173,6 +181,7 @@ export function createStorageRouter(container: Container): Router {
           req.body.fileBuffer as FileBufferInfo,
           getStorageVendor(storageType ?? ''),
           keyValueStoreService,
+          defaultConfig,
         );
         return await uploadDocumentService.uploadDocument(req, res, next);
       } catch (error) {
@@ -329,7 +338,10 @@ export function createStorageRouter(container: Container): Router {
         }
 
         const document = docResult.document;
-        if (version && Number(version) >= (document.versionHistory?.length ?? 0)) {
+        if (
+          version &&
+          Number(version) >= (document.versionHistory?.length ?? 0)
+        ) {
           throw new BadRequestError("This version doesn't exist");
         }
 
@@ -337,7 +349,10 @@ export function createStorageRouter(container: Container): Router {
           throw new BadRequestError('This is a non-versioned document');
         }
 
-        if (version && Number(version) >= (document.versionHistory?.length ?? 0)) {
+        if (
+          version &&
+          Number(version) >= (document.versionHistory?.length ?? 0)
+        ) {
           throw new BadRequestError("This version doesn't exist");
         }
         const storageVendorInETCD = await keyValueStoreService.get<string>(

@@ -49,14 +49,6 @@ export const configPaths = {
         business: '/connectors/google_workspace/credentials/business',
       },
       config: '/connectors/google_workspace/oauth/config',
-      // userType: '/connectors/google_workspace/user_type',
-      // googleDrive: '/connectors/google_workspace/google_drive',
-      // googleDocs: '/connectors/google_workspace/google_docs',
-      // googleSheets: '/connectors/google_workspace/google_sheets',
-      // googleSlides: '/connectors/google_workspace/google_slides',
-      // googleCalendar: '/connectors/google_workspace/google_calendar',
-      // googleContacts: '/connectors/google_workspace/google_contacts',
-      // googleMail: '/connectors/google_workspace/gmail',
     },
   },
   smtp: '/services/smtp',
@@ -72,11 +64,17 @@ export const configPaths = {
   db: {
     mongodb: '/services/mongodb',
     arangodb: '/services/arangodb',
+    qdrant: '/services/qdrant',
   },
   keyValueStore: {
     redis: '/services/redis',
   },
   broker: {
     kafka: '/services/kafka',
+  },
+
+  url: {
+    publicEndpoint: '/services/nodejs/common/public-endpoint',
+    privateEndpoint: '/services/nodejs/common/endpoint',
   },
 };

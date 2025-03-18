@@ -105,18 +105,6 @@ export function createOrgAuthConfigRouter(container: Container) {
       }
     },
   );
-  // router.post(
-  //   '/samlConfig',
-  //   adminValidator,
-  //   metricsMiddleware(container),
-  //   async (req: AuthSessionRequest, res: Response, next: NextFunction) => {
-  //     try {
-  //       await userAccountController.setSamlConfig(req, res, next);
-  //     } catch (error) {
-  //       next(error);
-  //     }
-  //   },
-  // );
   router.post(
     '/updateAuthMethod',
     userValidator,

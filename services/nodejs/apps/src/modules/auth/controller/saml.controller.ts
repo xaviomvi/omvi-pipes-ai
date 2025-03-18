@@ -23,7 +23,7 @@ import {
 import { HttpMethod } from '../../../libs/enums/http-methods.enum';
 import { generateAuthToken } from '../utils/generateAuthToken';
 import { iamJwtGenerator } from '../../../libs/utils/createJwt';
-import { AuthConfig } from '../config/config';
+import { AppConfig } from '../../tokens_manager/config/config';
 const orgIdToSamlEmailKey: Record<string, string> = {};
 passport.serializeUser((user, done) => {
   done(null, user);
@@ -38,7 +38,7 @@ passport.deserializeUser((obj, done) => {
 export class SamlController {
   constructor(
     @inject('IamService') private iamService: IamService,
-    @inject('AuthConfig') private config: AuthConfig,
+    @inject('AppConfig') private config: AppConfig,
     @inject('Logger') private logger: Logger,
   ) {}
   // update the mapping
@@ -67,7 +67,7 @@ export class SamlController {
       new SamlStrategy(
         {
           entryPoint: samlEntryPoint, // Don't modify the entry point directly
-          callbackUrl: `http://localhost:3000/api/v1/samlSignIn/signIn/callback`,
+          callbackUrl: `${this.config.authUrl}/api/v1/samlSignIn/signIn/callback`,
           cert: samlCertificate,
           passReqToCallback: true, // Allows req access in callback
         },
@@ -124,7 +124,7 @@ export class SamlController {
       }
       let configurationManagerCommandOptions: ConfigurationManagerCommandOptions =
         {
-          uri: `http://localhost:3000/api/v1/configurationManager/internal/authConfig/sso`,
+          uri: `${this.config.cmUrl}/api/v1/configurationManager/internal/authConfig/sso`,
           method: HttpMethod.GET,
           headers: {
             Authorization: `Bearer ${await generateAuthToken(user, this.config.scopedJwtSecret)}`,

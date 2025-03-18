@@ -12,7 +12,7 @@ import { storageTypes } from '../configuration_manager/constants/constants';
 import { Logger } from '../../libs/services/logger.service';
 import AzureBlobStorageAdapter from './providers/azure.provider';
 import { StorageServiceAdapter } from './adapter/base-storage.adapter';
-
+import { DefaultStorageConfig } from '../tokens_manager/services/cm.service';
 const logger = Logger.getInstance({ service: 'StorageService' });
 @injectable()
 export class StorageService {
@@ -26,6 +26,7 @@ export class StorageService {
       | S3StorageConfig
       | AzureBlobStorageConfig
       | LocalStorageConfig,
+    private readonly defaultConfig: DefaultStorageConfig,
   ) {}
 
   public async initialize(): Promise<void> {
@@ -49,11 +50,17 @@ export class StorageService {
   private async initializeStorageAdapter(storageType: string) {
     switch (storageType) {
       case 's3':
-        return new StorageServiceAdapter(new AmazonS3Adapter(this.extractS3Credentials()));
+        return new StorageServiceAdapter(
+          new AmazonS3Adapter(this.extractS3Credentials()),
+        );
       case 'azureBlob':
-        return new StorageServiceAdapter(new AzureBlobStorageAdapter(this.extractAzureBlobCredentials()));
+        return new StorageServiceAdapter(
+          new AzureBlobStorageAdapter(this.extractAzureBlobCredentials()),
+        );
       case 'local':
-        return new StorageServiceAdapter(new LocalStorageAdapter(this.extractLocalStorageCredentials()));
+        return new StorageServiceAdapter(
+          new LocalStorageAdapter(this.extractLocalStorageCredentials()),
+        );
       default:
         throw new Error(`Unsupported storage type: ${storageType}`);
     }
@@ -63,7 +70,7 @@ export class StorageService {
     const configuration = this.config as LocalStorageConfig;
     return {
       mountName: configuration.mountName || 'PipesHub',
-      baseUrl: configuration.baseUrl || 'http://localhost:3000',
+      baseUrl: configuration.baseUrl || this.defaultConfig.endpoint,
     };
   }
 

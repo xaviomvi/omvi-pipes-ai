@@ -1,12 +1,11 @@
 import { Container } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
-import { AppConfig } from '../../tokens_manager/config/config';
 import { MongoService } from '../../../libs/services/mongo.service';
 import { ConfigurationManagerConfig } from '../../configuration_manager/config/config';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
-import { configTypes } from '../../../libs/utils/config.utils';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 const loggerConfig = {
   service: 'Enterprise Search Service',
@@ -17,13 +16,12 @@ export class EnterpriseSearchAgentContainer {
   private static logger: Logger = Logger.getInstance(loggerConfig);
 
   static async initialize(
-    appConfig: AppConfig,
     configurationManagerConfig: ConfigurationManagerConfig,
+    appConfig: AppConfig,
   ): Promise<Container> {
     const container = new Container();
 
     // Bind configuration
-    container.bind<AppConfig>('AppConfig').toConstantValue(appConfig);
     // Bind logger
     container.bind<Logger>('Logger').toConstantValue(this.logger);
     container
@@ -31,16 +29,19 @@ export class EnterpriseSearchAgentContainer {
       .toConstantValue(configurationManagerConfig);
 
     // Initialize and bind services
-    await this.initializeServices(container);
+    await this.initializeServices(container, appConfig);
 
     this.instance = container;
     return container;
   }
 
-  private static async initializeServices(container: Container): Promise<void> {
+  private static async initializeServices(
+    container: Container,
+    appConfig: AppConfig,
+  ): Promise<void> {
     try {
       // Initialize services
-      const mongoService = new MongoService();
+      const mongoService = new MongoService(appConfig.mongo);
       await mongoService.initialize();
       container
         .bind<MongoService>('MongoService')
@@ -53,15 +54,9 @@ export class EnterpriseSearchAgentContainer {
       container
         .bind<KeyValueStoreService>('KeyValueStoreService')
         .toConstantValue(keyValueStoreService);
-      const jwtSecret = await keyValueStoreService.get<string>(
-        configTypes.JWT_SECRET,
-      );
-      const scopedJwtSecret = await keyValueStoreService.get<string>(
-        configTypes.SCOPED_JWT_SECRET,
-      );
       const authTokenService = new AuthTokenService(
-        jwtSecret || ' ',
-        scopedJwtSecret || ' ',
+        appConfig.jwtSecret,
+        appConfig.scopedJwtSecret,
       );
       const authMiddleware = new AuthMiddleware(
         container.get('Logger'),

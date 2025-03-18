@@ -5,7 +5,7 @@ import { Logger } from '../../../libs/services/logger.service';
 import { configPaths } from '../paths/paths';
 import {
   BadRequestError,
-  NotFoundError,
+  UnauthorizedError,
 } from '../../../libs/errors/http.errors';
 import {
   googleWorkspaceBusinessCredentialsSchema,
@@ -26,12 +26,17 @@ import {
   EventType,
   LLMConfiguredEvent,
 } from '../../user_management/services/entity_events.service';
+import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 const logger = Logger.getInstance({
   service: 'ConfigurationManagerController',
 });
 export const createStorageConfig =
-  (keyValueStoreService: KeyValueStoreService) =>
+  (
+    keyValueStoreService: KeyValueStoreService,
+    defaultConfig: DefaultStorageConfig,
+  ) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
       const storageType = req.body.storageType;
@@ -110,7 +115,7 @@ export const createStorageConfig =
           );
           const localConfig = {
             mountName: config.mountName || 'PipesHub',
-            baseUrl: config.baseUrl || 'http://localhost:3000',
+            baseUrl: config.baseUrl || defaultConfig.endpoint,
           };
           await keyValueStoreService.set<string>(
             configPaths.storageService.local,
@@ -651,14 +656,9 @@ export const getKafkaConfig =
   };
 
 export const createGoogleWorkspaceCredentials =
-  (keyValueStoreService: KeyValueStoreService) =>
+  (keyValueStoreService: KeyValueStoreService, userId: string, orgId: string) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
-      if (!req.user) {
-        throw new NotFoundError('User not Found');
-      }
-      const userId = req.user.userId;
-      const orgId = req.user.orgId;
       const org = await Org.findOne({ orgId, isDeleted: false });
       if (!org) {
         throw new BadRequestError('Organisaton not found');
@@ -759,14 +759,9 @@ export const createGoogleWorkspaceCredentials =
   };
 
 export const getGoogleWorkspaceCredentials =
-  (keyValueStoreService: KeyValueStoreService) =>
-  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+  (keyValueStoreService: KeyValueStoreService, userId: string, orgId: string) =>
+  async (_req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
-      if (!req.user) {
-        throw new NotFoundError('User not Found');
-      }
-      const userId = req.user.userId;
-      const orgId = req.user.orgId;
       const org = await Org.findOne({ orgId, isDeleted: false });
       if (!org) {
         throw new BadRequestError('Organisaton not found');
@@ -824,6 +819,66 @@ export const getGoogleWorkspaceCredentials =
     }
   };
 
+export const getGoogleWorkspaceBusinessCredentials =
+  (keyValueStoreService: KeyValueStoreService, orgId: string) =>
+  async (_req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    try {
+      const configManagerConfig = loadConfigurationManagerConfig();
+      let path;
+      let googleWorkspaceConfig: any;
+      let encryptedGoogleWorkspaceConfig;
+
+      path = `${configPaths.connectors.googleWorkspace.credentials.business}/${orgId}`;
+      encryptedGoogleWorkspaceConfig =
+        await keyValueStoreService.get<string>(path);
+      if (encryptedGoogleWorkspaceConfig) {
+        googleWorkspaceConfig = JSON.parse(
+          EncryptionService.getInstance(
+            configManagerConfig.algorithm,
+            configManagerConfig.secretKey,
+          ).decrypt(encryptedGoogleWorkspaceConfig),
+        );
+        res.status(200).json(googleWorkspaceConfig).end();
+      } else {
+        res.status(200).json({}).end();
+      }
+    } catch (error: any) {
+      logger.error('Error getting google workspace credentials', { error });
+      next(error);
+    }
+  };
+export const deleteGoogleWorkspaceCredentials =
+  (keyValueStoreService: KeyValueStoreService, orgId: string) =>
+  async (_req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    try {
+      const org = await Org.findOne({ orgId, isDeleted: false });
+      if (!org) {
+        throw new BadRequestError('Organisaton not found');
+      }
+      const userType = org.accountType;
+      let path;
+      switch (userType.toLowerCase()) {
+        case googleWorkspaceTypes.INDIVIDUAL.toLowerCase():
+          throw new UnauthorizedError(
+            'Deleting credentials fro individual type not allowed',
+          );
+
+        case googleWorkspaceTypes.BUSINESS.toLowerCase():
+          path = `${configPaths.connectors.googleWorkspace.credentials.business}/${orgId}`;
+          await keyValueStoreService.delete(path);
+          res.status(200).json({}).end();
+          break;
+
+        default:
+          throw new BadRequestError(
+            `Unsupported google workspace type: ${userType}`,
+          );
+      }
+    } catch (error: any) {
+      logger.error('Error getting google workspace credentials', { error });
+      next(error);
+    }
+  };
 export const setGoogleWorkspaceOauthConfig =
   (keyValueStoreService: KeyValueStoreService) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
@@ -877,6 +932,7 @@ export const createAIModelsConfig =
   (
     keyValueStoreService: KeyValueStoreService,
     eventService: EntitiesEventProducer,
+    appConfig: AppConfig,
   ) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
@@ -899,7 +955,7 @@ export const createAIModelsConfig =
         eventType: EventType.LLMConfiguredEvent,
         timestamp: Date.now(),
         payload: {
-          credentialsRoute: `http://localhost:3000/${aiModelRoute}`, // change it with backendUrl
+          credentialsRoute: `${appConfig.cmUrl}/${aiModelRoute}`, // change it with backendUrl
         } as LLMConfiguredEvent,
       };
       await eventService.publishEvent(event);

@@ -2,13 +2,10 @@ import { Container } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
 import { ConfigurationManagerConfig } from '../config/config';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
-import { configPaths } from '../paths/paths';
-import { EncryptionService } from '../../../libs/encryptor/encryptor';
 import { EntitiesEventProducer } from '../../user_management/services/entity_events.service';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
-import { configTypes } from '../../../libs/utils/config.utils';
-
+import { AppConfig } from '../../tokens_manager/config/config';
 const loggerConfig = {
   service: 'Configuration Manager Service',
 };
@@ -19,6 +16,7 @@ export class ConfigurationManagerContainer {
 
   static async initialize(
     configurationManagerConfig: ConfigurationManagerConfig,
+    appConfig: AppConfig,
   ): Promise<Container> {
     const container = new Container();
 
@@ -26,17 +24,21 @@ export class ConfigurationManagerContainer {
     container
       .bind<ConfigurationManagerConfig>('ConfigurationManagerConfig')
       .toConstantValue(configurationManagerConfig);
+    container.bind<AppConfig>('AppConfig').toConstantValue(appConfig);
     // Bind logger
     container.bind<Logger>('Logger').toConstantValue(this.logger);
 
     // Initialize and bind services
-    await this.initializeServices(container);
+    await this.initializeServices(container, appConfig);
 
     this.instance = container;
     return container;
   }
 
-  private static async initializeServices(container: Container): Promise<void> {
+  private static async initializeServices(
+    container: Container,
+    appConfig: AppConfig,
+  ): Promise<void> {
     try {
       const configurationManagerConfig =
         container.get<ConfigurationManagerConfig>('ConfigurationManagerConfig');
@@ -49,33 +51,17 @@ export class ConfigurationManagerContainer {
         .bind<KeyValueStoreService>('KeyValueStoreService')
         .toConstantValue(keyValueStoreService);
 
-      const encryptedKafkaConfig = await keyValueStoreService.get<string>(
-        configPaths.broker.kafka,
-      );
-
-      const kafkaConfig = JSON.parse(
-        EncryptionService.getInstance(
-          configurationManagerConfig.algorithm,
-          configurationManagerConfig.secretKey,
-        ).decrypt(encryptedKafkaConfig),
-      );
-
       const entityEventsService = new EntitiesEventProducer(
-        kafkaConfig,
+        appConfig.kafka,
         container.get('Logger'),
       );
       container
         .bind<EntitiesEventProducer>('EntitiesEventProducer')
         .toConstantValue(entityEventsService);
-      const jwtSecret = await keyValueStoreService.get<string>(
-        configTypes.JWT_SECRET,
-      );
-      const scopedJwtSecret = await keyValueStoreService.get<string>(
-        configTypes.SCOPED_JWT_SECRET,
-      );
+
       const authTokenService = new AuthTokenService(
-        jwtSecret || ' ',
-        scopedJwtSecret || ' ',
+        appConfig.jwtSecret,
+        appConfig.scopedJwtSecret,
       );
       const authMiddleware = new AuthMiddleware(
         container.get('Logger'),

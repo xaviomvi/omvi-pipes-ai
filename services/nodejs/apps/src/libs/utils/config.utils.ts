@@ -40,6 +40,7 @@ export const configTypes = {
 
   AUTH_BACKEND: '/services/auth/endpoint',
   IAM_BACKEND: '/services/iam/endpoint',
+  CONFIG_MANAGER_BACKEND: '/services/cm/endpoint',
   COMMUNICATION_BACKEND: '/services/mail/endpoint',
 };
 

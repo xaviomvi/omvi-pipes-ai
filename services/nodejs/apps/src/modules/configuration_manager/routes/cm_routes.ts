@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { Container } from 'inversify';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
 import {
@@ -28,6 +28,8 @@ import {
   getArangoDbConfig,
   createMongoDbConfig,
   getMongoDbConfig,
+  deleteGoogleWorkspaceCredentials,
+  getGoogleWorkspaceBusinessCredentials,
 } from '../controller/cm_controller';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { ValidationMiddleware } from '../../../libs/middlewares/validation.middleware';
@@ -56,12 +58,19 @@ import {
 import { EntitiesEventProducer } from '../../user_management/services/entity_events.service';
 import { userAdminCheck } from '../../user_management/middlewares/userAdminCheck';
 import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
+import { AppConfig } from '../../tokens_manager/config/config';
+import {
+  AuthenticatedUserRequest,
+  ScopedTokenRequest,
+} from '../../../libs/middlewares/types';
+import { NotFoundError } from '../../../libs/errors/http.errors';
 
 export function createConfigurationManagerRouter(container: Container): Router {
   const router = Router();
   const keyValueStoreService = container.get<KeyValueStoreService>(
     'KeyValueStoreService',
   );
+  const appConfig = container.get<AppConfig>('AppConfig');
   const eventService = container.get<EntitiesEventProducer>(
     'EntitiesEventProducer',
   );
@@ -81,7 +90,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
     userAdminCheck,
     metricsMiddleware(container),
     ValidationMiddleware.validate(storageValidationSchema),
-    createStorageConfig(keyValueStoreService),
+    createStorageConfig(keyValueStoreService, appConfig.storage),
   );
 
   /**
@@ -343,9 +352,42 @@ export function createConfigurationManagerRouter(container: Container): Router {
       maxFileSize: 1024 * 1024 * 5,
       strictFileUpload: false,
     }).getMiddleware,
-    createGoogleWorkspaceCredentials(keyValueStoreService),
+    (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+      if (!req.user) {
+        throw new NotFoundError('User not found');
+      }
+      return createGoogleWorkspaceCredentials(
+        keyValueStoreService,
+        req.user.userId,
+        req.user.orgId,
+      )(req, res, next);
+    },
   );
 
+  router.post(
+    '/internal/connectors/googleWorkspaceCredentials',
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
+    metricsMiddleware(container),
+    ...FileProcessorFactory.createJSONUploadProcessor({
+      fieldName: 'googleWorkspaceCredentials',
+      allowedMimeTypes: ['application/json'],
+      maxFilesAllowed: 1,
+      isMultipleFilesAllowed: false,
+      processingType: FileProcessingType.JSON,
+      maxFileSize: 1024 * 1024 * 5,
+      strictFileUpload: false,
+    }).getMiddleware,
+    (req: ScopedTokenRequest, res: Response, next: NextFunction) => {
+      if (!req.tokenPayload) {
+        throw new NotFoundError('User not found');
+      }
+      return createGoogleWorkspaceCredentials(
+        keyValueStoreService,
+        req.tokenPayload.userId,
+        req.tokenPayload.orgId,
+      )(req, res, next);
+    },
+  );
   /**
    * GET /googleWorkspaceConfig
    * Retrieves the current Google Workspace configuration from key-value store
@@ -357,7 +399,61 @@ export function createConfigurationManagerRouter(container: Container): Router {
     authMiddleware.authenticate,
     userAdminCheck,
     metricsMiddleware(container),
-    getGoogleWorkspaceCredentials(keyValueStoreService),
+    (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+      if (!req.user) {
+        throw new NotFoundError('User not found');
+      }
+      return getGoogleWorkspaceCredentials(
+        keyValueStoreService,
+        req.user.userId,
+        req.user.orgId,
+      )(req, res, next);
+    },
+  );
+
+  router.get(
+    '/internal/connectors/individual/googleWorkspaceCredentials',
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
+    metricsMiddleware(container),
+    (req: ScopedTokenRequest, res: Response, next: NextFunction) => {
+      if (!req.tokenPayload) {
+        throw new NotFoundError('User not found');
+      }
+      return getGoogleWorkspaceCredentials(
+        keyValueStoreService,
+        req.tokenPayload.userId,
+        req.tokenPayload.orgId,
+      )(req, res, next);
+    },
+  );
+  router.get(
+    '/internal/connectors/business/googleWorkspaceCredentials',
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
+    metricsMiddleware(container),
+    (req: ScopedTokenRequest, res: Response, next: NextFunction) => {
+      if (!req.tokenPayload) {
+        throw new NotFoundError('User not found');
+      }
+      return getGoogleWorkspaceBusinessCredentials(
+        keyValueStoreService,
+        req.tokenPayload.orgId,
+      )(req, res, next);
+    },
+  );
+
+  router.delete(
+    '/internal/connectors/business/googleWorkspaceCredentials',
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
+    metricsMiddleware(container),
+    (req: ScopedTokenRequest, res: Response, next: NextFunction) => {
+      if (!req.tokenPayload) {
+        throw new NotFoundError('User not found');
+      }
+      return deleteGoogleWorkspaceCredentials(
+        keyValueStoreService,
+        req.tokenPayload.orgId,
+      )(req, res, next);
+    },
   );
 
   router.get(
@@ -377,6 +473,21 @@ export function createConfigurationManagerRouter(container: Container): Router {
     setGoogleWorkspaceOauthConfig(keyValueStoreService),
   );
 
+  router.get(
+    '/internal/connectors/googleWorkspaceOauthConfig',
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
+    metricsMiddleware(container),
+    getGoogleWorkspaceOauthConfig(keyValueStoreService),
+  );
+
+  router.post(
+    '/internal/connectors/googleWorkspaceOauthConfig',
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(googleWorkspaceConfigSchema),
+    setGoogleWorkspaceOauthConfig(keyValueStoreService),
+  );
+
   // ai models config routes
   /**
    * POST /aiModelsConfig
@@ -391,7 +502,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
     userAdminCheck,
     metricsMiddleware(container),
     ValidationMiddleware.validate(aiModelsConfigSchema),
-    createAIModelsConfig(keyValueStoreService, eventService),
+    createAIModelsConfig(keyValueStoreService, eventService, appConfig),
   );
 
   /**
@@ -404,6 +515,13 @@ export function createConfigurationManagerRouter(container: Container): Router {
     '/aiModelsConfig',
     authMiddleware.authenticate,
     userAdminCheck,
+    metricsMiddleware(container),
+    getAIModelsConfig(keyValueStoreService),
+  );
+
+  router.get(
+    '/internal/aiModelsConfig',
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
     metricsMiddleware(container),
     getAIModelsConfig(keyValueStoreService),
   );

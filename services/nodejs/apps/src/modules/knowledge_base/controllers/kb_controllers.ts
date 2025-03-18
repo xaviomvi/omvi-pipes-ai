@@ -23,7 +23,9 @@ import {
   RELATIONSHIP_TYPE,
 } from '../constants/record.constants';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
-import { configTypes } from '../../../libs/utils/config.utils';
+import { configPaths } from '../../configuration_manager/paths/paths';
+import { AppConfig } from '../../tokens_manager/config/config';
+import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
 
 const logger = Logger.getInstance({
   service: 'Knowledge Base Controller',
@@ -33,6 +35,7 @@ export const createRecords =
   (
     recordRelationService: RecordRelationService,
     keyValueStoreService: KeyValueStoreService,
+    appConfig: AppConfig,
   ) =>
   async (
     req: AuthenticatedUserRequest,
@@ -91,8 +94,9 @@ export const createRecords =
         const key: string = uuidv4();
 
         const frontendUrl =
-          (await keyValueStoreService.get<string>(configTypes.FRONTEND_URL)) ||
-          'http://localhost:3001';
+          (await keyValueStoreService.get<string>(
+            configPaths.url.publicEndpoint,
+          )) || appConfig.frontendUrl;
 
         const webUrl = `${frontendUrl}/knowledge-base/record/${key}`;
 
@@ -104,6 +108,7 @@ export const createRecords =
             originalname,
             isVersioned,
             keyValueStoreService,
+            appConfig.storage,
           );
 
         const record = {
@@ -132,7 +137,7 @@ export const createRecords =
           extension: extension,
           mimeType: mimetype,
           sizeInBytes: size,
-          webUrl : webUrl
+          webUrl: webUrl,
         });
       }
 
@@ -273,6 +278,7 @@ export const updateRecord =
   (
     recordRelationService: RecordRelationService,
     keyValueStoreService: KeyValueStoreService,
+    defaultConfig: DefaultStorageConfig,
   ) =>
   async (
     req: AuthenticatedUserRequest,
@@ -416,6 +422,7 @@ export const updateRecord =
             fileBuffer,
             storageDocumentId,
             keyValueStoreService,
+            defaultConfig,
           );
           // Log the file upload
           logger.info('Uploading new version function called successfully');

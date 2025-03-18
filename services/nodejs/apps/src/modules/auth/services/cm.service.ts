@@ -20,6 +20,7 @@ export class ConfigurationManagerService {
   constructor() {}
 
   async getConfig(
+    cmBackendUrl: string,
     configUrlPath: string,
     user: Record<string, any>,
     scopedJwtSecret: string,
@@ -27,7 +28,7 @@ export class ConfigurationManagerService {
     try {
       const config = {
         method: 'get' as const,
-        url: `http://localhost:3000/${configUrlPath}`,
+        url: `${cmBackendUrl}/${configUrlPath}`,
         headers: {
           Authorization: `Bearer ${await generateFetchConfigAuthToken(user, scopedJwtSecret)}`,
           'Content-Type': 'application/json',

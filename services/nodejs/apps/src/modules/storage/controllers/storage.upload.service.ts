@@ -27,9 +27,13 @@ import {
   isValidStorageVendor,
 } from '../utils/utils';
 import { FileBufferInfo } from '../../../libs/middlewares/file_processor/fp.interface';
-import { maxFileSizeForPipesHubService, storageEtcdPaths } from '../constants/constants';
+import {
+  maxFileSizeForPipesHubService,
+  storageEtcdPaths,
+} from '../constants/constants';
 import { Logger } from '../../../libs/services/logger.service';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
+import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
 
 const logger = Logger.getInstance({
   service: 'storage.upload.service',
@@ -47,16 +51,19 @@ export class UploadDocumentService {
   private readonly storageVendor: StorageVendor;
   private readonly fileBuffer: FileBufferInfo;
   private readonly keyValueStoreService: KeyValueStoreService;
+  private readonly defaultConfig: DefaultStorageConfig;
   constructor(
     storageServiceWrapper: StorageServiceAdapter,
     fileBuffer: FileBufferInfo,
     storageVendor: StorageVendor,
     keyValueStoreService: KeyValueStoreService,
+    defaultConfig: DefaultStorageConfig,
   ) {
     this.storageServiceWrapper = storageServiceWrapper;
     this.storageVendor = storageVendor;
     this.fileBuffer = fileBuffer;
     this.keyValueStoreService = keyValueStoreService;
+    this.defaultConfig = defaultConfig;
   }
 
   async uploadDocument(
@@ -220,7 +227,9 @@ export class UploadDocumentService {
       if (isValidStorageVendor(storageTypeKey)) {
         // TODO : Move this to the local storage provider
         if (storageTypeKey === StorageVendor.Local) {
-          const storageServiceEndpoint = await this.keyValueStoreService.get(storageEtcdPaths.endpoint) || 'http://localhost:3000';
+          const storageServiceEndpoint =
+            (await this.keyValueStoreService.get(storageEtcdPaths.endpoint)) ||
+            this.defaultConfig.endpoint;
           localPath = uploadResult.data;
           // normalize the url to the local storage
           const baseUrl = uploadResult.data.replace(
@@ -229,7 +238,10 @@ export class UploadDocumentService {
           );
           // Remove everything after "download" if it exists
           normalizedUrl = baseUrl.split('/download')[0] + '/download';
-          const storageInfo: StorageInfo = { url: normalizedUrl, localPath: localPath };
+          const storageInfo: StorageInfo = {
+            url: normalizedUrl,
+            localPath: localPath,
+          };
           savedDocument[storageTypeKey] = storageInfo;
         } else {
           const storageInfo: StorageInfo = { url: uploadResult.data };
