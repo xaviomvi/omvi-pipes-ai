@@ -3,7 +3,7 @@
 const ROOTS = {
   AUTH: '/auth',
   AUTH_DEMO: '/auth-demo',
-  DASHBOARD: '',
+  DASHBOARD: '/',
 };
 
 // ----------------------------------------------------------------------
@@ -50,11 +50,11 @@ export const paths = {
       edit: (id: string) => `${ROOTS.DASHBOARD}/workflows/${id}/edit`,
     },
     knowledgebase: {
-      root: `${ROOTS.DASHBOARD}/knowledge-base/details`,
-      search: `${ROOTS.DASHBOARD}/knowledge-base/search`,
+      root: `${ROOTS.DASHBOARD}knowledge-base/details`,
+      search: `${ROOTS.DASHBOARD}knowledge-base/search`,
     },
     copilot: {
-      root: `${ROOTS.DASHBOARD}/copilot`,
+      root: `${ROOTS.DASHBOARD}copilot`,
     },
   },
 };

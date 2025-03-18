@@ -4,18 +4,8 @@ import React, { useState, useEffect, useContext, createContext } from 'react';
 
 import axiosInstance from 'src/utils/axios';
 
-// Types based on API response
-interface Permissions {
-  editingQuestionnaire: boolean;
-  workflowSetup: boolean;
-  createWorkflow: boolean;
-  pauseWorkflow: boolean;
-  cancelWorkflow: boolean;
-  deleteWorkflow: boolean;
-}
 
 interface Group {
-  permissions: Permissions;
   _id: string;
   name: string;
   type: 'admin' | 'everyone' | 'custom';
@@ -42,7 +32,7 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
   useEffect(() => {
     const fetchUsers = async (): Promise<void> => {
       try {
-        const response = await axiosInstance.get<Group[]>('/api/v1/appusergroup');
+        const response = await axiosInstance.get<Group[]>('/api/v1/userGroups');
         setGroups(response.data);
       } catch (error) {
         console.error('Error fetching member groups:', error);

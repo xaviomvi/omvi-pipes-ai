@@ -2,15 +2,28 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-import { Box, Tab, Tabs, CircularProgress } from '@mui/material';
+import {
+  Box,
+  Tab,
+  Tabs,
+  Card,
+  Chip,
+  Stack,
+  Divider,
+  Typography,
+  CircularProgress,
+  useTheme,
+} from '@mui/material';
+
+import { Iconify } from 'src/components/iconify';
 
 import Users from './users';
 import Groups from './groups';
 import Invites from './invites';
-import { allGroups, getAllUsersWithGroups } from '../context/utils';
+import { allGroups, getAllUsersWithGroups } from '../utils';
 import { setCounts, setLoading } from '../../../store/userAndGroupsSlice';
 
-import type { CountsState} from '../../../store/userAndGroupsSlice';
+import type { CountsState } from '../../../store/userAndGroupsSlice';
 import type { GroupUser, AppUserGroup } from '../types/group-details';
 
 interface RootState {
@@ -18,6 +31,7 @@ interface RootState {
 }
 
 export default function UsersAndGroups() {
+  const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [tabValue, setTabValue] = useState<number>(0);
@@ -34,8 +48,8 @@ export default function UsersAndGroups() {
       try {
         const response: GroupUser[] = await getAllUsersWithGroups();
         const groups: AppUserGroup[] = await allGroups();
-        const loggedInUsers = response.filter((user) => user.iamUser?.isEmailVerified === true);
-        const pendingUsers = response.filter((user) => !user.iamUser?.isEmailVerified);
+        const loggedInUsers = response.filter((user) => user.email !== null);
+        const pendingUsers = response.filter((user) => !user?.email);
 
         dispatch(
           setCounts({
@@ -79,26 +93,119 @@ export default function UsersAndGroups() {
     return (
       <Box
         display="flex"
+        flexDirection="column"
         justifyContent="center"
         alignItems="center"
-        sx={{ height: 300 }}
-        width="100%"
+        sx={{ height: 400, width: '100%' }}
       >
-        <CircularProgress />
+        <CircularProgress size={36} thickness={2.5} />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Loading data...
+        </Typography>
       </Box>
     );
   }
 
+  const TabItem = (label: string, count: number, icon: string, isActive: boolean) => (
+    <Stack 
+      direction="row" 
+      alignItems="center" 
+      spacing={1.5} 
+      sx={{ 
+        py: 0.75,
+        opacity: isActive ? 1 : 0.7,
+        transition: 'all 0.2s ease-in-out',
+      }}
+    >
+      <Iconify 
+        icon={icon} 
+        width={20} 
+        height={20} 
+        sx={{ 
+          color: isActive ? 'primary.main' : 'text.secondary'
+        }} 
+      />
+      <Typography 
+        variant="body2" 
+        sx={{ 
+          fontWeight: isActive ? 600 : 400,
+          color: isActive ? 'text.primary' : 'text.secondary'
+        }}
+      >
+        {label}
+      </Typography>
+      {count > 0 && (
+        <Chip
+          size="small"
+          label={count}
+          color={isActive ? "primary" : "default"}
+          variant={isActive ? "filled" : "outlined"}
+          sx={{
+            height: 20,
+            minWidth: 20,
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            px: 0.5,
+          }}
+        />
+      )}
+    </Stack>
+  );
+
   return (
-    <Box sx={{ p: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="users and groups tabs">
-          <Tab label={`Users (${userCount})`} />
-          <Tab label={`Groups (${groupCount})`} />
-          <Tab label={`Invites (${invitesCount})`} />
-        </Tabs>
-        {tabValue === 0 && <Users />}
-        {tabValue === 1 && <Groups />}
-        {tabValue === 2 && <Invites />}
-      </Box>
+    <Box sx={{ p: 3 }}>     
+      {/* Main Content Container */}
+        {/* Tabs Section */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', }}>
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange} 
+            aria-label="users and groups tabs"
+            sx={{
+              px: 3,
+              minHeight: 56,
+              '& .MuiTabs-indicator': {
+                height: 3,
+                borderTopLeftRadius: 3,
+                borderTopRightRadius: 3,
+              },
+              '& .MuiTab-root': {
+                minHeight: 56,
+                fontWeight: 500,
+                borderBottom: '3px solid transparent',
+                transition: 'all 0.1s ease-in-out',
+                '&:hover': {
+                  color: 'primary.main',
+                },
+              },
+            }}
+          >
+            <Tab 
+              label={TabItem("Users", userCount, "mdi:account-multiple", tabValue === 0)} 
+              disableRipple
+              sx={{ textTransform: 'none' }}
+            />
+            <Tab 
+              label={TabItem("Groups", groupCount, "mdi:account-group", tabValue === 1)} 
+              disableRipple
+              sx={{ textTransform: 'none' }}
+            />
+            <Tab 
+              label={TabItem("Invites", invitesCount, "mdi:email-outline", tabValue === 2)} 
+              disableRipple
+              sx={{ textTransform: 'none' }}
+            />
+          </Tabs>
+        </Box>
+        
+        <Divider />
+        
+        {/* Tab Content Section */}
+        <Box sx={{ p: 3 }}>
+          {tabValue === 0 && <Users />}
+          {tabValue === 1 && <Groups />}
+          {tabValue === 2 && <Invites />}
+        </Box>
+    </Box>
   );
 }

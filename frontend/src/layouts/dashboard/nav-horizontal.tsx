@@ -23,7 +23,7 @@ export function NavHorizontal({ data, layoutQuery, sx, ...other }: NavHorizontal
         flexDirection: 'column',
         display: { xs: 'none', [layoutQuery]: 'flex' },
         borderBottom: (theme) =>
-          `solid 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
+          `solid 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.1)}`,
         ...sx,
       }}
     >
@@ -38,9 +38,26 @@ export function NavHorizontal({ data, layoutQuery, sx, ...other }: NavHorizontal
           backgroundColor: 'var(--layout-nav-horizontal-bg)',
           backdropFilter: `blur(var(--layout-header-blur))`,
           WebkitBackdropFilter: `blur(var(--layout-header-blur))`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-start', // Changed from default to left alignment
         }}
       >
-        <NavSectionHorizontal data={data} {...other} />
+        <NavSectionHorizontal 
+          data={data} 
+          {...other}
+          sx={{
+            '--nav-item-gap': '16px', // Increase gap between items by setting CSS variable
+            '& .MuiList-root': {
+              display: 'flex',
+              justifyContent: 'flex-start', // Ensure inner list also aligns left
+            },
+            '& .MuiListItemButton-root': {
+              px: 2, // Add more horizontal padding to each item
+            },
+            width: '100%',
+          }} 
+        />
       </Box>
     </Box>
   );

@@ -1,24 +1,17 @@
 import type { AlertColor } from '@mui/material';
 
-export interface GroupPermissions {
-    [key: string]: boolean;
-}
 
 export interface AppUserGroup {
-  permissions: GroupPermissions;
   _id: string;
   name: string;
   type: string;
   orgId: string;
   users: string[];
-  modules: any[];
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
   slug: string;
   __v: number;
-
-  description?:string;
 }
 
 export interface AppUser {
@@ -40,13 +33,15 @@ export interface AppUser {
 
 export interface GroupUser {
   _id: string;
-  iamUserId: string;
+  fullName: string;
+  email: string;
   orgId: string;
+  hasLoggedIn: boolean;
   groups: {
     name: string;
     type: string;
   }[];
-  iamUser: AppUser | null;
+
 }
 
 export interface SnackbarState {

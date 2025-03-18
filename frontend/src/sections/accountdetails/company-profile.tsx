@@ -2,6 +2,7 @@ import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import React, { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAdmin } from 'src/context/AdminContext';
 
 import { LoadingButton } from '@mui/lab';
 import {
@@ -18,10 +19,11 @@ import {
   CircularProgress,
 } from '@mui/material';
 
+import { countries } from 'src/assets/data';
+
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
 
-import { usePermissions } from './context/permission-context';
 import {
   updateOrg,
   getOrgById,
@@ -29,7 +31,7 @@ import {
   uploadOrgLogo,
   deleteOrgLogo,
   getOrgIdFromToken,
-} from './context/utils';
+} from './utils';
 
 import type { SnackbarState } from './types/organization-data';
 
@@ -64,13 +66,13 @@ export default function CompanyProfile() {
   const [uploading, setUploading] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [saveChanges, setSaveChanges] = useState<boolean>(false);
-  const [snackbar, setSnackbar] = useState<SnackbarState>({
-    open: false,
-    message: '',
-    severity: undefined,
+  const [snackbar, setSnackbar] = useState<SnackbarState>({ 
+    open: false, 
+    message: '', 
+    severity: undefined 
   });
 
-  const { isAdmin } = usePermissions();
+  const { isAdmin } = useAdmin();
 
   const methods = useForm<ProfileFormData>({
     resolver: zodResolver(ProfileSchema),
@@ -88,7 +90,7 @@ export default function CompanyProfile() {
   };
 
   useEffect(() => {
-    const fetchOrgData = async (): Promise<void> => {
+    const fetchOrgData = async () : Promise<void> => {
       try {
         setLoading(true);
         const orgId = await getOrgIdFromToken();
@@ -139,7 +141,7 @@ export default function CompanyProfile() {
     fetchLogo();
   }, []);
 
-  const onSubmit = async (data: ProfileFormData): Promise<void> => {
+  const onSubmit = async (data : ProfileFormData) : Promise<void> => {
     try {
       setSaveChanges(true);
       const orgId = await getOrgIdFromToken();
@@ -157,7 +159,7 @@ export default function CompanyProfile() {
     }
   };
 
-  const handleDelete = async (): Promise<void> => {
+  const handleDelete = async () : Promise<void>  => {
     try {
       setDeleting(true);
       const orgId = await getOrgIdFromToken();
@@ -172,7 +174,7 @@ export default function CompanyProfile() {
     }
   };
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) : Promise<void> => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -216,11 +218,7 @@ export default function CompanyProfile() {
       </Typography>
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <Form
-            methods={methods}
-            onSubmit={handleSubmit(onSubmit)}
-            {...({ noValidate: true } as any)}
-          >
+          <Form methods={methods} onSubmit={handleSubmit(onSubmit)}  {...({ noValidate: true } as any)}>
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Tooltip
@@ -324,6 +322,25 @@ export default function CompanyProfile() {
                   }}
                 />
               </Grid>
+              <Grid item xs={6}>
+                <Field.Select
+                  disabled={!isAdmin}
+                  sx={{
+                    '& .MuiInputBase-input.Mui-disabled': {
+                      cursor: 'not-allowed',
+                    },
+                  }}
+                  name="permanentAddress.country"
+                  label="Country"
+                  fullWidth
+                >
+                  {countries.map((country) => (
+                    <MenuItem key={country.code} value={country.code}>
+                      {country.label}
+                    </MenuItem>
+                  ))}
+                </Field.Select>
+              </Grid>
               <Grid item xs={12}>
                 <Field.Text
                   disabled={!isAdmin}
@@ -368,7 +385,7 @@ export default function CompanyProfile() {
             </Grid>
           </Form>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={4}> 
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', mb: 2 }}>

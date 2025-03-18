@@ -1,5 +1,4 @@
 import { z as zod } from 'zod';
-import { Icon } from '@iconify/react';
 import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -12,13 +11,15 @@ import {
   Table,
   Paper,
   Alert,
+  Stack,
   Button,
   Avatar,
   Dialog,
   TableRow,
   Snackbar,
   MenuItem,
-  TextField,
+  Tooltip,
+  InputBase,
   TableBody,
   TableCell,
   TableHead,
@@ -30,12 +31,16 @@ import {
   TableContainer,
   TablePagination,
   CircularProgress,
+  useTheme,
+  alpha,
+  Chip,
 } from '@mui/material';
+import { useAdmin } from 'src/context/AdminContext';
 
+import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
 
-import { usePermissions } from '../context/permission-context';
-import { allGroups, createGroup, deleteGroup } from '../context/utils';
+import { allGroups, createGroup, deleteGroup } from '../utils';
 import { decrementGroupCount, incrementGroupCount } from '../../../store/userAndGroupsSlice';
 
 import type { AppUserGroup, SnackbarState } from '../types/group-details';
@@ -48,10 +53,11 @@ const CreateGroupSchema = zod.object({
 type CreateGroupFormData = zod.infer<typeof CreateGroupSchema>;
 
 export default function Groups() {
+  const theme = useTheme();
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [groups, setGroups] = useState<AppUserGroup[]>([]);
   const [page, setPage] = useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(5);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -66,7 +72,8 @@ export default function Groups() {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { isAdmin } = usePermissions();
+  const { isAdmin } = useAdmin();
+
   const handleSnackbarClose = () => {
     setSnackbarState({ ...snackbarState, open: false });
   };
@@ -90,7 +97,9 @@ export default function Groups() {
       setLoading(true);
       try {
         const data = await allGroups();
-        setGroups(data);
+        // Sort groups alphabetically by name for better user experience
+        const sortedGroups = [...data].sort((a, b) => a.name.localeCompare(b.name));
+        setGroups(sortedGroups);
       } catch (error) {
         console.error('Error loading groups:', error);
         setSnackbarState({
@@ -110,26 +119,29 @@ export default function Groups() {
     group.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleChangePage = (event :React.MouseEvent<HTMLButtonElement> | null, newPage: number) : void => {
+  const handleChangePage = (
+    event: React.MouseEvent<HTMLButtonElement> | null,
+    newPage: number
+  ): void => {
     setPage(newPage);
   };
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) : void => {
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
-  const handleCreateGroup = () : void => {
+  const handleCreateGroup = (): void => {
     setIsCreateModalOpen(true);
   };
 
-  const handleCloseCreateModal = () : void => {
+  const handleCloseCreateModal = (): void => {
     setIsCreateModalOpen(false);
     reset();
     setErrorMsg('');
   };
 
-  const handleDeleteGroup = async (groupId : string) : Promise<void>  => {
+  const handleDeleteGroup = async (groupId: string): Promise<void> => {
     try {
       await deleteGroup(groupId);
       setGroups((prevGroups) => prevGroups.filter((group) => group._id !== groupId));
@@ -141,163 +153,292 @@ export default function Groups() {
     }
   };
 
-  const onSubmit = async (data : CreateGroupFormData) : Promise<void>  => {
+  const onSubmit = async (data: CreateGroupFormData): Promise<void> => {
     try {
       await createGroup(data);
+      // Fetch updated groups and maintain sort order
       const updatedGroups = await allGroups();
-      setGroups(updatedGroups);
+      const sortedGroups = [...updatedGroups].sort((a, b) => a.name.localeCompare(b.name));
+      setGroups(sortedGroups);
       dispatch(incrementGroupCount());
       handleCloseCreateModal();
       setSnackbarState({ open: true, message: 'Group created successfully', severity: 'success' });
     } catch (error) {
       console.error('Error creating group:', error);
+      setErrorMsg(error.errorMessage || 'Failed to create group. Please try again.');
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
 
-  const handleMenuOpen = (event : React.MouseEvent<HTMLElement>, group : AppUserGroup) : void=> {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, group: AppUserGroup): void => {
     setMenuAnchorEl(event.currentTarget);
     setSelectedGroup(group);
   };
 
-  const handleMenuClose = () : void => {
+  const handleMenuClose = (): void => {
     setMenuAnchorEl(null);
   };
 
-  const handleRemoveGroup = () : void => {
+  const handleRemoveGroup = (): void => {
     if (selectedGroup) {
       setIsConfirmDialogOpen(true);
     }
     handleMenuClose();
   };
 
-  const handleConfirmRemoveGroup = () : void => {
+  const handleConfirmRemoveGroup = (): void => {
     if (selectedGroup) {
       handleDeleteGroup(selectedGroup._id);
     }
     setIsConfirmDialogOpen(false);
   };
 
-  const handleViewGroup = () : void => {
+  const handleViewGroup = (): void => {
     if (selectedGroup) {
       navigate(`/account/company-settings/groups/${selectedGroup._id}`);
     }
     handleMenuClose();
   };
 
-  const renderCreateGroupForm = (
-    <Box gap={0.5} display="flex" flexDirection="column" sx={{ pt: 2, width: 400 }}>
-      <Field.Text name="name" label="Group name" InputLabelProps={{ shrink: true }} />
-    </Box>
-  );
+  // Function to get a consistent color for groups
+  const getGroupColor = (name: string) => {
+    const colors = [
+      theme.palette.primary.main,
+      theme.palette.info.main,
+      theme.palette.success.main,
+      theme.palette.warning.main,
+    ];
+
+    // Simple hash function using reduce instead of for loop with i++
+    const hash = name.split('').reduce((acc, char) => char.charCodeAt(0) + (acc * 32 - acc), 0);
+
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  if (loading) {
+    return (
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        sx={{ height: 300 }}
+      >
+        <CircularProgress size={36} thickness={2.5} />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Loading groups...
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <TextField
-          placeholder="Search by group name"
-          variant="outlined"
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: <Icon icon="mdi:magnify" style={{ marginRight: '8px' }} />,
+    <Box>
+      {/* Search and Action Buttons */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        sx={{ mb: 3 }}
+      >
+        <Paper
+          elevation={0}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            width: { xs: '100%', sm: '40%' },
+            px: 2,
+            py: 0.5,
+            borderRadius: 1.5,
+            bgcolor: alpha(theme.palette.grey[500], 0.08),
+            border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
           }}
-          sx={{ width: '40%' }}
-        />
-        <Box>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Icon icon="mdi:plus" />}
-            onClick={handleCreateGroup}
-          >
-            Create Group
-          </Button>
-        </Box>
-      </Box>
+        >
+          <Iconify
+            icon="eva:search-fill"
+            width={20}
+            height={20}
+            sx={{ color: 'text.disabled', mr: 1 }}
+          />
+          <InputBase
+            placeholder="Search by group name"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            fullWidth
+            sx={{ fontSize: '0.875rem' }}
+          />
+          {searchTerm && (
+            <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.5 }}>
+              <Iconify icon="eva:close-fill" width={16} height={16} />
+            </IconButton>
+          )}
+        </Paper>
 
-      {loading ? (
-        <Box display="flex" justifyContent="center" alignItems="center" sx={{ height: 300 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <TableContainer component={Paper}>
-          <Table sx={{ minWidth: 650, mt: 3 }} aria-label="groups table">
-            <TableHead>
-              <TableRow>
-                <TableCell>GROUP</TableCell>
-                <TableCell>USERS</TableCell>
-                <TableCell align="right" sx={{ pr: 5 }}>
-                  ACTIONS
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredGroups
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<Iconify icon="eva:plus-fill" />}
+          onClick={handleCreateGroup}
+          size="medium"
+          sx={{
+            borderRadius: 1.5,
+            fontSize: '0.8125rem',
+            height: 40,
+          }}
+        >
+          Create Group
+        </Button>
+      </Stack>
+
+      {/* Groups Table */}
+      <TableContainer
+        component={Paper}
+        elevation={0}
+        sx={{
+          borderRadius: 2,
+          border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
+          mb: 2,
+          overflow: 'hidden',
+        }}
+      >
+        <Table sx={{ minWidth: 650 }} aria-label="groups table">
+          <TableHead>
+            <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.04) }}>
+              <TableCell sx={{ fontWeight: 600, py: 2 }}>GROUP</TableCell>
+              <TableCell sx={{ fontWeight: 600, py: 2 }}>MEMBERS</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600, py: 2, width: 80 }}>
+                ACTIONS
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredGroups.length > 0 ? (
+              filteredGroups
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((group) => (
-                  <TableRow key={group._id}>
+                  <TableRow
+                    key={group._id}
+                    sx={{
+                      '&:last-child td, &:last-child th': { border: 0 },
+                      '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
+                      transition: 'background-color 0.2s ease',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => navigate(`/account/company-settings/groups/${group._id}`)}
+                  >
                     <TableCell component="th" scope="row">
-                      <Box
-                        sx={{
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                        onClick={() => {
-                          navigate(`/account/company-settings/groups/${group._id}`);
-                        }}
-                      >
-                        <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                          <Icon icon="mdi:account-group" />
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Avatar
+                          sx={{
+                            bgcolor: getGroupColor(group.name),
+                            transition: 'transform 0.2s ease',
+                            '&:hover': { transform: 'scale(1.1)' },
+                          }}
+                        >
+                          <Iconify icon="mdi:account-group" width={22} height={22} />
                         </Avatar>
-                        <Typography>{group.name}</Typography>
-                      </Box>
+                        <Box>
+                          <Typography variant="subtitle2">{group.name}</Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            {group.type === 'custom' ? 'Custom' : group.type}
+                          </Typography>
+                        </Box>
+                      </Stack>
                     </TableCell>
-                    <TableCell>{group.users.length}</TableCell>
-
-                    <TableCell align="right">
-                      <IconButton onClick={(e) => handleMenuOpen(e, group)}>
-                        <Icon icon="mdi:dots-vertical" />
-                      </IconButton>
+                    <TableCell>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Chip
+                          label={group.users.length}
+                          size="small"
+                          sx={{
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            bgcolor: alpha(theme.palette.info.main, 0.08),
+                            color: theme.palette.info.main,
+                            height: 24,
+                            borderRadius: '6px',
+                          }}
+                        />
+                        <Typography variant="body2">
+                          {group.users.length === 1 ? 'user' : 'users'}
+                        </Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <Tooltip title="Group options">
+                        <IconButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMenuOpen(e, group);
+                          }}
+                          size="small"
+                          sx={{
+                            color: theme.palette.text.secondary,
+                            '&:hover': {
+                              bgcolor: alpha(theme.palette.primary.main, 0.08),
+                              color: theme.palette.primary.main,
+                            },
+                          }}
+                        >
+                          <Iconify icon="eva:more-vertical-fill" width={20} height={20} />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Iconify
+                      icon="mdi:account-group"
+                      width={40}
+                      height={40}
+                      sx={{ color: 'text.secondary', mb: 1, opacity: 0.5 }}
+                    />
+                    <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                      No groups found
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {searchTerm
+                        ? 'Try adjusting your search criteria'
+                        : 'Create a group to get started'}
+                    </Typography>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Pagination - Implemented in frontend since backend sends all groups at once */}
+      {filteredGroups.length > 0 && (
+        <TablePagination
+          component={Paper}
+          count={filteredGroups.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25, { label: 'All', value: filteredGroups.length }]}
+          sx={{
+            borderRadius: 2,
+            boxShadow: 'none',
+            border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
+            '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+              fontSize: '0.875rem',
+            },
+          }}
+        />
       )}
 
-      <TablePagination
-        component="div"
-        count={filteredGroups.length}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-      />
-
-      <Dialog open={isCreateModalOpen} onClose={handleCloseCreateModal}>
-        <DialogTitle>Create New Group</DialogTitle>
-        <Form methods={methods} onSubmit={handleSubmit(onSubmit)}>
-          <DialogContent>
-            {!!errorMsg && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {errorMsg}
-              </Alert>
-            )}
-            {renderCreateGroupForm}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseCreateModal}>Cancel</Button>
-            <Button type="submit" variant="contained" color="primary" disabled={isSubmitting}>
-              Save
-            </Button>
-          </DialogActions>
-        </Form>
-      </Dialog>
-
+      {/* Group Options Menu */}
       <Menu
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
@@ -310,50 +451,233 @@ export default function Groups() {
           vertical: 'top',
           horizontal: 'right',
         }}
+        PaperProps={{
+          elevation: 1,
+          sx: {
+            borderRadius: 2,
+            minWidth: 150,
+            boxShadow:
+              theme.customShadows?.z8 ||
+              'rgb(145 158 171 / 24%) 0px 0px 2px 0px, rgb(145 158 171 / 24%) 0px 16px 32px -4px',
+            '& .MuiMenuItem-root': {
+              fontSize: '0.875rem',
+              px: 2,
+              py: 1,
+            },
+          },
+        }}
       >
-        <MenuItem onClick={handleViewGroup}>View Group</MenuItem>
+        <MenuItem onClick={handleViewGroup}>
+          <Iconify icon="eva:eye-fill" width={20} height={20} sx={{ mr: 1.5 }} />
+          View Group
+        </MenuItem>
         <MenuItem
-          onClick={handleRemoveGroup}
           disabled={!isAdmin}
           sx={{
             '&.Mui-disabled': {
               cursor: 'not-allowed',
               pointerEvents: 'auto',
+              opacity: 0.6,
             },
+            color: theme.palette.error.main,
           }}
+          onClick={handleRemoveGroup}
         >
+          <Iconify icon="eva:trash-2-outline" width={20} height={20} sx={{ mr: 1.5 }} />
           Remove Group
         </MenuItem>
       </Menu>
 
+      {/* Create Group Dialog */}
+      <Dialog
+        open={isCreateModalOpen}
+        onClose={handleCloseCreateModal}
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            maxWidth: 480,
+            p: 0,
+          },
+        }}
+      >
+        <Box
+          sx={{
+            pt: 3,
+            px: 3,
+            pb: 1,
+            borderBottom: `1px solid ${alpha(theme.palette.grey[500], 0.12)}`,
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Avatar
+              sx={{
+                width: 48,
+                height: 48,
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                color: theme.palette.primary.main,
+              }}
+            >
+              <Iconify icon="mdi:account-group" width={24} height={24} />
+            </Avatar>
+            <Box>
+              <Typography variant="h6">Create New Group</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Create a group to organize users with similar permissions
+              </Typography>
+            </Box>
+          </Stack>
+        </Box>
+
+        <Form methods={methods} onSubmit={handleSubmit(onSubmit)}>
+          <DialogContent sx={{ pt: 3, px: 3 }}>
+            {!!errorMsg && (
+              <Alert
+                severity="error"
+                sx={{
+                  mb: 3,
+                  borderRadius: 1,
+                }}
+                onClose={() => setErrorMsg('')}
+              >
+                {errorMsg}
+              </Alert>
+            )}
+
+            <Field.Text
+              name="name"
+              label="Group Name"
+              fullWidth
+              placeholder="Enter a descriptive name for your group"
+              InputLabelProps={{ shrink: true }}
+              helperText="Group names must be unique"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 1.5,
+                },
+                mb: 2,
+              }}
+            />
+
+            <Box
+              sx={{
+                mt: 3,
+                p: 2,
+                bgcolor: alpha(theme.palette.info.main, 0.04),
+                borderRadius: 2,
+                border: `1px solid ${alpha(theme.palette.info.main, 0.12)}`,
+              }}
+            >
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Iconify
+                  icon="eva:info-fill"
+                  width={20}
+                  height={20}
+                  sx={{ color: theme.palette.info.main }}
+                />
+                <Typography variant="body2" color="text.secondary">
+                  After creating the group, you can add users and set permissions.
+                </Typography>
+              </Stack>
+            </Box>
+          </DialogContent>
+
+          <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(theme.palette.grey[500], 0.04) }}>
+            <Button
+              onClick={handleCloseCreateModal}
+              variant="outlined"
+              sx={{
+                borderRadius: 1.5,
+                px: 2,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={isSubmitting}
+              startIcon={
+                isSubmitting ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <Iconify icon="eva:plus-fill" />
+                )
+              }
+              sx={{
+                borderRadius: 1.5,
+                px: 2,
+              }}
+            >
+              {isSubmitting ? 'Creating...' : 'Create Group'}
+            </Button>
+          </DialogActions>
+        </Form>
+      </Dialog>
+
+      {/* Confirm Delete Dialog */}
       <Dialog
         open={isConfirmDialogOpen}
         onClose={() => setIsConfirmDialogOpen(false)}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            padding: 1,
+            maxWidth: 400,
+          },
+        }}
       >
-        <DialogTitle id="alert-dialog-title">Confirm Group Removal</DialogTitle>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Iconify
+              icon="eva:alert-triangle-fill"
+              width={24}
+              height={24}
+              sx={{ color: theme.palette.warning.main }}
+            />
+            <Typography variant="h6">Confirm Group Removal</Typography>
+          </Stack>
+        </DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to remove the Group ?</Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Are you sure you want to remove <strong>{selectedGroup?.name}</strong>? This will also
+            remove all users from this group.
+          </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsConfirmDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleConfirmRemoveGroup} autoFocus>
-            Confirm
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setIsConfirmDialogOpen(false)}
+            variant="outlined"
+            sx={{ borderRadius: 1 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmRemoveGroup}
+            variant="contained"
+            color="error"
+            sx={{ borderRadius: 1 }}
+          >
+            Remove
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Snackbar Alert */}
       <Snackbar
         open={snackbarState.open}
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert
           onClose={handleSnackbarClose}
           severity={snackbarState.severity}
-          sx={{ width: '100%' }}
+          variant="filled"
+          sx={{
+            width: '100%',
+            borderRadius: 1.5,
+          }}
         >
           {snackbarState.message}
         </Alert>

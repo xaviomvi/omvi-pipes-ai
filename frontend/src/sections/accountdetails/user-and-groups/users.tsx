@@ -2,12 +2,13 @@ import { Icon } from '@iconify/react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import React, { useRef, useState, useEffect } from 'react';
- 
+
 import {
   Box,
   Chip,
   Menu,
   Table,
+  Stack,
   Paper,
   Alert,
   Avatar,
@@ -17,12 +18,14 @@ import {
   TableRow,
   Snackbar,
   MenuItem,
+  Tooltip,
   TableBody,
   TableCell,
   TableHead,
   TextField,
   Typography,
   IconButton,
+  InputBase,
   DialogTitle,
   Autocomplete,
   DialogContent,
@@ -30,9 +33,12 @@ import {
   TableContainer,
   TablePagination,
   CircularProgress,
+  useTheme,
+  alpha,
 } from '@mui/material';
+import { useAdmin } from 'src/context/AdminContext';
 
-import { usePermissions } from '../context/permission-context';
+import { Iconify } from 'src/components/iconify';
 import { updateInvitesCount } from '../../../store/userAndGroupsSlice';
 import {
   allGroups,
@@ -41,7 +47,7 @@ import {
   addUsersToGroups,
   getUserIdFromToken,
   getAllUsersWithGroups,
-} from '../context/utils';
+} from '../utils';
 
 import type { SnackbarState } from '../types/organization-data';
 import type { AppUser, GroupUser, AppUserGroup, AddUserModalProps } from '../types/group-details';
@@ -54,11 +60,12 @@ interface AddUsersToGroupsModalProps {
   groups: AppUserGroup[];
 }
 
-const Users = () =>{
+const Users = () => {
+  const theme = useTheme();
   const [users, setUsers] = useState<GroupUser[]>([]);
   const [groups, setGroups] = useState<AppUserGroup[]>([]);
   const [page, setPage] = useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(5);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState<boolean>(false);
   const [isAddUsersToGroupsModalOpen, setIsAddUsersToGroupsModalOpen] = useState<boolean>(false);
@@ -77,7 +84,7 @@ const Users = () =>{
   const navigate = useNavigate();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dispatch = useDispatch();
-  const { isAdmin } = usePermissions();
+  const { isAdmin } = useAdmin();
 
   const handleSnackbarClose = () => {
     setSnackbarState({ ...snackbarState, open: false });
@@ -91,11 +98,11 @@ const Users = () =>{
         setUserId(orgId);
         const response = await getAllUsersWithGroups();
         const groupsData = await allGroups();
-        const loggedInUsers = response.filter((user) => user.iamUser?.isEmailVerified === true);
+        const loggedInUsers = response.filter((user) => user?.email !== null);
         setUsers(loggedInUsers);
         setGroups(groupsData);
       } catch (error) {
-        console.error('Error fetching users and groups:', error);
+        console.error('Error adding users to groups:', error);
         setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
       } finally {
         setLoading(false);
@@ -106,8 +113,12 @@ const Users = () =>{
   }, []);
 
   const filteredUsers = users
-    .filter((user) => user.iamUser?.fullName)
-    .filter((user) => user.iamUser?.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
+    .filter((user) => user.fullName)
+    .filter(
+      (user) =>
+        user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -139,7 +150,7 @@ const Users = () =>{
       await removeUser(deleteUserId);
       const updatedUsers = await getAllUsersWithGroups();
 
-      const loggedInUsers = updatedUsers.filter((user) => user.iamUser?.isEmailVerified === true);
+      const loggedInUsers = updatedUsers.filter((user) => user.email !== null);
       setUsers(loggedInUsers);
       setSnackbarState({ open: true, message: 'User removed successfully', severity: 'success' });
     } catch (error) {
@@ -167,7 +178,7 @@ const Users = () =>{
     try {
       const updatedUsers = await getAllUsersWithGroups();
 
-      const loggedInUsers = updatedUsers.filter((user) => user.iamUser?.isEmailVerified === true);
+      const loggedInUsers = updatedUsers.filter((user) => user?.email !== '');
       setUsers(loggedInUsers);
       setSnackbarState({
         open: true,
@@ -179,11 +190,12 @@ const Users = () =>{
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
+
   const handleUsersInvited = async () => {
     try {
       const updatedUsers = await getAllUsersWithGroups();
 
-      const loggedInUsers = updatedUsers.filter((user) => user.iamUser?.isEmailVerified === true);
+      const loggedInUsers = updatedUsers.filter((user) => user.email !== null);
       setUsers(loggedInUsers);
       setSnackbarState({
         open: true,
@@ -191,7 +203,7 @@ const Users = () =>{
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error updating users after addition to groups:', error);
+      console.error('Error updating users after invitation:', error);
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
@@ -213,134 +225,289 @@ const Users = () =>{
   };
 
   const handleConfirmRemoveUser = () => {
-    if (selectedUser && selectedUser.iamUser) {
-      handleDeleteUser(selectedUser.iamUser._id);
+    if (selectedUser && selectedUser._id) {
+      handleDeleteUser(selectedUser._id);
     }
     setIsConfirmDialogOpen(false);
   };
 
   const open = Boolean(anchorEl);
 
+  // Function to get avatar color based on name
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      theme.palette.primary.main,
+      theme.palette.info.main,
+      theme.palette.success.main,
+      theme.palette.warning.main,
+      theme.palette.error.main,
+    ];
+
+    // Simple hash function using array methods instead of for loop with i++
+    const hash = name.split('').reduce((acc, char) => char.charCodeAt(0) + (acc * 32 - acc), 0);
+
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // Get initials from full name
+  // Get initials from full name
+  const getInitials = (fullName: string) =>
+    fullName
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
+
+  if (loading) {
+    return (
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        sx={{ height: 300 }}
+      >
+        <CircularProgress size={36} thickness={2.5} />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Loading users...
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <TextField
-          placeholder="Search by user name"
-          variant="outlined"
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: <Icon icon="mdi:magnify" style={{ marginRight: '8px' }} />,
+    <Box>
+      {/* Search and Action Buttons */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        sx={{ mb: 3 }}
+      >
+        <Paper
+          elevation={0}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            width: { xs: '100%', sm: '40%' },
+            px: 2,
+            py: 0.5,
+            borderRadius: 1.5,
+            bgcolor: alpha(theme.palette.grey[500], 0.08),
+            border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
           }}
-          sx={{ width: '40%' }}
-        />
-        <Box>
+        >
+          <Iconify
+            icon="eva:search-fill"
+            width={20}
+            height={20}
+            sx={{ color: 'text.disabled', mr: 1 }}
+          />
+          <InputBase
+            placeholder="Search users by name or email"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            fullWidth
+            sx={{ fontSize: '0.875rem' }}
+          />
+          {searchTerm && (
+            <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.5 }}>
+              <Iconify icon="eva:close-fill" width={16} height={16} />
+            </IconButton>
+          )}
+        </Paper>
+
+        <Stack direction="row" spacing={1.5}>
           <Button
-            variant="contained"
+            variant="outlined"
             color="primary"
-            sx={{ mr: 2 }}
             onClick={handleAddUsersToGroups}
+            startIcon={<Iconify icon="mdi:account-group" />}
+            size="medium"
+            sx={{
+              borderRadius: 1.5,
+              fontSize: '0.8125rem',
+              height: 40,
+            }}
           >
-            Add User to Group
+            Add to Group
           </Button>
           <Button
             variant="contained"
             color="primary"
-            startIcon={<Icon icon="mdi:plus" />}
+            startIcon={<Iconify icon="eva:person-add-fill" />}
             onClick={handleAddUser}
+            size="medium"
+            sx={{
+              borderRadius: 1.5,
+              fontSize: '0.8125rem',
+              height: 40,
+            }}
           >
             Invite User
           </Button>
-        </Box>
-      </Box>
+        </Stack>
+      </Stack>
 
-      {loading ? (
-        <Box display="flex" justifyContent="center" alignItems="center" sx={{ height: 300 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <TableContainer component={Paper}>
-          <Table sx={{ minWidth: 650, mt: 3 }} aria-label="users table">
-            <TableHead>
-              <TableRow>
-                <TableCell>NAME</TableCell>
-                <TableCell>GROUPS</TableCell>
-                <TableCell>ACTIONS</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredUsers
+      {/* Users Table */}
+      <TableContainer
+        component={Paper}
+        elevation={0}
+        sx={{
+          borderRadius: 2,
+          border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
+          mb: 2,
+          overflow: 'hidden',
+        }}
+      >
+        <Table sx={{ minWidth: 650 }} aria-label="users table">
+          <TableHead>
+            <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.04) }}>
+              <TableCell sx={{ fontWeight: 600, py: 2 }}>USER</TableCell>
+              <TableCell sx={{ fontWeight: 600, py: 2 }}>GROUPS</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600, py: 2, width: 80 }}>
+                ACTIONS
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredUsers.length > 0 ? (
+              filteredUsers
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((user) => (
                   <TableRow
                     key={user._id}
-                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                    sx={{
+                      '&:last-child td, &:last-child th': { border: 0 },
+                      '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
+                      transition: 'background-color 0.2s ease',
+                    }}
                   >
                     <TableCell component="th" scope="row">
-                      {user.iamUser && (
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Avatar
-                            sx={{ mr: 2, bgcolor: 'primary.main' }}
-                            onMouseEnter={(e) => handlePopoverOpen(e, user)}
-                            onMouseLeave={handlePopoverClose}
-                          >
-                            {user.iamUser.fullName
-                              .split(' ')
-                              .map((n) => n[0])
-                              .join('')}
-                          </Avatar>
+                      {user._id && (
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                          <Tooltip title="View user details">
+                            <Avatar
+                              sx={{
+                                bgcolor: getAvatarColor(user.fullName),
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                '&:hover': { transform: 'scale(1.1)' },
+                              }}
+                              onMouseEnter={(e) => handlePopoverOpen(e, user)}
+                              onMouseLeave={handlePopoverClose}
+                            >
+                              {getInitials(user.fullName)}
+                            </Avatar>
+                          </Tooltip>
                           <Box>
-                            <Typography variant="subtitle1">{user.iamUser.fullName}</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {user.iamUser.email}
+                            <Typography variant="subtitle2">{user.fullName}</Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ fontSize: '0.75rem' }}
+                            >
+                              {user.email}
                             </Typography>
                           </Box>
-                        </Box>
+                        </Stack>
                       )}
                     </TableCell>
                     <TableCell>
-                      {user.groups.map((group, index) => (
-                        <Chip
-                          key={index}
-                          label={group.name}
-                          sx={{
-                            mr: 1,
-                            mb: 1,
-                            bgcolor: 'grey.100',
-                            color: 'text.primary',
-                            fontWeight: 'normal',
-                            '& .MuiChip-label': {
-                              padding: '2px 8px',
-                            },
-                            borderRadius: '4px',
-                            height: '24px',
-                          }}
-                          variant="outlined"
-                        />
-                      ))}
+                      <Stack direction="row" flexWrap="wrap" gap={0.75}>
+                        {user.groups.length > 0 ? (
+                          user.groups.map((group, index) => (
+                            <Chip
+                              key={index}
+                              label={group.name}
+                              size="small"
+                              sx={{
+                                fontSize: '0.75rem',
+                                fontWeight: 500,
+                                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                color: theme.palette.primary.main,
+                                height: 24,
+                                borderRadius: '6px',
+                              }}
+                            />
+                          ))
+                        ) : (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}
+                          >
+                            No groups assigned
+                          </Typography>
+                        )}
+                      </Stack>
                     </TableCell>
-                    <TableCell>
-                      <IconButton onClick={(e) => handleMenuOpen(e, user)}>
-                        <Icon icon="mdi:dots-vertical" />
+                    <TableCell align="right">
+                      <IconButton
+                        onClick={(e) => handleMenuOpen(e, user)}
+                        size="small"
+                        sx={{
+                          color: theme.palette.text.secondary,
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.08),
+                            color: theme.palette.primary.main,
+                          },
+                        }}
+                      >
+                        <Iconify icon="eva:more-vertical-fill" width={20} height={20} />
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Iconify
+                      icon="eva:people-fill"
+                      width={40}
+                      height={40}
+                      sx={{ color: 'text.secondary', mb: 1, opacity: 0.5 }}
+                    />
+                    <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                      No users found
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {searchTerm
+                        ? 'Try adjusting your search criteria'
+                        : 'Invite users to get started'}
+                    </Typography>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Pagination */}
+      {filteredUsers.length > 0 && (
+        <TablePagination
+          component={Paper}
+          count={filteredUsers.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25]}
+          sx={{
+            borderRadius: 2,
+            boxShadow: 'none',
+            border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
+            '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+              fontSize: '0.875rem',
+            },
+          }}
+        />
       )}
 
-      <TablePagination
-        component="div"
-        count={filteredUsers.length}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-      />
-
+      {/* User Menu */}
       <Menu
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
@@ -353,21 +520,55 @@ const Users = () =>{
           vertical: 'top',
           horizontal: 'right',
         }}
+        PaperProps={{
+          elevation: 1,
+          sx: {
+            borderRadius: 2,
+            minWidth: 150,
+            boxShadow:
+              theme.customShadows?.z8 ||
+              'rgb(145 158 171 / 24%) 0px 0px 2px 0px, rgb(145 158 171 / 24%) 0px 16px 32px -4px',
+            '& .MuiMenuItem-root': {
+              fontSize: '0.875rem',
+              px: 2,
+              py: 1,
+            },
+          },
+        }}
       >
+        <MenuItem
+          onClick={() => {
+            if (selectedUser?._id) {
+              if (selectedUser._id === userId) {
+                navigate('/account/company-settings/personal-profile');
+              } else {
+                navigate(`/account/company-settings/user-profile/${selectedUser._id}`);
+              }
+            }
+            handleMenuClose();
+          }}
+        >
+          <Iconify icon="eva:edit-fill" width={20} height={20} sx={{ mr: 1.5 }} />
+          Edit Profile
+        </MenuItem>
         <MenuItem
           disabled={!isAdmin}
           sx={{
             '&.Mui-disabled': {
               cursor: 'not-allowed',
               pointerEvents: 'auto',
+              opacity: 0.6,
             },
+            color: theme.palette.error.main,
           }}
           onClick={handleRemoveUser}
         >
+          <Iconify icon="eva:trash-2-outline" width={20} height={20} sx={{ mr: 1.5 }} />
           Remove User
         </MenuItem>
       </Menu>
 
+      {/* User Popover */}
       <Popover
         id="mouse-over-popover"
         sx={{ pointerEvents: 'none' }}
@@ -390,78 +591,156 @@ const Users = () =>{
             }
           },
           onMouseLeave: handlePopoverClose,
-          sx: { pointerEvents: 'auto' },
+          sx: {
+            pointerEvents: 'auto',
+            boxShadow:
+              theme.customShadows?.z16 ||
+              'rgb(145 158 171 / 24%) 0px 0px 2px 0px, rgb(145 158 171 / 24%) 0px 16px 32px -4px',
+            borderRadius: 2,
+            maxWidth: 320,
+            p: 2.5,
+          },
         }}
       >
-        {selectedUser && selectedUser.iamUser && (
-          <Box sx={{ p: 2, maxWidth: 300 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <Avatar sx={{ mr: 2, bgcolor: 'primary.main', width: 56, height: 56 }}>
-                {selectedUser.iamUser &&
-                  selectedUser.iamUser.fullName
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')}
+        {selectedUser && selectedUser._id && (
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Avatar
+                sx={{
+                  width: 64,
+                  height: 64,
+                  bgcolor: getAvatarColor(selectedUser.fullName),
+                  fontSize: '1.5rem',
+                  fontWeight: 600,
+                }}
+              >
+                {getInitials(selectedUser.fullName)}
               </Avatar>
               <Box>
-                <Typography variant="h6">{selectedUser.iamUser.fullName}</Typography>
-                {/* <Typography variant="body2" color="text.secondary">
-                  Active {selectedUser.iamUser.lastActive}
-                </Typography> */}
+                <Typography variant="h6" sx={{ mb: 0.5 }}>
+                  {selectedUser.fullName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {selectedUser.email}
+                </Typography>
               </Box>
-            </Box>
-            {/* <Typography variant="body2" paragraph>
-              {selectedUser.iamUser.jobTitle}
-            </Typography> */}
-            <Typography variant="body2" paragraph>
-              {selectedUser.iamUser.email}
-            </Typography>
+            </Stack>
+
+            {selectedUser.groups.length > 0 && (
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Groups
+                </Typography>
+                <Stack direction="row" flexWrap="wrap" gap={0.75}>
+                  {selectedUser.groups.map((group, idx) => (
+                    <Chip
+                      key={idx}
+                      label={group.name}
+                      size="small"
+                      sx={{
+                        fontSize: '0.75rem',
+                        bgcolor: alpha(theme.palette.primary.main, 0.08),
+                        color: theme.palette.primary.main,
+                      }}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            )}
+
             <Button
               variant="outlined"
+              size="small"
+              startIcon={<Iconify icon="eva:edit-fill" />}
               onClick={() => {
-                if (selectedUser.iamUser) {
-                  if (selectedUser.iamUser._id === userId) {
+                if (selectedUser._id) {
+                  if (selectedUser._id === userId) {
                     navigate('/account/company-settings/personal-profile');
                   } else {
-                    navigate(`/account/company-settings/user-profile/${selectedUser.iamUser._id}`);
+                    navigate(`/account/company-settings/user-profile/${selectedUser._id}`);
                   }
                 }
+              }}
+              sx={{
+                alignSelf: 'flex-start',
+                borderRadius: 1,
+                mt: 1,
               }}
             >
               Edit profile
             </Button>
-          </Box>
+          </Stack>
         )}
       </Popover>
 
+      {/* Confirmation Dialog */}
       <Dialog
         open={isConfirmDialogOpen}
         onClose={() => setIsConfirmDialogOpen(false)}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            padding: 1,
+            maxWidth: 400,
+          },
+        }}
       >
-        <DialogTitle id="alert-dialog-title">Confirm User Removal</DialogTitle>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Iconify
+              icon="eva:alert-triangle-fill"
+              width={24}
+              height={24}
+              sx={{ color: theme.palette.warning.main }}
+            />
+            <Typography variant="h6">Confirm User Removal</Typography>
+          </Stack>
+        </DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to remove the user ?</Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Are you sure you want to remove {selectedUser?.fullName}? This action cannot be undone.
+          </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsConfirmDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleConfirmRemoveUser} autoFocus>
-            Confirm
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setIsConfirmDialogOpen(false)}
+            variant="outlined"
+            sx={{ borderRadius: 1 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmRemoveUser}
+            variant="contained"
+            color="error"
+            sx={{ borderRadius: 1 }}
+          >
+            Remove
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={snackbarState.open} autoHideDuration={6000} onClose={handleSnackbarClose}>
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbarState.open}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
         <Alert
           onClose={handleSnackbarClose}
           severity={snackbarState.severity}
-          sx={{ width: '100%' }}
+          variant="filled"
+          sx={{
+            width: '100%',
+            borderRadius: 1.5,
+          }}
         >
           {snackbarState.message}
         </Alert>
       </Snackbar>
 
+      {/* Modals */}
       <AddUserModal
         open={isAddUserModalOpen}
         onClose={handleCloseAddUserModal}
@@ -478,9 +757,10 @@ const Users = () =>{
       />
     </Box>
   );
-}
+};
 
 function AddUserModal({ open, onClose, groups, onUsersAdded }: AddUserModalProps) {
+  const theme = useTheme();
   const [emails, setEmails] = useState<string>('');
   const [selectedGroups, setSelectedGroups] = useState<AppUserGroup[]>([]);
   const [snackbarState, setSnackbarState] = useState<SnackbarState>({
@@ -512,8 +792,29 @@ function AddUserModal({ open, onClose, groups, onUsersAdded }: AddUserModalProps
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Invite users to angewy</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          padding: 1,
+        },
+      }}
+    >
+      <DialogTitle sx={{ pb: 1 }}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Iconify
+            icon="eva:person-add-fill"
+            width={24}
+            height={24}
+            sx={{ color: theme.palette.primary.main }}
+          />
+          <Typography variant="h6">Invite users</Typography>
+        </Stack>
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
           <TextField
@@ -521,13 +822,13 @@ function AddUserModal({ open, onClose, groups, onUsersAdded }: AddUserModalProps
             label="Email addresses*"
             value={emails}
             onChange={(e) => setEmails(e.target.value)}
-            placeholder="name0@angewy.com, name1@gmail.com, name2@hyderab..."
+            placeholder="name@example.com, name2@example.com"
             multiline
             rows={2}
             sx={{ mb: 2 }}
           />
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Your team members will receive an email that grants them access to Pipeshub.
+            Your team members will receive an email with instructions to access the system.
           </Typography>
           <Autocomplete
             multiple
@@ -535,16 +836,29 @@ function AddUserModal({ open, onClose, groups, onUsersAdded }: AddUserModalProps
             getOptionLabel={(option) => option.name}
             renderInput={(params) => <TextField {...params} label="Add to groups" />}
             onChange={(event, newValue) => setSelectedGroups(newValue)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                p: 1,
+              },
+            }}
           />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             New users will inherit the permissions given to the selected groups.
           </Typography>
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleAddUsers} variant="contained" color="primary">
-          Invite
+      <DialogActions sx={{ px: 3, pb: 2, pt: 1 }}>
+        <Button onClick={onClose} variant="outlined" sx={{ borderRadius: 1 }}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleAddUsers}
+          variant="contained"
+          color="primary"
+          startIcon={<Iconify icon="eva:email-outline" />}
+          sx={{ borderRadius: 1 }}
+        >
+          Send Invites
         </Button>
       </DialogActions>
       <Snackbar open={snackbarState.open} autoHideDuration={6000} onClose={handleSnackbarClose}>
@@ -567,6 +881,7 @@ function AddUsersToGroupsModal({
   allUsers,
   groups,
 }: AddUsersToGroupsModalProps) {
+  const theme = useTheme();
   const [selectedUsers, setSelectedUsers] = useState<GroupUser[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<AppUserGroup[]>([]);
   const [snackbarState, setSnackbarState] = useState<SnackbarState>({
@@ -582,40 +897,73 @@ function AddUsersToGroupsModal({
   const handleAddUsersToGroups = async () => {
     try {
       const userIds = selectedUsers
-        .filter((user): user is GroupUser & { iamUser: AppUser } => user.iamUser !== null)
+        .filter((user): user is GroupUser & { iamUser: AppUser } => user._id !== null)
         .map((user) => user.iamUser._id);
       const groupIds = selectedGroups.map((group) => group._id);
       await addUsersToGroups({ userIds, groupIds });
       setSnackbarState({
         open: true,
-        message: 'Users added to groups succesfully',
+        message: 'Users added to groups successfully',
         severity: 'success',
       });
 
       onUsersAdded();
       onClose();
     } catch (error) {
-      console.error('Error adding users to groups:', error);
+      console.error('Error fetching users and groups:', error);
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Add Users to Groups</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          padding: 1,
+        },
+      }}
+    >
+      <DialogTitle sx={{ pb: 1 }}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Iconify
+            icon="mdi:account-group"
+            width={24}
+            height={24}
+            sx={{ color: theme.palette.primary.main }}
+          />
+          <Typography variant="h6">Add Users to Groups</Typography>
+        </Stack>
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
           {allUsers && (
             <Autocomplete<GroupUser, true>
               multiple
-              options={allUsers.filter((user) => Boolean(user.iamUser?.fullName))}
+              options={allUsers.filter((user) => Boolean(user?.fullName))}
               getOptionLabel={(option) => {
-                if (!option.iamUser) return 'Unknown User';
-                return option.iamUser.fullName;
+                if (!option._id) return 'Unknown User';
+                return option.fullName;
               }}
               renderInput={(params) => <TextField {...params} label="Select Users" />}
               onChange={(_event, newValue) => setSelectedUsers(newValue)}
               sx={{ mb: 2 }}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    label={option.fullName}
+                    {...getTagProps({ index })}
+                    sx={{
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      color: theme.palette.primary.main,
+                    }}
+                  />
+                ))
+              }
             />
           )}
           <Autocomplete
@@ -624,13 +972,33 @@ function AddUsersToGroupsModal({
             getOptionLabel={(option) => option.name}
             renderInput={(params) => <TextField {...params} label="Select Groups" />}
             onChange={(event, newValue) => setSelectedGroups(newValue)}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  label={option.name}
+                  {...getTagProps({ index })}
+                  sx={{
+                    bgcolor: alpha(theme.palette.info.main, 0.08),
+                    color: theme.palette.info.main,
+                  }}
+                />
+              ))
+            }
           />
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleAddUsersToGroups} variant="contained" color="primary">
-          Add Users to Groups
+      <DialogActions sx={{ px: 3, pb: 2, pt: 1 }}>
+        <Button onClick={onClose} variant="outlined" sx={{ borderRadius: 1 }}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleAddUsersToGroups}
+          variant="contained"
+          color="primary"
+          startIcon={<Iconify icon="eva:people-fill" />}
+          sx={{ borderRadius: 1 }}
+        >
+          Add to Groups
         </Button>
       </DialogActions>
       <Snackbar open={snackbarState.open} autoHideDuration={6000} onClose={handleSnackbarClose}>

@@ -44,7 +44,7 @@ export const createRecords =
       const userId = req.user?.userId;
       const orgId = req.user?.orgId;
       const { recordName } = req.body;
-      const isVersioned = req.body?.isVersioned || false;
+      const isVersioned = req.body?.isVersioned || true;
 
       if (!userId || !orgId) {
         throw new UnauthorizedError(

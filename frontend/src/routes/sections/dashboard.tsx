@@ -6,8 +6,6 @@ import { DashboardLayout } from 'src/layouts/dashboard';
 
 import { LoadingScreen } from 'src/components/loading-screen';
 
-import { PermissionsProvider } from 'src/sections/accountdetails/context/permission-context';
-
 import { AuthGuard } from 'src/auth/guard';
 
 // ----------------------------------------------------------------------
@@ -57,7 +55,7 @@ export const dashboardRoutes = [
       <>{layoutContent}</>
     ) : (
       <AuthGuard>
-        <PermissionsProvider>{layoutContent}</PermissionsProvider>
+        {layoutContent}
       </AuthGuard>
     ),
     children: [

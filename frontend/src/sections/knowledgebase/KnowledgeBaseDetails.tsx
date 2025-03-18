@@ -1,7 +1,7 @@
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import { Icon } from '@iconify/react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useDropzone } from 'react-dropzone';
 
@@ -29,7 +29,9 @@ import {
   DialogContent,
   DialogActions,
   FormControlLabel,
-  CircularProgress
+  CircularProgress,
+  Alert,
+  AlertTitle
 } from '@mui/material';
 
 import { useUsers } from 'src/context/UserContext';
@@ -42,6 +44,16 @@ interface ColumnVisibilityModel {
   [key: string]: boolean;
 }
 
+interface FileSizeErrorState {
+  show: boolean;
+  files: File[];
+}
+
+interface UploadErrorState {
+  show: boolean;
+  message: string;
+}
+
 const StyledButton = styled(Button)(({ theme }) => ({
   borderRadius: theme.shape.borderRadius,
   textTransform: 'none',
@@ -51,6 +63,9 @@ const StyledButton = styled(Button)(({ theme }) => ({
     boxShadow: theme.shadows[4],
   },
 }));
+
+// Maximum file size: 30MB in bytes
+const MAX_FILE_SIZE = 30 * 1024 * 1024;
 
 export default function KnowledgeBaseDetails({
   knowledgeBaseData,
@@ -65,6 +80,8 @@ export default function KnowledgeBaseDetails({
   const [openUploadDialog, setOpenUploadDialog] = useState<boolean>(false);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState<boolean>(false);
+  const [fileSizeError, setFileSizeError] = useState<FileSizeErrorState>({ show: false, files: [] });
+  const [uploadError, setUploadError] = useState<UploadErrorState>({ show: false, message: '' });
   const users = useUsers();
 
   const navigate = useNavigate();
@@ -76,16 +93,81 @@ export default function KnowledgeBaseDetails({
     }
   };
 
-  const onDrop = (acceptedFiles: File[]) => {
-    setFiles(acceptedFiles);
+  // Validate file size
+  const validateFileSize = (filesToCheck: File[]) => {
+    const oversizedFiles = filesToCheck.filter(file => file.size > MAX_FILE_SIZE);
+    return {
+      valid: oversizedFiles.length === 0,
+      oversizedFiles
+    };
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  // Modified onDrop function with file size validation
+  const onDrop = (acceptedFiles: File[]) => {
+    // Check for files exceeding size limit
+    const { valid, oversizedFiles } = validateFileSize(acceptedFiles);
+    
+    if (!valid) {
+      // Show error for oversized files
+      setFileSizeError({
+        show: true,
+        files: oversizedFiles
+      });
+      
+      // Only keep files that are within the size limit
+      const validFiles = acceptedFiles.filter(file => file.size <= MAX_FILE_SIZE);
+      setFiles(validFiles);
+    } else {
+      // All files are valid
+      setFileSizeError({ show: false, files: [] });
+      setFiles(acceptedFiles);
+    }
+  };
+
+  // Enhanced dropzone with file size validation
+  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
     multiple: true,
+    maxSize: MAX_FILE_SIZE,
+    onDropRejected: (rejectedFiles) => {
+      const oversizedFiles = rejectedFiles
+        .filter(file => file.errors.some(error => error.code === 'file-too-large'))
+        .map(file => file.file);
+      
+      if (oversizedFiles.length > 0) {
+        setFileSizeError({
+          show: true,
+          files: oversizedFiles
+        });
+      }
+    }
   });
 
-  const handleSearchInputChange = (event: any): void => {
+  // Monitor fileRejections for size issues
+  useEffect(() => {
+    if (fileRejections.length > 0) {
+      const oversizedFiles = fileRejections
+        .filter(file => file.errors.some(error => error.code === 'file-too-large'))
+        .map(file => file.file);
+      
+      if (oversizedFiles.length > 0) {
+        setFileSizeError({
+          show: true,
+          files: oversizedFiles
+        });
+      }
+    }
+  }, [fileRejections]);
+
+  const handleFileSizeErrorClose = () => {
+    setFileSizeError({ show: false, files: [] });
+  };
+
+  const handleUploadErrorClose = () => {
+    setUploadError({ show: false, message: '' });
+  };
+
+  const handleSearchInputChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     onSearchChange(event.target.value);
   };
 
@@ -471,11 +553,85 @@ export default function KnowledgeBaseDetails({
   const handleUploadDialogClose = () => {
     setOpenUploadDialog(false);
     setFiles([]);
+    setFileSizeError({ show: false, files: [] });
+    setUploadError({ show: false, message: '' });
   };
 
+  // File size error alert component
+  const FileSizeErrorAlert = () => {
+    if (!fileSizeError.show) return null;
+    
+    return (
+      <Box sx={{ mb: 3 }}>
+        <Alert 
+          severity="error" 
+          onClose={handleFileSizeErrorClose}
+          sx={{ 
+            borderRadius: '8px',
+            '& .MuiAlert-message': { width: '100%' }
+          }}
+        >
+          <AlertTitle>File size exceeds limit</AlertTitle>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            The following file(s) exceed the maximum upload size of 30MB:
+          </Typography>
+          <Box 
+            sx={{ 
+              maxHeight: '100px', 
+              overflowY: 'auto',
+              bgcolor: alpha('#f44336', 0.05),
+              borderRadius: '4px',
+              p: 1
+            }}
+          >
+            {fileSizeError.files.map((file, index) => (
+              <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
+                • {file.name} ({formatFileSize(file.size)})
+              </Typography>
+            ))}
+          </Box>
+          <Typography variant="body2" sx={{ mt: 1, fontWeight: 500 }}>
+            Please reduce file size or select different files.
+          </Typography>
+        </Alert>
+      </Box>
+    );
+  };
+
+  // Upload error alert component
+  const UploadErrorAlert = () => {
+    if (!uploadError.show) return null;
+    
+    return (
+      <Box sx={{ mb: 3 }}>
+        <Alert 
+          severity="error" 
+          onClose={handleUploadErrorClose}
+          sx={{ borderRadius: '8px' }}
+        >
+          <AlertTitle>Upload Failed</AlertTitle>
+          <Typography variant="body2">
+            {uploadError.message}
+          </Typography>
+        </Alert>
+      </Box>
+    );
+  };
+
+  // Modified handleUpload function with file size validation
   const handleUpload = async () => {
     if (files.length === 0) {
       console.error('No files selected for upload.');
+      return;
+    }
+
+    // Double-check file sizes before uploading
+    const { valid, oversizedFiles } = validateFileSize(files);
+    if (!valid) {
+      setFileSizeError({
+        show: true,
+        files: oversizedFiles
+      });
       return;
     }
 
@@ -492,8 +648,12 @@ export default function KnowledgeBaseDetails({
       handleUploadDialogClose();
       // Trigger a refresh of the knowledge base data
       onSearchChange('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading files:', error);
+      setUploadError({
+        show: true,
+        message: error.message || 'Failed to upload files. Please try again.'
+      });
     } finally {
       setUploading(false);
     }
@@ -583,7 +743,6 @@ export default function KnowledgeBaseDetails({
       <Paper
         elevation={0}
         sx={{
-          // borderRadius: '12px',
           overflow: 'hidden',
           height: 'calc(100vh - 200px)',
           display: 'flex',
@@ -866,6 +1025,12 @@ export default function KnowledgeBaseDetails({
           </DialogContent>
         ) : (
           <DialogContent sx={{ px: 3, py: 3 }}>
+            {/* File Size Error Alert */}
+            <FileSizeErrorAlert />
+            
+            {/* Upload Error Alert */}
+            <UploadErrorAlert />
+
             <Box
               {...getRootProps()}
               sx={{
@@ -907,6 +1072,9 @@ export default function KnowledgeBaseDetails({
               >
                 Select Files
               </Button>
+              <Typography variant="caption" display="block" sx={{ mt: 2, color: 'text.secondary' }}>
+                Maximum file size: 30MB
+              </Typography>
             </Box>
 
             {files.length > 0 && (
@@ -953,7 +1121,7 @@ export default function KnowledgeBaseDetails({
                     const extension = file.name.split('.').pop() || '';
                     return (
                       <Stack
-                        key={file.name}
+                        key={file.name + index}
                         direction="row"
                         alignItems="center"
                         spacing={1.5}

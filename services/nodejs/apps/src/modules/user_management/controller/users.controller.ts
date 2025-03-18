@@ -93,6 +93,7 @@ export class UserController {
           orgId: 1,
           fullName: 1,
           email: 1,
+          hasLoggedIn: 1,
           groups: {
             $map: {
               input: '$groups',

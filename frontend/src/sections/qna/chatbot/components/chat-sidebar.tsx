@@ -423,9 +423,9 @@ const ChatSidebar = ({
     >
       {/* Header */}
       <Box sx={{ p: 1.68, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <IconButton size="small" onClick={onClose}>
+        {/* <IconButton size="small" onClick={onClose}>
           <Icon icon="mdi:menu" />
-        </IconButton>
+        </IconButton> */}
         <Typography variant="h6" sx={{ flex: 1 }}>
           PipesHub Agent
         </Typography>
