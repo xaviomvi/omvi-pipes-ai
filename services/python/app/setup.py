@@ -50,20 +50,20 @@ class AppContainer(containers.DeclarativeContainer):
         
         if provider == 'azure':
             return AzureLLMConfig(
-                provider=config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'azure'),
-                model=config_service.get_config(config_node_constants.LLM_MODEL.value, 'gpt-4o'),
-                temperature=config_service.get_config(config_node_constants.LLM_TEMPERATURE.value, 0.3),
-                api_key=config_service.get_config(config_node_constants.AZURE_API_KEY.value),
-                azure_endpoint=config_service.get_config(config_node_constants.AZURE_ENDPOINT.value),
-                azure_api_version=config_service.get_config(config_node_constants.AZURE_API_VERSION.value),
-                azure_deployment=config_service.get_config(config_node_constants.AZURE_DEPLOYMENT_NAME.value, 'gpt-4o')
+                 provider= await config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'azure'),
+                model=await config_service.get_config(config_node_constants.LLM_MODEL.value, 'gpt-4o'),
+                temperature=await config_service.get_config(config_node_constants.LLM_TEMPERATURE.value, 0.3),
+                api_key=await config_service.get_config(config_node_constants.AZURE_API_KEY.value),
+                azure_endpoint=await config_service.get_config(config_node_constants.AZURE_ENDPOINT.value),
+                azure_api_version=await config_service.get_config(config_node_constants.AZURE_API_VERSION.value),
+                azure_deployment=await config_service.get_config(config_node_constants.AZURE_DEPLOYMENT_NAME.value, 'gpt-4o')
             )
         elif provider == 'openai':
             return OpenAILLMConfig(
-                provider=config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'openai'),
-                model=config_service.get_config(config_node_constants.LLM_MODEL.value, 'gpt-4o'),
-                temperature=config_service.get_config(config_node_constants.LLM_TEMPERATURE.value, 0.3),
-                api_key=config_service.get_config(config_node_constants.OPENAI_API_KEY.value),
+                provider= await config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'openai'),
+                model=await config_service.get_config(config_node_constants.LLM_MODEL.value, 'gpt-4o'),
+                temperature=await config_service.get_config(config_node_constants.LLM_TEMPERATURE.value, 0.3),
+                api_key=await config_service.get_config(config_node_constants.OPENAI_API_KEY.value),
             )
         else:
             raise ValueError(f"Invalid LLM provider: {provider}")
