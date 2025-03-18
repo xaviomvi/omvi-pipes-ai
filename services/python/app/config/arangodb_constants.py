@@ -81,3 +81,4 @@ class CollectionNames(Enum):
     APPS = 'apps'
     ORG_APP_RELATION = 'orgAppRelation'
     USER_APP_RELATION = 'userAppRelation'
+    ORG_DEPARTMENT_RELATION = 'orgDepartmentRelation'

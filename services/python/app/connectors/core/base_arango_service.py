@@ -6,6 +6,8 @@ from app.config.configuration_service import ConfigurationService
 from app.utils.logger import logger
 from app.config.arangodb_constants import CollectionNames
 from app.config.configuration_service import config_node_constants
+import uuid
+from app.config.arangodb_constants import DepartmentNames
 from app.schema.documents import (
     user_schema,
     orgs_schema,
@@ -80,6 +82,8 @@ class BaseArangoService():
             CollectionNames.APPS.value: None,
             CollectionNames.ORG_APP_RELATION.value: None,
             CollectionNames.USER_APP_RELATION.value: None,
+            CollectionNames.DEPARTMENTS.value: None,
+            CollectionNames.ORG_DEPARTMENT_RELATION.value: None,
         }
 
     async def connect(self) -> bool:
@@ -153,6 +157,12 @@ class BaseArangoService():
                     if self.db.has_collection(CollectionNames.DEPARTMENTS.value)
                     else self.db.create_collection(CollectionNames.DEPARTMENTS.value, schema=department_schema)
                 )
+                self._collections[CollectionNames.ORG_DEPARTMENT_RELATION.value] = (
+                    self.db.collection(CollectionNames.ORG_DEPARTMENT_RELATION.value)
+                    if self.db.has_collection(CollectionNames.ORG_DEPARTMENT_RELATION.value)
+                    else self.db.create_collection(CollectionNames.ORG_DEPARTMENT_RELATION.value, edge=True)
+                )
+
                 self._collections[CollectionNames.BELONGS_TO.value] = (
                     self.db.collection(CollectionNames.BELONGS_TO.value)
                     if self.db.has_collection(CollectionNames.BELONGS_TO.value)
@@ -255,7 +265,68 @@ class BaseArangoService():
                     else self.db.create_collection(CollectionNames.USER_APP_RELATION.value, edge=True, schema=user_app_relation_schema)
                 )
 
+                # Create the permissions graph
+                if not self.db.has_graph(CollectionNames.FILE_ACCESS_GRAPH.value):
+                    logger.info("🚀 Creating file access graph...")
+                    graph = self.db.create_graph(CollectionNames.FILE_ACCESS_GRAPH.value)
+
+                    # Define edge definitions for permissions and group membership
+                    graph.create_edge_definition(
+                        edge_collection=CollectionNames.PERMISSIONS.value,
+                        from_vertex_collections=[CollectionNames.RECORDS.value],
+                        to_vertex_collections=[CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value]
+                    )
+
+                    graph.create_edge_definition(
+                        edge_collection=CollectionNames.BELONGS_TO.value,
+                        from_vertex_collections=[CollectionNames.USERS.value],
+                        to_vertex_collections=[CollectionNames.GROUPS.value, CollectionNames.ORGS.value]
+                    )
+
+                    # Define edge definitions for record classifications
+                    graph.create_edge_definition(
+                        edge_collection=CollectionNames.BELONGS_TO_DEPARTMENT.value,
+                        from_vertex_collections=[CollectionNames.RECORDS.value],
+                        to_vertex_collections=[CollectionNames.DEPARTMENTS.value]
+                    )
+
+                    graph.create_edge_definition(
+                        edge_collection=CollectionNames.BELONGS_TO_CATEGORY.value,
+                        from_vertex_collections=[CollectionNames.RECORDS.value],
+                        to_vertex_collections=[CollectionNames.CATEGORIES.value, CollectionNames.SUBCATEGORIES1.value, CollectionNames.SUBCATEGORIES2.value, CollectionNames.SUBCATEGORIES3.value]
+                    )
+
+                    logger.info("✅ File access graph created successfully")
+
                 logger.info("✅ Collections initialized successfully")
+
+                # Initialize departments collection with predefined department types
+                departments = [
+                    {
+                        "_key": str(uuid.uuid4()),
+                        'departmentName': dept.value,
+                        "orgId": None
+                    }
+                    for dept in DepartmentNames
+                ]
+
+                # Bulk insert departments if not already present
+                existing_department_names = set(
+                    doc['departmentName'] for doc in self._collections[CollectionNames.DEPARTMENTS.value].all()
+                )
+
+                new_departments = [
+                    dept for dept in departments 
+                    if dept['departmentName'] not in existing_department_names
+                ]
+                
+                if new_departments:
+                    logger.info(f"🚀 Inserting {len(new_departments)} departments")
+                    self._collections[CollectionNames.DEPARTMENTS.value].insert_many(new_departments)
+                    logger.info("✅ Departments initialized successfully")
+
+                return True
+
 
                 return True
 
