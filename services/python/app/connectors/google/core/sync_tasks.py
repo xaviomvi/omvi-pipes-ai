@@ -248,7 +248,7 @@ class SyncTasks:
 
             if action == 'start':
                 logger.info("Starting sync")
-                if current_state == 'RUNNING':
+                if current_state == 'IN_PROGRESS':
                     logger.info("Sync is already running")
                     return {"status": "skipped", "message": "Sync is already running"}
 
@@ -259,7 +259,7 @@ class SyncTasks:
 
             elif action == 'pause':
                 logger.info("Pausing sync")
-                if current_state != 'RUNNING':
+                if current_state != 'IN_PROGRESS':
                     return {"status": "skipped", "message": "Sync is not running"}
 
                 # Explicitly set stop flag
@@ -269,14 +269,14 @@ class SyncTasks:
                 await asyncio.sleep(2)
 
                 # Force pause if still running
-                if current_state == 'RUNNING':
+                if current_state == 'IN_PROGRESS':
                     logger.warning("Forcing sync pause")
                     await self.gmail_sync_service.pause()
 
                 return {"status": "accepted", "message": "Sync pause operation queued"}
 
             elif action == 'resume':
-                if current_state == 'RUNNING':
+                if current_state == 'IN_PROGRESS':
                     return {"status": "skipped", "message": "Sync is already running"}
 
                 if current_state != 'PAUSED':
@@ -316,7 +316,7 @@ class SyncTasks:
 
             if action == 'start':
                 logger.info("Starting sync")
-                if current_state == 'RUNNING':
+                if current_state == 'IN_PROGRESS':
                     logger.info("Sync is already running")
                     return {"status": "skipped", "message": "Sync is already running"}
 
@@ -327,7 +327,7 @@ class SyncTasks:
 
             elif action == 'pause':
                 logger.info("Pausing sync")
-                if current_state != 'RUNNING':
+                if current_state != 'IN_PROGRESS':
                     return {"status": "skipped", "message": "Sync is not running"}
 
                 self.gmail_sync_service._stop_requested = True
@@ -344,7 +344,7 @@ class SyncTasks:
                 return {"status": "error", "message": "Failed to queue sync pause"}
 
             elif action == 'resume':
-                if current_state == 'RUNNING':
+                if current_state == 'IN_PROGRESS':
                     return {"status": "skipped", "message": "Sync is already running"}
 
                 if current_state != 'PAUSED':

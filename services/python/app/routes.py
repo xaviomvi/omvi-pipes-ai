@@ -16,7 +16,6 @@ class SearchQuery(BaseModel):
     filters: Optional[Dict[str, Any]] = None
     retrieval_mode: Optional[str] = "HYBRID"
 
-
 class SimilarDocumentQuery(BaseModel):
     document_id: str
     top_k: Optional[int] = 5

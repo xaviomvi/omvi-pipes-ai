@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 from app.config.arangodb_constants import CollectionNames, DepartmentNames
 from arango.database import TransactionDatabase
 from app.config.configuration_service import config_node_constants
+from app.schema.documents import user_schema, orgs_schema
 
 class ArangoService():
     """ArangoDB service for interacting with the database"""
@@ -134,6 +135,11 @@ class ArangoService():
                     if self.db.has_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value)
                     else self.db.create_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value, edge=True)
                 )
+                self._collections[CollectionNames.ORG_DEPARTMENT_RELATION.value] = (
+                    self.db.collection(CollectionNames.ORG_DEPARTMENT_RELATION.value)
+                    if self.db.has_collection(CollectionNames.ORG_DEPARTMENT_RELATION.value)
+                    else self.db.create_collection(CollectionNames.ORG_DEPARTMENT_RELATION.value, edge=True)
+                )
                 self._collections[CollectionNames.CATEGORIES.value] = (
                     self.db.collection(CollectionNames.CATEGORIES.value)
                     if self.db.has_collection(CollectionNames.CATEGORIES.value)
@@ -192,7 +198,7 @@ class ArangoService():
                 self._collections[CollectionNames.USERS.value] = (
                     self.db.collection(CollectionNames.USERS.value)
                     if self.db.has_collection(CollectionNames.USERS.value)
-                    else self.db.create_collection(CollectionNames.USERS.value)
+                    else self.db.create_collection(CollectionNames.USERS.value, schema=user_schema)
                 )
                 self._collections[CollectionNames.GROUPS.value] = (
                     self.db.collection(CollectionNames.GROUPS.value)
@@ -202,7 +208,7 @@ class ArangoService():
                 self._collections[CollectionNames.ORGS.value] = (
                     self.db.collection(CollectionNames.ORGS.value)
                     if self.db.has_collection(CollectionNames.ORGS.value)
-                    else self.db.create_collection(CollectionNames.ORGS.value)
+                    else self.db.create_collection(CollectionNames.ORGS.value, schema=orgs_schema)
                 )
                 self._collections[CollectionNames.ANYONE.value] = (
                     self.db.collection(CollectionNames.ANYONE.value)
@@ -289,19 +295,20 @@ class ArangoService():
                 departments = [
                     {
                         "_key": str(uuid.uuid4()),
-                        "department_name": dept.value
+                        'departmentName': dept.value,
+                        "orgId": None
                     }
                     for dept in DepartmentNames
                 ]
 
                 # Bulk insert departments if not already present
                 existing_department_names = set(
-                    doc['department_name'] for doc in self._collections[CollectionNames.DEPARTMENTS.value].all()
+                    doc['departmentName'] for doc in self._collections[CollectionNames.DEPARTMENTS.value].all()
                 )
 
                 new_departments = [
                     dept for dept in departments 
-                    if dept['department_name'] not in existing_department_names
+                    if dept['departmentName'] not in existing_department_names
                 ]
                 
                 if new_departments:
@@ -351,10 +358,10 @@ class ArangoService():
             logger.info(
                 "🚀 Retrieving internal key for external file ID %s", external_file_id)
 
-            query = """
-            FOR file IN files
-                FILTER file.externalFileId == @external_file_id
-                RETURN file._key
+            query = f"""
+            FOR record IN {CollectionNames.RECORDS.value}
+                FILTER record.externalRecordId == @external_file_id
+                RETURN record._key
             """
             db = transaction if transaction else self.db
             cursor = db.aql.execute(
@@ -393,10 +400,10 @@ class ArangoService():
             logger.info(
                 "🚀 Retrieving internal key for external message ID %s", external_message_id)
 
-            query = """
-            FOR mail IN mails
-                FILTER mail.externalMessageId == @external_message_id
-                RETURN mail._key
+            query = f"""
+            FOR doc IN {CollectionNames.RECORDS.value}
+                FILTER doc.externalRecordId == @external_message_id
+                RETURN doc._key
             """
             db = transaction if transaction else self.db
             cursor = db.aql.execute(

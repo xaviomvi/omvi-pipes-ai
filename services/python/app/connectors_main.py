@@ -81,7 +81,7 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             drive_service_needed = False
             for user in users:
                 drive_state = (await arango_service.get_user_sync_state(user['email'], 'drive') or {}).get('syncState', 'NOT_STARTED')
-                if drive_state in ['COMPLETED', 'RUNNING', 'PAUSED']:
+                if drive_state in ['COMPLETED', 'IN_PROGRESS', 'PAUSED']:
                     drive_service_needed = True
                     logger.info("Drive Service needed for org %s: %s", org_id, drive_service_needed)
                     break
@@ -96,7 +96,7 @@ async def resume_sync_services(app_container: AppContainer) -> None:
                 # Re-iterate to collect users needing sync
                 for user in users:
                     drive_state = (await arango_service.get_user_sync_state(user['email'], 'drive') or {}).get('syncState', 'NOT_STARTED')
-                    if drive_state in ['RUNNING', 'PAUSED']:
+                    if drive_state in ['IN_PROGRESS', 'PAUSED']:
                         logger.info("User %s in org %s needs Drive sync (state: %s)", 
                                   user['email'], org_id, drive_state)
                         drive_sync_needed.append(user)
@@ -105,7 +105,7 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             gmail_service_needed = False
             for user in users:
                 gmail_state = (await arango_service.get_user_sync_state(user['email'], 'gmail') or {}).get('syncState', 'NOT_STARTED')
-                if gmail_state in ['COMPLETED', 'RUNNING', 'PAUSED']:
+                if gmail_state in ['COMPLETED', 'IN_PROGRESS', 'PAUSED']:
                     gmail_service_needed = True
                     logger.info("Gmail Service needed for org %s: %s", org_id, gmail_service_needed)
                     break
@@ -121,7 +121,7 @@ async def resume_sync_services(app_container: AppContainer) -> None:
                 # Re-iterate to collect users needing sync
                 for user in users:
                     gmail_state = (await arango_service.get_user_sync_state(user['email'], 'gmail') or {}).get('syncState', 'NOT_STARTED')
-                    if gmail_state in ['RUNNING', 'PAUSED']:
+                    if gmail_state in ['IN_PROGRESS', 'PAUSED']:
                         logger.info("User %s in org %s needs Gmail sync (state: %s)", 
                                   user['email'], org_id, gmail_state)
                         gmail_sync_needed.append(user)

@@ -355,51 +355,44 @@ class ArangoService(BaseArangoService):
             if not file_key:
                 raise ValueError("File ID is required")
 
-            logger.info("🚀 Getting parents for file %s", file_key)
+            logger.info("🚀 Getting parents for record %s", file_key)
 
-            # Diagnostic query that shows results at each step
-            query = """
+            query = f"""
             LET relations = (
-                FOR rel IN @@recordRelations
-                    FILTER rel._to == @@records/@file_key
-                    RETURN {
-                        edge: rel,
-                        from_id: rel._from,
-                        to_id: rel._to
-                    }
+                FOR rel IN {CollectionNames.RECORD_RELATIONS.value}
+                    FILTER rel._to == {CollectionNames.RECORDS.value}/@file_key
+                    RETURN rel._from
             )
             
             LET parent_keys = (
                 FOR rel IN relations
-                    LET key = PARSE_IDENTIFIER(rel.from_id).key
-                    RETURN {
-                        original_id: rel.from_id,
+                    LET key = PARSE_IDENTIFIER(rel).key
+                    RETURN {{
+                        original_id: rel,
                         parsed_key: key
-                    }
+                    }}
             )
             
             LET parent_files = (
                 FOR parent IN parent_keys
-                    FOR file IN files 
-                        FILTER file._key == parent.parsed_key
-                        RETURN {
-                            key: file._key,
-                            externalFileId: file.externalFileId
-                        }
+                    FOR record IN {CollectionNames.RECORDS.value} 
+                        FILTER record._key == parent.parsed_key
+                        RETURN {{
+                            key: record._key,
+                            externalRecordId: record.externalRecordId
+                        }}
             )
             
-            RETURN {
-                input_file_key: input,
+            RETURN {{
+                input_file_key: @file_key,
                 found_relations: relations,
                 parsed_parent_keys: parent_keys,
                 found_parent_files: parent_files
-            }
+            }}
             """
 
             bind_vars = {
                 'file_key': file_key,
-                '@recordRelations': CollectionNames.RECORD_RELATIONS.value,
-                '@records': CollectionNames.RECORDS.value
             }
 
             db = transaction if transaction else self.db
@@ -410,22 +403,22 @@ class ArangoService(BaseArangoService):
             logger.info("🔍 Query diagnostic results: %s", result)
 
             if not result or not result[0]['found_relations']:
-                logger.warning("⚠️ No relations found for file %s", file_key)
+                logger.warning("⚠️ No relations found for record %s", file_key)
             if not result or not result[0]['parsed_parent_keys']:
                 logger.warning(
-                    "⚠️ No parent keys parsed for file %s", file_key)
+                    "⚠️ No parent keys parsed for record %s", file_key)
             if not result or not result[0]['found_parent_files']:
                 logger.warning(
-                    "⚠️ No parent files found for file %s", file_key)
+                    "⚠️ No parent files found for record %s", file_key)
 
             # Return just the external file IDs if everything worked
-            return [file['externalFileId'] for file in result[0]['found_parent_files']] if result else []
+            return [record['externalRecordId'] for record in result[0]['found_parent_files']] if result else []
 
         except ValueError as ve:
             logger.error(f"❌ Validation error: {str(ve)}")
             return []
         except Exception as e:
-            logger.error("❌ Error getting parents for file %s: %s",
+            logger.error("❌ Error getting parents for record %s: %s",
                          file_key, str(e))
             return []
 
@@ -1206,10 +1199,10 @@ class ArangoService(BaseArangoService):
             logger.info(
                 "🚀 Retrieving internal key for external file ID %s", external_file_id)
 
-            query = """
-            FOR file IN files
-                FILTER file.externalFileId == @external_file_id
-                RETURN file._key
+            query = f"""
+            FOR record IN {CollectionNames.RECORDS.value}
+                FILTER record.externalRecordId == @external_file_id
+                RETURN record._key
             """
 
             db = transaction if transaction else self.db
@@ -1249,10 +1242,10 @@ class ArangoService(BaseArangoService):
             logger.info(
                 "🚀 Retrieving internal key for external message ID %s", external_message_id)
 
-            query = """
-            FOR mail IN mails
-                FILTER mail.externalMessageId == @external_message_id
-                RETURN mail._key
+            query = f"""
+            FOR doc IN {CollectionNames.RECORDS.value}
+                FILTER doc.externalRecordId == @external_message_id
+                RETURN doc._key
             """
             db = transaction if transaction else self.db
             cursor = db.aql.execute(
@@ -1335,17 +1328,17 @@ class ArangoService(BaseArangoService):
                        service_type, user_email, state)
 
             # Get user key and app key based on service type
-            query = """
-            LET user = FIRST(FOR u IN @@users FILTER u.email == @email RETURN u._key)
-            LET app = FIRST(FOR a IN @@apps FILTER a.type == @service_type RETURN a._key)
+            query = f"""
+            LET user = FIRST(FOR u IN {CollectionNames.USERS.value} FILTER u.email == @email RETURN u._key)
+            LET app = FIRST(FOR a IN {CollectionNames.APPS.value} FILTER a.name == @service_type RETURN a._key)
             
-            FOR rel in @@userAppRelation
+            FOR rel in {CollectionNames.USER_APP_RELATION.value}
                 FILTER rel._from == CONCAT('users/', user)
                 AND rel._to == CONCAT('apps/', app)
-                UPDATE rel WITH {
+                UPDATE rel WITH {{
                     syncState: @state,
                     lastSyncUpdate: @timestamp
-                } IN @@userAppRelation
+                }} IN {CollectionNames.USER_APP_RELATION.value}
                 RETURN NEW
             """
 
@@ -1353,12 +1346,9 @@ class ArangoService(BaseArangoService):
                 query,
                 bind_vars={
                     'email': user_email,
-                    'service_type': service_type.upper(),
+                    'service_type': service_type,
                     'state': state,
                     'timestamp': int(datetime.now(timezone.utc).timestamp()),
-                    '@userAppRelation': CollectionNames.USER_APP_RELATION.value,
-                    '@users': CollectionNames.USERS.value,
-                    '@apps': CollectionNames.APPS.value
                 }
             )
 
@@ -1487,7 +1477,7 @@ class ArangoService(BaseArangoService):
             drive_id (str): ID of the drive to check
             
         Returns:
-            Optional[str]: Current sync state of the drive ('NOT_STARTED', 'RUNNING', 'PAUSED', 'COMPLETED', 'FAILED')
+            Optional[str]: Current sync state of the drive ('NOT_STARTED', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'FAILED')
                           or None if drive not found
         """
         try:

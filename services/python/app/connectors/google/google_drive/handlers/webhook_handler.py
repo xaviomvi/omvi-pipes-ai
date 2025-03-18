@@ -91,7 +91,7 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
                 logger.error(f"No user found for channel {channel_id}")
                 return False
 
-            user_email = token['user_email']
+            user_email = token['userEmail']
 
             # Add to user's pending notifications
             self.pending_notifications.add(json.dumps(important_headers))

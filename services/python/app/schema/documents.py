@@ -1,8 +1,27 @@
 # User schema for ArangoDB
+orgs_schema = {
+    "rule": {
+        "type": "object",
+        "properties": {
+            "_key": {"type": "string"}, # orgId
+            "accountType": {"type": "string", "enum": ["individual", "enterprise"]},
+            "name": {"type": "string"},
+            "isActive": {"type": "boolean", "default": False},
+            "createdAtTimestamp": {"type": "number"},
+            "updatedAtTimestamp": {"type": "number"},
+        },
+        "required": ["accountType", "isActive"],
+        "additionalProperties": False,
+    },
+    "level": "strict",
+    "message": "Document does not match the organization schema."
+}
+
 user_schema = {
     "rule": {
         "type": "object",
         "properties": {
+            "_key": {"type": "string"}, # userId
             "orgId": {"type": "string"},
             "firstName": {"type": "string"},
             "middleName": {"type": "string"},
@@ -32,26 +51,6 @@ user_schema = {
     "message": "Document does not match the user schema.",
 }
 
-google_user_schema = {
-    "rule": {
-        "type": "object",
-        "properties": {
-            "orgId": {"type": "string"},
-            "fullName": {"type": "string"},
-            "email": {"type": "string", "format": "email"},
-            "domain": {"type": "string"},
-            "designation": {"type": "string"},
-            "suspended": {"type": "boolean", "default": False},
-            "createdAt": {"type": "string"},
-            "isActive": {"type": "boolean", "default": False},
-        },
-        "required": ["email"],  # Required fields
-        "additionalProperties": True,  # Disallow extra fields
-    },
-    "level": "strict",  # Strict validation (reject invalid documents)
-    "message": "Document does not match the user schema.",
-}
-
 user_group_schema = {
     "rule": {
         "type": "object",
@@ -70,7 +69,7 @@ user_group_schema = {
             "createdAtTimestamp": {"type": "number"},
             # Arango collection entry
             "updatedAtTimestamp": {"type": "number"},
-            "lastSyncTimestamp": {"type": "number"},  # Arango collection entry
+            "lastSyncTimestampstamp": {"type": "number"},  # Arango collection entry
 
             "isDeletedAtSource": {"type": "boolean", "default": False},
             "deletedAtSourceTimestamp": {"type": "number"},
@@ -84,36 +83,25 @@ user_group_schema = {
     "message": "Document does not match the record group schema.",
 }
 
-google_user_groups_schema = {
+app_schema = {
     "rule": {
         "type": "object",
         "properties": {
-            "orgId": {"type": "string"},
-            "name": {"type": "string", "minLength": 1},
-            "description": {"type": "string"},
-            "createdAt": {"type": "string"},
-            "updatedAt": {"type": "string"},
+            "_key": {"type": "string"},
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "appGroup": {"type": "string"},
+            "appGroupId": {"type": "string"},
             "isActive": {"type": "boolean", "default": True},
-            "isDeleted": {"type": "boolean", "default": False},
-            "members": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "userId": {"type": "string"},
-                        "role": {"type": "string", "enum": ["admin", "member", "viewer"]},
-                    },
-                    "required": ["userId", "role"]
-                }
-            }
+            "createdAtTimestamp": {"type": "number"},
+            "updatedAtTimestamp": {"type": "number"},
         },
-        "required": ["name"],
+        "required": ["name", "type", "appGroup", "appGroupId", "isActive", "createdAtTimestamp", "updatedAtTimestamp"],
         "additionalProperties": False,
     },
     "level": "strict",
-    "message": "Document does not match the user groups schema.",
+    "message": "Document does not match the app schema.",
 }
-
 
 # Record schema for ArangoDB
 record_schema = {
@@ -124,33 +112,31 @@ record_schema = {
             "recordName": {"type": "string", "minLength": 1},
             # should be a uuid
             "externalRecordId": {"type": "string", "minLength": 1},
-            "recordType": {"type": "string", "enum": ["FILE", "WEBPAGE", "MESSAGE", "EMAIL", "OTHERS"]},
+            "externalRevisionId": {"type": ["string", "null"]},
+            "recordType": {"type": "string", "enum": ["FILE", "DRIVE", "WEBPAGE", "MESSAGE", "EMAIL", "OTHERS"]},
             "version": {"type": "number", "default": 0},
             "origin": {"type": "string", "enum": ["UPLOAD", "CONNECTOR"]},
-            "connectorName": {"type": "string", "enum": ["ONEDRIVE", "GOOGLE_DRIVE", "CONFLUENCE", "SLACK"]},
+            "connectorName": {"type": "string", "enum": ["ONEDRIVE", "GOOGLE_DRIVE", "CONFLUENCE", "GOOGLE_GMAIL", "SLACK"]},
 
             # Arango collection entry
             "createdAtTimestamp": {"type": "number"},
             # Arango collection entry
             "updatedAtTimestamp": {"type": "number"},
-            "lastSyncTimestamp": {"type": "number"},  # Arango collection entry
+            "lastSyncTimestamp": {"type": "number"},
 
-            "isDeletedAtSource": {"type": "boolean", "default": False},
-            "deletedAtSourceTimestamp": {"type": "number"},
-            "sourceCreatedAtTimestamp": {"type": "number"},
-            "sourceLastModifiedTimestamp": {"type": "number"},
+            "sourceCreatedAtTimestamp": {"type": ["number", "null"]},
+            "sourceLastModifiedTimestamp": {"type": ["number", "null"]},
 
             "isDeleted": {"type": "boolean", "default": False},
             "isArchived": {"type": "boolean", "default": False},
 
-            "lastIndexTimestamp": {"type": "number"},
-            "lastExtractionTimestamp": {"type": "number"},
+            "lastIndexTimestamp": {"type": ["number", "null"]},
+            "lastExtractionTimestamp": {"type": ["number", "null"]},
             "indexingStatus": {"type": "string", "enum": ["NOT_STARTED", "IN_PROGRESS", "FAILED", "COMPLETED"]},
             "extractionStatus": {"type": "string", "enum": ["NOT_STARTED", "IN_PROGRESS", "FAILED", "COMPLETED"]},
-            "isLatestVersion": {"type": "boolean", "default": False},
-            # Needs re-indexing
-            "isDirty": {"type": "boolean", "default": True},
-            "reason": {"type": "string"}  # fail reason, didn't index reason
+            "isLatestVersion": {"type": "boolean", "default": True},
+            "isDirty": {"type": "boolean", "default": False}, # needs re indexing
+            "reason": {"type": ["string", "null"]}  # fail reason, didn't index reason
         },
         "required": ["recordName", "externalRecordId", "recordType", "origin", "createdAtTimestamp"],
         "additionalProperties": False,
@@ -164,12 +150,11 @@ file_record_schema = {
     "rule": {
         "type": "object",
         "properties": {
-            "orgId": {"type": "string"},
             "name": {"type": "string", "minLength": 1},
             "isFile": {"type": "boolean"},
             "extension": {"type": ["string", "null"]},
             "mimeType": {"type": ["string", "null"]},
-            "sizeInBytes": {"type": "number"},
+            "sizeInBytes": {"type": ["string", "null"]},
             "webUrl": {"type": "string"},
             "etag": {"type": ["string", "null"]},
             "ctag": {"type": ["string", "null"]},
@@ -187,6 +172,41 @@ file_record_schema = {
     "message": "Document does not match the file record schema.",
 }
 
+drive_record_schema = {
+    "rule": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "isFile": {"type": "boolean"},
+        },
+    },
+}
+
+mail_record_schema = {
+    "rule": {
+        "type": "object",
+        "properties": {
+            "threadId": {"type": "string"},
+            "isParent": {"type": "boolean", "default": False},
+            "internalDate": {"type": "string"},
+            "subject": {"type": "string"},
+            "date": {"type": "string"},
+            "from": {"type": "string"},
+            "to": {"type": "array", "items": {"type": "string"}},
+            "cc": {"type": "array", "items": {"type": "string"}},
+            "bcc": {"type": "array", "items": {"type": "string"}},
+            "messageIdHeader": {"type": "string"},
+            "historyId": {"type": "string"},
+            "webUrl": {"type": "string"},
+            "labelIds": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["threadId", "isParent"],
+        "additionalProperties": False,
+    },
+    "level": "strict",
+    "message": "Document does not match the mail record schema.",
+}
+
 record_group_schema = {
     "rule": {
         "type": "object",
@@ -200,7 +220,7 @@ record_group_schema = {
 
             "createdAtTimestamp": {"type": "number"},  # Arango record entry
             "updatedAtTimestamp": {"type": "number"},  # Arango record entry
-            "lastSyncTimestamp": {"type": "number"},  # Arango record entry
+            "lastSyncTimestampstamp": {"type": "number"},  # Arango record entry
 
             "isDeletedAtSource": {"type": "boolean", "default": False},
             "deletedAtSourceTimestamp": {"type": "number"},
@@ -212,4 +232,18 @@ record_group_schema = {
     },
     "level": "strict",
     "message": "Document does not match the record group schema.",
+}
+
+department_schema = {
+    "rule": {
+        "type": "object",
+        "properties": {
+            "departmentName": {"type": "string", "minLength": 1},
+            "orgId": {"type": ["string", "null"]},
+        },
+        "required": ["departmentName"],
+        "additionalProperties": False,
+    },
+    "level": "strict",
+    "message": "Document does not match the department schema."
 }

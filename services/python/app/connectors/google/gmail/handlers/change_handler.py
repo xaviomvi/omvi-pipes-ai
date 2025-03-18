@@ -9,7 +9,7 @@ class GmailChangeHandler:
         self.config_service = config_service
         self.arango_service = arango_service
 
-    async def process_changes(self, user_service, changes) -> bool:
+    async def process_changes(self, user_service, changes, org_id) -> bool:
         """Process changes since last sync time"""
         logger.info("🚀 Processing changes")
         try:
@@ -35,27 +35,60 @@ class GmailChangeHandler:
 
                         # Extract headers
                         headers = message_data.get('headers', {})
-
-                        # Create message record
+                        
                         message_record = {
                             '_key': str(uuid.uuid4()),
-                            'externalMessageId': message_id,
                             'threadId': message_data.get('threadId'),
+                            'isParent': message_data.get('threadId') == message_id,  # Check if threadId and messageId are same
                             'internalDate': message_data.get('internalDate'),
                             'subject': headers.get('Subject', 'No Subject'),
                             'from': headers.get('From'),
                             'to': headers.get('To', '').split(', '),
                             'cc': headers.get('Cc', '').split(', '),
                             'bcc': headers.get('Bcc', '').split(', '),
+                            'messageIdHeader': headers.get('Message-ID', None),
                             'historyId': message_data.get('historyId'),
+                            'webUrl': f"https://mail.google.com/mail?authuser={{user.email}}#all/{message_id}",
                             'labelIds': message_data.get('labelIds', []),
-                            'lastSyncTime': int(datetime.now(timezone.utc).timestamp())
                         }
+
+                        record = {
+                            "_key": message_record['_key'],
+                            "orgId": org_id,
+                            
+                            "recordName": headers.get('Subject', 'No Subject'),
+                            "externalRecordId": message_id,
+                            "externalRevisionId": None,
+
+                            "recordType": "MESSAGE",
+                            "version": 0,
+                            "origin": "CONNECTOR",
+                            "connectorName": "GOOGLE_GMAIL",
+
+                            "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                            "updatedAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                            "lastSyncTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                            "sourceCreatedAtTimestamp": message.get('internalDate'),
+                            "sourceLastModifiedTimestamp": message.get('internalDate'),
+                            
+                            "isDeleted": False,
+                            "isArchived": False,
+                            
+                            "lastIndexTimestamp": None,
+                            "lastExtractionTimestamp": None,
+
+                            "indexingStatus": "NOT_STARTED",
+                            "extractionStatus": "NOT_STARTED",
+                            "isLatestVersion": True,
+                            "isDirty": False,
+                            "reason": None
+                        }
+
 
                         # Start transaction
                         txn = self.arango_service.db.begin_transaction(
-                            read=[CollectionNames.MAILS.value, CollectionNames.ATTACHMENTS.value, CollectionNames.PERMISSIONS.value],
-                            write=[CollectionNames.MAILS.value, CollectionNames.ATTACHMENTS.value, CollectionNames.PERMISSIONS.value]
+                            read=[CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.ATTACHMENTS.value, CollectionNames.PERMISSIONS.value],
+                            write=[CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.ATTACHMENTS.value, CollectionNames.PERMISSIONS.value]
                         )
 
                         try:
@@ -63,6 +96,11 @@ class GmailChangeHandler:
                             await self.arango_service.batch_upsert_nodes(
                                 [message_record],
                                 collection=CollectionNames.MAILS.value,
+                                transaction=txn
+                            )
+                            await self.arango_service.batch_upsert_nodes(
+                                [record],
+                                collection=CollectionNames.RECORDS.value,
                                 transaction=txn
                             )
 
@@ -77,7 +115,7 @@ class GmailChangeHandler:
                                         'mimeType': attachment.get('mimeType'),
                                         'filename': attachment.get('filename'),
                                         'size': attachment.get('size'),
-                                        'lastSyncTime': int(datetime.now(timezone.utc).timestamp())
+                                        'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp())
                                     }
                                     attachment_records.append(
                                         attachment_record)

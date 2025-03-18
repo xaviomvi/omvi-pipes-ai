@@ -188,7 +188,7 @@ class DriveUserService:
 
             logger.info("✅ Found %s files in folder %s and its subfolders",
                         len(all_files), folder_id)
-            logger.debug("All files: %s", all_files)
+            # logger.debug("All files: %s", all_files)
             return all_files
 
         except Exception as e:
@@ -242,7 +242,7 @@ class DriveUserService:
                 webhook_expiration_minutes = await self.config.get_config(config_node_constants.WEBHOOK_EXPIRATION_MINUTES.value)
                 webhook_base_url = await self.config.get_config(config_node_constants.WEBHOOK_BASE_URL.value)
 
-                webhook_url = f"{webhook_base_url.rstrip('/')}/webhook/drive"
+                webhook_url = f"{webhook_base_url.rstrip('/')}/drive/webhook"
 
                 # Set expiration to 7 days (maximum allowed by Google)
                 expiration_time = datetime.now(
@@ -611,7 +611,7 @@ class DriveUserService:
 
 
     @exponential_backoff()
-    async def get_drive_info(self, drive_id: str) -> dict:
+    async def get_drive_info(self, drive_id: str, org_id: str) -> dict:
         """Get drive information for root or shared drive
 
         Args:
@@ -640,27 +640,30 @@ class DriveUserService:
                         'access_level': 'writer',  # Default to writer for root drive
                         'isShared': False
                     },
-                    'file_record': {
-                        '_key': drive_key,
-                        'externalFileId': response.get('id', 'root'),  # Use actual drive ID
-                        'fileName': response.get('name', 'My Drive'),
-                        'mimeType': response.get('mimeType', 'application/vnd.google-apps.folder'),
-                        'isFolder': True,
-                    },
                     'record': {
                         '_key': drive_key,
+                        'orgId': org_id,  
                         'recordName': response.get('name', 'My Drive'),
+                        'externalRecordId': response.get('id', 'root'),
+                        'externalRevisionId': '0',
                         'recordType': 'DRIVE',
                         'version': 0,
+                        'origin': 'CONNECTOR',
+                        'connectorName': 'GOOGLE_DRIVE',
                         'createdAtTimestamp': current_time,
                         'updatedAtTimestamp': current_time,
-                        'sourceCreatedAtTimestamp': current_time,  # Use current time since not provided
-                        'sourceLastModifiedTimestamp': current_time,  # Use current time since not provided
-                        'externalRecordId': None,
-                        'recordSource': 'CONNECTOR',
-                        'connectorName': 'GOOGLE_DRIVE',
+                        'lastSyncTimestamp': current_time,
+                        'sourceCreatedAtTimestamp': 0,
+                        'sourceLastModifiedTimestamp': 0,
                         'isArchived': False,
-                        'lastSyncTime': current_time
+                        'isDeleted': False,
+                        'isDirty': True,
+                        'indexingStatus': 'NOT_STARTED',
+                        'extractionStatus': 'NOT_STARTED',
+                        'lastIndexTimestamp': 0,
+                        'lastExtractionTimestamp': 0,
+                        'isLatestVersion': False,
+                        'reason': None
                     }
                 }
             else:
@@ -682,27 +685,27 @@ class DriveUserService:
                         'access_level': 'writer' if response.get('capabilities', {}).get('canEdit') else 'reader',
                         'isShared': True
                     },
-                    'file_record': {
-                        '_key': drive_key,
-                        'externalFileId': response.get('id'),
-                        'fileName': response.get('name'),
-                        'mimeType': 'application/vnd.google-apps.folder',
-                        'isFolder': True,
-                    },
                     'record': {
                         '_key': drive_key,
-                        'recordName': response.get('name'),
+                        'orgId': org_id,  # Added as per schema
+                        'recordName': response.get('name', 'My Drive'),
                         'recordType': 'DRIVE',
+                        'externalRecordId': response.get('id', 'root'),
+                        'externalRevisionId': response.get('id', 'root'),
+                        'origin': 'CONNECTOR',
+                        'connectorName': 'GOOGLE_DRIVE',
                         'version': 0,
                         'createdAtTimestamp': current_time,
                         'updatedAtTimestamp': current_time,
-                        'sourceCreatedAtTimestamp': int(self.parse_timestamp(response.get('createdTime')).timestamp()),
-                        'sourceLastModifiedTimestamp': int(self.parse_timestamp(response.get('createdTime')).timestamp()),
-                        'externalRecordId': None,
-                        'recordSource': 'CONNECTOR',
-                        'connectorName': 'GOOGLE_DRIVE',
+                        'lastSyncTimestamp': current_time,
+                        'sourceCreatedAtTimestamp': current_time,
+                        'sourceLastModifiedTimestamp': current_time,
                         'isArchived': False,
-                        'lastSyncTime': current_time
+                        'isDeleted': False,    # Added as per schema
+                        'isDirty': True,       # Added as per schema
+                        'isLatestVersion': False,  # Added as per schema
+                        'indexingStatus': 'NOT_STARTED',  # Added as per schema
+                        'extractionStatus': 'NOT_STARTED'  # Added as per schema
                     }
                 }
 

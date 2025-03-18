@@ -203,11 +203,22 @@ class IndividualGmailWebhookHandler(AbstractGmailWebhookHandler):
                 changes = await user_service.fetch_gmail_changes(email_address, current_history_id)
 
                 await self.arango_service.store_channel_history_id(changes, email_address)
+                
+                user_id = await self.arango_service.get_entity_id_by_email(email_address)
+                # Get org_id from belongsTo relation for this user
+                query = f"""
+                FOR edge IN belongsTo
+                    FILTER edge._from == 'users/{user_id}'
+                    AND edge.entityType == 'ORGANIZATION'
+                    RETURN PARSE_IDENTIFIER(edge._to).key
+                """
+                cursor = self.arango_service.db.aql.execute(query)
+                org_id = next(cursor, None)
 
                 if changes:
                     logger.info("%s webhook: Found %s changes to process",
                                 self.handler_type, len(changes))
-                    await self.change_handler.process_changes(changes, email_address)
+                    await self.change_handler.process_changes(user_service, changes, org_id)
                 else:
                     logger.info("%s webhook: No changes to process",
                                 self.handler_type)
@@ -293,11 +304,23 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                 changes = await user_service.fetch_gmail_changes(email_address, current_history_id)
 
                 await self.arango_service.store_channel_history_id(changes, email_address)
+                
+                user_id = await self.arango_service.get_entity_id_by_email(email_address)
+                # Get org_id from belongsTo relation for this user
+                query = f"""
+                FOR edge IN belongsTo
+                    FILTER edge._from == 'users/{user_id}'
+                    AND edge.entityType == 'ORGANIZATION'
+                    RETURN PARSE_IDENTIFIER(edge._to).key
+                """
+                cursor = self.arango_service.db.aql.execute(query)
+                org_id = next(cursor, None)
+
 
                 if changes:
                     logger.info("%s webhook: Found %s changes to process",
                                 self.handler_type, len(changes))
-                    await self.change_handler.process_changes(user_service, changes)
+                    await self.change_handler.process_changes(user_service, changes, org_id)
                 else:
                     logger.info("%s webhook: No changes to process",
                                 self.handler_type)
@@ -321,7 +344,7 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                     changes = await user_service.get_changes()
                     if changes:
                         for change in changes:
-                            await self.change_handler.process_change(change, user_service)
+                            await self.change_handler.process_change(change, user_service, org_id)
                         success_count += 1
                 except Exception as e:
                     logger.error("Error processing user %s: %s",
