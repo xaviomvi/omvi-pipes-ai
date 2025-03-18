@@ -20,11 +20,11 @@ import {
   DialogActions,
   CircularProgress,
 } from '@mui/material';
+import { useAdmin } from 'src/context/AdminContext';
 
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
 
-import { usePermissions } from './context/permission-context';
 import {
   updateUser,
   getUserById,
@@ -33,7 +33,7 @@ import {
   uploadUserLogo,
   changePassword,
   getUserIdFromToken,
-} from './context/utils';
+} from './utils';
 
 import type { SnackbarState } from './types/organization-data';
 
@@ -78,7 +78,7 @@ export default function PersonalProfile() {
   });
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState<boolean>(false);
   const [saveChanges, setSaveChanges] = useState<boolean>(false);
-  const { isAdmin } = usePermissions(); 
+  const { isAdmin } = useAdmin(); 
 
   const methods = useForm<ProfileFormData>({
     resolver: zodResolver(ProfileSchema),

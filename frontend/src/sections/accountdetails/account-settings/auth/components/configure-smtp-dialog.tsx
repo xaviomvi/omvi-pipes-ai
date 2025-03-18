@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-
 import {
   Box,
   Dialog,
@@ -14,9 +13,7 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-
 import SmtpConfigForm from './smtp-config-form';
-
 import type { SmtpConfigFormRef } from './smtp-config-form';
 
 interface ConfigureSmtpDialogProps {
@@ -53,45 +50,20 @@ const ConfigureSmtpDialog: React.FC<ConfigureSmtpDialogProps> = ({ open, onClose
   return (
     <Dialog
       open={open}
-      onClose={!isSaving ? onClose : undefined}
+      onClose={onClose}
+      fullWidth
       maxWidth="md"
-      PaperProps={{
-        elevation: 5,
-        sx: {
-          borderRadius: 2,
-          width: '100%',
-          maxWidth: 600,
-        },
-      }}
+      aria-labelledby="configure-smtp-dialog-title"
     >
-      <DialogTitle
-        sx={{
-          pb: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Iconify icon="eva:email-outline" width={22} height={22} />
-          <Typography variant="h6" component="span">
+      <DialogTitle id="configure-smtp-dialog-title" sx={{ pb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="h6" component="div">
             Configure SMTP
           </Typography>
+          <IconButton edge="end" color="inherit" onClick={onClose} aria-label="close">
+            <Iconify icon="eva:close-outline" />
+          </IconButton>
         </Box>
-        <IconButton
-          edge="end"
-          onClick={onClose}
-          disabled={isSaving}
-          aria-label="close"
-          sx={{
-            color: theme.palette.text.secondary,
-            '&:hover': {
-              backgroundColor: theme.palette.action.hover,
-            },
-          }}
-        >
-          <Iconify icon="eva:close-outline" />
-        </IconButton>
       </DialogTitle>
 
       <Divider />
@@ -109,33 +81,17 @@ const ConfigureSmtpDialog: React.FC<ConfigureSmtpDialogProps> = ({ open, onClose
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button
           onClick={onClose}
-          disabled={isSaving}
-          variant="outlined"
-          sx={{
-            borderRadius: 1,
-            borderColor: theme.palette.divider,
-            color: theme.palette.text.primary,
-            '&:hover': {
-              borderColor: theme.palette.text.secondary,
-              backgroundColor: theme.palette.action.hover,
-            },
-          }}
+          variant="text"
+          color="inherit"
+          sx={{ color: theme.palette.text.secondary }}
         >
           Cancel
         </Button>
         <Button
           onClick={handleSave}
-          disabled={!isFormValid || isSaving}
           variant="contained"
-          color="primary"
-          sx={{
-            borderRadius: 1,
-            boxShadow: 'none',
-            '&:hover': {
-              boxShadow: 'none',
-              backgroundColor: theme.palette.primary.dark,
-            },
-          }}
+          disabled={!isFormValid || isSaving}
+          sx={{ px: 3, borderRadius: 1 }}
         >
           {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>

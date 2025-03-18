@@ -21,9 +21,7 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import LlmConfigStep from './llm-config';
 import SmtpConfigStep from './smtp-config';
-import {
-  storageTypes,
-} from './types';
+import { storageTypes } from './types';
 import StorageConfigStep from './storage-config';
 import ConnectorConfigStep from './connector-config';
 
@@ -33,7 +31,8 @@ import type {
   StorageFormValues,
   AzureLlmFormValues,
   OpenAILlmFormValues,
-  ConnectorFormValues} from './types';
+  ConnectorFormValues,
+} from './types';
 
 // Updated steps to include Storage
 const steps: string[] = ['LLM', 'Storage', 'Connector', 'SMTP'];
@@ -380,7 +379,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       setSubmissionSuccess(false);
 
       console.log('Submitting configurations...');
-      console.log('LLM Values:', llmValues); // LLM is now required
+      console.log('LLM Values:', llmValues);
       console.log('Storage Values:', storageValues);
       console.log('Connector Skipped:', skipSteps.connector, 'Connector Values:', connectorValues);
       console.log('SMTP Skipped:', skipSteps.smtp, 'SMTP Values:', smtpValues || smtpData);
@@ -402,8 +401,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       if (skipSteps.storage && !storageValues) {
         const defaultLocalStorage: StorageFormValues = {
           storageType: storageTypes.LOCAL,
-          mountName: '',
-          baseUrl: '',
         };
         setStorageValues(defaultLocalStorage);
       }
@@ -411,26 +408,46 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       const apiCalls = [];
 
       // Prepare LLM config API call (always required)
-      // Prepare LLM config API call (always required)
       const llmConfig = {
         llm: [
           {
             name: llmValues!.modelType === 'openai' ? 'OpenAI' : 'Azure OpenAI',
-            configuration:
-              llmValues!.modelType === 'openai'
-                ? {
-                    // OpenAI configuration
-                    clientId: (llmValues as OpenAILlmFormValues).clientId,
-                    apiKey: llmValues!.apiKey,
-                    model: llmValues!.model,
-                  }
-                : {
-                    // Azure OpenAI configuration
-                    endpoint: (llmValues as AzureLlmFormValues).endpoint,
-                    apiKey: llmValues!.apiKey,
-                    deploymentName: (llmValues as AzureLlmFormValues).deploymentName,
-                    model: llmValues!.model,
-                  },
+            configuration: (() => {
+              // For OpenAI config
+              if (llmValues!.modelType === 'openai') {
+                const config: any = {
+                  apiKey: llmValues!.apiKey,
+                  model: llmValues!.model,
+                };
+
+                // Only include clientId if it has a value
+                const clientId = (llmValues as OpenAILlmFormValues).clientId;
+                if (clientId && clientId.trim() !== '') {
+                  config.clientId = clientId;
+                }
+
+                return config;
+              }
+
+              // For Azure OpenAI config (no else needed)
+              const config: any = {
+                apiKey: llmValues!.apiKey,
+                model: llmValues!.model,
+              };
+
+              // Only include fields with values
+              const azureValues = llmValues as AzureLlmFormValues;
+
+              if (azureValues.endpoint && azureValues.endpoint.trim() !== '') {
+                config.endpoint = azureValues.endpoint;
+              }
+
+              if (azureValues.deploymentName && azureValues.deploymentName.trim() !== '') {
+                config.deploymentName = azureValues.deploymentName;
+              }
+
+              return config;
+            })(),
           },
         ],
         // Include other model types with empty arrays to match API format
@@ -444,39 +461,66 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       console.log('Adding LLM API call with config:', llmConfig);
       apiCalls.push(axios.post(`${API_BASE_URL}/aiModelsConfig`, llmConfig));
 
-      // Prepare Storage config API call - we'll always have storage values now
-      // (either user-entered or default local)
+      // Prepare Storage config API call
       if (storageValues) {
         // Prepare the payload based on storage type
-        let storageConfig: any;
+        let storageConfig: any = {
+          storageType: storageValues.storageType,
+        };
 
         switch (storageValues.storageType) {
           case storageTypes.S3:
+            // S3 fields are all required
             storageConfig = {
-              storageType: storageValues.storageType,
+              ...storageConfig,
               s3AccessKeyId: storageValues.s3AccessKeyId,
               s3SecretAccessKey: storageValues.s3SecretAccessKey,
               s3Region: storageValues.s3Region,
               s3BucketName: storageValues.s3BucketName,
             };
             break;
+
           case storageTypes.AZURE_BLOB:
+            // Add required Azure fields
             storageConfig = {
-              storageType: storageValues.storageType,
-              endpointProtocol: storageValues.endpointProtocol || 'https',
+              ...storageConfig,
               accountName: storageValues.accountName,
               accountKey: storageValues.accountKey,
-              endpointSuffix: storageValues.endpointSuffix || 'core.windows.net',
               containerName: storageValues.containerName,
             };
+
+            // Set default values first, then override if custom values provided
+            storageConfig.endpointProtocol = 'https';
+            storageConfig.endpointSuffix = 'core.windows.net';
+
+            // Only add optional fields if they have values
+            if (storageValues.endpointProtocol && storageValues.endpointProtocol.trim() !== '') {
+              storageConfig.endpointProtocol = storageValues.endpointProtocol;
+            }
+
+            if (storageValues.endpointSuffix && storageValues.endpointSuffix.trim() !== '') {
+              storageConfig.endpointSuffix = storageValues.endpointSuffix;
+            }
             break;
+
+          case storageTypes.LOCAL:
+            // Only add optional fields if they have values
+            if (storageValues.mountName && storageValues.mountName.trim() !== '') {
+              storageConfig.mountName = storageValues.mountName;
+            }
+
+            if (storageValues.baseUrl && storageValues.baseUrl.trim() !== '') {
+              storageConfig.baseUrl = storageValues.baseUrl;
+            }
+            break;
+
           default:
-            // Local storage
-            storageConfig = {
-              storageType: storageTypes.LOCAL,
-              mountName: storageValues.mountName || '',
-              baseUrl: storageValues.baseUrl || '',
-            };
+            // This shouldn't happen as storageType is validated by the form
+            // Use a type assertion to handle the potentially unknown storage type
+            console.warn(
+              `Unknown storage type: ${(storageValues as any).storageType}, using default config`
+            );
+            break;
         }
 
         console.log('Adding Storage API call with config:', storageConfig);
@@ -498,15 +542,32 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             formData.append('file', serviceCredentialsFile);
 
             if (connectorValues.googleWorkspace?.serviceCredentials) {
-              // If we have parsed data from the file, include it
-              const serviceAccount = {
-                clientId: connectorValues.googleWorkspace.clientId,
-                clientEmail: connectorValues.googleWorkspace.clientEmail,
-                privateKey: connectorValues.googleWorkspace.privateKey,
-                projectId: connectorValues.googleWorkspace.projectId,
-              };
+              // If we have parsed data from the file, only include non-empty fields
+              const serviceAccount: any = {};
 
-              formData.append('serviceAccount', JSON.stringify(serviceAccount));
+              // Only add fields with values
+              const gwValues = connectorValues.googleWorkspace;
+
+              if (gwValues.clientId && gwValues.clientId.trim() !== '') {
+                serviceAccount.clientId = gwValues.clientId;
+              }
+
+              if (gwValues.clientEmail && gwValues.clientEmail.trim() !== '') {
+                serviceAccount.clientEmail = gwValues.clientEmail;
+              }
+
+              if (gwValues.privateKey && gwValues.privateKey.trim() !== '') {
+                serviceAccount.privateKey = gwValues.privateKey;
+              }
+
+              if (gwValues.projectId && gwValues.projectId.trim() !== '') {
+                serviceAccount.projectId = gwValues.projectId;
+              }
+
+              // Only append if we have at least one field
+              if (Object.keys(serviceAccount).length > 0) {
+                formData.append('serviceAccount', JSON.stringify(serviceAccount));
+              }
             }
 
             console.log('Adding Google Workspace API call with file for business account');
@@ -519,39 +580,59 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             );
           }
         } else if (
-          connectorValues.googleWorkspace?.clientId &&
-          connectorValues.googleWorkspace?.clientSecret &&
+          connectorValues.googleWorkspace?.clientId ||
+          connectorValues.googleWorkspace?.clientSecret ||
           connectorValues.googleWorkspace?.redirectUri
         ) {
           // Individual account with manual entry or file upload (that populated form fields)
-          const payload = {
-            clientId: connectorValues.googleWorkspace.clientId,
-            clientSecret: connectorValues.googleWorkspace.clientSecret,
-            redirectUri: connectorValues.googleWorkspace.redirectUri,
-          };
+          const payload: any = {};
+          const gwValues = connectorValues.googleWorkspace;
 
-          console.log('Adding Google Workspace OAuth config API call for individual account');
-          apiCalls.push(
-            axios.post(`${API_BASE_URL}/connectors/googleWorkspaceOauthConfig`, payload, {
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            })
-          );
+          // Only add fields with values
+          if (gwValues.clientId && gwValues.clientId.trim() !== '') {
+            payload.clientId = gwValues.clientId;
+          }
+
+          if (gwValues.clientSecret && gwValues.clientSecret.trim() !== '') {
+            payload.clientSecret = gwValues.clientSecret;
+          }
+
+          if (gwValues.redirectUri && gwValues.redirectUri.trim() !== '') {
+            payload.redirectUri = gwValues.redirectUri;
+          }
+
+          // Only make the API call if we have at least one field
+          if (Object.keys(payload).length > 0) {
+            console.log('Adding Google Workspace OAuth config API call for individual account');
+            apiCalls.push(
+              axios.post(`${API_BASE_URL}/connectors/googleWorkspaceOauthConfig`, payload, {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              })
+            );
+          }
         }
       }
 
       // Prepare SMTP config API call if not skipped and has values
-      // Either use the provided smtpData or the stored smtpValues
       const finalSmtpData = smtpData || smtpValues;
       if (!skipSteps.smtp && finalSmtpData) {
-        const smtpConfig = {
+        // Create base config with required fields
+        const smtpConfig: any = {
           host: finalSmtpData.host,
           port: Number(finalSmtpData.port),
-          username: finalSmtpData.username || undefined,
-          password: finalSmtpData.password || undefined,
           fromEmail: finalSmtpData.fromEmail,
         };
+
+        // Only add optional fields if they have values
+        if (finalSmtpData.username && finalSmtpData.username.trim() !== '') {
+          smtpConfig.username = finalSmtpData.username;
+        }
+
+        if (finalSmtpData.password && finalSmtpData.password.trim() !== '') {
+          smtpConfig.password = finalSmtpData.password;
+        }
 
         console.log('Adding SMTP API call with config:', smtpConfig);
         apiCalls.push(axios.post(`${API_BASE_URL}/smtpConfig`, smtpConfig));

@@ -232,7 +232,7 @@ export default function RecordDetails() {
                 >
                   Edit
                 </Button>
-                <Button
+                {/* <Button
                   onClick={toggleChat}
                   variant="outlined"
                   size="small"
@@ -246,7 +246,7 @@ export default function RecordDetails() {
                   }}
                 >
                   {isChatOpen ? 'Close Assistant' : 'Open chat'}
-                </Button>
+                </Button> */}
               </Stack>
             </Box>
 
@@ -728,11 +728,11 @@ export default function RecordDetails() {
         {recordData && recordData.record && recordData.knowledgeBase && (
           <EditRecordDialog
             open={isEditDialogOpen}
-            initialName={record.recordName}
             onClose={() => setIsEditDialogOpen(false)}
             onRecordUpdated={refreshRecordData}
             storageDocumentId = {record.externalRecordId}
             recordId = {record._key}
+            record = {record}
           />
         )}
       </Box>

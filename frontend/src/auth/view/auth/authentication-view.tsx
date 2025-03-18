@@ -448,7 +448,7 @@ export const AuthenticationView = () => {
           <CardContent sx={{ pt: 5, pb: 5 }}>
             <Box sx={{ mb: 5, textAlign: 'center' }}>
               <Typography variant="h4" sx={{ mb: 1, fontWeight: 700 }}>
-                Welcome back
+                Welcome 
               </Typography>
 
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>

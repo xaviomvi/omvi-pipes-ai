@@ -24,8 +24,8 @@ import {
 
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
+import { useAdmin } from 'src/context/AdminContext';
 
-import { usePermissions } from './context/permission-context';
 import {
   updateUser,
   getUserById,
@@ -33,7 +33,7 @@ import {
   deleteUserLogo,
   uploadUserLogo,
   changePassword,
-} from './context/utils';
+} from './utils';
 
 import type { SnackbarState } from './types/organization-data';
 
@@ -78,7 +78,7 @@ export default function UserProfile() {
   });
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState<boolean>(false);
   const [saveChanges, setSaveChanges] = useState<boolean>(false);
-  const { isAdmin } = usePermissions();
+  const { isAdmin } = useAdmin();
 
   const location = useLocation();
   const pathSegments = location.pathname.split('/');

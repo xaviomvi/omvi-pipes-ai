@@ -7,6 +7,7 @@ import { Provider } from 'react-redux';
 import { Router } from 'src/routes/sections';
 
 import { useScrollToTop } from 'src/hooks/use-scroll-to-top';
+import { AdminProvider } from 'src/context/AdminContext';
 
 import { LocalizationProvider } from 'src/locales';
 import { I18nProvider } from 'src/locales/i18n-provider';
@@ -35,12 +36,14 @@ export default function App() {
           <Provider store={store}>
             <SettingsProvider settings={defaultSettings}>
               <ThemeProvider>
-                <MotionLazy>
-                  <Snackbar />
-                  <ProgressBar />
-                  <SettingsDrawer />
-                  <Router />
-                </MotionLazy>
+                <AdminProvider>
+                  <MotionLazy>
+                    <Snackbar />
+                    <ProgressBar />
+                    <SettingsDrawer />
+                    <Router />
+                  </MotionLazy>
+                </AdminProvider>
               </ThemeProvider>
             </SettingsProvider>
           </Provider>

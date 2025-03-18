@@ -1,4 +1,3 @@
-import { Icon } from '@iconify/react';
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 
@@ -11,7 +10,6 @@ import {
   Button,
   Avatar,
   Dialog,
-  Switch,
   Popover,
   TableRow,
   Snackbar,
@@ -19,7 +17,8 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TextField,
+  Tooltip,
+  Breadcrumbs,
   Typography,
   IconButton,
   DialogTitle,
@@ -29,44 +28,45 @@ import {
   TableContainer,
   TablePagination,
   Link as MuiLink,
-  FormControlLabel,
   CircularProgress,
+  Stack,
+  Chip,
+  useTheme,
+  alpha,
+  TextField,
 } from '@mui/material';
+import { useAdmin } from 'src/context/AdminContext';
 
 import { Iconify } from 'src/components/iconify';
 
-import { usePermissions } from '../context/permission-context';
 import {
-  removeUser,
+  removeUserFromGroup,
   fetchAllUsers,
   addUsersToGroups,
   fetchGroupDetails,
   getUserIdFromToken,
-  getPermissionSchema,
   getAllUsersWithGroups,
-  updateGroupPermissions,
-  getGroupPermissionsById,
-} from '../context/utils';
+} from '../utils';
 
-import type { PermissionSchema } from '../types/permissions';
 import type { SnackbarState } from '../types/organization-data';
 import type {
   AppUser,
   GroupUser,
   AppUserGroup,
-  GroupPermissions,
   EditGroupModalProps,
   AddUsersToGroupsModalProps,
 } from '../types/group-details';
 
 export default function GroupDetails() {
+  const theme = useTheme();
   const navigate = useNavigate();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [group, setGroup] = useState<AppUserGroup | null>(null);
   const [groupUsers, setGroupUsers] = useState<AppUser[]>([]);
   const [page, setPage] = useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(5);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
@@ -75,17 +75,16 @@ export default function GroupDetails() {
   const [userId, setUserId] = useState<string | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [snackbarState, setSnackbarState] = useState<SnackbarState>({
     open: false,
     message: '',
     severity: 'success',
   });
-  const { isAdmin } = usePermissions();
+  const { isAdmin } = useAdmin();
 
   const location = useLocation();
-
   const pathSegments = location?.pathname?.split('/') || [];
-
   const groupId = pathSegments.length > 0 ? pathSegments[pathSegments.length - 1] : null;
 
   const handleSnackbarClose = (): void => {
@@ -95,27 +94,37 @@ export default function GroupDetails() {
   const filterGroupUsers = (users: AppUser[], groupUserIds: string[]): AppUser[] =>
     users.filter((user: AppUser) => groupUserIds.includes(user._id));
 
+  // Filter users based on search term
+  const filteredUsers = groupUsers.filter(
+    (user) =>
+      user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
         const orgId = await getUserIdFromToken();
         setUserId(orgId);
         const groupData = await fetchGroupDetails(groupId);
         const allUsers = await fetchAllUsers();
 
-        const loggedInUsers = allUsers.filter((user) => user?.isEmailVerified === true);
-        const filteredUsers = filterGroupUsers(loggedInUsers, groupData.users);
+        const loggedInUsers = allUsers.filter((user) => user?.email !== null);
+        const filteredUsersList = filterGroupUsers(loggedInUsers, groupData.users);
         const response = await getAllUsersWithGroups();
         setNewUsers(response);
         setGroup(groupData);
-        setGroupUsers(filteredUsers);
+        setGroupUsers(filteredUsersList);
       } catch (error) {
         console.error('Error fetching data:', error);
         setSnackbarState({
           open: true,
-          message: error.errorMessage,
+          message: error.errorMessage || 'Error fetching group data',
           severity: 'error',
         });
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -164,6 +173,7 @@ export default function GroupDetails() {
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false);
   };
+
   const handleAddUsers = () => {
     setIsAddUsersModalOpen(true);
   };
@@ -188,25 +198,33 @@ export default function GroupDetails() {
   };
 
   const handleUsersAdded = async () => {
-    // const updatedUsers = await getAllUsersWithGroups();
-    // set(updatedUsers);
+    // Refresh user data after adding users
+    try {
+      const groupData = await fetchGroupDetails(groupId);
+      const allUsers = await fetchAllUsers();
+      const loggedInUsers = allUsers.filter((user) => user?.email !== null);
+      const filteredUsersList = filterGroupUsers(loggedInUsers, groupData.users);
+      setGroupUsers(filteredUsersList);
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
   };
 
   const handleDeleteUser = async (deleteUserId: string) => {
     try {
-      await removeUser(deleteUserId);
+      await removeUserFromGroup(deleteUserId, groupId);
 
       setGroupUsers((prevGroupUsers) => prevGroupUsers.filter((user) => user._id !== deleteUserId));
       setSnackbarState({
         open: true,
-        message: 'User removed successfully',
+        message: 'User removed from group successfully',
         severity: 'success',
       });
     } catch (error) {
       console.error('Error removing user:', error);
       setSnackbarState({
         open: true,
-        message: error.errorMessage,
+        message: error.errorMessage || 'Error removing user',
         severity: 'error',
       });
     }
@@ -214,95 +232,369 @@ export default function GroupDetails() {
 
   const open = Boolean(anchorEl);
 
-  if (!group) return <CircularProgress color="primary" sx={{ mt: 3, ml: 3 }} />;
+  // Function to get avatar color based on name
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      theme.palette.primary.main,
+      theme.palette.info.main,
+      theme.palette.success.main,
+      theme.palette.warning.main,
+      theme.palette.error.main,
+    ];
+
+    // Simple hash function using array methods instead of for loop with i++
+    const hash = name.split('').reduce((acc, char) => char.charCodeAt(0) + (acc * 32 - acc), 0);
+
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // Get initials from full name
+  const getInitials = (fullName: string) =>
+    fullName
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
+
+  if (isLoading) {
+    return (
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        sx={{ height: 400, width: '100%' }}
+      >
+        <CircularProgress size={40} thickness={2.5} />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Loading group details...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (!group) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="text.secondary">
+          Group not found
+        </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<Iconify icon="eva:arrow-back-fill" />}
+          onClick={() => navigate('/account/company-settings/groups')}
+          sx={{ mt: 2 }}
+        >
+          Back to Groups
+        </Button>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography
-        variant="h5"
-        gutterBottom
-        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-      >
-        <MuiLink
-          component={RouterLink}
-          to={-1 as any}
-          sx={{ textDecoration: 'none', color: '#909190', cursor: 'pointer' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.textDecoration = 'underline';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.textDecoration = 'none';
+    <Box sx={{ p: 5 }}>
+      {/* Header with Breadcrumbs */}
+      <Stack spacing={3} sx={{ mb: 4 }}>
+        <Breadcrumbs
+          separator={<Iconify icon="eva:chevron-right-outline" width={16} height={16} />}
+          aria-label="breadcrumb"
+        >
+          <MuiLink
+            component={RouterLink}
+            to="/account/company-settings/groups"
+            underline="hover"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              color: 'text.secondary',
+              '&:hover': { color: 'text.primary' },
+            }}
+          >
+            <Iconify icon="eva:people-outline" width={18} height={18} sx={{ mr: 0.5 }} />
+            Groups
+          </MuiLink>
+          <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
+            {group.name}
+          </Typography>
+        </Breadcrumbs>
+
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Avatar
+              sx={{
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                color: theme.palette.primary.main,
+                width: 48,
+                height: 48,
+              }}
+            >
+              <Iconify icon="eva:people-outline" width={24} height={24} />
+            </Avatar>
+            <Box>
+              <Typography variant="h4">{group.name}</Typography>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
+                <Chip
+                  size="small"
+                  label={`${groupUsers.length} ${groupUsers.length === 1 ? 'Member' : 'Members'}`}
+                  sx={{
+                    height: 24,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    color: theme.palette.primary.main,
+                  }}
+                />
+                {group.type && (
+                  <Chip
+                    size="small"
+                    label={group.type === 'custom' ? 'Custom Group' : group.type}
+                    sx={{
+                      height: 24,
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      bgcolor: alpha(theme.palette.info.main, 0.1),
+                      color: theme.palette.info.main,
+                    }}
+                  />
+                )}
+              </Stack>
+            </Box>
+          </Stack>
+
+          <Stack direction="row" spacing={1.5}>
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="eva:person-add-fill" />}
+              onClick={handleAddUsers}
+              sx={{ borderRadius: 1.5 }}
+            >
+              Add Users
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<Iconify icon="eva:edit-fill" />}
+              onClick={handleEditGroup}
+              sx={{ borderRadius: 1.5 }}
+            >
+              Edit Group
+            </Button>
+          </Stack>
+        </Stack>
+      </Stack>
+
+      {/* Search Field */}
+      {groupUsers.length > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            width: { xs: '100%', sm: '40%' },
+            px: 2,
+            py: 0.5,
+            mb: 3,
+            borderRadius: 1.5,
+            bgcolor: alpha(theme.palette.grey[500], 0.08),
+            border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
           }}
         >
-          Groups
-        </MuiLink>
-        <Iconify icon="weui:arrow-filled" /> {group.name}
-      </Typography>
+          <Iconify
+            icon="eva:search-fill"
+            width={20}
+            height={20}
+            sx={{ color: 'text.disabled', mr: 1 }}
+          />
+          <TextField
+            placeholder="Search members"
+            variant="standard"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            fullWidth
+            InputProps={{
+              disableUnderline: true,
+            }}
+            sx={{
+              '& .MuiInputBase-input': {
+                py: 1,
+                fontSize: '0.875rem',
+              },
+            }}
+          />
+          {searchTerm && (
+            <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.5 }}>
+              <Iconify icon="eva:close-fill" width={16} height={16} />
+            </IconButton>
+          )}
+        </Paper>
+      )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">
-          {groupUsers.length} User{groupUsers.length !== 1 && 's'}
-        </Typography>
-        <Box>
-          <Button variant="outlined" sx={{ mr: 2 }} onClick={handleAddUsers}>
+      {/* Empty State */}
+      {groupUsers.length === 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 5,
+            textAlign: 'center',
+            borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
+          }}
+        >
+          <Iconify
+            icon="eva:people-outline"
+            width={48}
+            height={48}
+            sx={{ color: 'text.disabled', opacity: 0.5 }}
+          />
+          <Typography variant="h6" sx={{ mt: 2 }}>
+            No Users in this Group
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1, mb: 3 }}>
+            Add users to this group to get started
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Iconify icon="eva:person-add-fill" />}
+            onClick={handleAddUsers}
+            sx={{ borderRadius: 1.5 }}
+          >
             Add Users
           </Button>
-          <Button variant="contained" color="primary" onClick={handleEditGroup}>
-            Edit Group
-          </Button>
-        </Box>
-      </Box>
-      <Typography variant="body1" sx={{ mb: 3 }}>
-        {group.description}
-      </Typography>
+        </Paper>
+      )}
 
-      <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="users table">
-          <TableHead>
-            <TableRow>
-              <TableCell>USER</TableCell>
-              <TableCell align="right">ACTIONS</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {groupUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((user) => (
-              <TableRow key={user._id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                <TableCell component="th" scope="row">
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Avatar
-                      sx={{ mr: 2, bgcolor: 'primary.main' }}
-                      onMouseEnter={(e) => handlePopoverOpen(e, user)}
-                      onMouseLeave={handlePopoverClose}
-                    >
-                      {user.fullName[0]}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="subtitle1">{user.fullName}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {user.email}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </TableCell>
-                <TableCell align="right">
-                  <IconButton onClick={(e) => handleMenuOpen(e, user)}>
-                    <Icon icon="mdi:dots-vertical" />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <TablePagination
-        component="div"
-        count={groupUsers.length}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-      />
+      {/* Users Table */}
+      {groupUsers.length > 0 && (
+        <>
+          <TableContainer
+            component={Paper}
+            elevation={0}
+            sx={{
+              borderRadius: 2,
+              border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
+              mb: 2,
+              overflow: 'hidden',
+            }}
+          >
+            <Table sx={{ minWidth: 650 }} aria-label="group members table">
+              <TableHead>
+                <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.04) }}>
+                  <TableCell sx={{ fontWeight: 600, py: 2 }}>USER</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600, py: 2, width: 80 }}>
+                    ACTIONS
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredUsers.length > 0 ? (
+                  filteredUsers
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((user) => (
+                      <TableRow
+                        key={user._id}
+                        sx={{
+                          '&:last-child td, &:last-child th': { border: 0 },
+                          '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell component="th" scope="row">
+                          <Stack direction="row" alignItems="center" spacing={2}>
+                            <Tooltip title="View user details">
+                              <Avatar
+                                sx={{
+                                  bgcolor: getAvatarColor(user.fullName),
+                                  cursor: 'pointer',
+                                  transition: 'transform 0.2s ease',
+                                  '&:hover': { transform: 'scale(1.1)' },
+                                }}
+                                onMouseEnter={(e) => handlePopoverOpen(e, user)}
+                                onMouseLeave={handlePopoverClose}
+                              >
+                                {getInitials(user.fullName)}
+                              </Avatar>
+                            </Tooltip>
+                            <Box>
+                              <Typography variant="subtitle2">{user.fullName}</Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ fontSize: '0.75rem' }}
+                              >
+                                {user.email}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="User options">
+                            <IconButton
+                              onClick={(e) => handleMenuOpen(e, user)}
+                              size="small"
+                              sx={{
+                                color: theme.palette.text.secondary,
+                                '&:hover': {
+                                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                  color: theme.palette.primary.main,
+                                },
+                              }}
+                            >
+                              <Iconify icon="eva:more-vertical-fill" width={20} height={20} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Iconify
+                          icon="eva:search-outline"
+                          width={40}
+                          height={40}
+                          sx={{ color: 'text.secondary', mb: 1, opacity: 0.5 }}
+                        />
+                        <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                          No users found
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                          Try adjusting your search criteria
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
+          {/* Pagination */}
+          <TablePagination
+            component={Paper}
+            count={filteredUsers.length}
+            page={page}
+            onPageChange={handleChangePage}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            rowsPerPageOptions={[5, 10, 25, { label: 'All', value: filteredUsers.length }]}
+            sx={{
+              borderRadius: 2,
+              boxShadow: 'none',
+              border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
+              '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+                fontSize: '0.875rem',
+              },
+            }}
+          />
+        </>
+      )}
+
+      {/* User Popover */}
       <Popover
         id="mouse-over-popover"
         sx={{ pointerEvents: 'none' }}
@@ -325,30 +617,51 @@ export default function GroupDetails() {
             }
           },
           onMouseLeave: handlePopoverClose,
-          sx: { pointerEvents: 'auto' },
+          sx: {
+            pointerEvents: 'auto',
+            boxShadow:
+              theme.customShadows?.z16 ||
+              'rgb(145 158 171 / 24%) 0px 0px 2px 0px, rgb(145 158 171 / 24%) 0px 16px 32px -4px',
+            borderRadius: 2,
+            p: 2.5,
+            maxWidth: 320,
+          },
         }}
       >
         {selectedUser && (
-          <Box sx={{ p: 2, maxWidth: 300 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <Avatar sx={{ mr: 2, bgcolor: 'primary.main', width: 56, height: 56 }}>
-                {selectedUser.fullName[0]}
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Avatar
+                sx={{
+                  width: 64,
+                  height: 64,
+                  bgcolor: getAvatarColor(selectedUser.fullName),
+                  fontSize: '1.5rem',
+                  fontWeight: 600,
+                }}
+              >
+                {getInitials(selectedUser.fullName)}
               </Avatar>
               <Box>
-                <Typography variant="h6">{selectedUser.fullName}</Typography>
-                {/* <Typography variant="body2" color="text.secondary">
-                  Active {selectedUser.lastActive}
-                </Typography> */}
+                <Typography variant="h6" sx={{ mb: 0.5 }}>
+                  {selectedUser.fullName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {selectedUser.email}
+                </Typography>
               </Box>
-            </Box>
-            {/* <Typography variant="body2" paragraph>
-              {selectedUser.jobTitle}
-            </Typography> */}
-            <Typography variant="body2" paragraph>
-              {selectedUser.email}
-            </Typography>
+            </Stack>
+
+            {selectedUser.designation && (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {selectedUser.designation}
+              </Typography>
+            )}
+
             <Button
               variant="outlined"
+              size="small"
+              startIcon={<Iconify icon="eva:edit-fill" />}
               onClick={() => {
                 if (selectedUser._id === userId) {
                   navigate('/account/company-settings/personal-profile');
@@ -356,28 +669,19 @@ export default function GroupDetails() {
                   navigate(`/account/company-settings/user-profile/${selectedUser._id}`);
                 }
               }}
+              sx={{
+                alignSelf: 'flex-start',
+                borderRadius: 1,
+                mt: 1,
+              }}
             >
               Edit profile
             </Button>
-          </Box>
+          </Stack>
         )}
       </Popover>
 
-      <AddUsersToGroupsModal
-        open={isAddUsersModalOpen}
-        onClose={handleCloseAddUsers}
-        onUsersAdded={handleUsersAdded}
-        allUsers={newUsers}
-        group={groupId}
-      />
-
-      <EditGroupModal
-        open={isEditModalOpen}
-        onClose={handleCloseEditModal}
-        groupId={groupId}
-        groupName={group.name}
-      />
-
+      {/* User Options Menu */}
       <Menu
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
@@ -390,44 +694,136 @@ export default function GroupDetails() {
           vertical: 'top',
           horizontal: 'right',
         }}
+        PaperProps={{
+          elevation: 1,
+          sx: {
+            borderRadius: 2,
+            minWidth: 150,
+            boxShadow:
+              theme.customShadows?.z8 ||
+              'rgb(145 158 171 / 24%) 0px 0px 2px 0px, rgb(145 158 171 / 24%) 0px 16px 32px -4px',
+            '& .MuiMenuItem-root': {
+              fontSize: '0.875rem',
+              px: 2,
+              py: 1,
+            },
+          },
+        }}
       >
         <MenuItem
-          onClick={handleRemoveUser}
+          onClick={() => {
+            if (selectedUser?._id) {
+              if (selectedUser._id === userId) {
+                navigate('/account/company-settings/personal-profile');
+              } else {
+                navigate(`/account/company-settings/user-profile/${selectedUser._id}`);
+              }
+            }
+            handleMenuClose();
+          }}
+        >
+          <Iconify icon="eva:edit-fill" width={20} height={20} sx={{ mr: 1.5 }} />
+          Edit Profile
+        </MenuItem>
+        <MenuItem
           disabled={!isAdmin}
           sx={{
             '&.Mui-disabled': {
               cursor: 'not-allowed',
               pointerEvents: 'auto',
+              opacity: 0.6,
             },
+            color: theme.palette.error.main,
           }}
+          onClick={handleRemoveUser}
         >
-          Remove User
+          <Iconify icon="eva:person-remove-outline" width={20} height={20} sx={{ mr: 1.5 }} />
+          Remove from Group
         </MenuItem>
       </Menu>
 
+      {/* Add Users Modal */}
+      <AddUsersToGroupsModal
+        open={isAddUsersModalOpen}
+        onClose={handleCloseAddUsers}
+        onUsersAdded={handleUsersAdded}
+        allUsers={newUsers}
+        group={groupId}
+        theme={theme}
+      />
+
+      {/* Edit Group Modal */}
+      <EditGroupModal
+        open={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        groupId={groupId}
+        groupName={group.name}
+        theme={theme}
+      />
+
+      {/* Confirmation Dialog */}
       <Dialog
         open={isConfirmDialogOpen}
         onClose={() => setIsConfirmDialogOpen(false)}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            padding: 1,
+            maxWidth: 400,
+          },
+        }}
       >
-        <DialogTitle id="alert-dialog-title">Confirm User Removal</DialogTitle>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Iconify
+              icon="eva:alert-triangle-fill"
+              width={24}
+              height={24}
+              sx={{ color: theme.palette.warning.main }}
+            />
+            <Typography variant="h6">Remove User from Group</Typography>
+          </Stack>
+        </DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to remove the user ?</Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Are you sure you want to remove <strong>{selectedUser?.fullName}</strong> from the{' '}
+            <strong>{group.name}</strong> group?
+          </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsConfirmDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleConfirmRemoveUser} autoFocus>
-            Confirm
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setIsConfirmDialogOpen(false)}
+            variant="outlined"
+            sx={{ borderRadius: 1 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmRemoveUser}
+            variant="contained"
+            color="error"
+            sx={{ borderRadius: 1 }}
+          >
+            Remove
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={snackbarState.open} autoHideDuration={6000} onClose={handleSnackbarClose}>
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbarState.open}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
         <Alert
           onClose={handleSnackbarClose}
           severity={snackbarState.severity}
-          sx={{ width: '100%' }}
+          variant="filled"
+          sx={{
+            width: '100%',
+            borderRadius: 1.5,
+          }}
         >
           {snackbarState.message}
         </Alert>
@@ -436,94 +832,131 @@ export default function GroupDetails() {
   );
 }
 
-function EditGroupModal({ open, onClose, groupId, groupName }: EditGroupModalProps) {
-  const [permissionSchema, setPermissionSchema] = useState<PermissionSchema[]>([]);
-  const [groupPermissions, setGroupPermissions] = useState<GroupPermissions>({});
+function EditGroupModal({
+  open,
+  onClose,
+  groupId,
+  groupName,
+  theme,
+}: EditGroupModalProps & { theme: any }) {
   const [snackbarState, setSnackbarState] = useState<SnackbarState>({
     open: false,
     message: '',
     severity: 'success',
   });
+
   const handleSnackbarClose = () => {
     setSnackbarState({ ...snackbarState, open: false });
   };
 
-  useEffect(() => {
-    const fetchPermissions = async () => {
-      try {
-        const schema = await getPermissionSchema();
-        const group = await getGroupPermissionsById(groupId);
-        setPermissionSchema(schema);
-        setGroupPermissions(group.permissions);
-      } catch (error) {
-        console.error('Error fetching permissions:', error);
-        setSnackbarState({
-          open: true,
-          message: error.errorMessage,
-          severity: 'error',
-        });
-      }
-    };
-
-    if (open) {
-      fetchPermissions();
-    }
-  }, [open, groupId]);
-
-  const handlePermissionChange = (flag: string) => {
-    setGroupPermissions((prev) => ({
-      ...prev,
-      [flag]: !prev[flag],
-    }));
-  };
-
   const handleSave = async () => {
     try {
-      const updatedPermissions = { permissions: groupPermissions };
-      await updateGroupPermissions(groupId, updatedPermissions);
       setSnackbarState({
         open: true,
-        message: 'Permissions updated successfully',
+        message: 'Group updated successfully',
         severity: 'success',
       });
       onClose();
     } catch (error) {
-      console.error('Error updating permissions:', error);
+      console.error('Error updating group:', error);
       setSnackbarState({
         open: true,
-        message: error.errorMessage,
+        message: error.errorMessage || 'Error updating group',
         severity: 'error',
       });
     }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Edit {groupName}</DialogTitle>
-      <DialogContent>
-        <Typography variant="h6" gutterBottom>
-          GENERAL PERMISSIONS
-        </Typography>
-        {permissionSchema.map((permission) => (
-          <Box key={permission.flag} sx={{ mb: 2 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={groupPermissions[permission.flag] || false}
-                  onChange={() => handlePermissionChange(permission.flag)}
-                />
-              }
-              label={permission.fieldName}
-            />
-            <Typography variant="body2" color="text.secondary">
-              {permission.description}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          p: 0,
+        },
+      }}
+    >
+      <Box
+        sx={{
+          pt: 3,
+          px: 3,
+          pb: 1,
+          borderBottom: `1px solid ${alpha(theme.palette.grey[500], 0.12)}`,
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Avatar
+            sx={{
+              width: 48,
+              height: 48,
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
+              color: theme.palette.primary.main,
+            }}
+          >
+            <Iconify icon="eva:edit-fill" width={24} height={24} />
+          </Avatar>
+          <Box>
+            <Typography variant="h6">Edit Group</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Update settings for {groupName}
             </Typography>
           </Box>
-        ))}
+        </Stack>
+      </Box>
+
+      <DialogContent sx={{ pt: 3, px: 3 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Group editing functionality is coming soon. You will be able to update group settings,
+          permissions and more.
+        </Typography>
+
+        <Box
+          sx={{
+            mt: 2,
+            p: 2,
+            bgcolor: alpha(theme.palette.info.main, 0.04),
+            borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette.info.main, 0.12)}`,
+          }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Iconify
+              icon="eva:info-fill"
+              width={20}
+              height={20}
+              sx={{ color: theme.palette.info.main }}
+            />
+            <Typography variant="body2" color="text.secondary">
+              This feature is currently under development.
+            </Typography>
+          </Stack>
+        </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained" color="primary">
+
+      <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(theme.palette.grey[500], 0.04) }}>
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          sx={{
+            borderRadius: 1.5,
+            px: 2,
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSave}
+          variant="contained"
+          color="primary"
+          sx={{
+            borderRadius: 1.5,
+            px: 2,
+          }}
+        >
           Save Changes
         </Button>
       </DialogActions>
@@ -531,7 +964,8 @@ function EditGroupModal({ open, onClose, groupId, groupName }: EditGroupModalPro
         <Alert
           onClose={handleSnackbarClose}
           severity={snackbarState.severity}
-          sx={{ width: '100%' }}
+          variant="filled"
+          sx={{ width: '100%', borderRadius: 1.5 }}
         >
           {snackbarState.message}
         </Alert>
@@ -546,7 +980,8 @@ function AddUsersToGroupsModal({
   onUsersAdded,
   allUsers,
   group,
-}: AddUsersToGroupsModalProps) {
+  theme,
+}: AddUsersToGroupsModalProps & { theme: any }) {
   const [selectedUsers, setSelectedUsers] = useState<GroupUser[]>([]);
   const [snackbarState, setSnackbarState] = useState<SnackbarState>({
     open: false,
@@ -563,14 +998,22 @@ function AddUsersToGroupsModal({
       if (!group) {
         throw new Error('Group ID is required');
       }
-      const userIds = selectedUsers
-        .filter((user) => user.iamUser !== null)
-        .map((user) => user.iamUser!._id);
+
+      if (selectedUsers.length === 0) {
+        setSnackbarState({
+          open: true,
+          message: 'Please select at least one user',
+          severity: 'error',
+        });
+        return;
+      }
+
+      const userIds = selectedUsers.filter((user) => user._id !== null).map((user) => user._id);
 
       await addUsersToGroups({ userIds, groupIds: [group] });
       setSnackbarState({
         open: true,
-        message: 'Users added to groups successfully',
+        message: `${userIds.length} ${userIds.length === 1 ? 'user' : 'users'} added to group successfully`,
         severity: 'success',
       });
       onUsersAdded();
@@ -579,42 +1022,174 @@ function AddUsersToGroupsModal({
       console.error('Error adding users to groups:', error);
       setSnackbarState({
         open: true,
-        message: error.errorMessage,
+        message: error.errorMessage || 'Error adding users to group',
         severity: 'error',
       });
     }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Add Users to Groups</DialogTitle>
-      <DialogContent>
-        <Box sx={{ mt: 2 }}>
-          {allUsers ? (
-            <Autocomplete<GroupUser, true>
-              multiple
-              options={allUsers.filter((user) => user.iamUser?.isEmailVerified)}
-              getOptionLabel={(option: GroupUser) => option.iamUser?.fullName ?? 'Unknown User'}
-              renderInput={(params) => <TextField {...params} label="Select Users" />}
-              onChange={(_event, newValue: GroupUser[]) => setSelectedUsers(newValue)}
-              sx={{ mb: 2 }}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          p: 0,
+        },
+      }}
+    >
+      <Box
+        sx={{
+          pt: 3,
+          px: 3,
+          pb: 1,
+          borderBottom: `1px solid ${alpha(theme.palette.grey[500], 0.12)}`,
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Avatar
+            sx={{
+              width: 48,
+              height: 48,
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
+              color: theme.palette.primary.main,
+            }}
+          >
+            <Iconify icon="eva:person-add-fill" width={24} height={24} />
+          </Avatar>
+          <Box>
+            <Typography variant="h6">Add Users to Group</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Select users to add to this group
+            </Typography>
+          </Box>
+        </Stack>
+      </Box>
+
+      <DialogContent sx={{ pt: 3, px: 3 }}>
+        {allUsers ? (
+          <Autocomplete<GroupUser, true>
+            multiple
+            options={allUsers.filter((user) => user._id !== null)}
+            getOptionLabel={(option: GroupUser) => option?.fullName ?? 'Unknown User'}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Select Users"
+                placeholder="Search by name or email"
+                InputLabelProps={{ shrink: true }}
+              />
+            )}
+            onChange={(_event, newValue: GroupUser[]) => setSelectedUsers(newValue)}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  label={option.fullName}
+                  {...getTagProps({ index })}
+                  sx={{
+                    bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    color: theme.palette.primary.main,
+                  }}
+                />
+              ))
+            }
+            renderOption={(props, option) => (
+              <li {...props}>
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                  <Avatar
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      fontSize: '0.75rem',
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      color: theme.palette.primary.main,
+                    }}
+                  >
+                    {option.fullName?.charAt(0)}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="body2">{option.fullName}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {option.email}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </li>
+            )}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': {
+                  borderColor: alpha(theme.palette.grey[500], 0.32),
+                },
+                '&:hover fieldset': {
+                  borderColor: theme.palette.primary.main,
+                },
+              },
+            }}
+          />
+        ) : (
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+            <CircularProgress size={32} />
+          </Box>
+        )}
+
+        <Box
+          sx={{
+            mt: 3,
+            p: 2,
+            bgcolor: alpha(theme.palette.info.main, 0.04),
+            borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette.info.main, 0.12)}`,
+          }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Iconify
+              icon="eva:info-fill"
+              width={20}
+              height={20}
+              sx={{ color: theme.palette.info.main }}
             />
-          ) : (
-            <CircularProgress />
-          )}
+            <Typography variant="body2" color="text.secondary">
+              Users added to this group will inherit all permissions associated with it.
+            </Typography>
+          </Stack>
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleAddUsersToGroups} variant="contained" color="primary">
-          Add Users to Groups
+
+      <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(theme.palette.grey[500], 0.04) }}>
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          sx={{
+            borderRadius: 1.5,
+            px: 2,
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleAddUsersToGroups}
+          variant="contained"
+          color="primary"
+          startIcon={<Iconify icon="eva:person-add-fill" />}
+          sx={{
+            borderRadius: 1.5,
+            px: 2,
+          }}
+        >
+          Add to Group
         </Button>
       </DialogActions>
+
       <Snackbar open={snackbarState.open} autoHideDuration={6000} onClose={handleSnackbarClose}>
         <Alert
           onClose={handleSnackbarClose}
           severity={snackbarState.severity}
-          sx={{ width: '100%' }}
+          variant="filled"
+          sx={{ width: '100%', borderRadius: 1.5 }}
         >
           {snackbarState.message}
         </Alert>

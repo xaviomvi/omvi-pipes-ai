@@ -46,15 +46,12 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
   const mobileNavOpen = useBoolean();
   const settings = useSettingsContext();
   const navColorVars = useNavColorVars(theme, settings);
-  const layoutQuery: Breakpoint = 'lg';
+  const layoutQuery: Breakpoint = 'sm';
   const navData = data?.nav ?? dashboardNavData;
   const navigate = useNavigate();
 
   // Get dynamic account menu items
   const accountMenuItems = useAccountMenu();
-
-  console.log('User in DashboardLayout:', user);
-  console.log('Dynamic account menu items:', accountMenuItems);
 
   const isNavMini = settings.navLayout === 'mini';
   const isNavHorizontal = settings.navLayout === 'horizontal';

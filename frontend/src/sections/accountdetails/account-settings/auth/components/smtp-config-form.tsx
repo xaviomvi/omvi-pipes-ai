@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -60,11 +60,102 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
+    const [initialLoad, setInitialLoad] = useState(true);
+
+    // Validate form function - memoized with useCallback to ensure it can be safely used in dependency arrays
+    const validateForm = useCallback((data: SmtpConfigFormData) => {
+      try {
+        // Parse the data with zod schema
+        smtpConfigSchema.parse(data);
+        setErrors({});
+        onValidationChange(true);
+        return true;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          // Extract errors into a more manageable format
+          const errorMap: Record<string, string> = {};
+          validationError.errors.forEach((err) => {
+            const path = err.path.join('.');
+            errorMap[path] = err.message;
+          });
+          setErrors(errorMap);
+          onValidationChange(false);
+          return false;
+        }
+        return false;
+      }
+    }, [onValidationChange]);
+
+    // Toggle password visibility
+    const handleTogglePasswordVisibility = () => {
+      setShowPassword(!showPassword);
+    };
+
+    // Handle input change
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value, type } = e.target;
+      
+      // Create a new form data object with the updated field
+      const updatedFormData = {
+        ...formData,
+        [name]: type === 'number' ? Number(value) : value,
+      };
+      
+      setFormData(updatedFormData);
+    };
 
     // Expose the handleSave method to the parent component
+    // Move handleSave inside useImperativeHandle to fix the dependency issue
     useImperativeHandle(ref, () => ({
-      handleSave,
-    }));
+      handleSave: async (): Promise<boolean> => {
+        setIsSaving(true);
+        setSaveError(null);
+  
+        try {
+          // Validate the form data with Zod before saving
+          if (!validateForm(formData)) {
+            setSaveError('Please correct the form errors before saving');
+            return false;
+          }
+  
+          // Prepare the payload
+          const payload = {
+            host: formData.host,
+            port: formData.port,
+            fromEmail: formData.fromEmail,
+            username: formData.username,
+            password: formData.password,
+          };
+  
+          // Send the update request
+          await axios.post('/api/v1/configurationManager/smtpConfig', payload);
+  
+          if (onSaveSuccess) {
+            onSaveSuccess();
+          }
+  
+          return true;
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            // Handle validation errors
+            const errorMap: Record<string, string> = {};
+            error.errors.forEach((err) => {
+              const path = err.path.join('.');
+              errorMap[path] = err.message;
+            });
+            setErrors(errorMap);
+            setSaveError('Please correct the form errors before saving');
+          } else {
+            // Handle API errors
+            setSaveError('Failed to save SMTP configuration');
+            console.error('Error saving SMTP config:', error);
+          }
+          return false;
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    }), [formData, onSaveSuccess, validateForm]);
 
     // Load existing config on mount
     useEffect(() => {
@@ -76,105 +167,38 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
           if (response.data) {
             const { host, port, username, password, fromEmail } = response.data;
 
-            setFormData({
+            const loadedData = {
               host: host || '',
-              port: port || 587,
+              port: typeof port === 'string' ? parseInt(port, 10) : (port || 587),
               username: username || '',
               password: password || '',
               fromEmail: fromEmail || '',
-            });
+            };
+
+            setFormData(loadedData);
+            
+            // Set the form as valid if we have the required fields
+            if (host && fromEmail) {
+              validateForm(loadedData);
+            }
           }
         } catch (error) {
           console.error('Failed to load SMTP config:', error);
         } finally {
           setIsLoading(false);
+          setInitialLoad(false);
         }
       };
 
       fetchConfig();
-    }, []);
+    }, [validateForm]);
 
-    // Validate form using Zod and notify parent
+    // Use effect for validation, but only after initial load is complete
     useEffect(() => {
-      try {
-        // Parse the data with zod schema
-        smtpConfigSchema.parse(formData);
-        onValidationChange(true);
-      } catch (validationError) {
-        if (validationError instanceof z.ZodError) {
-          // Extract errors into a more manageable format
-          const errorMap: Record<string, string> = {};
-          validationError.errors.forEach((err) => {
-            const path = err.path.join('.');
-            errorMap[path] = err.message;
-          });
-          setErrors(errorMap);
-          onValidationChange(false);
-        }
+      if (!initialLoad) {
+        validateForm(formData);
       }
-    }, [formData, onValidationChange]);
-
-    // Handle input change
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const { name, value, type } = e.target;
-
-      setFormData({
-        ...formData,
-        [name]: type === 'number' ? Number(value) : value,
-      });
-    };
-
-    // Toggle password visibility
-    const handleTogglePasswordVisibility = () => {
-      setShowPassword(!showPassword);
-    };
-
-    // Handle save
-    const handleSave = async (): Promise<boolean> => {
-      setIsSaving(true);
-      setSaveError(null);
-
-      try {
-        // Validate the form data with Zod before saving
-        smtpConfigSchema.parse(formData);
-
-        // Prepare the payload
-        const payload = {
-          host: formData.host,
-          port: formData.port,
-          fromEmail: formData.fromEmail,
-          username: formData.username,
-          password: formData.password,
-        };
-
-        // Send the update request
-        await axios.post('/api/v1/configurationManager/smtpConfig', payload);
-
-        if (onSaveSuccess) {
-          onSaveSuccess();
-        }
-
-        return true;
-      } catch (error) {
-        if (error instanceof z.ZodError) {
-          // Handle validation errors
-          const errorMap: Record<string, string> = {};
-          error.errors.forEach((err) => {
-            const path = err.path.join('.');
-            errorMap[path] = err.message;
-          });
-          setErrors(errorMap);
-          setSaveError('Please correct the form errors before saving');
-        } else {
-          // Handle API errors
-          setSaveError('Failed to save SMTP configuration');
-          console.error('Error saving SMTP config:', error);
-        }
-        return false;
-      } finally {
-        setIsSaving(false);
-      }
-    };
+    }, [formData, initialLoad, validateForm]);
 
     // Helper to get field error
     const getFieldError = (fieldName: string): string => errors[fieldName] || '';
