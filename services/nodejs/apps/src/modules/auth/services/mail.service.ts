@@ -1,12 +1,12 @@
 import axios, { AxiosError } from 'axios';
 import { injectable, inject } from 'inversify';
-import { AuthConfig } from '../config/config';
 import { SendMailParams } from '../middlewares/types';
 import {
   BadRequestError,
   InternalServerError,
 } from '../../../libs/errors/http.errors';
 import { Logger } from '../../../libs/services/logger.service';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 interface SendMailResponse {
   statusCode: number;
@@ -16,7 +16,7 @@ interface SendMailResponse {
 @injectable()
 export class MailService {
   constructor(
-    @inject('AuthConfig') private authConfig: AuthConfig,
+    @inject('AppConfig') private authConfig: AppConfig,
     @inject('Logger') private logger: Logger,
   ) {}
 

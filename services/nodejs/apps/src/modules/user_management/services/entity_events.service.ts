@@ -87,6 +87,8 @@ export interface AppEnabledEvent {
   orgId: string;
   appGroup: string;
   appGroupId: string;
+  credentialsRoute?: string;
+  refreshTokenRoute?: string;
   apps: string[];
   syncAction: SyncAction;
 }

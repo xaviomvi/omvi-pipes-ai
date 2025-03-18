@@ -7,6 +7,7 @@ import axios from 'axios';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { storageEtcdPaths } from '../../storage/constants/constants';
 import { HTTP_STATUS } from '../../../libs/enums/http-status.enum';
+import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
 
 const logger = Logger.getInstance({
   service: 'knowledge_base.utils',
@@ -15,7 +16,6 @@ const logger = Logger.getInstance({
 const axiosInstance = axios.create({
   maxRedirects: 0,
 });
-
 
 export interface StorageResponseMetadata {
   documentId: string;
@@ -28,6 +28,7 @@ export const saveFileToStorageAndGetDocumentId = async (
   documentName: string,
   isVersionedFile: boolean,
   keyValueStoreService: KeyValueStoreService,
+  defaultConfig: DefaultStorageConfig,
 ): Promise<StorageResponseMetadata> => {
   const formData = new FormData();
 
@@ -36,13 +37,15 @@ export const saveFileToStorageAndGetDocumentId = async (
     filename: file.originalname,
     contentType: file.mimetype,
   });
-
   const storageUrl =
     (await keyValueStoreService.get(storageEtcdPaths.endpoint)) ||
-    'http://localhost:3000';
+    defaultConfig.endpoint;
 
   // Add other required fields
-  formData.append('documentPath', `PipesHub/KnowledgeBase/${req.user?.userId}/${documentName}`);
+  formData.append(
+    'documentPath',
+    `PipesHub/KnowledgeBase/${req.user?.userId}/${documentName}`,
+  );
   formData.append('isVersionedFile', isVersionedFile.toString());
   formData.append('documentName', getFilenameWithoutExtension(documentName));
 
@@ -82,7 +85,12 @@ export const saveFileToStorageAndGetDocumentId = async (
   }
 };
 
-function runInBackGround(buffer: Buffer, redirectUrl: string, documentId: string, documentName: string) {
+function runInBackGround(
+  buffer: Buffer,
+  redirectUrl: string,
+  documentId: string,
+  documentName: string,
+) {
   // Start the upload in the background
   (async () => {
     try {
@@ -90,7 +98,7 @@ function runInBackGround(buffer: Buffer, redirectUrl: string, documentId: string
       const bufferStream = new Readable();
       bufferStream.push(buffer);
       bufferStream.push(null); // Signal end of stream
-      
+
       // Start the upload but don't await it
       axios({
         method: 'put',
@@ -98,32 +106,32 @@ function runInBackGround(buffer: Buffer, redirectUrl: string, documentId: string
         data: bufferStream,
         headers: {
           'Content-Type': 'application/octet-stream',
-          'Content-Length': buffer.length
+          'Content-Length': buffer.length,
         },
         maxContentLength: Infinity,
-        maxBodyLength: Infinity
+        maxBodyLength: Infinity,
       })
-      .then(response => {
-        // TODO: Notify the user about the upload completion
-        logger.info('Background upload completed successfully', {
-          documentId,
-          documentName,
-          status: response.status
+        .then((response) => {
+          // TODO: Notify the user about the upload completion
+          logger.info('Background upload completed successfully', {
+            documentId,
+            documentName,
+            status: response.status,
+          });
+        })
+        .catch((uploadError) => {
+          // TODO: Notify the user about the upload failure
+          logger.error('Background upload failed', {
+            documentId,
+            documentName,
+            error: uploadError.message,
+          });
         });
-      })
-      .catch(uploadError => {
-        // TODO: Notify the user about the upload failure
-        logger.error('Background upload failed', {
-          documentId,
-          documentName,
-          error: uploadError.message
-        });
-      });
     } catch (error: any) {
       logger.error('Error setting up background upload', {
         documentId,
         documentName,
-        error: error.message
+        error: error.message,
       });
     }
   })();
@@ -134,6 +142,7 @@ export const uploadNextVersionToStorage = async (
   file: FileBufferInfo,
   documentId: string,
   keyValueStoreService: KeyValueStoreService,
+  defaultConfig: DefaultStorageConfig,
 ): Promise<StorageResponseMetadata> => {
   const formData = new FormData();
 
@@ -145,7 +154,7 @@ export const uploadNextVersionToStorage = async (
 
   const storageUrl =
     (await keyValueStoreService.get(storageEtcdPaths.endpoint)) ||
-    'http://localhost:3000';
+    defaultConfig.endpoint;
 
   try {
     const response = await axiosInstance.post(

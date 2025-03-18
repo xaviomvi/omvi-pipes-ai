@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { injectable, inject } from 'inversify';
-import { UserManagementConfig } from '../config/config';
 import { Logger } from '../../../libs/services/logger.service';
 import { BadRequestError } from '../../../libs/errors/http.errors';
+import { AppConfig } from '../../tokens_manager/config/config';
 interface SendMailParams {
   emailTemplateType: string;
   initiator: { orgId?: string; jwtAuthToken: string };
@@ -22,7 +22,7 @@ interface SendMailResponse {
 @injectable()
 export class MailService {
   constructor(
-    @inject('UserManagementConfig') private userConfig: UserManagementConfig,
+    @inject('AppConfig') private userConfig: AppConfig,
     @inject('Logger') private logger: Logger,
   ) {}
 

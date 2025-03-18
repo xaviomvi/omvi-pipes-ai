@@ -18,18 +18,8 @@ export interface MongooseConfig {
 export class MongoService {
   private connection: Connection | null = null;
   private isInitialized: boolean = false;
-  private readonly defaultConfig: MongooseConfig = {
-    uri: process.env.MONGO_URI || 'mongodb://localhost:27017',
-    dbName: process.env.MONGO_DB_NAME || 'default',
-    options: {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      family: 4,
-      maxPoolSize: 10,
-    },
-  };
 
-  constructor(private config?: MongooseConfig) {
+  constructor(private config: MongooseConfig) {
     // Set mongoose configuration options
     mongoose.set('strictQuery', true);
     mongoose.set('debug', process.env.NODE_ENV === 'development');
@@ -42,12 +32,17 @@ export class MongoService {
     }
 
     try {
-      const { uri, dbName, options } = this.config || this.defaultConfig;
-
+      const { uri, dbName, options } = this.config;
+      const defaultOptions = {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        family: 4,
+        maxPoolSize: 10,
+      };
       // Configure connection options
       const connectOptions: ConnectOptions = {
         dbName,
-        ...options,
+        ...(options ?? defaultOptions),
         autoCreate: true,
         autoIndex: true,
       };

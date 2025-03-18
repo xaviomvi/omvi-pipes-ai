@@ -1,12 +1,12 @@
 import { Container } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
 import { MongoService } from '../../../libs/services/mongo.service';
-import { AppConfig } from '../../tokens_manager/config/config';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { ConfigurationManagerConfig } from '../../configuration_manager/config/config';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
-import { configTypes } from '../../../libs/utils/config.utils';
+import { AppConfig } from '../../tokens_manager/config/config';
+import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
 
 const loggerConfig = {
   service: 'Storage service',
@@ -17,27 +17,27 @@ export class StorageContainer {
   private static logger: Logger = Logger.getInstance(loggerConfig);
 
   static async initialize(
-    appConfig: AppConfig,
     configurationManagerConfig: ConfigurationManagerConfig,
+    appConfig: AppConfig,
   ): Promise<Container> {
     const container = new Container();
-
-    // Bind configuration
-    container.bind<AppConfig>('AppConfig').toConstantValue(appConfig);
     container
       .bind<ConfigurationManagerConfig>('ConfigurationManagerConfig')
       .toConstantValue(configurationManagerConfig);
 
     // Initialize and bind services
-    await this.initializeServices(container);
+    await this.initializeServices(container, appConfig);
 
     this.instance = container;
     return container;
   }
 
-  private static async initializeServices(container: Container): Promise<void> {
+  private static async initializeServices(
+    container: Container,
+    appConfig: AppConfig,
+  ): Promise<void> {
     try {
-      const mongoService = new MongoService();
+      const mongoService = new MongoService(appConfig.mongo);
       await mongoService.initialize();
       container
         .bind<MongoService>('MongoService')
@@ -53,15 +53,9 @@ export class StorageContainer {
         .toConstantValue(keyValueStoreService);
       this.logger.info('Storage services initialized successfully');
 
-      const jwtSecret = await keyValueStoreService.get<string>(
-        configTypes.JWT_SECRET,
-      );
-      const scopedJwtSecret = await keyValueStoreService.get<string>(
-        configTypes.SCOPED_JWT_SECRET,
-      );
       const authTokenService = new AuthTokenService(
-        jwtSecret || ' ',
-        scopedJwtSecret || ' ',
+        appConfig.jwtSecret,
+        appConfig.scopedJwtSecret,
       );
       const authMiddleware = new AuthMiddleware(
         Logger.getInstance(loggerConfig),
@@ -70,6 +64,10 @@ export class StorageContainer {
       container
         .bind<AuthMiddleware>('AuthMiddleware')
         .toConstantValue(authMiddleware);
+      const storageConfig = appConfig.storage;
+      container
+        .bind<DefaultStorageConfig>('StorageConfig')
+        .toConstantValue(storageConfig);
     } catch (error) {
       this.logger.error('Failed to initialize storage services', {
         error: error instanceof Error ? error.message : 'Unknown error',

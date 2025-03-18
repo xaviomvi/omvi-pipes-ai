@@ -18,9 +18,8 @@ export class AuthTokenService {
 
   async verifyToken(token: string): Promise<TokenPayload> {
     try {
-      console.log(this.jwtSecret);
       const decoded = jwt.verify(token, this.jwtSecret) as TokenPayload;
-      console.log(decoded);
+
       return decoded;
     } catch (error) {
       this.logger.error('Token verification failed', { error });

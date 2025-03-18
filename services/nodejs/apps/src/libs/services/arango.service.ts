@@ -10,7 +10,7 @@ const logger = Logger.getInstance({
 
 export interface ArangoConfig {
   url: string;
-  databaseName: string;
+  dbName: string;
   username?: string;
   password?: string;
 }
@@ -20,16 +20,9 @@ export class ArangoService {
   private db: Database | null = null;
   private isInitialized: boolean = false;
   private config: ArangoConfig;
-  private readonly defaultConfig: ArangoConfig = {
-    url: process.env.ARANGO_URL || 'http://localhost:8529',
-    databaseName: process.env.ARANGO_DB_NAME || 'default',
-    username: process.env.ARANGO_USERNAME,
-    password: process.env.ARANGO_PASSWORD,
-  };
 
-  constructor(config?: ArangoConfig) {
+  constructor(config: ArangoConfig) {
     this.config = {
-      ...this.defaultConfig,
       ...config,
     };
   }
@@ -41,8 +34,8 @@ export class ArangoService {
     }
 
     try {
-      const { url, databaseName, username, password } = this.config;
-
+      const { url, username, password } = this.config;
+      const databaseName = this.config.dbName;
       // First connect to _system database to be able to create our target database
       this.db = new Database({
         url,

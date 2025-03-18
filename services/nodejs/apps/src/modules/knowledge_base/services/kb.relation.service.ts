@@ -42,6 +42,7 @@ import {
 } from './records_events.service';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { storageEtcdPaths } from '../../storage/constants/constants';
+import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
 
 const logger = Logger.getInstance({
   service: 'Knowledge Base Service',
@@ -63,6 +64,7 @@ export class RecordRelationService {
     @inject(ArangoService) private readonly arangoService: ArangoService,
     @inject(RecordsEventProducer)
     private readonly eventProducer: RecordsEventProducer,
+    private readonly defaultConfig: DefaultStorageConfig,
   ) {
     this.db = this.arangoService.getConnection();
 
@@ -307,7 +309,7 @@ export class RecordRelationService {
     // Generate signed URL route based on record information
     const storageUrl =
       (await keyValueStoreService.get(storageEtcdPaths.endpoint)) ||
-      'http://localhost:3000';
+      this.defaultConfig.endpoint;
     const signedUrlRoute = `${storageUrl}/api/v1/document/${record.externalRecordId}/download`;
 
     // Determine the appropriate extension by prioritizing different sources
@@ -347,7 +349,7 @@ export class RecordRelationService {
     // Generate signed URL route based on record information
     const storageUrl =
       (await keyValueStoreService.get(storageEtcdPaths.endpoint)) ||
-      'http://localhost:3000';
+      this.defaultConfig.endpoint;
     const signedUrlRoute = `${storageUrl}/api/v1/document/${record.externalRecordId}/download`;
 
     return {
@@ -1134,7 +1136,7 @@ export class RecordRelationService {
                 mimeType: fileRecord.mimeType,
                 sizeInBytes: fileRecord.sizeInBytes,
                 isFile: fileRecord.isFile,
-                webUrl : fileRecord.webUrl
+                webUrl: fileRecord.webUrl,
               }
             : null,
         },

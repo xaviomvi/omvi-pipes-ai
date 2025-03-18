@@ -49,4 +49,4 @@ export const dbTypes = {
   ARANGO_DB: 'arangodb',
 };
 
-export const aiModelRoute = `/api/v1/configurationManager/aiModelsConfig`;
+export const aiModelRoute = `api/v1/configurationManager/internal/aiModelsConfig`;

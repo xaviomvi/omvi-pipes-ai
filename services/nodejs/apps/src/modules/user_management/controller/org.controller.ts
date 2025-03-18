@@ -10,7 +10,6 @@ import { OrgLogos } from '../schema/orgLogo.schema';
 import sharp from 'sharp';
 import { inject, injectable } from 'inversify';
 import { MailService } from '../services/mail.service';
-import { UserManagementConfig } from '../config/config';
 import {
   AuthMethodType,
   OrgAuthConfig,
@@ -37,11 +36,12 @@ import {
   UserAddedEvent,
 } from '../services/entity_events.service';
 import { mailJwtGenerator } from '../../../libs/utils/createJwt';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 @injectable()
 export class OrgController {
   constructor(
-    @inject('UserManagementConfig') private config: UserManagementConfig,
+    @inject('AppConfig') private config: AppConfig,
     @inject('MailService') private mailService: MailService,
     @inject('Logger') private logger: Logger,
     @inject('EntitiesEventProducer')
@@ -168,7 +168,7 @@ export class OrgController {
           initiator: {
             jwtAuthToken: mailJwtGenerator(
               contactEmail,
-              this.config.scopedJwtPrivateKey,
+              this.config.scopedJwtSecret,
             ),
           },
           usersMails: [contactEmail],

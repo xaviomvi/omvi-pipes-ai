@@ -1,9 +1,5 @@
 import { Container } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
-import {
-  loadUserManagementConfig,
-  UserManagementConfig,
-} from '../config/config';
 import { MongoService } from '../../../libs/services/mongo.service';
 import { MailService } from '../services/mail.service';
 import { OrgController } from '../controller/org.controller';
@@ -12,44 +8,42 @@ import { ConfigurationManagerConfig } from '../../configuration_manager/config/c
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { UserGroupController } from '../controller/userGroups.controller';
 import { EntitiesEventProducer } from '../services/entity_events.service';
-import { configPaths } from '../../configuration_manager/paths/paths';
-import { EncryptionService } from '../../../libs/encryptor/encryptor';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
-import { configTypes } from '../../../libs/utils/config.utils';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 export class UserManagerContainer {
   private static instance: Container;
 
   static async initialize(
     configurationManagerConfig: ConfigurationManagerConfig,
+    appConfig: AppConfig,
   ): Promise<Container> {
     const container = new Container();
-    const config: UserManagementConfig = await loadUserManagementConfig();
-    container
-      .bind<UserManagementConfig>('UserManagementConfig')
-      .toConstantValue(config);
+
     container.bind<Logger>('Logger').toConstantValue(new Logger());
 
     container
       .bind<ConfigurationManagerConfig>('ConfigurationManagerConfig')
       .toConstantValue(configurationManagerConfig);
+    container.bind<AppConfig>('AppConfig').toConstantValue(appConfig);
 
-    await this.initializeServices(container);
+    await this.initializeServices(container, appConfig);
     this.instance = container;
     return container;
   }
-  private static async initializeServices(container: Container): Promise<void> {
+  private static async initializeServices(
+    container: Container,
+    appConfig: AppConfig,
+  ): Promise<void> {
     try {
-      const mongoService = new MongoService();
+      const mongoService = new MongoService(appConfig.mongo);
       await mongoService.initialize();
       container
         .bind<MongoService>('MongoService')
         .toConstantValue(mongoService);
-      const config = container.get<UserManagementConfig>(
-        'UserManagementConfig',
-      );
-      const mailService = new MailService(config, container.get('Logger'));
+
+      const mailService = new MailService(appConfig, container.get('Logger'));
       container.bind<MailService>('MailService').toConstantValue(mailService);
 
       const keyValueStoreService = KeyValueStoreService.getInstance(
@@ -61,22 +55,8 @@ export class UserManagerContainer {
         .bind<KeyValueStoreService>('KeyValueStoreService')
         .toConstantValue(keyValueStoreService);
 
-      const configManagerConfig = container.get<ConfigurationManagerConfig>(
-        'ConfigurationManagerConfig',
-      );
-      const encryptedKafkaConfig = await keyValueStoreService.get<string>(
-        configPaths.broker.kafka,
-      );
-
-      const kafkaConfig = JSON.parse(
-        EncryptionService.getInstance(
-          configManagerConfig.algorithm,
-          configManagerConfig.secretKey,
-        ).decrypt(encryptedKafkaConfig),
-      );
-
       const entityEventsService = new EntitiesEventProducer(
-        kafkaConfig,
+        appConfig.kafka,
         container.get('Logger'),
       );
       container
@@ -84,7 +64,7 @@ export class UserManagerContainer {
         .toConstantValue(entityEventsService);
 
       const orgController = new OrgController(
-        config,
+        appConfig,
         mailService,
         container.get('Logger'),
         entityEventsService,
@@ -94,7 +74,7 @@ export class UserManagerContainer {
         .toConstantValue(orgController);
 
       const userController = new UserController(
-        config,
+        appConfig,
         mailService,
         container.get('Logger'),
         entityEventsService,
@@ -108,15 +88,9 @@ export class UserManagerContainer {
         .bind<UserGroupController>('UserGroupController')
         .toConstantValue(userGroupController);
 
-      const jwtSecret = await keyValueStoreService.get<string>(
-        configTypes.JWT_SECRET,
-      );
-      const scopedJwtSecret = await keyValueStoreService.get<string>(
-        configTypes.SCOPED_JWT_SECRET,
-      );
       const authTokenService = new AuthTokenService(
-        jwtSecret || ' ',
-        scopedJwtSecret || ' ',
+        appConfig.jwtSecret,
+        appConfig.scopedJwtSecret,
       );
       const authMiddleware = new AuthMiddleware(
         container.get('Logger'),

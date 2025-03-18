@@ -40,9 +40,11 @@ import { extensionToMimeType } from '../../storage/mimetypes/mimetypes';
 import { RecordRelationService } from '../services/kb.relation.service';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { RecordsEventProducer } from '../services/records_events.service';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 export function createKnowledgeBaseRouter(container: Container): Router {
   const router = Router();
+  const appConfig = container.get<AppConfig>('AppConfig');
   const arangoService = container.get<ArangoService>('ArangoService');
   const recordsEventProducer = container.get<RecordsEventProducer>(
     'RecordsEventProducer',
@@ -50,6 +52,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
   const recordRelationService = new RecordRelationService(
     arangoService,
     recordsEventProducer,
+    appConfig.storage,
   );
   const keyValueStoreService = container.get<KeyValueStoreService>(
     'KeyValueStoreService',
@@ -70,7 +73,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
       strictFileUpload: true,
     }).getMiddleware,
     ValidationMiddleware.validate(createRecordSchema),
-    createRecords(recordRelationService, keyValueStoreService),
+    createRecords(recordRelationService, keyValueStoreService, appConfig),
   );
 
   // Get a specific record by ID
@@ -97,7 +100,11 @@ export function createKnowledgeBaseRouter(container: Container): Router {
       strictFileUpload: false,
     }).getMiddleware,
     ValidationMiddleware.validate(updateRecordSchema),
-    updateRecord(recordRelationService, keyValueStoreService),
+    updateRecord(
+      recordRelationService,
+      keyValueStoreService,
+      appConfig.storage,
+    ),
   );
 
   // Delete a record by ID

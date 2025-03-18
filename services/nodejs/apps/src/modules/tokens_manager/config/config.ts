@@ -1,15 +1,23 @@
+import { ConfigService } from '../services/cm.service';
+
 export interface AppConfig {
   jwtSecret: string;
   scopedJwtSecret: string;
+  cookieSecret: string;
+  rsAvailable: string;
   encryption: {
     key: string;
     algorithm: string;
   };
+  communicationBackend: string;
+  frontendUrl: string;
+  iamBackend: string;
+  authUrl: string;
+  cmUrl: string;
   kafka: {
     clientId: string;
     brokers: string[];
     groupId: string;
-    ssl: boolean;
     sasl?: {
       mechanism: 'plain' | 'scram-sha-256' | 'scram-sha-512';
       username: string;
@@ -22,50 +30,71 @@ export interface AppConfig {
     password?: string;
     db?: number;
   };
-  database: {
+  mongo: {
+    uri: string;
+    dbName: string;
+  };
+
+  qdrant: {
+    apiKey: string;
+    host: string;
+    gprc_port: number;
+  };
+
+  arango: {
     url: string;
+    dbName: string;
+    username: string;
+    password: string;
   };
   etcd: {
     host: string;
     port: number;
     dialTimeout: number;
   };
+
+  smtp: {
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
+    fromEmail: string;
+  };
+  storage: {
+    storageType: string;
+    endpoint: string;
+  };
 }
 
-export const loadAppConfig = (): AppConfig => {
+export const loadAppConfig = async (): Promise<AppConfig> => {
+  const configService = ConfigService.getInstance();
+  const commonBackendUrl = await configService.getCommonBackendUrl();
+
   return {
-    jwtSecret: process.env.JWT_SECRET!,
-    scopedJwtSecret: process.env.SCOPED_JWT_SECRET!,
+    jwtSecret: configService.getJwtSecret(),
+    scopedJwtSecret: configService.getScopedJwtSecret(),
+    cookieSecret: configService.getCookieSecret(),
+    rsAvailable: configService.getRsAvailable(),
     encryption: {
-      key: process.env.ENCRYPTION_KEY!,
+      key: process.env.SECRET_KEY!,
       algorithm: 'aes-256-gcm',
     },
-    kafka: {
-      clientId: process.env.KAFKA_CLIENT_ID!,
-      brokers: process.env.KAFKA_BROKERS!.split(','),
-      groupId: process.env.KAFKA_GROUP_ID!,
-      ssl: process.env.KAFKA_SSL === 'true',
-      ...(process.env.KAFKA_USERNAME && {
-        sasl: {
-          mechanism: 'plain' as const,
-          username: process.env.KAFKA_USERNAME,
-          password: process.env.KAFKA_PASSWORD!,
-        },
-      }),
-    },
-    redis: {
-      host: process.env.REDIS_HOST!,
-      port: parseInt(process.env.REDIS_PORT!, 10),
-      password: process.env.REDIS_PASSWORD,
-      db: parseInt(process.env.REDIS_DB || '0', 10),
-    },
-    database: {
-      url: process.env.DATABASE_URL!,
-    },
+    frontendUrl: await configService.getFrontendUrl(),
+    communicationBackend: commonBackendUrl,
+    iamBackend: commonBackendUrl,
+    authUrl: commonBackendUrl,
+    cmUrl: commonBackendUrl,
+    kafka: await configService.getKafkaConfig(),
+    redis: await configService.getRedisConfig(),
+    arango: await configService.getArangoConfig(),
+    qdrant: await configService.getQdrantConfig(),
+    mongo: await configService.getMongoConfig(),
+    smtp: await configService.getSmtpConfig(),
     etcd: {
       host: process.env.ETCD_HOST!,
       port: parseInt(process.env.ETCD_PORT!, 10),
       dialTimeout: parseInt(process.env.ETCD_DIAL_TIMEOUT!, 10),
     },
+    storage: await configService.getStorageConfig(),
   };
 };

@@ -1,16 +1,16 @@
 import axios, { AxiosError } from 'axios';
 import { inject, injectable } from 'inversify';
-import { AuthConfig } from '../config/config';
 import {
   InternalServerError,
   NotFoundError,
 } from '../../../libs/errors/http.errors';
 import { Logger } from '../../../libs/services/logger.service';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 @injectable()
 export class IamService {
   constructor(
-    @inject('AuthConfig') private authConfig: AuthConfig,
+    @inject('AppConfig') private authConfig: AppConfig,
     @inject('Logger') private logger: Logger,
   ) {}
   async createOrg(orgData: any, authServiceToken: string) {

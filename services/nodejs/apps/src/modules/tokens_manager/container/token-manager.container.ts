@@ -5,7 +5,6 @@ import { EncryptionService } from '../../../libs/services/encryption.service';
 import { TokenService } from '../services/token.service';
 import { RedisService } from '../../../libs/services/redis.service';
 import { Logger } from '../../../libs/services/logger.service';
-import { OAuthService } from '../services/oauth.service';
 import { TokenReferenceService } from '../services/token-reference.service';
 import { TokenEventProducer } from '../services/token-event.producer';
 import { ConfigurationManagerConfig } from '../../configuration_manager/config/config';
@@ -27,7 +26,7 @@ export class TokenManagerContainer {
     const container = new Container();
     const config: AppConfig = await loadAppConfig();
     // Bind configuration
-    container.bind<AppConfig>('Config').toConstantValue(config);
+    container.bind<AppConfig>('AppConfig').toConstantValue(config);
 
     // Bind logger
     container.bind<Logger>('Logger').toConstantValue(this.logger);
@@ -35,22 +34,23 @@ export class TokenManagerContainer {
       .bind<ConfigurationManagerConfig>('ConfigurationManagerConfig')
       .toConstantValue(configurationManagerConfig);
     // Initialize and bind services
-    await this.initializeServices(container);
+    await this.initializeServices(container, config);
 
     this.instance = container;
     return container;
   }
 
-  private static async initializeServices(container: Container): Promise<void> {
+  private static async initializeServices(
+    container: Container,
+    config: AppConfig,
+  ): Promise<void> {
     try {
-      const mongoService = new MongoService();
+      const mongoService = new MongoService(config.mongo);
       await mongoService.initialize();
       container
         .bind<MongoService>('MongoService')
         .toConstantValue(mongoService);
 
-      // Initialize Redis
-      const config = container.get<AppConfig>('Config');
       const redisService = new RedisService(
         config.redis,
         container.get('Logger'),
@@ -86,18 +86,6 @@ export class TokenManagerContainer {
       container
         .bind<TokenReferenceService>('TokenReferenceService')
         .toConstantValue(tokenReferenceService);
-
-      // Initialize OAuth Service
-      const oauthService = new OAuthService(
-        container.get('TokenService'),
-        container.get('TokenReferenceService'),
-        container.get('KafkaService'),
-        container.get('Logger'),
-      );
-
-      container
-        .bind<OAuthService>('OAuthService')
-        .toConstantValue(oauthService);
 
       const kafkaConfig = {
         clientId: config.kafka.clientId,
