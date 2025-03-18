@@ -202,14 +202,42 @@ class KafkaRouteConsumer:
                 'name': payload.get('registeredName', 'Individual Account'),
                 'accountType': payload['accountType'],
                 'isActive': True,
-                'createdAt': int(datetime.now(timezone.utc).timestamp()),
-                'updatedAt': int(datetime.now(timezone.utc).timestamp())
+                'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
             }
             
             # Batch upsert org
+            print("org_data", org_data)
             await self.arango_service.batch_upsert_nodes([org_data], CollectionNames.ORGS.value)
-                        
-            logger.info(f"✅ Successfully created organization: {payload['orgId']}")
+            
+            # Write a query to get departments with orgId == None
+            query = f"""
+                FOR d IN {CollectionNames.DEPARTMENTS.value}
+                FILTER d.orgId == null
+                RETURN d
+            """
+            cursor = self.arango_service.db.aql.execute(query)
+            departments = list(cursor)
+            
+            # Create relationships between org and departments
+            org_department_relations = []
+            for department in departments:
+                relation_data = {
+                    '_from': f"{CollectionNames.ORGS.value}/{payload['orgId']}",
+                    '_to': f"{CollectionNames.DEPARTMENTS.value}/{department['_key']}",
+                    'createdAt': int(datetime.now(timezone.utc).timestamp())
+                }
+                org_department_relations.append(relation_data)
+            
+            if org_department_relations:
+                await self.arango_service.batch_create_edges(
+                    org_department_relations,
+                    CollectionNames.ORG_DEPARTMENT_RELATION.value
+                )
+                logger.info(f"✅ Successfully created organization: {payload['orgId']} and relationships with departments")
+            else:
+                logger.info(f"✅ Successfully created organization: {payload['orgId']}")
+            
             return True
 
         except Exception as e:
@@ -222,7 +250,7 @@ class KafkaRouteConsumer:
             org_data = {
                 '_key': payload['orgId'],
                 'name': payload['registeredName'],
-                'updatedAt': int(datetime.now(timezone.utc).timestamp())
+                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
             }
 
             # Batch upsert org
@@ -240,7 +268,7 @@ class KafkaRouteConsumer:
             org_data = {
                 '_key': payload['orgId'],
                 'isActive': False,
-                'updatedAt': int(datetime.now(timezone.utc).timestamp())
+                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
             }
 
             # Batch upsert org with isActive = False
@@ -258,29 +286,42 @@ class KafkaRouteConsumer:
         try:
             # Check if user already exists by email
             existing_user = await self.arango_service.get_entity_id_by_email(
-                payload['email']            )
+                payload['email']
+            )
+
+            current_timestamp = int(datetime.now(timezone.utc).timestamp())
 
             if existing_user:
                 user_data = {
                     '_key': existing_user,
                     'isActive': True,
-                    'updatedAt': int(datetime.now(timezone.utc).timestamp())
+                    'updatedAtTimestamp': current_timestamp
                 }
             else:
                 user_data = {
-                    '_key': str(uuid4()),
-                    'userId': payload['userId'],
+                    '_key': payload['userId'],
+                    'orgId': payload['orgId'],
                     'email': payload['email'],
                     'fullName': payload.get('fullName', ''),
                     'firstName': payload.get('firstName', ''),  
                     'middleName': payload.get('middleName', ''),
                     'lastName': payload.get('lastName', ''),
+                    'designation': payload.get('designation', ''),
+                    'businessPhones': payload.get('businessPhones', []),
                     'isActive': True,
-                    'createdAt': int(datetime.now(timezone.utc).timestamp()),
-                    'updatedAt': int(datetime.now(timezone.utc).timestamp())
+                    'createdAtTimestamp': current_timestamp,
+                    'updatedAtTimestamp': current_timestamp
                 }
+                
+            # Get org details to check account type
+            org_id = payload['orgId']
+            org = await self.arango_service.get_document(org_id, CollectionNames.ORGS.value)
+            if not org:
+                logger.error(f"Organization not found: {org_id}")
+                return False
 
             # Batch upsert user
+            print("user_data", user_data)
             await self.arango_service.batch_upsert_nodes([user_data], CollectionNames.USERS.value)
 
             # Create edge between org and user if it doesn't exist
@@ -288,7 +329,7 @@ class KafkaRouteConsumer:
                 '_to': f"{CollectionNames.ORGS.value}/{payload['orgId']}",
                 '_from': f"{CollectionNames.USERS.value}/{user_data['_key']}",
                 'entityType': 'ORGANIZATION',
-                'createdAt': int(datetime.now(timezone.utc).timestamp())
+                'createdAtTimestamp': current_timestamp
             }
             await self.arango_service.batch_create_edges(
                 [edge_data], 
@@ -344,9 +385,10 @@ class KafkaRouteConsumer:
                 return False
             user_data = {
                 '_key': existing_user,
-                'userId': payload['userId'],
+                'orgId': payload['orgId'],
+                'email': payload['email'],
                 'isActive': True,
-                'updatedAt': int(datetime.now(timezone.utc).timestamp())
+                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
             }
 
             # Add only non-null optional fields
@@ -374,10 +416,10 @@ class KafkaRouteConsumer:
 
             user_data = {
                 '_key': existing_user,
-                'userId': payload['userId'],
+                'orgId': payload['orgId'],
                 'email': payload['email'],
                 'isActive': False,
-                'updatedAt': int(datetime.now(timezone.utc).timestamp())
+                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
             }
 
             # Batch upsert user with isActive = False
@@ -416,8 +458,8 @@ class KafkaRouteConsumer:
                     'appGroup': app_group,
                     'appGroupId': app_group_id,
                     'isActive': True,
-                    'createdAt': int(datetime.now(timezone.utc).timestamp()),
-                    'updatedAt': int(datetime.now(timezone.utc).timestamp())
+                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                    'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
                 }
                 app_docs.append(app_data)
 
@@ -514,7 +556,6 @@ class KafkaRouteConsumer:
                                 edge_data = {
                                     '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
                                     '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
-                                    'createdAt': int(datetime.now(timezone.utc).timestamp()),
                                     'syncState': 'NOT_STARTED',
                                     'lastSyncUpdate': int(datetime.now(timezone.utc).timestamp())
                                 }

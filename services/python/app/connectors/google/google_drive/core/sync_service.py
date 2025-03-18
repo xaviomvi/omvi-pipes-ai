@@ -152,7 +152,7 @@ class BaseDriveSyncService(ABC):
                     sync_state = await self.arango_service.get_user_sync_state(user['email'], 'drive')
                     current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
 
-                    if current_state == 'RUNNING':
+                    if current_state == 'IN_PROGRESS':
                         logger.warning("💥 Sync service is already running")
                         return False
 
@@ -190,7 +190,7 @@ class BaseDriveSyncService(ABC):
                     sync_state = await self.arango_service.get_user_sync_state(user['email'], 'drive')
                     current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
 
-                    if current_state != 'RUNNING':
+                    if current_state != 'IN_PROGRESS':
                         logger.warning("💥 Sync service is not running")
                         continue
 
@@ -231,7 +231,7 @@ class BaseDriveSyncService(ABC):
                         return await self.start(org_id)
 
                     current_state = sync_state.get('syncState')
-                    if current_state == 'RUNNING':
+                    if current_state == 'IN_PROGRESS':
                         logger.warning("💥 Sync service is already running")
                         return False
 
@@ -315,7 +315,7 @@ class BaseDriveSyncService(ABC):
 
             # Check if drive already exists
             existing_drive = self.arango_service.db.aql.execute(
-                'FOR doc IN files FILTER doc.externalFileId == @drive_id RETURN doc',
+                f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @drive_id RETURN doc',
                 bind_vars={'drive_id': drive_info['drive']['id']}
             )
             existing = next(existing_drive, None)
@@ -323,19 +323,12 @@ class BaseDriveSyncService(ABC):
             if existing:
                 logger.debug("Drive %s already exists in ArangoDB", drive_info['drive']['id'])
                 drive_info['drive']['_key'] = existing['_key']
-                drive_info['file_record']['_key'] = existing['_key']
                 drive_info['record']['_key'] = existing['_key']
 
             # Save drive in drives collection
             await self.arango_service.batch_upsert_nodes(
                 [drive_info['drive']],
                 collection=CollectionNames.DRIVES.value
-            )
-
-            # Save drive as file record
-            await self.arango_service.batch_upsert_nodes(
-                [drive_info['file_record']],
-                collection=CollectionNames.FILES.value
             )
 
             # Save drive as record
@@ -353,7 +346,8 @@ class BaseDriveSyncService(ABC):
                 '_to': f'drives/{drive_info["drive"]["_key"]}',
                 'access_level': drive_info['drive']['access_level']
             }
-            
+            print("user_drive_relation: ", user_drive_relation)
+
             await self.arango_service.batch_create_edges(
                 [user_drive_relation],
                 collection=CollectionNames.USER_DRIVE_RELATION.value
@@ -378,7 +372,7 @@ class BaseDriveSyncService(ABC):
             logger.error("❌ Failed to process drive data: %s", str(e))
             return False
 
-    async def process_batch(self, metadata_list):
+    async def process_batch(self, metadata_list, org_id):
         """Process a single batch with atomic operations"""
         batch_start_time = datetime.now(timezone.utc)
 
@@ -391,7 +385,6 @@ class BaseDriveSyncService(ABC):
                 # Prepare nodes and edges for batch processing
                 files = []
                 records = []
-                file_metadatas = []
                 recordRelations = []
                 existing_files = []
 
@@ -407,7 +400,7 @@ class BaseDriveSyncService(ABC):
 
                     # Check if file already exists in ArangoDB
                     existing_file = self.arango_service.db.aql.execute(
-                        'FOR doc IN files FILTER doc.externalFileId == @file_id RETURN doc',
+                        f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @file_id RETURN doc',
                         bind_vars={'file_id': file_id}
                     )
                     existing = next(existing_file, None)
@@ -421,8 +414,7 @@ class BaseDriveSyncService(ABC):
                         # Prepare File, Record and File Metadata
                         file = {
                             '_key': str(uuid.uuid4()),
-                            'orgId': await self.config.get_config('organization'),
-                            'fileName': str(metadata.get('name')),
+                            'name': str(metadata.get('name')),
                             'isFile': metadata.get('mimeType', '') != 'application/vnd.google-apps.folder',
                             'extension': metadata.get('fileExtension', None),
                             'mimeType': metadata.get('mimeType', None),
@@ -435,24 +427,28 @@ class BaseDriveSyncService(ABC):
                             'md5Checksum': metadata.get('md5Checksum', None),
                             'sha1Hash': metadata.get('sha1Checksum', None),
                             'sha256Hash': metadata.get('sha256Checksum', None),
-                            'externalFileId': str(file_id),
                             'path': metadata.get('path', None)
                         }
 
                         record = {
                             '_key': f'{file["_key"]}',
-                            'recordName': f'{file["fileName"]}',
+                            'orgId': org_id,
+                            'recordName': f'{file["name"]}',
                             'recordType': 'FILE',
                             'version': 0,
-                            'externalRecordId': metadata.get('headRevisionId', None),
+                            'externalRecordId': str(file_id),
+                            'externalRevisionId': metadata.get('headRevisionId', None),
                             'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                             'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                             'sourceCreatedAtTimestamp': int(self.parse_timestamp(metadata.get('createdTime')).timestamp()),
                             'sourceLastModifiedTimestamp': int(self.parse_timestamp(metadata.get('modifiedTime')).timestamp()),
-                            'recordSource': 'CONNECTOR',
+                            'origin': 'CONNECTOR',
                             'connectorName': 'GOOGLE_DRIVE',
                             'isArchived': False,
-                            'lastSyncTime': int(datetime.now(timezone.utc).timestamp()),
+                            'isDeleted': False,
+                            'isLatestVersion': True,
+                            'isDirty': False,
+                            'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
                             'indexingStatus': 'NOT_STARTED',
                             'extractionStatus': 'NOT_STARTED'
                         }
@@ -472,6 +468,7 @@ class BaseDriveSyncService(ABC):
                         )
                         # Process files with revision checking
                         if files:
+                            print("files: ", files)
                             if not await self.arango_service.batch_upsert_nodes(
                                 files,
                                 collection=CollectionNames.FILES.value,
@@ -482,6 +479,7 @@ class BaseDriveSyncService(ABC):
 
                         # Process records and relations
                         if records:
+                            print("records: ", records)
                             if not await self.arango_service.batch_upsert_nodes(
                                 records,
                                 collection=CollectionNames.RECORDS.value,
@@ -499,11 +497,11 @@ class BaseDriveSyncService(ABC):
                                 for parent_id in metadata['parents']:
                                     logger.info("parent_id: %s", parent_id)
                                     parent_cursor = db.aql.execute(
-                                        'FOR doc IN files FILTER doc.externalFileId == @parent_id RETURN doc._key',
+                                        f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @parent_id RETURN doc._key',
                                         bind_vars={'parent_id': parent_id}
                                     )
                                     file_cursor = db.aql.execute(
-                                        'FOR doc IN files FILTER doc.externalFileId == @file_id RETURN doc._key',
+                                        f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @file_id RETURN doc._key',
                                         bind_vars={'file_id': file_id}
                                     )
                                     parent_key = next(parent_cursor, None)
@@ -535,10 +533,10 @@ class BaseDriveSyncService(ABC):
                             permissions = metadata.pop('permissions', [])
 
                             # Get file key from file_id
-                            query = """
-                            FOR file IN files
-                            FILTER file.externalFileId == @file_id
-                            RETURN file._key
+                            query = f"""
+                            FOR record IN {CollectionNames.RECORDS.value}
+                            FILTER record.externalRecordId == @file_id
+                            RETURN record._key
                             """
 
                             db = txn if txn else self.arango_service.db
@@ -700,7 +698,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                 sync_state = await self.arango_service.get_user_sync_state(user['email'], 'drive')
                 current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
                 
-                if current_state == 'RUNNING':
+                if current_state == 'IN_PROGRESS':
                     logger.warning(f"Sync is currently RUNNING for user {user['email']}. Pausing it.")
                     await self.arango_service.update_user_sync_state(
                         user['email'],
@@ -766,7 +764,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                 # Update user sync state to RUNNING
                 await self.arango_service.update_user_sync_state(
                     user['email'],
-                    'RUNNING',
+                    'IN_PROGRESS',
                     service_type='drive'
                 )
 
@@ -806,7 +804,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                         continue
 
                     # Get drive details with complete metadata
-                    drive_info = await user_service.get_drive_info(drive_id)
+                    drive_info = await user_service.get_drive_info(drive_id, org_id)
                     if not drive_info:
                         logger.warning("❌ Failed to get drive info for drive %s", drive_id)
                         continue
@@ -820,7 +818,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                         # Update drive state to RUNNING
                         await self.arango_service.update_drive_sync_state(
                             drive_id,
-                            'RUNNING'
+                            'IN_PROGRESS'
                         )
 
                         # Get file list
@@ -845,7 +843,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                             batch_file_ids = [f['id'] for f in batch]
                             batch_metadata = await user_service.batch_fetch_metadata_and_permissions(batch_file_ids, files=files)
 
-                            if not await self.process_batch(batch_metadata):
+                            if not await self.process_batch(batch_metadata, org_id):
                                 continue
 
                             # Process each file in the batch
@@ -875,7 +873,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                         "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                                         "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                         "connectorName": "GOOGLE_DRIVE",
-                                        "recordSource": "CONNECTOR",
+                                        "origin": "CONNECTOR",
                                         "createdAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('createdTime')).timestamp()),
                                         "modifiedAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                                         "extension": extension,
@@ -926,7 +924,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
             # Verify user exists in the database
             sync_state = await self.arango_service.get_user_sync_state(user_email, 'gmail')
             current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
-            if current_state == 'RUNNING':
+            if current_state == 'IN_PROGRESS':
                 logger.warning("💥 Gmail sync is already running for user %s", user_email)
                 return False
             
@@ -953,7 +951,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
             # Update user sync state to RUNNING
             await self.arango_service.update_user_sync_state(
                 user_email,
-                'RUNNING',
+                'IN_PROGRESS',
                 service_type='drive'
             )
 
@@ -1000,7 +998,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                     continue
 
                 # Get drive details
-                drive_info = await user_service.get_drive_info(drive_id)
+                drive_info = await user_service.get_drive_info(drive_id, org_id)
                 if not drive_info:
                     logger.warning("❌ Failed to get drive info for drive %s", drive_id)
                     continue
@@ -1014,7 +1012,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                     # Update drive state to RUNNING
                     await self.arango_service.update_drive_sync_state(
                         drive_id,
-                        'RUNNING'
+                        'IN_PROGRESS'
                     )
 
                     # Get file list
@@ -1040,7 +1038,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                         batch_file_ids = [f['id'] for f in batch]
                         batch_metadata = await user_service.batch_fetch_metadata_and_permissions(batch_file_ids, files=files)
 
-                        if not await self.process_batch(batch_metadata):
+                        if not await self.process_batch(batch_metadata, org_id):
                             continue
 
                         # Process each file in the batch
@@ -1065,7 +1063,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": "GOOGLE_DRIVE",
-                                    "recordSource": "CONNECTOR",
+                                    "origin": "CONNECTOR",
                                     "createdAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('createdTime')).timestamp()),
                                     "modifiedAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                                     "extension": file.get('extension'),
@@ -1156,7 +1154,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
             sync_state = await self.arango_service.get_user_sync_state(user_info['email'], 'drive')
             current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
             
-            if current_state == 'RUNNING':
+            if current_state == 'IN_PROGRESS':
                 logger.warning(f"Sync is currently RUNNING for user {user_info['email']}. Pausing it.")
                 await self.arango_service.update_user_sync_state(
                     user_info['email'],
@@ -1215,7 +1213,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
             # Update user sync state to RUNNING
             await self.arango_service.update_user_sync_state(
                 user['email'],
-                'RUNNING',
+                'IN_PROGRESS',
                 service_type='drive'
             )
 
@@ -1250,7 +1248,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                     continue
 
                 # Get drive details with complete metadata
-                drive_info = await user_service.get_drive_info(drive_id)
+                drive_info = await user_service.get_drive_info(drive_id, org_id)
                 if not drive_info:
                     logger.warning("❌ Failed to get drive info for drive %s", drive_id)
                     continue
@@ -1264,7 +1262,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                     # Update drive state to RUNNING
                     await self.arango_service.update_drive_sync_state(
                         drive_id,
-                        'RUNNING'
+                        'IN_PROGRESS'
                     )
 
                     # Get file list
@@ -1289,7 +1287,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                         batch_file_ids = [f['id'] for f in batch]
                         batch_metadata = await user_service.batch_fetch_metadata_and_permissions(batch_file_ids, files=files)
 
-                        if not await self.process_batch(batch_metadata):
+                        if not await self.process_batch(batch_metadata, org_id):
                             continue
 
                         # Process each file in the batch
@@ -1320,7 +1318,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": "GOOGLE_DRIVE",
-                                    "recordSource": "CONNECTOR",
+                                    "origin": "CONNECTOR",
                                     "createdAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('createdTime')).timestamp()),
                                     "modifiedAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                                     "extension": extension,

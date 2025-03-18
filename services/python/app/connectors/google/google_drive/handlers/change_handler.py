@@ -54,7 +54,7 @@ class DriveChangeHandler:
                 logger.warning(f"File not found in database: {file_id}")
                 return
             cursor = self.arango_service.db.aql.execute(
-                'FOR doc IN files FILTER doc.externalFileId == @file_id RETURN doc._key',
+                f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @file_id RETURN doc._key',
                 bind_vars={'file_id': file_id}
             )
             file_key = next(cursor, None)
@@ -62,11 +62,11 @@ class DriveChangeHandler:
 
             if file_key:
                 # Retrieve file and record using file_key
-                file_query = """
-                RETURN DOCUMENT("files", @file_key)
+                file_query = f"""
+                RETURN DOCUMENT({CollectionNames.FILES.value}, @file_key)
                 """
-                record_query = """
-                RETURN DOCUMENT("records", @file_key)
+                record_query = f"""
+                RETURN DOCUMENT({CollectionNames.RECORDS.value}, @file_key)
                 """
 
                 file_result = self.arango_service.db.aql.execute(
@@ -160,7 +160,7 @@ class DriveChangeHandler:
                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": "GOOGLE_DRIVE",
-                    "recordSource": "CONNECTOR",
+                    "origin": "CONNECTOR",
                     "extension": extension,
                     "mimeType": mime_type,
                     "createdAtSourceTimestamp": int(parse_timestamp(new_file.get('createdTime')).timestamp()),
@@ -178,7 +178,7 @@ class DriveChangeHandler:
                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": "GOOGLE_DRIVE",
-                    "recordSource": "CONNECTOR",
+                    "origin": "CONNECTOR",
                     "extension": new_file.get('extension'),
                     "mimeType": new_file.get('mimeType'),
                     "createdAtSourceTimestamp": int(parse_timestamp(new_file.get('createdTime')).timestamp()),
@@ -196,7 +196,7 @@ class DriveChangeHandler:
                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": "GOOGLE_DRIVE",
-                    "recordSource": "CONNECTOR",
+                    "origin": "CONNECTOR",
                     "extension": extension,
                     "mimeType": mime_type,
                     "createdAtSourceTimestamp": int(parse_timestamp(new_file.get('createdTime')).timestamp()),
@@ -387,7 +387,7 @@ class DriveChangeHandler:
 
             # Check if file already exists in ArangoDB
             existing_file = self.arango_service.db.aql.execute(
-                'FOR doc IN files FILTER doc.externalFileId == @file_id RETURN doc',
+                f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @file_id RETURN doc',
                 bind_vars={'file_id': file_id}
             )
             existing = next(existing_file, None)
@@ -406,7 +406,6 @@ class DriveChangeHandler:
                 file = {
                     '_key': str(uuid.uuid4()),
                     'orgId': await self.config_service.get_config('organization'),
-                    'externalFileId': str(file_metadata.get('id')),
                     'fileName': str(file_metadata.get('name')),
                     'extension': file_metadata.get('fileExtension', None),
                     'mimeType': file_metadata.get('mimeType', None),
@@ -428,15 +427,16 @@ class DriveChangeHandler:
                     'recordName': f'{file["fileName"]}',
                     'recordType': 'FILE',
                     'version': 0,
-                    "externalRecordId": file_metadata.get('headRevisionId', None),
+                    'externalRecordId': str(file_metadata.get('id')),
+                    "externalRevisionId": file_metadata.get('headRevisionId', None),
                     'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                     'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                     'sourceCreatedAtTimestamp': int(parse_timestamp(file_metadata.get('createdTime')).timestamp()),
                     'sourceLastModifiedTimestamp': int(parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
-                    'recordSource': 'CONNECTOR',
+                    'origin': 'CONNECTOR',
                     'connectorName': 'GOOGLE_DRIVE',
                     'isArchived': False,
-                    'lastSyncTime': int(datetime.now(timezone.utc).timestamp()),
+                    'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
                     'indexingStatus': 'NOT_STARTED',
                     'extractionStatus': 'NOT_STARTED'
                 }
@@ -446,7 +446,7 @@ class DriveChangeHandler:
                 if 'parents' in file_metadata:
                     for parent_id in file_metadata['parents']:
                         parent_cursor = db.aql.execute(
-                            'FOR doc IN files FILTER doc.externalFileId == @parent_id RETURN doc._key',
+                            f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @parent_id RETURN doc._key',
                             bind_vars={'parent_id': parent_id}
                         )
 
@@ -463,7 +463,7 @@ class DriveChangeHandler:
                             })
 
                 if file:
-                    await self.arango_service.batch_upsert_nodes([file], 'files', transaction=transaction)
+                    await self.arango_service.batch_upsert_nodes([file], CollectionNames.FILES.value, transaction=transaction)
                 if record:
                     await self.arango_service.batch_upsert_nodes([record], CollectionNames.RECORDS.value, transaction=transaction)
 
@@ -501,7 +501,6 @@ class DriveChangeHandler:
 
             file = {
                 '_key': existing_file['_key'],
-                'externalFileId': str(updated_file.get('id')),
                 'fileName': str(updated_file.get('name')),
                 'extension': updated_file.get('fileExtension', None),
                 'mimeType': updated_file.get('mimeType', None),
@@ -522,15 +521,16 @@ class DriveChangeHandler:
                 'recordName': f'{file["fileName"]}',
                 'recordType': 'FILE',
                 'version': 0,
-                "externalRecordId": updated_file.get('headRevisionId', None),
+                'externalRecordId': str(updated_file.get('id')),
+                "externalRevisionId": updated_file.get('headRevisionId', None),
                 'createdAtTimestamp': existing_record.get('createdAtTimestamp', int(datetime.now(timezone.utc).timestamp())),
                 'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                 'sourceCreatedAtTimestamp': existing_record.get('sourceCreatedAtTimestamp', int(parse_timestamp(updated_file.get('createdTime')).timestamp())),
                 'sourceLastModifiedTimestamp': existing_record.get('sourceLastModifiedTimestamp', int(parse_timestamp(updated_file.get('modifiedTime')).timestamp())),
-                'recordSource': 'CONNECTOR',
+                'origin': 'CONNECTOR',
                 'connectorName': 'GOOGLE_DRIVE',
                 'isArchived': False,
-                'lastSyncTime': int(datetime.now(timezone.utc).timestamp()),
+                'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
                 'indexingStatus': 'NOT_STARTED',
                 'extractionStatus': 'NOT_STARTED'
             }
@@ -615,7 +615,7 @@ class DriveChangeHandler:
                 for parent_id in parents_to_add:
                     # Get parent key from external ID
                     parent_cursor = db.aql.execute(
-                        'FOR doc IN files FILTER doc.externalFileId == @parent_id RETURN doc._key',
+                        f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @parent_id RETURN doc._key',
                         bind_vars={'parent_id': parent_id}
                     )
                     parent_key = next(parent_cursor, None)

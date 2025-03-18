@@ -296,7 +296,7 @@ class IndexingPipeline:
                 'recordName': meta.get('recordName', ''),
                 'recordType': meta.get('recordType', ''),
                 'recordVersion': meta.get('version', ''),
-                'origin': meta.get('recordSource', ''),
+                'origin': meta.get('origin', ''),
                 'connector': meta.get('connectorName', ''),
                 'blockNum': meta.get('blockNum', 0),
                 'blockType': meta.get('blockType', 'paragraph'),

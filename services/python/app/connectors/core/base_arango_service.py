@@ -6,6 +6,24 @@ from app.config.configuration_service import ConfigurationService
 from app.utils.logger import logger
 from app.config.arangodb_constants import CollectionNames
 from app.config.configuration_service import config_node_constants
+from app.schema.documents import (
+    user_schema,
+    orgs_schema,
+    app_schema,
+    record_schema,
+    file_record_schema,
+    mail_record_schema,
+    department_schema
+)
+from app.schema.edges import (
+    record_relations_schema,
+    is_of_type_schema,
+    permissions_schema,
+    belongs_to_schema,
+    user_drive_relation_schema,
+    org_app_relation_schema,
+    user_app_relation_schema
+)
 
 class BaseArangoService():
     """Base ArangoDB service class for interacting with the database"""
@@ -112,12 +130,12 @@ class BaseArangoService():
                 self._collections[CollectionNames.RECORDS.value] = (
                     self.db.collection(CollectionNames.RECORDS.value)
                     if self.db.has_collection(CollectionNames.RECORDS.value)
-                    else self.db.create_collection(CollectionNames.RECORDS.value)
+                    else self.db.create_collection(CollectionNames.RECORDS.value, schema=record_schema)
                 )
                 self._collections[CollectionNames.RECORD_RELATIONS.value] = (
                     self.db.collection(CollectionNames.RECORD_RELATIONS.value)
                     if self.db.has_collection(CollectionNames.RECORD_RELATIONS.value)
-                    else self.db.create_collection(CollectionNames.RECORD_RELATIONS.value, edge=True)
+                    else self.db.create_collection(CollectionNames.RECORD_RELATIONS.value, edge=True, schema=record_relations_schema)
                 )
                 self._collections[CollectionNames.DRIVES.value] = (
                     self.db.collection(CollectionNames.DRIVES.value)
@@ -128,22 +146,22 @@ class BaseArangoService():
                 self._collections[CollectionNames.USER_DRIVE_RELATION.value] = (
                     self.db.collection(CollectionNames.USER_DRIVE_RELATION.value)
                     if self.db.has_collection(CollectionNames.USER_DRIVE_RELATION.value)
-                    else self.db.create_collection(CollectionNames.USER_DRIVE_RELATION.value, edge=True)
+                    else self.db.create_collection(CollectionNames.USER_DRIVE_RELATION.value, edge=True, schema=user_drive_relation_schema)
                 )
                 self._collections[CollectionNames.DEPARTMENTS.value] = (
                     self.db.collection(CollectionNames.DEPARTMENTS.value)
                     if self.db.has_collection(CollectionNames.DEPARTMENTS.value)
-                    else self.db.create_collection(CollectionNames.DEPARTMENTS.value)
+                    else self.db.create_collection(CollectionNames.DEPARTMENTS.value, schema=department_schema)
                 )
                 self._collections[CollectionNames.BELONGS_TO.value] = (
                     self.db.collection(CollectionNames.BELONGS_TO.value)
                     if self.db.has_collection(CollectionNames.BELONGS_TO.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO.value, edge=True)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO.value, edge=True, schema=belongs_to_schema)
                 )
                 self._collections[CollectionNames.FILES.value] = (
                     self.db.collection(CollectionNames.FILES.value)
                     if self.db.has_collection(CollectionNames.FILES.value)
-                    else self.db.create_collection(CollectionNames.FILES.value)
+                    else self.db.create_collection(CollectionNames.FILES.value, schema=file_record_schema)
                 )
                 self._collections[CollectionNames.LINKS.value] = (
                     self.db.collection(CollectionNames.LINKS.value)
@@ -158,7 +176,7 @@ class BaseArangoService():
                 self._collections[CollectionNames.MAILS.value] = (
                     self.db.collection(CollectionNames.MAILS.value)
                     if self.db.has_collection(CollectionNames.MAILS.value)
-                    else self.db.create_collection(CollectionNames.MAILS.value)
+                    else self.db.create_collection(CollectionNames.MAILS.value, schema=mail_record_schema)
                 )
                 self._collections[CollectionNames.PEOPLE.value] = (
                     self.db.collection(CollectionNames.PEOPLE.value)
@@ -168,7 +186,7 @@ class BaseArangoService():
                 self._collections[CollectionNames.USERS.value] = (
                     self.db.collection(CollectionNames.USERS.value)
                     if self.db.has_collection(CollectionNames.USERS.value)
-                    else self.db.create_collection(CollectionNames.USERS.value)
+                    else self.db.create_collection(CollectionNames.USERS.value, schema=user_schema)
                 )
                 self._collections[CollectionNames.GROUPS.value] = (
                     self.db.collection(CollectionNames.GROUPS.value)
@@ -178,17 +196,12 @@ class BaseArangoService():
                 self._collections[CollectionNames.ORGS.value] = (
                     self.db.collection(CollectionNames.ORGS.value)
                     if self.db.has_collection(CollectionNames.ORGS.value)
-                    else self.db.create_collection(CollectionNames.ORGS.value)
+                    else self.db.create_collection(CollectionNames.ORGS.value, schema=orgs_schema)
                 )
                 self._collections[CollectionNames.ANYONE.value] = (
                     self.db.collection(CollectionNames.ANYONE.value)
                     if self.db.has_collection(CollectionNames.ANYONE.value)
                     else self.db.create_collection(CollectionNames.ANYONE.value)
-                )
-                self._collections[CollectionNames.BELONGS_TO.value] = (
-                    self.db.collection(CollectionNames.BELONGS_TO.value)
-                    if self.db.has_collection(CollectionNames.BELONGS_TO.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO.value, edge=True)
                 )
                 self._collections[CollectionNames.PERMISSIONS.value] = (
                     self.db.collection(CollectionNames.PERMISSIONS.value)
@@ -229,17 +242,17 @@ class BaseArangoService():
                 self._collections[CollectionNames.APPS.value] = (
                     self.db.collection(CollectionNames.APPS.value)
                     if self.db.has_collection(CollectionNames.APPS.value)
-                    else self.db.create_collection(CollectionNames.APPS.value)
+                    else self.db.create_collection(CollectionNames.APPS.value, schema=app_schema)
                 )
                 self._collections[CollectionNames.ORG_APP_RELATION.value] = (
                     self.db.collection(CollectionNames.ORG_APP_RELATION.value)
                     if self.db.has_collection(CollectionNames.ORG_APP_RELATION.value)
-                    else self.db.create_collection(CollectionNames.ORG_APP_RELATION.value, edge=True)
+                    else self.db.create_collection(CollectionNames.ORG_APP_RELATION.value, edge=True, schema=org_app_relation_schema)
                 )
                 self._collections[CollectionNames.USER_APP_RELATION.value] = (
                     self.db.collection(CollectionNames.USER_APP_RELATION.value)
                     if self.db.has_collection(CollectionNames.USER_APP_RELATION.value)
-                    else self.db.create_collection(CollectionNames.USER_APP_RELATION.value, edge=True)
+                    else self.db.create_collection(CollectionNames.USER_APP_RELATION.value, edge=True, schema=user_app_relation_schema)
                 )
 
                 logger.info("✅ Collections initialized successfully")
@@ -304,14 +317,13 @@ class BaseArangoService():
     async def get_all_orgs(self, active: bool = True) -> list:
         """Get all organizations, optionally filtering by active status."""
         try:
-            query = """
-            FOR org IN @@collection
+            query = f"""
+            FOR org IN {CollectionNames.ORGS.value}
             FILTER @active == false || org.isActive == true
             RETURN org
             """
 
             bind_vars = {
-                '@collection': CollectionNames.ORGS.value,
                 'active': active
             }
 

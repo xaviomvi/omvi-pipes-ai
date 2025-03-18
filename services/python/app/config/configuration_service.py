@@ -178,105 +178,70 @@ class ConfigurationService:
 
     async def load_default_config(self, overwrite: bool = False):
         """Load default configuration into etcd."""
-        try:
-            logger.debug("🔄 Starting to load default configuration")
-            logger.debug("📂 Reading default_config.json...")
-            with open('default_config.json', 'r') as f:
-                default_config = json.load(f)
-                logger.debug("📋 Default config loaded: %s", default_config)
+        logger.debug("🔄 Starting to load default configuration")
+        logger.debug("📂 Reading default_config.json...")
+        with open('default_config.json', 'r') as f:
+            default_config = json.load(f)
+            logger.debug("📋 Default config loaded: %s", default_config)
 
-            # Store configuration with proper structure
-            for section, values in default_config.items():
-                logger.debug("🔧 Processing section: %s", section)
-                logger.debug("📋 Section values: %s", values)
+        async def store_nested_config(config_data, current_path=""):
+            """Recursively store nested configuration."""
+            for key, value in config_data.items():
+                config_key = f"{current_path}/{key}" if current_path else f"{self.prefix}/{key}"
+                
+                # Check if key exists
+                existing_value = await self.store.get_key(config_key)
+                if existing_value is not None and not overwrite:
+                    logger.debug("⏭️ Skipping existing key: %s", config_key)
+                    continue
 
-                if isinstance(values, dict):
-                    for key, value in values.items():
-                        config_key = f"{self.prefix}/{section}/{key}"
-
-                        # Check if key exists
-                        existing_value = await self.store.get_key(config_key)
-                        if existing_value is not None and not overwrite:
-                            logger.debug(
-                                "⏭️ Skipping existing key: %s", config_key)
-                            continue
-
-                        logger.debug("🔑 Storing key: %s", config_key)
-                        logger.debug(
-                            "📋 Value to store: %s (type: %s)", value, type(value))
-
-                        # Serialize complex types to JSON string
-                        if isinstance(value, (dict, list, bool, int, float)):
-                            value = json.dumps(value)
-
-                        success = await self.store.create_key(config_key, value)
-                        if success:
-                            logger.debug(
-                                "✅ Successfully stored key: %s", config_key)
-                        else:
-                            logger.error(
-                                "❌ Failed to store key: %s", config_key)
+                if isinstance(value, dict):
+                    # Recursively handle nested dictionaries
+                    await store_nested_config(value, config_key)
                 else:
-                    config_key = f"{self.prefix}/{section}"
-
-                    # Check if key exists
-                    existing_value = await self.store.get_key(config_key)
-                    if existing_value is not None and not overwrite:
-                        logger.debug(
-                            "⏭️ Skipping existing key: %s", config_key)
-                        continue
-
-                    logger.debug("🔑 Storing section key: %s", config_key)
-                    logger.debug("📋 Section value: %s (type: %s)",
-                                 values, type(values))
+                    logger.debug("🔑 Storing key: %s", config_key)
+                    logger.debug("📋 Value to store: %s (type: %s)", value, type(value))
 
                     # Serialize complex types to JSON string
-                    if isinstance(values, (dict, list, bool, int, float)):
-                        values = json.dumps(values)
+                    if isinstance(value, (dict, list, bool, int, float)):
+                        value = json.dumps(value)
 
-                    success = await self.store.create_key(config_key, values)
+                    success = await self.store.create_key(config_key, value)
                     if success:
-                        logger.debug(
-                            "✅ Successfully stored section: %s", config_key)
+                        logger.debug("✅ Successfully stored key: %s", config_key)
                     else:
-                        logger.error(
-                            "❌ Failed to store section: %s", config_key)
+                        logger.error("❌ Failed to store key: %s", config_key)
 
-            # Verify configuration
-            logger.debug("🔍 Verifying stored configuration...")
-            for section, values in default_config.items():
-                if isinstance(values, dict):
-                    for key, expected_value in values.items():
-                        config_key = f"{self.prefix}/{section}/{key}"
-                        stored_value = await self.store.get_key(config_key)
-                        logger.debug("🔍 Verifying key: %s", config_key)
-                        logger.debug("📋 Expected: %s, Got: %s",
-                                     expected_value, stored_value)
+        # Store configuration recursively
+        await store_nested_config(default_config)
 
-                        # Convert stored value back to original type for comparison
-                        if isinstance(expected_value, (dict, list, bool, int, float)):
-                            try:
-                                stored_value = json.loads(stored_value)
-                            except (json.JSONDecodeError, TypeError):
-                                pass
+        # Verify configuration
+        logger.debug("🔍 Verifying stored configuration...")
+        
+        async def verify_nested_config(config_data, current_path=""):
+            """Recursively verify nested configuration."""
+            for key, expected_value in config_data.items():
+                config_key = f"{current_path}/{key}" if current_path else f"{self.prefix}/{key}"
+                
+                if isinstance(expected_value, dict):
+                    # Recursively verify nested dictionaries
+                    await verify_nested_config(expected_value, config_key)
+                else:
+                    stored_value = await self.store.get_key(config_key)
+                    logger.debug("🔍 Verifying key: %s", config_key)
+                    logger.debug("📋 Expected: %s, Got: %s", expected_value, stored_value)
 
-                        # if stored_value != expected_value:
-                        #     logger.error(
-                        #         "❌ Verification failed for %s", config_key)
-                        #     logger.error("Expected: %s (%s)",
-                        #                  expected_value, type(expected_value))
-                        #     logger.error("Got: %s (%s)",
-                        #                  stored_value, type(stored_value))
-                        # else:
-                        #     logger.debug("✅ Verified key: %s", config_key)
+                    # Convert stored value back to original type for comparison
+                    if isinstance(expected_value, (dict, list, bool, int, float)):
+                        try:
+                            stored_value = json.loads(stored_value)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
 
-            logger.debug(
-                "✅ Default configuration loaded and verified completely")
-        except Exception as e:
-            logger.error("❌ Failed to load default configuration: %s", str(e))
-            logger.exception("Detailed error:")
-            raise
-
+        # Verify configuration recursively
+        await verify_nested_config(default_config)
+        logger.debug("✅ Default configuration loaded and verified completely")
+        
     async def has_configuration(self) -> bool:
         """Check if any configuration exists in etcd."""
         try:
@@ -307,7 +272,7 @@ class ConfigurationService:
                 # logger.debug("✅ Found value in ETCD")
                 return value
             else:
-                logger.error("❌ ERROR! Value not found in ETCD")
+                logger.error(f"❌ ERROR! Value not found in ETCD for key: {full_key}")
                 return False
 
             # logger.debug(

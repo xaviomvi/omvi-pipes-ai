@@ -157,7 +157,7 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
 
             # Check if sync is already running in Redis
             sync_hierarchy = await self.redis_service.get_sync_hierarchy()
-            if sync_hierarchy and sync_hierarchy['status'] == 'RUNNING':
+            if sync_hierarchy and sync_hierarchy['status'] == 'IN_PROGRESS':
                 logger.info(
                     "🔄 Sync already RUNNING, Program likely crashed. Changing state to PAUSED")
                 sync_hierarchy['status'] = 'PAUSED'

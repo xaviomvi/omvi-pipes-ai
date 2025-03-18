@@ -16,7 +16,7 @@ from app.config.arangodb_constants import CollectionNames
 
 router = APIRouter()
 
-@router.post("/webhook/drive")
+@router.post("/drive/webhook")
 @inject
 async def handle_drive_webhook(
     request: Request,
@@ -451,14 +451,14 @@ async def download_file(
 
         # Request file from Google Drive (streaming)
         if connector == "drive":
-            file = await arango_service.get_document(record_id, CollectionNames.FILES.value)
-            print("file", file)
-            file_id = file.get('externalFileId')
+            record = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+            print("record", record)
+            file_id = record.get('externalRecordId')
             file_url = f"""https://www.googleapis.com/drive/v3/files/{
                 file_id}?alt=media"""
         elif connector == "gmail":
-            file = await arango_service.get_document(record_id, CollectionNames.FILES.value)
-            file_id = file.get('externalFileId')
+            record = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+            file_id = record.get('externalRecordId')
             file_url = f"""https://www.googleapis.com/gmail/v1/users/me/messages/{
                 file_id}/attachments/{file_id}?alt=media"""
 

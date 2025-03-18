@@ -111,6 +111,8 @@ class KafkaTestProducer:
                 "middleName": "",
                 "lastName": "Bansal",
                 "email": "rohil.bansal@pipeshub.net",
+                "designation": "",
+                "businessPhones": ["9023474629"],
                 "syncAction": "none"
             }
         }
@@ -174,10 +176,10 @@ class KafkaTestProducer:
 
     async def test_app_events(self):
         """Test app-related events"""
-        current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)  # Convert to milliseconds
+        current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000) 
         org_id = "org_12345"
         app_group_id = "groupid_xyz"
-        apps = ["drive", "gmail", "calendar"]
+        apps = ["drive", "gmail"]
         
         # Enable apps event
         enable_event = {
