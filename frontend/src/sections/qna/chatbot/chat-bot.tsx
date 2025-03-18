@@ -1,10 +1,17 @@
-import type { Message, Citation, ApiCitation, Conversation, FormattedMessage, ExpandedCitationsState } from 'src/types/chat-bot';
+import type {
+  Message,
+  Citation,
+  ApiCitation,
+  Conversation,
+  FormattedMessage,
+  ExpandedCitationsState,
+} from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router';
 import React, { useState, useEffect, useCallback } from 'react';
 
-import { Box, Button, styled, CircularProgress } from '@mui/material';
+import { Box, Button, styled, CircularProgress, IconButton,Tooltip } from '@mui/material';
 
 import axiosInstance from 'src/utils/axios';
 
@@ -15,8 +22,6 @@ import ChatMessagesArea from './components/chat-message-area';
 import PdfHighlighterComp from './components/pdf-highlighter';
 
 const DRAWER_WIDTH = 300;
-
-
 
 const StyledCloseButton = styled(Button)(({ theme }) => ({
   position: 'fixed',
@@ -40,6 +45,24 @@ const StyledCloseButton = styled(Button)(({ theme }) => ({
     color: theme.palette.primary.contrastText,
   },
 }));
+
+const StyledOpenButton = styled(IconButton)(({ theme }) => ({
+  position: 'absolute',
+  top: 78,
+  left: 14,
+  zIndex: 1100,
+  padding: '6px',
+  color: theme.palette.text.secondary,
+  backgroundColor: 'transparent',
+  border: `1px solid ${theme.palette.divider}`,
+  borderRadius: theme.shape.borderRadius,
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    backgroundColor: theme.palette.action.hover,
+    color: theme.palette.primary.main,
+  },
+}));
+
 const ChatInterface = () => {
   // const [searchQuery, setSearchQuery] = useState<string>('');
   const [messages, setMessages] = useState<FormattedMessage[]>([]);
@@ -47,7 +70,7 @@ const ChatInterface = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingConversation, setIsLoadingConversation] = useState<boolean>(false);
   const [expandedCitations, setExpandedCitations] = useState<ExpandedCitationsState>({});
-  const [isDrawerOpen, setDrawerOpen] = useState<boolean>(true); 
+  const [isDrawerOpen, setDrawerOpen] = useState<boolean>(true);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   // eslint-disable-next-line
   const [selectedChat, setSelectedChat] = useState<Conversation | null>(null);
@@ -410,10 +433,12 @@ const ChatInterface = () => {
         setCurrentConversationId(conversation.id);
 
         // Format messages and preserve full data structure
-        const formattedMessages = conversation.messages.map(formatMessage).filter(Boolean) as FormattedMessage[];
+        const formattedMessages = conversation.messages
+          .map(formatMessage)
+          .filter(Boolean) as FormattedMessage[];
 
         // Initialize citation states for all bot messages with citations
-        const citationStates : ExpandedCitationsState = {};
+        const citationStates: ExpandedCitationsState = {};
         formattedMessages.forEach((msg, idx) => {
           if (msg.type === 'bot' && msg.citations && msg.citations.length > 0) {
             citationStates[idx] = false;
@@ -445,7 +470,7 @@ const ChatInterface = () => {
 
   // Handle feedback submission
   const handleFeedbackSubmit = useCallback(
-    async (messageId : string, feedback : any) => {
+    async (messageId: string, feedback: any) => {
       if (!currentConversationId || !messageId) return;
 
       try {
@@ -461,7 +486,7 @@ const ChatInterface = () => {
     [currentConversationId]
   );
 
-  const handleInputChange = useCallback((e : React.ChangeEvent<HTMLInputElement>) : void => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>): void => {
     setInputValue(e.target.value);
   }, []);
 
@@ -480,6 +505,17 @@ const ChatInterface = () => {
         overflow: 'hidden',
       }}
     >
+      {!isDrawerOpen && (
+        <Tooltip title="Open Sidebar" placement="right">
+          <StyledOpenButton
+            onClick={() => setDrawerOpen(true)}
+            size="small"
+            aria-label="Open sidebar"
+          >
+            <Icon icon="mdi:menu" fontSize="medium" />
+          </StyledOpenButton>
+        </Tooltip>
+      )}
       {isDrawerOpen && (
         <Box
           sx={{
@@ -599,7 +635,7 @@ const ChatInterface = () => {
               aggregatedCitations &&
               !transitioning &&
               (isExcel ? (
-                <ExcelViewer key="excel-viewer"  citations={aggregatedCitations} fileUrl={pdfUrl} />
+                <ExcelViewer key="excel-viewer" citations={aggregatedCitations} fileUrl={pdfUrl} />
               ) : (
                 <PdfHighlighterComp
                   key="pdf-viewer"
