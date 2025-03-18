@@ -260,7 +260,7 @@ export function serveFileFromLocalStorage(document: Document, res: Response) {
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${document.documentName}"`,
+      `attachment; filename="${document.documentName}${document.extension}"`,
     );
 
     // Stream the file directly to the response
