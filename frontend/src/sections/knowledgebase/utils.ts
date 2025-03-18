@@ -130,54 +130,76 @@ export const fetchRecordDetails = async (recordId: string): Promise<RecordDetail
   }
 };
 
-export const handleDownloadDocument = async (externalRecordId: string) => {
+export const handleDownloadDocument = async (
+  externalRecordId: string,
+  fileName: string
+): Promise<void> => {
   try {
     const response = await axios.get(
       `${CONFIG.backendUrl}/api/v1/document/${externalRecordId}/download`,
       { responseType: 'blob' } // Set response type to blob to handle binary data
     );
+    console.log(response.headers);
+    // Read the blob response as text to check if it's JSON with signedUrl
+    const reader = new FileReader();
+    const textPromise = new Promise<string>((resolve) => {
+      reader.onload = () => {
+        resolve(reader.result?.toString() || '');
+      };
+    });
 
-    // Check Content-Type header to determine the response type
-    const contentType = response.headers['content-type'];
+    reader.readAsText(response.data);
+    const text = await textPromise;
 
-    // Create URL for downloading
     let downloadUrl;
-    let filename = `document-${externalRecordId}.pdf`; // Default filename
-
-    if (contentType === 'application/pdf') {
-      // If response is PDF buffer, create a blob URL
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      downloadUrl = URL.createObjectURL(blob);
-    } else {
-      // If response is a signed URL, use it directly
-      downloadUrl = response.data;
-
-      // Try to extract filename from URL
-      try {
-        const urlObj = new URL(downloadUrl);
-        const pathSegments = urlObj.pathname.split('/');
-        const possibleFilename = pathSegments[pathSegments.length - 1];
-        if (possibleFilename) {
-          filename = decodeURIComponent(possibleFilename);
-        }
-      } catch (e) {
-        // If URL parsing fails, keep default filename
-        console.log('Could not parse filename from URL:', e);
+    // Use the provided fileName instead of extracting it from headers or URL
+    // Get filename from Content-Disposition header if available
+    let filename;
+    const contentDisposition = response.headers['content-disposition'];
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1];
       }
     }
 
-    // Create a temporary anchor element for download
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.setAttribute('download', filename);
+    if (!filename) {
+      filename = fileName || `document-${externalRecordId}`;
+    }
 
-    // Append to the document, trigger click, and then remove
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Try to parse as JSON to check for signedUrl property
+    try {
+      const jsonData = JSON.parse(text);
+      if (jsonData && jsonData.signedUrl) {
+        // Create a hidden link with download attribute
+        const downloadLink = document.createElement('a');
+        downloadLink.href = jsonData.signedUrl;
+        downloadLink.setAttribute('download', filename); // Use provided filename
+        downloadLink.setAttribute('target', '_blank');
+        downloadLink.style.display = 'none';
 
-    // Clean up the blob URL if created
-    if (contentType === 'application/pdf') {
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      }
+    } catch (e) {
+      // Case 2: Response is binary data
+      const contentType = response.headers['content-type'] || 'application/octet-stream';
+      console.log(contentType);
+      const blob = new Blob([response.data], { type: contentType });
+      downloadUrl = URL.createObjectURL(blob);
+
+      // Create a temporary anchor element for download of binary data
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', filename); // Use provided filename
+
+      // Append to the document, trigger click, and then remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up the blob URL we created
       URL.revokeObjectURL(downloadUrl);
     }
   } catch (error) {

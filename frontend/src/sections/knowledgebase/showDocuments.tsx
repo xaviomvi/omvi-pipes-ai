@@ -9,6 +9,7 @@ import axios from 'src/utils/axios';
 import { CONFIG } from 'src/config-global';
 
 import type { Record } from './types/record-details';
+import { handleDownloadDocument } from './utils';
 
 // Keep the existing utility functions
 const getFileIcon = (extension: string) => {
@@ -81,54 +82,7 @@ const RecordDocumentViewer = ({ record }: RecordDocumentViewerProps) => {
 
   const handleDownload = async () => {
     try {
-      const response = await axios.get(
-        `${CONFIG.backendUrl}/api/v1/document/${externalRecordId}/download`, 
-        { responseType: 'blob' }  // Set response type to blob to handle binary data
-      );
-      
-      // Check Content-Type header to determine the response type
-      const contentType = response.headers['content-type'];
-      
-      // Create URL for downloading
-      let downloadUrl;
-      let filename = `document-${externalRecordId}.pdf`;  // Default filename
-      
-      if (contentType === 'application/pdf') {
-        // If response is PDF buffer, create a blob URL
-        const blob = new Blob([response.data], { type: 'application/pdf' });
-        downloadUrl = URL.createObjectURL(blob);
-      } else {
-        // If response is a signed URL, use it directly
-        downloadUrl = response.data;
-        
-        // Try to extract filename from URL
-        try {
-          const urlObj = new URL(downloadUrl);
-          const pathSegments = urlObj.pathname.split('/');
-          const possibleFilename = pathSegments[pathSegments.length - 1];
-          if (possibleFilename) {
-            filename = decodeURIComponent(possibleFilename);
-          }
-        } catch (e) {
-          // If URL parsing fails, keep default filename
-          console.log('Could not parse filename from URL:', e);
-        }
-      }
-  
-      // Create a temporary anchor element for download
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.setAttribute('download', filename);
-      
-      // Append to the document, trigger click, and then remove
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Clean up the blob URL if created
-      if (contentType === 'application/pdf') {
-        URL.revokeObjectURL(downloadUrl);
-      }
+      await handleDownloadDocument(externalRecordId, recordName);
     } catch (error) {
       console.error('Failed to download document:', error);
     }

@@ -531,7 +531,7 @@ export default function KnowledgeBaseDetails({
             color="primary"
             onClick={(e) => {
               e.stopPropagation();
-              handleDownloadDocument(params.row.externalRecordId)
+              handleDownloadDocument(params.row.externalRecordId, params.row.recordName)
             }}
             sx={{ mx: 0.5 }}
           >

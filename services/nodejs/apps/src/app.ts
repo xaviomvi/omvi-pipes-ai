@@ -162,7 +162,7 @@ export class Application {
       cors({
         origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
         credentials: true,
-        exposedHeaders: ['x-session-token'],
+        exposedHeaders: ['x-session-token','content-disposition'],
       }),
     );
 
