@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from app.utils.logger import logger
 import uuid
 import traceback
-from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations
+from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations, OriginTypes
 
 
 class DriveChangeHandler:
@@ -11,35 +11,35 @@ class DriveChangeHandler:
         self.config_service = config_service
         self.arango_service = arango_service
 
-    async def process_sync_period_changes(self, start_token: str, user_service) -> bool:
-        """Process all changes between start_token and current"""
-        try:
-            logger.info("🚀 Processing changes since initial sync")
+    # async def process_sync_period_changes(self, start_token: str, user_service) -> bool:
+    #     """Process all changes between start_token and current"""
+    #     try:
+    #         logger.info("🚀 Processing changes since initial sync")
 
-            # Get all changes between start_token and current_token
-            changes, new_token = await user_service.get_changes(start_token)
+    #         # Get all changes between start_token and current_token
+    #         changes, new_token = await user_service.get_changes(start_token)
 
-            for change in changes:
-                logger.info("🚀 Processing change")
-                await self.process_change(change, user_service)
+    #         for change in changes:
+    #             logger.info("🚀 Processing change")
+    #             await self.process_change(change, user_service, org_id)
 
-            # Only store the new token if we successfully processed all changes
-            if new_token:
-                await self.arango_service.store_page_token(
-                    channel_id=start_token['channel_id'],
-                    resource_id=start_token['resource_id'],
-                    user_email=start_token['user_email'],
-                    token=new_token
-                )
-                logger.info("✅ New token stored successfully")
+    #         # Only store the new token if we successfully processed all changes
+    #         if new_token:
+    #             await self.arango_service.store_page_token(
+    #                 channel_id=start_token['channel_id'],
+    #                 resource_id=start_token['resource_id'],
+    #                 user_email=start_token['user_email'],
+    #                 token=new_token
+    #             )
+    #             logger.info("✅ New token stored successfully")
 
-            return True
+    #         return True
 
-        except Exception as e:
-            logger.error(f"❌ Failed to process sync period changes: {str(e)}")
-            return False
+    #     except Exception as e:
+    #         logger.error(f"❌ Failed to process sync period changes: {str(e)}")
+    #         return False
 
-    async def process_change(self, change: Dict, user_service):
+    async def process_change(self, change: Dict, user_service, org_id):
         """Process a single change with revision checking"""
         txn = None
         try:
@@ -157,7 +157,7 @@ class DriveChangeHandler:
                     "recordVersion": 0,
                     "recordType": record.get('recordType'),
                     'eventType': change,
-                    "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
+                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                     "origin": OriginTypes.CONNECTOR.value,
@@ -175,7 +175,7 @@ class DriveChangeHandler:
                     'recordVersion': 0,
                     'recordType': record.get('recordType'),
                     'eventType': change,
-                    "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
+                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                     "origin": OriginTypes.CONNECTOR.value,
@@ -193,7 +193,7 @@ class DriveChangeHandler:
                     'recordVersion': 0,
                     'recordType': record.get('recordType'),
                     'eventType': change,
-                    "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
+                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                     "origin": OriginTypes.CONNECTOR.value,

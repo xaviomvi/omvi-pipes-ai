@@ -39,7 +39,7 @@ class SignedUrlHandler:
         if self.config.expiration_minutes <= 0:
             raise ValueError("Expiration minutes must be positive")
 
-    def create_signed_url(self, record_id: str, additional_claims: Dict[str, Any] = None, connector: str = None) -> str:
+    def create_signed_url(self, record_id: str, org_id: str, additional_claims: Dict[str, Any] = None, connector: str = None) -> str:
         """Create a signed URL with optional additional claims"""
         try:
             expiration = datetime.now(timezone(timedelta(
@@ -69,7 +69,7 @@ class SignedUrlHandler:
             logger.info(
                 "Created signed URL for record %s with connector %s", record_id, connector)
 
-            return f"http://localhost:8080{self.config.url_prefix}/{connector}/record/{record_id}?token={token}"
+            return f"http://localhost:8080{self.config.url_prefix}/{org_id}/{connector}/record/{record_id}?token={token}"
 
         except ValidationError as e:
             logger.error("Payload validation error: %s", str(e))

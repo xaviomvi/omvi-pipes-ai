@@ -91,12 +91,10 @@ class EventProcessor:
             logger.debug(f"Signed URL: {signed_url}")
             # Download file using signed URL
             async with aiohttp.ClientSession() as session:
-                url = f"{signed_url}"
-                async with session.get(url) as response:
+                async with session.get(signed_url) as response:
                     if response.status != 200:
-                        logger.error(f"❌ Failed to download file: {await response.text()}")
+                        logger.error(f"❌ Failed to download file: {response}")
                         return
-
                     file_content = await response.read()
 
             if extension == "pdf":

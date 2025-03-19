@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 import uuid
 from typing import Dict, Optional
-from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations
+from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations, OriginTypes
 
 from app.connectors.utils.drive_worker import DriveWorker
 from app.utils.logger import logger
@@ -254,10 +254,10 @@ class BaseDriveSyncService(ABC):
                 logger.error("❌ Failed to resume sync service: %s", str(e))
                 return False
 
-    async def process_sync_period_changes(self, start_token: str, user_service) -> bool:
-        """Delegate change processing to ChangeHandler"""
-        logger.info("🚀 Delegating change processing to ChangeHandler")
-        return await self.change_handler.process_sync_period_changes(start_token, user_service)
+    # async def process_sync_period_changes(self, start_token: str, user_service) -> bool:
+    #     """Delegate change processing to ChangeHandler"""
+    #     logger.info("🚀 Delegating change processing to ChangeHandler")
+    #     return await self.change_handler.process_sync_period_changes(start_token, user_service)
 
     # Common methods shared between both services
     async def _should_stop(self, org_id) -> bool:
@@ -689,7 +689,8 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
             await self.celery_app.setup_app()
 
             # Check sync states and update if needed
-            for user in users:
+            active_users = await self.arango_service.get_users(org_id, active = True)
+            for user in active_users:
                 sync_state = await self.arango_service.get_user_sync_state(user['email'], 'drive')
                 current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
                 
@@ -865,7 +866,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                         "recordVersion": record_version,
                                         "recordType": record.get('recordType'),
                                         'eventType': "create",
-                                        "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
+                                        "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
                                         "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                         "connectorName": Connectors.GOOGLE_DRIVE.value,
                                         "origin": OriginTypes.CONNECTOR.value,
@@ -1055,7 +1056,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                     "recordVersion": 0,
                                     "recordType": record.get('recordType'),
                                     'eventType': "create",
-                                    "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
+                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                                     "origin": OriginTypes.CONNECTOR.value,
@@ -1310,7 +1311,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                     "recordVersion": record_version,
                                     "recordType": record.get('recordType'),
                                     'eventType': "create",
-                                    "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
+                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                                     "origin": OriginTypes.CONNECTOR.value,

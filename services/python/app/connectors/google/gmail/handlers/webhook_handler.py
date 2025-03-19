@@ -344,7 +344,7 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                     changes = await user_service.get_changes()
                     if changes:
                         for change in changes:
-                            await self.change_handler.process_change(change, user_service, org_id)
+                            await self.change_handler.process_changes(change, user_service, org_id)
                         success_count += 1
                 except Exception as e:
                     logger.error("Error processing user %s: %s",

@@ -148,6 +148,11 @@ class BaseArangoService():
                     if self.db.has_collection(CollectionNames.DEPARTMENTS.value)
                     else self.db.create_collection(CollectionNames.DEPARTMENTS.value, schema=department_schema)
                 )
+                self._collections[CollectionNames.BELONGS_TO_DEPARTMENT.value] = (
+                    self.db.collection(CollectionNames.BELONGS_TO_DEPARTMENT.value)
+                    if self.db.has_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value, edge=True)
+                )
                 self._collections[CollectionNames.ORG_DEPARTMENT_RELATION.value] = (
                     self.db.collection(CollectionNames.ORG_DEPARTMENT_RELATION.value)
                     if self.db.has_collection(CollectionNames.ORG_DEPARTMENT_RELATION.value)

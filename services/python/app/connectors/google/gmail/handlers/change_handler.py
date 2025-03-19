@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 from datetime import datetime, timezone, timedelta
 from app.utils.logger import logger
 import uuid
-from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes
+from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, OriginTypes
 
 class GmailChangeHandler:
     def __init__(self, config_service, arango_service):

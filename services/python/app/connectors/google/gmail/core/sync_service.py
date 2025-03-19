@@ -261,11 +261,10 @@ class BaseGmailSyncService(ABC):
                 logger.error("❌ Failed to stop Gmail sync service: %s", str(e))
                 return False
 
-    async def process_sync_period_changes(self, start_token: str, user_service) -> bool:
-        """Delegate change processing to ChangeHandler"""
-        logger.info("🚀 Delegating change processing to ChangeHandler")
-        return await self.change_handler.process_sync_period_changes(start_token, user_service)
-
+    # async def process_sync_period_changes(self, start_token: str, user_service) -> bool:
+    #     """Delegate change processing to ChangeHandler"""
+    #     logger.info("🚀 Delegating change processing to ChangeHandler")
+    #     return await self.change_handler.process_sync_period_changes(start_token, user_service)
 
     async def process_batch(self, metadata_list, org_id):
         """Process a single batch with atomic operations"""
@@ -794,7 +793,8 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
             await self.celery_app.setup_app()
 
             # Set up changes watch for each user
-            for user in users:
+            active_users = await self.arango_service.get_users(org_id, active = True)
+            for user in active_users:
                 try:
                     sync_state = await self.arango_service.get_user_sync_state(user['email'], 'gmail')
                     current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
@@ -992,7 +992,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                                 "recordVersion": 0,
                                 "eventType": "create",
                                 "body": message.get('body', ''),
-                                "signedUrlRoute": f"http://localhost:8080/api/v1/gmail/record/{message_key}/signedUrl",
+                                "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/gmail/record/{message_key}/signedUrl",
                                 "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
                                 "origin": OriginTypes.CONNECTOR.value,
@@ -1176,7 +1176,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             "recordVersion": 0,
                             "eventType": "create",
                             "body": message.get('body', ''),
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/gmail/record/{message_key}/signedUrl",
+                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/gmail/record/{message_key}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
@@ -1412,7 +1412,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                             "recordVersion": 0,
                             "eventType": "create",
                             "body": message.get('body', ''),
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/gmail/record/{message_key}/signedUrl",
+                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/gmail/record/{message_key}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
@@ -1434,7 +1434,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                     #         "recordVersion": 0,
                     #         'eventType': "create",
                     #         "metadataRoute": f"/api/v1/gmail/attachments/{attachment['attachment_id']}/metadata",
-                    #         "signedUrlRoute": f"http://localhost:8080/api/v1/gmail/attachments/{attachment['attachment_id']}/signedUrl",
+                    #         "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/gmail/attachments/{attachment['attachment_id']}/signedUrl",
                     #         "connectorName": Connectors.GOOGLE_MAIL.value,
                     #         "origin": OriginTypes.CONNECTOR.value,
                     #         "mimeType": attachment.get('mimeType', 'application/octet-stream'),

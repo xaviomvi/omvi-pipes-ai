@@ -3,6 +3,7 @@ import base64
 import json
 import jwt
 import requests
+from google.oauth2 import service_account
 from datetime import datetime, timezone, timedelta
 from dependency_injector.wiring import inject, Provide
 from fastapi import Request, Depends, HTTPException, BackgroundTasks, status
@@ -11,8 +12,12 @@ from app.utils.logger import logger
 from fastapi.responses import StreamingResponse
 from google.auth.transport.requests import Request as GoogleRequest
 import pickle
-import os.path
+import os
+from googleapiclient.discovery import build
+from app.config.configuration_service import config_node_constants
 from app.config.arangodb_constants import CollectionNames
+from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
+import io
 
 router = APIRouter()
 
@@ -385,9 +390,10 @@ async def sync_user(
         ) from e
 
 
-@router.get("/api/v1/{connector}/record/{record_id}/signedUrl")
+@router.get("/api/v1/{org_id}/{connector}/record/{record_id}/signedUrl")
 @inject
 async def get_signed_url(
+    org_id: str,
     connector: str,
     record_id: str,
     signed_url_handler=Depends(Provide[AppContainer.signed_url_handler])
@@ -401,6 +407,7 @@ async def get_signed_url(
 
         signed_url = signed_url_handler.create_signed_url(
             record_id,
+            org_id,
             additional_claims=additional_claims,
             connector=connector
         )
@@ -411,15 +418,64 @@ async def get_signed_url(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/v1/index/{connector}/record/{record_id}")
+@router.get("/api/v1/index/{org_id}/{connector}/record/{record_id}")
 @inject
 async def download_file(
+    org_id: str,
     record_id: str,
     connector: str,
     token: str,
     arango_service=Depends(Provide[AppContainer.arango_service]),
-    signed_url_handler=Depends(Provide[AppContainer.signed_url_handler])
+    signed_url_handler=Depends(Provide[AppContainer.signed_url_handler]),
+    config=Depends(Provide[AppContainer.config_service])
 ):
+    
+    async def get_service_account_credentials(config):
+        """Helper function to get service account credentials"""
+        try:
+            # Load service account credentials from environment or secure storage
+            SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
+            service_account_path = await config.get_config(config_node_constants.GOOGLE_AUTH_SERVICE_ACCOUNT_PATH.value)
+
+            # Load and parse the service account JSON file
+            with open(service_account_path) as f:
+                service_account_info = json.load(f)
+
+            credentials = service_account.Credentials.from_service_account_info(
+                service_account_info,
+                scopes=SCOPES,
+            )
+            
+            # Get the user email from the record to impersonate
+            credentials = credentials.with_subject(record.get('userEmail'))
+            return credentials
+        
+        except Exception as e:
+            logger.error(f"Error getting service account credentials: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Error accessing service account credentials"
+            )
+            
+    async def get_user_credentials(config):
+        """Helper function to get user credentials"""
+        creds = None
+        token_path = await config.get_config(config_node_constants.GOOGLE_AUTH_TOKEN_PATH.value)
+        if os.path.exists(token_path):
+            with open(token_path, 'rb') as token_file:
+                creds = pickle.load(token_file)
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(GoogleRequest())
+            with open(token_path, 'wb') as token_file:
+                pickle.dump(creds, token_file)
+        if not creds:
+            raise HTTPException(status_code=401, detail="No valid Google credentials found")
+        with open(token_path, 'wb') as token:
+            pickle.dump(creds, token)
+        logger.info("✅ GmailUserService connected successfully")
+
+        return creds
+
     try:
         logger.info(f"Downloading file {record_id} with connector {connector}")
         # Verify signed URL using the handler
@@ -432,49 +488,61 @@ async def download_file(
             raise HTTPException(
                 status_code=401, detail="Token does not match requested file")
 
-        # Load credentials from the token file
-        creds = None
-        if os.path.exists('token.pickle'):
-            with open('token.pickle', 'rb') as token_file:
-                creds = pickle.load(token_file)
+        # Get org details to determine account type
+        org = await arango_service.get_document(org_id, CollectionNames.ORGS.value)
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
 
-        # If credentials are expired or invalid, refresh them
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(GoogleRequest())
-            # Save the refreshed credentials
-            with open('token.pickle', 'wb') as token_file:
-                pickle.dump(creds, token_file)
+        # Get record details
+        record = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+        if not record:
+            raise HTTPException(status_code=404, detail="Record not found")
 
-        if not creds:
+        file_id = record.get('externalRecordId')
+        
+        # Different auth handling based on account type
+        if org['accountType'] in ['enterprise', 'business']:
+            # Use service account credentials
+            creds = await get_service_account_credentials(config)
+        else:
+            # Individual account - use stored OAuth credentials
+            creds = await get_user_credentials(config)
+
+        # Download file based on connector type
+        try:
+            if connector == "drive":
+                logger.info(f"Downloading Drive file: {file_id}")
+                file_url = f"""https://www.googleapis.com/drive/v3/files/{
+                    file_id}?alt=media"""
+                
+            elif connector == "gmail":
+                logger.info(f"Downloading Gmail attachment: {file_id}")
+                file_url = f"""https://www.googleapis.com/gmail/v1/users/me/messages/{
+                    file_id}/attachments/{file_id}?alt=media"""
+            else:
+                raise HTTPException(status_code=400, detail="Invalid connector type")
+            
+            headers = {"Authorization": f"Bearer {creds.token}"}
+            logger.info(f"headers: {headers}")
+            response = requests.get(file_url, headers=headers, stream=True)
+
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Error fetching file")
+
+            # Stream the response
+            return StreamingResponse(
+                response.iter_content(chunk_size=4096),
+                media_type=response.headers.get(
+                    "Content-Type", "application/octet-stream")
+            )
+
+
+        except Exception as e:
+            logger.error(f"Error downloading file: {str(e)}")
             raise HTTPException(
-                status_code=401, detail="No valid Google credentials found")
-
-        # Request file from Google Drive (streaming)
-        if connector == "drive":
-            record = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
-            print("record", record)
-            file_id = record.get('externalRecordId')
-            file_url = f"""https://www.googleapis.com/drive/v3/files/{
-                file_id}?alt=media"""
-        elif connector == "gmail":
-            record = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
-            file_id = record.get('externalRecordId')
-            file_url = f"""https://www.googleapis.com/gmail/v1/users/me/messages/{
-                file_id}/attachments/{file_id}?alt=media"""
-
-        headers = {"Authorization": f"Bearer {creds.token}"}
-        logger.info(f"headers: {headers}")
-        response = requests.get(file_url, headers=headers, stream=True)
-
-        if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="Error fetching file")
-
-        # Stream the response
-        return StreamingResponse(
-            response.iter_content(chunk_size=4096),
-            media_type=response.headers.get(
-                "Content-Type", "application/octet-stream")
-        )
+                status_code=500,
+                detail=f"Error downloading file: {str(e)}"
+            )
 
     except HTTPException as e:
         raise e

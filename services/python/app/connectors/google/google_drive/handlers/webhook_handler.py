@@ -148,11 +148,22 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
         changes, new_token = await user_service.get_changes(
             page_token=page_token['token']
         )
+        user_id = await self.arango_service.get_entity_id_by_email(user_email)
+        
+        # Get org_id from belongsTo relation for this user
+        query = f"""
+        FOR edge IN belongsTo
+            FILTER edge._from == 'users/{user_id}'
+            AND edge.entityType == 'ORGANIZATION'
+            RETURN PARSE_IDENTIFIER(edge._to).key
+        """
+        cursor = self.arango_service.db.aql.execute(query)
+        org_id = next(cursor, None)
 
         if changes:
             for change in changes:
                 try:
-                    await self.change_handler.process_change(change, user_service)
+                    await self.change_handler.process_change(change, user_service, org_id)
                 except Exception as e:
                     logger.error(f"Error processing change: {str(e)}")
                     continue
@@ -271,13 +282,25 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                 changes, new_token = await user_service.get_changes(
                     page_token=page_token['token']
                 )
+                
+                user_id = await self.arango_service.get_entity_id_by_email(page_token['user_email'])
+                # Get org_id from belongsTo relation for this user
+                query = f"""
+                FOR edge IN belongsTo
+                    FILTER edge._from == 'users/{user_id}'
+                    AND edge.entityType == 'ORGANIZATION'
+                    RETURN PARSE_IDENTIFIER(edge._to).key
+                """
+                cursor = self.arango_service.db.aql.execute(query)
+                org_id = next(cursor, None)
+
 
                 if changes:
                     logger.info("Processing %s changes for channel %s",
                                 len(changes), channel_id)
                     for change in changes:
                         try:
-                            await self.change_handler.process_change(change, user_service)
+                            await self.change_handler.process_change(change, user_service, org_id)
                         except Exception as e:
                             logger.error("Error processing change: %s", str(e))
                             continue
@@ -317,7 +340,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                     changes = await user_service.get_changes(page_token=page_token['token'])
                     if changes:
                         for change in changes:
-                            await self.change_handler.process_change(change, user_service)
+                            await self.change_handler.process_change(change, user_service, org_id)
                         success_count += 1
                 except Exception as e:
                     logger.error("Error processing user %s: %s",

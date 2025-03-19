@@ -97,7 +97,6 @@ class config_node_constants(Enum):
     AZURE_DEPLOYMENT_NAME = "azure/deployment_name"
     
     # Security related constants
-    SIGNED_URL_PRIVATE_KEY = "security/signed_url_private_key"
     JWT_SECRET = "security/jwt_secret"
     SCOPED_JWT_SECRET = "security/scoped_jwt_secret"
 

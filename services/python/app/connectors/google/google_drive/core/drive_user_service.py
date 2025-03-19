@@ -17,6 +17,7 @@ from app.utils.logger import logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
+from app.config.arangodb_constants import OriginTypes
 from uuid import uuid4
 
 class DriveUserService:

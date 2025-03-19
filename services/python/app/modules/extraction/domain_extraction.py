@@ -263,7 +263,7 @@ class DomainExtractor:
             for department in metadata.departments:
                 try:
                     # Find department node using await properly
-                    dept_query = f'FOR d IN departments FILTER d.department_name == @department RETURN d'
+                    dept_query = f'FOR d IN departments FILTER d.departmentName == @department RETURN d'
                     cursor = self.arango_service.db.aql.execute(
                         dept_query,
                         bind_vars={'department': department.value}
@@ -271,17 +271,17 @@ class DomainExtractor:
                     
                     # Get the first result directly from the cursor
                     dept_doc = cursor.next()
-                    print(dept_doc)
+                    logger.info(f"🚀 Department: {dept_doc}")
                     
                     if dept_doc:  # If we found a matching department
                         # Create edge document
                         edge = {
-                            "_from": f"records/{document_id}",
-                            "_to": f"departments/{dept_doc['_key']}",
+                            "_from": f"{CollectionNames.RECORDS.value}/{document_id}",
+                            "_to": f"{CollectionNames.DEPARTMENTS.value}/{dept_doc['_key']}",
                         }
 
                         # Insert edge into belongs_to_department collection
-                        self.arango_service.db.collection(CollectionNames.BELONGS_TO.value).insert(edge)
+                        await self.arango_service.batch_create_edges([edge], CollectionNames.BELONGS_TO_DEPARTMENT.value)
                         logger.info(f"🔗 Created relationship between document {document_id} and department {department.value}")
 
                 except StopAsyncIteration:
