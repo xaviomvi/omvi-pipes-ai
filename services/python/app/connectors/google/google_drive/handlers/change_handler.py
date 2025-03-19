@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from app.utils.logger import logger
 import uuid
 import traceback
-from app.config.arangodb_constants import CollectionNames
+from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations
 
 
 class DriveChangeHandler:
@@ -159,8 +159,8 @@ class DriveChangeHandler:
                     'eventType': change,
                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
-                    "connectorName": "GOOGLE_DRIVE",
-                    "origin": "CONNECTOR",
+                    "connectorName": Connectors.GOOGLE_DRIVE.value,
+                    "origin": OriginTypes.CONNECTOR.value,
                     "extension": extension,
                     "mimeType": mime_type,
                     "createdAtSourceTimestamp": int(parse_timestamp(new_file.get('createdTime')).timestamp()),
@@ -177,8 +177,8 @@ class DriveChangeHandler:
                     'eventType': change,
                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
-                    "connectorName": "GOOGLE_DRIVE",
-                    "origin": "CONNECTOR",
+                    "connectorName": Connectors.GOOGLE_DRIVE.value,
+                    "origin": OriginTypes.CONNECTOR.value,
                     "extension": new_file.get('extension'),
                     "mimeType": new_file.get('mimeType'),
                     "createdAtSourceTimestamp": int(parse_timestamp(new_file.get('createdTime')).timestamp()),
@@ -195,8 +195,8 @@ class DriveChangeHandler:
                     'eventType': change,
                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
-                    "connectorName": "GOOGLE_DRIVE",
-                    "origin": "CONNECTOR",
+                    "connectorName": Connectors.GOOGLE_DRIVE.value,
+                    "origin": OriginTypes.CONNECTOR.value,
                     "extension": extension,
                     "mimeType": mime_type,
                     "createdAtSourceTimestamp": int(parse_timestamp(new_file.get('createdTime')).timestamp()),
@@ -425,7 +425,7 @@ class DriveChangeHandler:
                 record = {
                     '_key': f'{file["_key"]}',
                     'recordName': f'{file["fileName"]}',
-                    'recordType': 'FILE',
+                    'recordType': RecordTypes.FILE.value,
                     'version': 0,
                     'externalRecordId': str(file_metadata.get('id')),
                     "externalRevisionId": file_metadata.get('headRevisionId', None),
@@ -433,8 +433,8 @@ class DriveChangeHandler:
                     'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                     'sourceCreatedAtTimestamp': int(parse_timestamp(file_metadata.get('createdTime')).timestamp()),
                     'sourceLastModifiedTimestamp': int(parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
-                    'origin': 'CONNECTOR',
-                    'connectorName': 'GOOGLE_DRIVE',
+                    "origin": OriginTypes.CONNECTOR.value,
+                    'connectorName': Connectors.GOOGLE_DRIVE.value,
                     'isArchived': False,
                     'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
                     'indexingStatus': 'NOT_STARTED',
@@ -459,7 +459,7 @@ class DriveChangeHandler:
                             recordRelations.append({
                                 '_from': f'{CollectionNames.RECORDS.value}/{parent_key}',
                                 '_to': f'{CollectionNames.RECORDS.value}/{file_key}',
-                                'relationType': 'PARENT_CHILD'
+                                'relationType': RecordRelations.PARENT_CHILD.value
                             })
 
                 if file:
@@ -519,7 +519,7 @@ class DriveChangeHandler:
             record = {
                 '_key': existing_record['_key'],
                 'recordName': f'{file["fileName"]}',
-                'recordType': 'FILE',
+                'recordType': RecordTypes.FILE.value,
                 'version': 0,
                 'externalRecordId': str(updated_file.get('id')),
                 "externalRevisionId": updated_file.get('headRevisionId', None),
@@ -527,8 +527,8 @@ class DriveChangeHandler:
                 'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                 'sourceCreatedAtTimestamp': existing_record.get('sourceCreatedAtTimestamp', int(parse_timestamp(updated_file.get('createdTime')).timestamp())),
                 'sourceLastModifiedTimestamp': existing_record.get('sourceLastModifiedTimestamp', int(parse_timestamp(updated_file.get('modifiedTime')).timestamp())),
-                'origin': 'CONNECTOR',
-                'connectorName': 'GOOGLE_DRIVE',
+                "origin": OriginTypes.CONNECTOR.value,
+                'connectorName': Connectors.GOOGLE_DRIVE.value,
                 'isArchived': False,
                 'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
                 'indexingStatus': 'NOT_STARTED',
@@ -624,7 +624,7 @@ class DriveChangeHandler:
                         new_edges.append({
                             '_from': f'records/{parent_key}',
                             '_to': f'records/{file_key}',
-                            'relationType': 'PARENT_CHILD'
+                            'relationType': RecordRelations.PARENT_CHILD.value
                         })
 
                 if new_edges:

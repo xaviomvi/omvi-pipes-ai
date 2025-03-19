@@ -31,8 +31,6 @@ class Etcd3DistributedKeyValueStore(DistributedKeyValueStore[T], Generic[T]):
         host: str,
         port: int,
         timeout: float = 5.0,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
         ca_cert: Optional[str] = None,
         cert_key: Optional[str] = None,
         cert_cert: Optional[str] = None
@@ -57,15 +55,12 @@ class Etcd3DistributedKeyValueStore(DistributedKeyValueStore[T], Generic[T]):
         logger.debug("   - Host: %s", host)
         logger.debug("   - Port: %s", port)
         logger.debug("   - Timeout: %s", timeout)
-        logger.debug("   - Auth enabled: %s", bool(username and password))
         logger.debug("   - SSL enabled: %s", bool(ca_cert or cert_key))
 
         config = ConnectionConfig(
             hosts=[host],
             port=port,
             timeout=timeout,
-            username=username,
-            password=password,
             ca_cert=ca_cert,
             cert_key=cert_key,
             cert_cert=cert_cert

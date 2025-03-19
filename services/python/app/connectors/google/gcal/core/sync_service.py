@@ -130,7 +130,7 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
             logger.error("❌ Enterprise service connection failed: %s", str(e))
             return False
 
-    async def initialize(self) -> bool:
+    async def initialize(self, org_id: str) -> bool:
         """Initialize enterprise sync service"""
         try:
             logger.info("🚀 Initializing enterprise sync service")
@@ -141,7 +141,7 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
             groups = []
 
             # List and store enterprise users
-            source_users = await self.gcal_admin_service.list_enterprise_users()
+            source_users = await self.gcal_admin_service.list_enterprise_users(org_id)
             for user in source_users:
                 if not await self.arango_service.get_entity_id_by_email(user['email']):
                     logger.info("New user found!")

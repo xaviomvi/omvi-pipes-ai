@@ -82,6 +82,7 @@ class config_node_constants(Enum):
     QDRANT_HOST = "qdrant/host"
     QDRANT_PORT = "qdrant/port"
     QDRANT_COLLECTION_NAME = "qdrant/collection_name"
+    QDRANT_URL = "qdrant/url"
     
     # Other constants
     LOG_LEVEL = "log_level"

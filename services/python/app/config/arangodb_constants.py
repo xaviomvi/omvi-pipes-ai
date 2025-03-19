@@ -24,7 +24,28 @@ class DepartmentNames(Enum):
     MARKETING = "Marketing"
     CUSTOMER_SUCCESS = "Customer Success"
     OTHERS = "Others"
+    
+class Connectors(Enum):
+    GOOGLE_DRIVE = "DRIVE"
+    GOOGLE_MAIL = "GMAIL"
+    GOOGLE_CALENDAR = "CALENDAR"
 
+class RecordTypes(Enum):
+    FILE = "FILE"
+    ATTACHMENT = "ATTACHMENT"
+    LINK = "LINK"
+    MAIL = "MAIL"
+    DRIVE = "DRIVE"
+    
+class RecordRelations(Enum):
+    PARENT_CHILD = "PARENT_CHILD"
+    SIBLING = "SIBLING"
+    ATTACHMENT = "ATTACHMENT"
+    
+class OriginTypes(Enum):
+    CONNECTOR = "CONNECTOR"
+    UPLOAD = "UPLOAD"
+    
 class CollectionNames(Enum):
     # Records and Record relations
     RECORDS = 'records'
@@ -64,12 +85,6 @@ class CollectionNames(Enum):
 
     # Permissions
     PERMISSIONS = 'permissions'
-
-    # Tags
-    TAGS = 'tags'
-    TAG_CATEGORIES = 'tagCategories'
-    TAG_RELATIONS = 'tagRelations'
-    RECORD_TAG_RELATIONS = 'recordTagRelations'
 
     # Other
     CHANNEL_HISTORY = 'channelHistory'

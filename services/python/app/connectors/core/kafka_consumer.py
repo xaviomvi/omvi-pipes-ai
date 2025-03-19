@@ -196,11 +196,14 @@ class KafkaRouteConsumer:
 # ORG EVENTS
     async def handle_org_created(self, payload: dict) -> bool:
         """Handle organization creation event"""
+        
+        accountType = "enterprise" if payload["accountType"] in ["business", "enterprise"] else "individual"
         try:
             org_data = {
                 '_key': payload['orgId'],
                 'name': payload.get('registeredName', 'Individual Account'),
-                'accountType': payload['accountType'],
+                'accountType': accountType,
+ 
                 'isActive': True,
                 'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                 'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
@@ -247,6 +250,7 @@ class KafkaRouteConsumer:
     async def handle_org_updated(self, payload: dict) -> bool:
         """Handle organization update event"""
         try:
+            logger.info(f"📥 Processing org updated event: {payload}")
             org_data = {
                 '_key': payload['orgId'],
                 'name': payload['registeredName'],
@@ -265,6 +269,7 @@ class KafkaRouteConsumer:
     async def handle_org_deleted(self, payload: dict) -> bool:
         """Handle organization deletion event"""
         try:
+            logger.info(f"📥 Processing org deleted event: {payload}")
             org_data = {
                 '_key': payload['orgId'],
                 'isActive': False,
@@ -284,6 +289,7 @@ class KafkaRouteConsumer:
     async def handle_user_added(self, payload: dict) -> bool:
         """Handle user creation event"""
         try:
+            logger.info(f"📥 Processing user added event: {payload}")
             # Check if user already exists by email
             existing_user = await self.arango_service.get_entity_id_by_email(
                 payload['email']
@@ -294,12 +300,14 @@ class KafkaRouteConsumer:
             if existing_user:
                 user_data = {
                     '_key': existing_user,
+                    'userId': payload['userId'],
                     'isActive': True,
                     'updatedAtTimestamp': current_timestamp
                 }
             else:
                 user_data = {
-                    '_key': payload['userId'],
+                    '_key': str(uuid4()),
+                    'userId': payload['userId'],
                     'orgId': payload['orgId'],
                     'email': payload['email'],
                     'fullName': payload.get('fullName', ''),
@@ -312,7 +320,7 @@ class KafkaRouteConsumer:
                     'createdAtTimestamp': current_timestamp,
                     'updatedAtTimestamp': current_timestamp
                 }
-                
+
             # Get org details to check account type
             org_id = payload['orgId']
             org = await self.arango_service.get_document(org_id, CollectionNames.ORGS.value)
@@ -346,7 +354,6 @@ class KafkaRouteConsumer:
                     app_edge_data = {
                         '_from': f"{CollectionNames.USERS.value}/{user_data['_key']}",
                         '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
-                        'createdAt': int(datetime.now(timezone.utc).timestamp()),
                         'syncState': 'NOT_STARTED',
                         'lastSyncUpdate': int(datetime.now(timezone.utc).timestamp())
                     }
@@ -375,6 +382,7 @@ class KafkaRouteConsumer:
     async def handle_user_updated(self, payload: dict) -> bool:
         """Handle user update event"""
         try:
+            logger.info(f"📥 Processing user updated event: {payload}")
             # Find existing user by email
             existing_user = await self.arango_service.get_entity_id_by_email(
                 payload['email'], 
@@ -385,6 +393,7 @@ class KafkaRouteConsumer:
                 return False
             user_data = {
                 '_key': existing_user,
+                'userId': payload['userId'],
                 'orgId': payload['orgId'],
                 'email': payload['email'],
                 'isActive': True,
@@ -408,6 +417,7 @@ class KafkaRouteConsumer:
     async def handle_user_deleted(self, payload: dict) -> bool:
         """Handle user deletion event"""
         try:
+            logger.info(f"📥 Processing user deleted event: {payload}")
             # Find existing user by userId
             existing_user = await self.arango_service.get_entity_id_by_email(payload['email'])
             if not existing_user:
@@ -435,6 +445,7 @@ class KafkaRouteConsumer:
     async def handle_app_enabled(self, payload: dict) -> bool:
         """Handle app enabled event"""
         try:
+            logger.info(f"📥 Processing app enabled event: {payload}")
             org_id = payload['orgId']
             app_group = payload['appGroup']
             app_group_id = payload['appGroupId']
@@ -535,6 +546,23 @@ class KafkaRouteConsumer:
                     active_users = await self.arango_service.get_users(org_id, active = True)
                     user_app_edges = []
                     
+                    for user in active_users:
+                        for app in app_docs:
+                            if app['name'] in enabled_apps:
+                                edge_data = {
+                                    '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
+                                    '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
+                                    'syncState': 'NOT_STARTED',
+                                    'lastSyncUpdate': int(datetime.now(timezone.utc).timestamp())
+                                }
+                                
+                                user_app_edges.append(edge_data)
+                                
+                                await self.arango_service.batch_create_edges(
+                                    user_app_edges,
+                                    CollectionNames.USER_APP_RELATION.value,
+                                )
+
                     # First initialize each app
                     for app_name in enabled_apps:
                         if app_name in ['calendar']:
@@ -548,24 +576,10 @@ class KafkaRouteConsumer:
                         )
                         
                         await asyncio.sleep(15)
-                    
+
                     # Then create edges and start sync if needed
                     for user in active_users:
                         for app in app_docs:
-                            if app['name'] in enabled_apps:
-                                edge_data = {
-                                    '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
-                                    '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
-                                    'syncState': 'NOT_STARTED',
-                                    'lastSyncUpdate': int(datetime.now(timezone.utc).timestamp())
-                                }
-                                user_app_edges.append(edge_data)
-                                
-                                await self.arango_service.batch_create_edges(
-                                    user_app_edges,
-                                    CollectionNames.USER_APP_RELATION.value,
-                                )
-
                                 if sync_action == 'immediate':
                                     # Start sync for individual user
                                     if app["name"] in ['calendar']:
@@ -597,6 +611,7 @@ class KafkaRouteConsumer:
             apps = payload['apps']
 
             # Stop sync for each app
+            logger.info(f"📥 Processing app disabled event: {payload}")
             for app_name in apps:
                 await self._handle_sync_event(f'{app_name}.pause', {})
 

@@ -1358,7 +1358,7 @@ class ArangoService(BaseArangoService):
                            service_type, user_email)
                 return result
 
-            logger.warning("⚠️ No user-app relation found for email %s and service %s", 
+            logger.warning("⚠️ UPDATE:No user-app relation found for email %s and service %s", 
                           user_email, service_type)
             return None
 
@@ -1381,41 +1381,48 @@ class ArangoService(BaseArangoService):
         try:
             logger.info("🔍 Getting %s sync state for user %s", 
                        service_type, user_email)
-
-            query = """
-            LET user = FIRST(FOR u IN @@users FILTER u.email == @email RETURN u._key)
-            LET app = FIRST(FOR a IN @@apps FILTER a.type == @service_type RETURN a._key)
             
-            FOR rel in @@userAppRelation
-                FILTER rel._from == CONCAT('users/', user)
-                AND rel._to == CONCAT('apps/', app)
-                RETURN {
-                    syncState: rel.syncState,
-                    lastSyncUpdate: rel.lastSyncUpdate,
-                    _from: rel._from,
-                    _to: rel._to
-                }
+            query = f"""
+            LET user = FIRST(FOR u IN {CollectionNames.USERS.value} 
+                           FILTER u.email == @email 
+                           RETURN {{
+                               _key: u._key,
+                               email: u.email
+                           }})
+            LET app = FIRST(FOR a IN {CollectionNames.APPS.value} 
+                          FILTER LOWER(a.name) == LOWER(@service_type)
+                          RETURN {{
+                              _key: a._key,
+                              name: a.name
+                          }})
+            
+            LET edge = FIRST(
+                FOR rel in {CollectionNames.USER_APP_RELATION.value}
+                    FILTER rel._from == CONCAT('users/', user._key)
+                    FILTER rel._to == CONCAT('apps/', app._key)
+                    RETURN rel
+            )
+            
+            RETURN edge
             """
 
             cursor = self.db.aql.execute(
                 query,
                 bind_vars={
                     'email': user_email,
-                    'service_type': service_type.upper(),
-                    '@userAppRelation': CollectionNames.USER_APP_RELATION.value,
-                    '@users': CollectionNames.USERS.value,
-                    '@apps': CollectionNames.APPS.value
+                    'service_type': service_type,
                 }
             )
 
             result = next(cursor, None)
             if result:
+                logger.info("Result: %s", result)
                 logger.info("✅ Found %s sync state for user %s: %s", 
                            service_type, user_email, result['syncState'])
                 return result
-
-            logger.warning("⚠️ No user-app relation found for email %s and service %s", 
-                          user_email, service_type)
+            
+            logger.warning("⚠️ GET:No user-app relation found for email %s and service %s", 
+                            user_email, service_type)
             return None
 
         except Exception as e:

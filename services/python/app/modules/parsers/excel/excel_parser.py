@@ -5,29 +5,17 @@ import os
 from app.utils.logger import logger
 from openpyxl.cell.cell import MergedCell
 from openpyxl.utils import get_column_letter
-from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
+from app.core.llm_service import LLMFactory
 from app.modules.parsers.excel.prompt_template import prompt, sheet_summary_prompt, table_summary_prompt, row_text_prompt
 import json
 
 
 class ExcelParser:
-    def __init__(self):
+    def __init__(self, llm_config):
         self.workbook = None
         self.file_binary = None
-        azure_endpoint = os.getenv('AZURE_ENDPOINT')
-        api_key = os.getenv('AZURE_API_KEY')
-        api_version = os.getenv('AZURE_API_VERSION')
-        if not azure_endpoint or not api_key or not api_version:
-            raise ValueError("Azure OpenAI environment variables are not set")
 
-        self.llm = AzureChatOpenAI(
-            azure_endpoint=azure_endpoint,
-            api_key=api_key,
-            temperature=0.2,
-            api_version=api_version,
-            azure_deployment="gpt-4o",
-            model="gpt-4o"
-        )
+        self.llm = LLMFactory.create_llm(llm_config)
 
         # Store prompts
         self.sheet_summary_prompt = sheet_summary_prompt

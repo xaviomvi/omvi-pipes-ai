@@ -67,15 +67,6 @@ class BaseArangoService():
             # Access of users/groups to files (user, group, domain) (Edge) (Common)
             CollectionNames.PERMISSIONS.value: None,
 
-            # Tags and tag categories (Node)
-            CollectionNames.TAGS.value: None,  # Tags for records (Node) (Common)
-            # Tag categories for records (Node) (Common)
-            CollectionNames.TAG_CATEGORIES.value: None,
-            # Relation between tag and tag category (Edge) (Common)
-            CollectionNames.TAG_RELATIONS.value: None,
-            # Relation between record and tag (Edge) (Common)
-            CollectionNames.RECORD_TAG_RELATIONS.value: None,
-
             CollectionNames.CHANNEL_HISTORY.value: None,
             CollectionNames.PAGE_TOKENS.value: None,
 
@@ -217,26 +208,6 @@ class BaseArangoService():
                     self.db.collection(CollectionNames.PERMISSIONS.value)
                     if self.db.has_collection(CollectionNames.PERMISSIONS.value)
                     else self.db.create_collection(CollectionNames.PERMISSIONS.value, edge=True)
-                )
-                self._collections[CollectionNames.TAGS.value] = (
-                    self.db.collection(CollectionNames.TAGS.value)
-                    if self.db.has_collection(CollectionNames.TAGS.value)
-                    else self.db.create_collection(CollectionNames.TAGS.value)
-                )
-                self._collections[CollectionNames.TAG_CATEGORIES.value] = (
-                    self.db.collection(CollectionNames.TAG_CATEGORIES.value)
-                    if self.db.has_collection(CollectionNames.TAG_CATEGORIES.value)
-                    else self.db.create_collection(CollectionNames.TAG_CATEGORIES.value)
-                )
-                self._collections[CollectionNames.TAG_RELATIONS.value] = (
-                    self.db.collection(CollectionNames.TAG_RELATIONS.value)
-                    if self.db.has_collection(CollectionNames.TAG_RELATIONS.value)
-                    else self.db.create_collection(CollectionNames.TAG_RELATIONS.value, edge=True)
-                )
-                self._collections[CollectionNames.RECORD_TAG_RELATIONS.value] = (
-                    self.db.collection(CollectionNames.RECORD_TAG_RELATIONS.value)
-                    if self.db.has_collection(CollectionNames.RECORD_TAG_RELATIONS.value)
-                    else self.db.create_collection(CollectionNames.RECORD_TAG_RELATIONS.value, edge=True)
                 )
                 self._collections[CollectionNames.CHANNEL_HISTORY.value] = (
                     self.db.collection(CollectionNames.CHANNEL_HISTORY.value)

@@ -127,7 +127,7 @@ async def root(
     """Initialize sync service and wait for schedule"""
     try:
         # Add initialization to background tasks
-        background_tasks.add_task(sync_tasks.drive_sync_service.initialize)
+        background_tasks.add_task(sync_tasks.drive_sync_service.initialize, org_id)
         return {
             "status": "accepted",
             "message": "Sync service initialization queued",
@@ -262,7 +262,7 @@ async def root(
     """Initialize sync service and wait for schedule"""
     try:
         # Add initialization to background tasks
-        background_tasks.add_task(sync_tasks.gmail_sync_service.initialize)
+        background_tasks.add_task(sync_tasks.gmail_sync_service.initialize, org_id)
         return {
             "status": "accepted",
             "message": "Sync service initialization queued",

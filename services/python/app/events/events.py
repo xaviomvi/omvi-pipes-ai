@@ -16,7 +16,7 @@ class EventProcessor:
                 - record_id: ID of the record
                 - record_version: Version of the record
                 - signed_url: Signed URL to download the file
-                - connector_name: Name of the connector (e.g., 'GOOGLE_DRIVE', 'GMAIL')
+                - connector_name: Name of the connector 
                 - metadata_route: Route to get metadata
         """
         try:

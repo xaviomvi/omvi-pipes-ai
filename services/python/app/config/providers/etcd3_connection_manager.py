@@ -14,8 +14,6 @@ class ConnectionConfig:
     hosts: List[str]
     port: int = 2379
     timeout: float = 5.0
-    username: Optional[str] = None
-    password: Optional[str] = None
     ca_cert: Optional[str] = None
     cert_key: Optional[str] = None
     cert_cert: Optional[str] = None
@@ -52,10 +50,6 @@ class Etcd3ConnectionManager:
         logger.debug("   - Hosts: %s", config.hosts)
         logger.debug("   - Port: %s", config.port)
         logger.debug("   - Timeout: %s", config.timeout)
-        logger.debug("   - Username: %s",
-                     config.username if config.username else "None")
-        logger.debug("   - Auth enabled: %s",
-                     bool(config.username and config.password))
         logger.debug("   - SSL enabled: %s",
                      bool(config.ca_cert or config.cert_key))
 
@@ -107,17 +101,21 @@ class Etcd3ConnectionManager:
             logger.debug("   - Port: %s", self.config.port)
             logger.debug("   - Timeout: %s", self.config.timeout)
 
+            client_kwargs = {
+                'host': self.config.hosts[0],
+                'port': self.config.port,
+                'timeout': self.config.timeout,
+            }
+            
+            if any([self.config.ca_cert, self.config.cert_key, self.config.cert_cert]):
+                client_kwargs.update({
+                    'ca_cert': self.config.ca_cert,
+                    'cert_key': self.config.cert_key,
+                    'cert_cert': self.config.cert_cert,
+                })
+
             # Create client synchronously since etcd3 doesn't support async
-            client = etcd3.client(
-                host=self.config.hosts[0],
-                port=self.config.port,
-                timeout=self.config.timeout,
-                user=self.config.username,
-                password=self.config.password,
-                ca_cert=self.config.ca_cert,
-                cert_key=self.config.cert_key,
-                cert_cert=self.config.cert_cert
-            )
+            client = etcd3.client(**client_kwargs)
 
             logger.debug("🔍 Testing connection with status check")
             status = client.status()

@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 import uuid
 from typing import Dict, Optional
-from app.config.arangodb_constants import CollectionNames
+from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations
 
 from app.connectors.utils.drive_worker import DriveWorker
 from app.utils.logger import logger
@@ -66,7 +66,7 @@ class BaseDriveSyncService(ABC):
         pass
 
     @abstractmethod
-    async def initialize(self) -> bool:
+    async def initialize(self, org_id) -> bool:
         """Initialize sync service"""
         pass
 
@@ -260,10 +260,10 @@ class BaseDriveSyncService(ABC):
         return await self.change_handler.process_sync_period_changes(start_token, user_service)
 
     # Common methods shared between both services
-    async def _should_stop(self) -> bool:
+    async def _should_stop(self, org_id) -> bool:
         """Check if operation should stop"""
         if self._stop_requested:
-            user_info = await self.drive_user_service.list_individual_user()
+            user_info = await self.drive_user_service.list_individual_user(org_id)
             if user_info:
                 user_email = user_info[0]['email']
                 await self.arango_service.update_user_sync_state(
@@ -377,7 +377,7 @@ class BaseDriveSyncService(ABC):
         batch_start_time = datetime.now(timezone.utc)
 
         try:
-            if await self._should_stop():
+            if await self._should_stop(org_id):
                 return False
 
             async with self._sync_lock:
@@ -434,7 +434,7 @@ class BaseDriveSyncService(ABC):
                             '_key': f'{file["_key"]}',
                             'orgId': org_id,
                             'recordName': f'{file["name"]}',
-                            'recordType': 'FILE',
+                            'recordType': RecordTypes.FILE.value,
                             'version': 0,
                             'externalRecordId': str(file_id),
                             'externalRevisionId': metadata.get('headRevisionId', None),
@@ -442,8 +442,8 @@ class BaseDriveSyncService(ABC):
                             'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                             'sourceCreatedAtTimestamp': int(self.parse_timestamp(metadata.get('createdTime')).timestamp()),
                             'sourceLastModifiedTimestamp': int(self.parse_timestamp(metadata.get('modifiedTime')).timestamp()),
-                            'origin': 'CONNECTOR',
-                            'connectorName': 'GOOGLE_DRIVE',
+                            "origin": OriginTypes.CONNECTOR.value,
+                            'connectorName': Connectors.GOOGLE_DRIVE.value,
                             'isArchived': False,
                             'isDeleted': False,
                             'isLatestVersion': True,
@@ -513,7 +513,7 @@ class BaseDriveSyncService(ABC):
                                         recordRelations.append({
                                             '_from': f'{CollectionNames.RECORDS.value}/{parent_key}',
                                             '_to': f'{CollectionNames.RECORDS.value}/{file_key}',
-                                            'relationType': 'PARENT_CHILD'
+                                            'relationType': RecordRelations.PARENT_CHILD.value
                                         })
 
                         if recordRelations:
@@ -615,7 +615,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
             logger.error("❌ Enterprise service connection failed: %s", str(e))
             return False
 
-    async def initialize(self) -> bool:
+    async def initialize(self, org_id) -> bool:
         """Initialize enterprise sync service"""
         try:
             logger.info("Initializing Drive sync service")
@@ -623,26 +623,21 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                 return False
 
             # List and store enterprise users
-            users = await self.drive_admin_service.list_enterprise_users()
+            users = await self.drive_admin_service.list_enterprise_users(org_id)
             if users:
-                # Add sync state to each user
                 logger.info("🚀 Found %s users", len(users))
-                await self.arango_service.batch_upsert_nodes(users, collection=CollectionNames.USERS.value)
+
+                for user in users:
+                    # Add sync state to user info                
+                    user_id = await self.arango_service.get_entity_id_by_email(user['email'])
+                    if not user_id:
+                        await self.arango_service.batch_upsert_nodes([user], collection=CollectionNames.USERS.value)
 
             # List and store groups
-            groups = await self.drive_admin_service.list_groups()
+            groups = await self.drive_admin_service.list_groups(org_id)
             if groups:
                 logger.info("🚀 Found %s groups", len(groups))
                 await self.arango_service.batch_upsert_nodes(groups, collection=CollectionNames.GROUPS.value)
-
-            organization_name = await self.config.get_config('organization')
-            organization = {
-                '_key': str(uuid.uuid4()),
-                'name': organization_name
-            }
-            logger.info("🚀 Organization: %s", organization)
-            if organization:
-                await self.arango_service.batch_upsert_nodes([organization], collection=CollectionNames.ORGS.value)
 
             # Create relationships between users and groups in belongsTo collection
             belongs_to_group_relations = []
@@ -677,7 +672,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
             for user in users:
                 relation = {
                     '_from': f'users/{user["_key"]}',
-                    '_to': f'organizations/{organization["_key"]}',
+                    '_to': f'organizations/{org_id}',
                     'entityType': 'ORGANIZATION'
                 }
                 belongs_to_org_relations.append(relation)
@@ -754,7 +749,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
     async def perform_initial_sync(self, org_id, action: str = "start") -> bool:
         """First phase: Build complete drive structure using batch operations"""
         try:
-            if await self._should_stop():
+            if await self._should_stop(org_id):
                 logger.info("Sync stopped before starting")
                 return False
 
@@ -768,7 +763,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                     service_type='drive'
                 )
 
-                if await self._should_stop():
+                if await self._should_stop(org_id):
                     logger.info("Sync stopped during user %s processing", user['email'])
                     await self.arango_service.update_user_sync_state(
                         user['email'],
@@ -789,7 +784,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
                 # Process each drive
                 for drive_id, worker in self.drive_workers.items():
-                    if await self._should_stop():
+                    if await self._should_stop(org_id):
                         logger.info("Sync stopped during drive %s processing", drive_id)
                         await self.arango_service.update_drive_sync_state(
                             drive_id,
@@ -831,7 +826,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                         total_processed = 0
 
                         for i in range(0, len(files), batch_size):
-                            if await self._should_stop():
+                            if await self._should_stop(org_id):
                                 logger.info("Sync stopped during batch processing at index %s", i)
                                 await self.arango_service.update_drive_sync_state(
                                     drive_id,
@@ -872,8 +867,8 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                         'eventType': "create",
                                         "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                                         "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
-                                        "connectorName": "GOOGLE_DRIVE",
-                                        "origin": "CONNECTOR",
+                                        "connectorName": Connectors.GOOGLE_DRIVE.value,
+                                        "origin": OriginTypes.CONNECTOR.value,
                                         "createdAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('createdTime')).timestamp()),
                                         "modifiedAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                                         "extension": extension,
@@ -982,7 +977,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
             # Process each drive
             for drive_id, worker in self.drive_workers.items():
-                if await self._should_stop():
+                if await self._should_stop(org_id):
                     logger.info("Sync stopped during drive %s processing", drive_id)
                     await self.arango_service.update_drive_sync_state(
                         drive_id,
@@ -1025,7 +1020,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                     total_processed = 0
 
                     for i in range(0, len(files), batch_size):
-                        if await self._should_stop():
+                        if await self._should_stop(org_id):
                             logger.info("Sync stopped during batch processing at index %s", i)
                             await self.arango_service.update_drive_sync_state(
                                 drive_id,
@@ -1062,8 +1057,8 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                     'eventType': "create",
                                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
-                                    "connectorName": "GOOGLE_DRIVE",
-                                    "origin": "CONNECTOR",
+                                    "connectorName": Connectors.GOOGLE_DRIVE.value,
+                                    "origin": OriginTypes.CONNECTOR.value,
                                     "createdAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('createdTime')).timestamp()),
                                     "modifiedAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                                     "extension": file.get('extension'),
@@ -1132,14 +1127,14 @@ class DriveSyncIndividualService(BaseDriveSyncService):
             logger.error("❌ Individual service connection failed: %s", str(e))
             return False
 
-    async def initialize(self) -> bool:
+    async def initialize(self, org_id) -> bool:
         """Initialize individual user sync service"""
         try:
             if not await self.connect_services():
                 return False
 
             # Get and store user info with initial sync state
-            user_info = await self.drive_user_service.list_individual_user()
+            user_info = await self.drive_user_service.list_individual_user(org_id)
             if user_info:
                 # Add sync state to user info                
                 user_id = await self.arango_service.get_entity_id_by_email(user_info[0]['email'])
@@ -1203,11 +1198,11 @@ class DriveSyncIndividualService(BaseDriveSyncService):
     async def perform_initial_sync(self, org_id, action: str = "start") -> bool:
         """First phase: Build complete drive structure using batch operations"""
         try:
-            if await self._should_stop():
+            if await self._should_stop(org_id):
                 logger.info("Sync stopped before starting")
                 return False
 
-            user = await self.drive_user_service.list_individual_user()
+            user = await self.drive_user_service.list_individual_user(org_id)
             user = user[0]
 
             # Update user sync state to RUNNING
@@ -1217,7 +1212,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                 service_type='drive'
             )
 
-            if await self._should_stop():
+            if await self._should_stop(org_id):
                 logger.info("Sync stopped during user %s processing", user['email'])
                 await self.arango_service.update_user_sync_state(
                     user['email'],
@@ -1233,7 +1228,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
 
             # Process each drive
             for drive_id, worker in self.drive_workers.items():
-                if await self._should_stop():
+                if await self._should_stop(org_id):
                     logger.info("Sync stopped during drive %s processing", drive_id)
                     await self.arango_service.update_drive_sync_state(
                         drive_id,
@@ -1275,7 +1270,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                     total_processed = 0
 
                     for i in range(0, len(files), batch_size):
-                        if await self._should_stop():
+                        if await self._should_stop(org_id):
                             logger.info("Sync stopped during batch processing at index %s", i)
                             await self.arango_service.update_drive_sync_state(
                                 drive_id,
@@ -1317,8 +1312,8 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                     'eventType': "create",
                                     "signedUrlRoute": f"http://localhost:8080/api/v1/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
-                                    "connectorName": "GOOGLE_DRIVE",
-                                    "origin": "CONNECTOR",
+                                    "connectorName": Connectors.GOOGLE_DRIVE.value,
+                                    "origin": OriginTypes.CONNECTOR.value,
                                     "createdAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('createdTime')).timestamp()),
                                     "modifiedAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                                     "extension": extension,
