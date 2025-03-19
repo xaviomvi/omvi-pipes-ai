@@ -64,7 +64,7 @@ class BaseGCalSyncService(ABC):
         pass
 
     @abstractmethod
-    async def initialize(self) -> bool:
+    async def initialize(self, org_id: str) -> bool:
         """Initialize sync service"""
         pass
 

@@ -276,12 +276,12 @@ class DomainExtractor:
                     if dept_doc:  # If we found a matching department
                         # Create edge document
                         edge = {
-                            "_from": f"records/{document_id}",
-                            "_to": f"departments/{dept_doc['_key']}",
+                            "_from": f"{CollectionNames.RECORDS.value}/{document_id}",
+                            "_to": f"{CollectionNames.DEPARTMENTS.value}/{dept_doc['_key']}",
                         }
 
                         # Insert edge into belongs_to_department collection
-                        self.arango_service.db.collection(CollectionNames.BELONGS_TO.value).insert(edge)
+                        await self.arango_service.batch_create_edges([edge], CollectionNames.BELONGS_TO_DEPARTMENT.value)
                         logger.info(f"🔗 Created relationship between document {document_id} and department {department.value}")
 
                 except StopAsyncIteration:

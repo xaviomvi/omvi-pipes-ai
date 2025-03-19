@@ -460,7 +460,6 @@ class ArangoService(BaseArangoService):
                 logger.info("✅ Got group ID: %s", group_id)
                 return group_id
 
-            logger.warning("❌ NO ENTITY FOUND")
             return None
 
         except Exception as e:
@@ -1329,17 +1328,27 @@ class ArangoService(BaseArangoService):
 
             # Get user key and app key based on service type
             query = f"""
-            LET user = FIRST(FOR u IN {CollectionNames.USERS.value} FILTER u.email == @email RETURN u._key)
-            LET app = FIRST(FOR a IN {CollectionNames.APPS.value} FILTER a.name == @service_type RETURN a._key)
+            LET user = FIRST(FOR u IN {CollectionNames.USERS.value} 
+                           FILTER u.email == @email 
+                           RETURN {{
+                               _key: u._key,
+                               email: u.email
+                           }})
+            LET app = FIRST(FOR a IN {CollectionNames.APPS.value} 
+                          FILTER LOWER(a.name) == LOWER(@service_type)
+                          RETURN {{
+                              _key: a._key,
+                              name: a.name
+                          }})
             
-            FOR rel in {CollectionNames.USER_APP_RELATION.value}
-                FILTER rel._from == CONCAT('users/', user)
-                AND rel._to == CONCAT('apps/', app)
-                UPDATE rel WITH {{
-                    syncState: @state,
-                    lastSyncUpdate: @timestamp
-                }} IN {CollectionNames.USER_APP_RELATION.value}
-                RETURN NEW
+            LET edge = FIRST(
+                FOR rel in {CollectionNames.USER_APP_RELATION.value}
+                    FILTER rel._from == CONCAT('users/', user._key)
+                    FILTER rel._to == CONCAT('apps/', app._key)
+                    RETURN rel
+            )
+            
+            RETURN edge
             """
 
             cursor = self.db.aql.execute(
@@ -1347,8 +1356,6 @@ class ArangoService(BaseArangoService):
                 bind_vars={
                     'email': user_email,
                     'service_type': service_type,
-                    'state': state,
-                    'timestamp': int(datetime.now(timezone.utc).timestamp()),
                 }
             )
 

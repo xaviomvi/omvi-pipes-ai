@@ -43,9 +43,10 @@ class GmailUserService:
             SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 
             # Load credentials from token file
+            token_path = await self.config.get_config(config_node_constants.GOOGLE_AUTH_TOKEN_PATH.value)
             creds = None
-            if os.path.exists('token.pickle'):
-                with open('token.pickle', 'rb') as token:
+            if os.path.exists(token_path):
+                with open(token_path, 'rb') as token:
                     creds = pickle.load(token)
             if not creds or not creds.valid:
                 if creds and creds.expired and creds.refresh_token:
@@ -56,7 +57,7 @@ class GmailUserService:
                     flow = InstalledAppFlow.from_client_secrets_file(
                         credentials_path, SCOPES)
                     creds = flow.run_local_server(port=8090)
-                with open('token.pickle', 'wb') as token:
+                with open(token_path, 'wb') as token:
                     pickle.dump(creds, token)
 
             self.service = build('gmail', 'v1', credentials=creds)

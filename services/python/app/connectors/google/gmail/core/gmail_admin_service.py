@@ -2,6 +2,7 @@
 
 # pylint: disable=E1101, W0718
 import os
+from datetime import datetime
 from typing import Dict, List, Optional
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -49,6 +50,13 @@ class GmailAdminService:
             logger.error(
                 "❌ Failed to connect to Drive Admin Service: %s", str(e))
             return False
+        
+    def parse_timestamp(self, timestamp_str):
+        # Remove the 'Z' and add '+00:00' for UTC
+        if timestamp_str.endswith('Z'):
+            timestamp_str = timestamp_str[:-1] + '+00:00'
+        return datetime.fromisoformat(timestamp_str)
+
 
     @exponential_backoff()
     async def list_enterprise_users(self, org_id: str) -> List[Dict]:
@@ -68,7 +76,6 @@ class GmailAdminService:
                     ).execute()
 
                     current_users = results.get('users', [])
-                    logger.info("USERS: %s", current_users)
 
                     users.extend([{
                         '_key': str(uuid4()),
@@ -82,8 +89,8 @@ class GmailAdminService:
                         'designation': user.get('designation', 'user'),
                         'businessPhones': user.get('phones', []),
                         'isActive': user.get('isActive', False),
-                        'createdAtTimestamp': user.get('creationTime'),
-                        'updatedAtTimestamp': user.get('creationTime')
+                        'createdAtTimestamp': int(self.parse_timestamp(user.get('creationTime')).timestamp()),
+                        'updatedAtTimestamp': int(self.parse_timestamp(user.get('creationTime')).timestamp())
                     } for user in current_users if not user.get('suspended', False)])
 
                     page_token = results.get('nextPageToken')
@@ -91,6 +98,7 @@ class GmailAdminService:
                         break
 
             logger.info("✅ Found %s active users in domain", len(users))
+            logger.info("USERS: %s", users)
             return users
 
         except Exception as e:
@@ -122,7 +130,7 @@ class GmailAdminService:
             return None
 
     @exponential_backoff()
-    async def list_groups(self) -> List[Dict]:
+    async def list_groups(self, org_id: str) -> List[Dict]:
         """List all groups in the domain for enterprise setup"""
         try:
             logger.info("🚀 Listing domain groups")
@@ -141,6 +149,7 @@ class GmailAdminService:
                     groups.extend([{
                         '_key': group.get('id'),
                         'groupId': group.get('id'),
+                        'orgId': org_id,
                         'groupName': group.get('name'),
                         'email': group.get('email'),
                         'description': group.get('description', ''),

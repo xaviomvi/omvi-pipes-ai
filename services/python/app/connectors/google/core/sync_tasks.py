@@ -302,24 +302,9 @@ class SyncTasks:
         try:
             current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             logger.info(f"Manual sync control - Action: {action} at {current_time}")
-
-            # Get current user state from ArangoDB
-            user_info = await self.gmail_sync_service.gmail_user_service.list_individual_user(org_id)
-            if not user_info:
-                logger.error("No user found for gmail sync")
-                return False
             
-            user_email = user_info[0]['email']
-            user_id = await self.gmail_sync_service.arango_service.get_entity_id_by_email(user_email)
-            current_user = await self.gmail_sync_service.arango_service.get_document(user_id, CollectionNames.USERS.value)
-            current_state = current_user.get('sync_state') if current_user else None
-
             if action == 'start':
                 logger.info("Starting sync")
-                if current_state == 'IN_PROGRESS':
-                    logger.info("Sync is already running")
-                    return {"status": "skipped", "message": "Sync is already running"}
-
                 success = await self.gmail_sync_service.start(org_id)
                 if success:
                     return {"status": "accepted", "message": "Sync start operation queued"}
@@ -327,9 +312,7 @@ class SyncTasks:
 
             elif action == 'pause':
                 logger.info("Pausing sync")
-                if current_state != 'IN_PROGRESS':
-                    return {"status": "skipped", "message": "Sync is not running"}
-
+                
                 self.gmail_sync_service._stop_requested = True
                 logger.info("🚀 Setting stop requested")
 
@@ -344,12 +327,6 @@ class SyncTasks:
                 return {"status": "error", "message": "Failed to queue sync pause"}
 
             elif action == 'resume':
-                if current_state == 'IN_PROGRESS':
-                    return {"status": "skipped", "message": "Sync is already running"}
-
-                if current_state != 'PAUSED':
-                    return {"status": "skipped", "message": "Sync was not paused before resuming"}
-
                 success = await self.gmail_sync_service.resume(org_id)
                 if success:
                     return {"status": "accepted", "message": "Sync resume operation queued"}

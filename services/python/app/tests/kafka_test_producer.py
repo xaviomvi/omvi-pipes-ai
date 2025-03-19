@@ -57,8 +57,8 @@ class KafkaTestProducer:
             "timestamp": current_timestamp,
             "payload": {
                 "orgId": org_id,
-                "accountType": "individual",
-                "registeredName": "Acme Corporation"
+                "accountType": "enterprise",
+                "registeredName": "PipesHub"
             }
         }
         await self.send_message('entity-events', create_event)
@@ -179,7 +179,7 @@ class KafkaTestProducer:
         current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000) 
         org_id = "org_12345"
         app_group_id = "groupid_xyz"
-        apps = ["drive", "gmail"]
+        apps = ["drive"]
         
         # Enable apps event
         enable_event = {

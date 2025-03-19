@@ -301,6 +301,7 @@ class KafkaRouteConsumer:
                 user_data = {
                     '_key': existing_user,
                     'userId': payload['userId'],
+                    'orgId': payload['orgId'],
                     'isActive': True,
                     'updatedAtTimestamp': current_timestamp
                 }
@@ -329,7 +330,7 @@ class KafkaRouteConsumer:
                 return False
 
             # Batch upsert user
-            print("user_data", user_data)
+            # print("user_data", user_data)
             await self.arango_service.batch_upsert_nodes([user_data], CollectionNames.USERS.value)
 
             # Create edge between org and user if it doesn't exist
@@ -515,7 +516,27 @@ class KafkaRouteConsumer:
 
                 # Handle enterprise/business account type
                 if user_type == 'enterprise':
+                    
+                    active_users = await self.arango_service.get_users(org_id, active = True)
+                    user_app_edges = []
+
                     # Initialize each app and create user-app edges
+                    for user in active_users:
+                        for app in app_docs:
+                            if app['name'] in enabled_apps:
+                                edge_data = {
+                                    '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
+                                    '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
+                                    'syncState': 'NOT_STARTED',
+                                    'lastSyncUpdate': int(datetime.now(timezone.utc).timestamp())
+                                }
+                                
+                                user_app_edges.append(edge_data)
+                                await self.arango_service.batch_create_edges(
+                                    user_app_edges,
+                                    CollectionNames.USER_APP_RELATION.value,
+                                )
+
                     for app_name in enabled_apps:
                         if app_name in ['calendar']:
                             logger.info("Skipping init")
@@ -527,19 +548,21 @@ class KafkaRouteConsumer:
                             {'path_params': {'org_id': org_id}}
                         )
                         await asyncio.sleep(15)
+                        
+                    for user in active_users:
+                        for app in app_docs:
+                            if sync_action == 'immediate':
+                                if app_name in ['calendar']:
+                                    logger.info("Skipping start")
+                                    continue
 
-                        if sync_action == 'immediate':
-                            if app_name in ['calendar']:
-                                logger.info("Skipping start")
-                                continue
+                                # Start sync for all users
+                                await self._handle_sync_event(
+                                    f'{app_name}.start', 
+                                    {'path_params': {'org_id': org_id}}
+                                )
 
-                            # Start sync for all users
-                            await self._handle_sync_event(
-                                f'{app_name}.start', 
-                                {'path_params': {'org_id': org_id}}
-                            )
-
-                            await asyncio.sleep(15)
+                                await asyncio.sleep(15)
 
                 # For individual accounts, create edges between existing active users and apps
                 else:

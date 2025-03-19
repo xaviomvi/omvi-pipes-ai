@@ -91,7 +91,7 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             if drive_service_needed:
                 drive_sync_service = await app_container.drive_sync_service()
                 # Initialize drive sync service
-                await drive_sync_service.initialize()
+                await drive_sync_service.initialize(org_id)
 
                 # Re-iterate to collect users needing sync
                 for user in users:
@@ -115,7 +115,7 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             if gmail_service_needed:
                 gmail_sync_service = await app_container.gmail_sync_service()
                 # Initialize gmail sync service
-                await gmail_sync_service.initialize()
+                await gmail_sync_service.initialize(org_id)
                 logger.info("Gmail Service initialized for org %s", org_id)
                 
                 # Re-iterate to collect users needing sync
