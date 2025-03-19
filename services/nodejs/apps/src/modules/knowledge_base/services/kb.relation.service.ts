@@ -3,27 +3,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { ArangoService } from '../../../libs/services/arango.service';
 import {
   DocumentCollection,
-  EdgeCollection,
-  SchemaOptions,
+  EdgeCollection
 } from 'arangojs/collections';
 import { Database } from 'arangojs';
 import { aql } from 'arangojs/aql';
 import { Logger } from '../../../libs/services/logger.service';
-import { recordSchema } from '../schemas/record';
-import { EdgeDefinition } from 'arangojs/graphs';
-import { fileRecordSchema } from '../schemas/file_record';
-import { recordToRecordEdgeSchema } from '../schemas/edges/record_record.edge';
 import {
-  COLLECTION_TYPE,
   COLLECTIONS,
-  GRAPHS,
+  ENTITY_TYPE,
   RELATIONSHIP_TYPE,
 } from '../constants/record.constants';
-import { UserSchema } from '../schemas/user';
-import { recordToFileRecordEdgeSchema } from '../schemas/edges/record_fileRecord.edge';
-import { kbToRecordEdgeSchema } from '../schemas/edges/kb_record.edge';
-import { kbToUserPermissionEdgeSchema } from '../schemas/edges/kb_user_permission.edge';
-import { kbSchema } from '../schemas/kb';
 import { IRecordDocument } from '../types/record';
 import { IFileRecordDocument } from '../types/file_record';
 import {
@@ -69,10 +58,10 @@ export class RecordRelationService {
     this.db = this.arangoService.getConnection();
 
     // Document collections
-    this.recordCollection = this.db.collection(COLLECTIONS.RECORD);
-    this.fileRecordCollection = this.db.collection(COLLECTIONS.FILE_RECORD);
-    this.userCollection = this.db.collection(COLLECTIONS.USER);
-    this.kbCollection = this.db.collection(COLLECTIONS.KNOWLEDGEBASE);
+    this.recordCollection = this.db.collection(COLLECTIONS.RECORDS);
+    this.fileRecordCollection = this.db.collection(COLLECTIONS.FILES);
+    this.userCollection = this.db.collection(COLLECTIONS.USERS);
+    this.kbCollection = this.db.collection(COLLECTIONS.KNOWLEDGE_BASE);
 
     // Edge collections
     this.recordToRecordEdges = this.db.collection(
@@ -82,88 +71,15 @@ export class RecordRelationService {
       COLLECTIONS.IS_OF_TYPE,
     ) as EdgeCollection;
     this.permissionEdges = this.db.collection(
-      COLLECTIONS.PERMISSION,
+      COLLECTIONS.PERMISSIONS_TO_KNOWLEDGE_BASE,
     ) as EdgeCollection;
     this.kbToRecordEdges = this.db.collection(
-      COLLECTIONS.BELONGS_TO,
+      COLLECTIONS.BELONGS_TO_KNOWLEDGE_BASE,
     ) as EdgeCollection;
 
-    this.initializeCollections();
     this.initializeEventProducer();
   }
 
-  private async initializeCollections() {
-    try {
-      // Create document collections if they don't exist
-      await this.ensureCollection(this.recordCollection, recordSchema);
-      await this.ensureCollection(this.fileRecordCollection, fileRecordSchema);
-      await this.ensureCollection(this.userCollection, UserSchema);
-      await this.ensureCollection(this.kbCollection, kbSchema);
-
-      // Create edge collections if they don't exist
-      await this.ensureEdgeCollection(
-        this.recordToRecordEdges,
-        recordToRecordEdgeSchema,
-      );
-      await this.ensureEdgeCollection(
-        this.isOfTypeEdges,
-        recordToFileRecordEdgeSchema,
-      );
-      await this.ensureEdgeCollection(
-        this.permissionEdges,
-        kbToUserPermissionEdgeSchema,
-      );
-      await this.ensureEdgeCollection(
-        this.kbToRecordEdges,
-        kbToRecordEdgeSchema,
-      );
-
-      // Create the knowledge base graph structure
-      const kbGraphName = GRAPHS.KB_GRAPH;
-
-      const kbEdgeDefinitions: EdgeDefinition[] = [
-        {
-          collection: COLLECTIONS.PERMISSION,
-          from: [COLLECTIONS.USER],
-          to: [COLLECTIONS.KNOWLEDGEBASE],
-        },
-        {
-          collection: COLLECTIONS.BELONGS_TO,
-          from: [COLLECTIONS.RECORD],
-          to: [COLLECTIONS.KNOWLEDGEBASE],
-        },
-        {
-          collection: COLLECTIONS.RECORD_TO_RECORD,
-          from: [COLLECTIONS.RECORD],
-          to: [COLLECTIONS.RECORD],
-        },
-        {
-          collection: COLLECTIONS.IS_OF_TYPE,
-          from: [COLLECTIONS.RECORD],
-          to: [COLLECTIONS.FILE_RECORD],
-        },
-      ];
-
-      // Check if the knowledge base graph exists, if not create it
-      const kbGraphExists = await this.db
-        .listGraphs()
-        .then((graphs) => graphs.some((g) => g.name === kbGraphName));
-
-      if (!kbGraphExists) {
-        await this.db.createGraph(kbGraphName, kbEdgeDefinitions);
-        logger.info(`Created knowledge base graph: ${kbGraphName}`);
-      }
-
-      logger.info(
-        'Successfully initialized knowledge base collections and graphs',
-      );
-    } catch (error) {
-      logger.error('Failed to initialize collections', error);
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
-    }
-  }
   private async initializeEventProducer() {
     try {
       await this.eventProducer.start();
@@ -177,76 +93,7 @@ export class RecordRelationService {
       );
     }
   }
-
-  private async ensureCollection(
-    collection: DocumentCollection,
-    schema: SchemaOptions,
-  ): Promise<void> {
-    try {
-      const exists = await collection.exists();
-      if (!exists) {
-        await collection.create({ schema });
-        logger.info(`Created collection: ${collection.name}`);
-      } else {
-        // Optionally update schema if needed
-        await collection.properties({ schema });
-        logger.info(`Updated schema for collection: ${collection.name}`);
-      }
-    } catch (error) {
-      logger.error(
-        `Error creating/updating collection ${collection.name}`,
-        error,
-      );
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
-    }
-  }
-
-  private async ensureEdgeCollection(
-    collection: EdgeCollection,
-    schema: SchemaOptions,
-  ): Promise<void> {
-    try {
-      const exists = await collection.exists();
-      if (!exists) {
-        // Create it properly as an edge collection
-        await this.db.createCollection(collection.name, {
-          type: COLLECTION_TYPE.EDGE,
-          schema,
-        });
-        logger.info(`Created edge collection: ${collection.name}`);
-      } else {
-        // Check if it's actually an edge collection
-        const info = await collection.properties();
-        if (info.type !== COLLECTION_TYPE.EDGE) {
-          // Can't convert, must drop and recreate
-          logger.warn(
-            `Collection ${collection.name} exists but is not an edge collection. Will drop and recreate.`,
-          );
-          await collection.drop();
-          await this.db.createCollection(collection.name, {
-            type: COLLECTION_TYPE.EDGE,
-            schema,
-          });
-          logger.info(`Recreated ${collection.name} as an edge collection`);
-        } else {
-          // Just update the schema
-          await collection.properties({ schema });
-          logger.info(`Updated schema for edge collection: ${collection.name}`);
-        }
-      }
-    } catch (error) {
-      logger.error(
-        `Error creating/updating edge collection ${collection.name}`,
-        error,
-      );
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
-    }
-  }
-
+  
   /**
    * Publishes events for multiple records and their associated file records
    * @param records The inserted records
@@ -418,8 +265,8 @@ export class RecordRelationService {
       const kb = {
         orgId,
         name,
-        createdAt: currentTime,
-        updatedAt: currentTime,
+        createdAtTimestamp: currentTime,
+        updatedAtTimestamp: currentTime,
         isDeleted: false,
         isArchived: false,
       };
@@ -438,9 +285,7 @@ export class RecordRelationService {
         orgId,
         error,
       });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -458,9 +303,7 @@ export class RecordRelationService {
       return result.new as IRecordDocument;
     } catch (error) {
       logger.error('Failed to insert record', { record, error });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -480,9 +323,7 @@ export class RecordRelationService {
       return result.new as IFileRecordDocument;
     } catch (error) {
       logger.error('Failed to insert file record', { fileRecord, error });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -507,7 +348,7 @@ export class RecordRelationService {
     }
 
     const trx = await this.db.beginTransaction({
-      write: [COLLECTIONS.RECORD, COLLECTIONS.FILE_RECORD],
+      write: [COLLECTIONS.RECORDS, COLLECTIONS.FILES],
     });
 
     try {
@@ -558,9 +399,7 @@ export class RecordRelationService {
       }
 
       logger.error('Failed to insert records and file records', { error });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -573,8 +412,8 @@ export class RecordRelationService {
     relationshipType: string,
   ): Promise<string> {
     try {
-      const fromHandle = `${COLLECTIONS.RECORD}/${fromRecordId}`;
-      const toHandle = `${COLLECTIONS.RECORD}/${toRecordId}`;
+      const fromHandle = `${COLLECTIONS.RECORDS}/${fromRecordId}`;
+      const toHandle = `${COLLECTIONS.RECORDS}/${toRecordId}`;
 
       // Check if relationship already exists
       const cursor = await this.db.query(aql`
@@ -598,8 +437,8 @@ export class RecordRelationService {
         _from: fromHandle,
         _to: toHandle,
         relationshipType,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAtTimestamp: Date.now(),
+        updatedAtTimestamp: Date.now(),
       };
 
       const result = await this.recordToRecordEdges.save(edge);
@@ -615,9 +454,7 @@ export class RecordRelationService {
         relationshipType,
         error,
       });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -629,8 +466,8 @@ export class RecordRelationService {
     fileRecordId: string,
   ): Promise<string> {
     try {
-      const recordHandle = `${COLLECTIONS.RECORD}/${recordId}`;
-      const fileRecordHandle = `${COLLECTIONS.FILE_RECORD}/${fileRecordId}`;
+      const recordHandle = `${COLLECTIONS.RECORDS}/${recordId}`;
+      const fileRecordHandle = `${COLLECTIONS.FILES}/${fileRecordId}`;
 
       // Check if relationship already exists
       const cursor = await this.db.query(aql`
@@ -655,9 +492,8 @@ export class RecordRelationService {
       const edge = {
         _from: recordHandle,
         _to: fileRecordHandle,
-        createdAt: currentTime,
-        updatedAt: currentTime,
-        isDeleted: false,
+        createdAtTimestamp: currentTime,
+        updatedAtTimestamp: currentTime,
       };
 
       const result = await this.isOfTypeEdges.save(edge);
@@ -672,9 +508,7 @@ export class RecordRelationService {
         fileRecordId,
         error,
       });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -686,8 +520,8 @@ export class RecordRelationService {
     recordId: string,
   ): Promise<string> {
     try {
-      const kbHandle = `${COLLECTIONS.KNOWLEDGEBASE}/${kbId}`;
-      const recordHandle = `${COLLECTIONS.RECORD}/${recordId}`;
+      const kbHandle = `${COLLECTIONS.KNOWLEDGE_BASE}/${kbId}`;
+      const recordHandle = `${COLLECTIONS.RECORDS}/${recordId}`;
 
       // Check if relationship already exists
       const cursor = await this.db.query(aql`
@@ -712,8 +546,9 @@ export class RecordRelationService {
       const edge = {
         _from: recordHandle,
         _to: kbHandle,
-        createdAt: currentTime,
-        updatedAt: currentTime,
+        entityType : ENTITY_TYPE.KNOWLEDGE_BASE,
+        createdAtTimestamp: currentTime,
+        updatedAtTimestamp: currentTime,
         isDeleted: false,
       };
 
@@ -727,9 +562,7 @@ export class RecordRelationService {
         recordId,
         error,
       });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -739,12 +572,12 @@ export class RecordRelationService {
   async createKbUserPermission(
     kbId: string,
     userId: string,
-    role: string = RELATIONSHIP_TYPE.USER,
-    permissionTypes: string[] = ['OWNER'],
+    type: string = RELATIONSHIP_TYPE.USER,
+    role: string = 'OWNER',
   ): Promise<string> {
     try {
-      const kbHandle = `${COLLECTIONS.KNOWLEDGEBASE}/${kbId}`;
-      const userHandle = `${COLLECTIONS.USER}/${userId}`;
+      const kbHandle = `${COLLECTIONS.KNOWLEDGE_BASE}/${kbId}`;
+      const userHandle = `${COLLECTIONS.USERS}/${userId}`;
 
       // Check if permission already exists
       const cursor = await this.db.query(aql`
@@ -769,11 +602,12 @@ export class RecordRelationService {
       const edge = {
         _from: userHandle,
         _to: kbHandle,
+        externalPermissionId :"",
+        type,
         role,
-        type: permissionTypes,
-        createdAt: currentTime,
-        last_updated: currentTime,
-        isDeleted: false,
+        createdAtTimestamp: currentTime,
+        updatedAtTimestamp : currentTime,
+        lastUpdatedTimestampAtSource: currentTime,
       };
 
       const result = await this.permissionEdges.save(edge);
@@ -789,9 +623,7 @@ export class RecordRelationService {
         role,
         error,
       });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error;
     }
   }
 
@@ -811,6 +643,7 @@ export class RecordRelationService {
     orgId: string,
     firstName?: string,
     lastName?: string,
+    middleName?:string,
     designation?: string,
   ): Promise<any> {
     try {
@@ -834,7 +667,7 @@ export class RecordRelationService {
       // First, try to find the user by both userId and orgId
       const userByIdCursor = await this.db.query(aql`
       FOR user IN ${this.userCollection}
-        FILTER user.userId == ${userId} AND user.orgId == ${orgId} AND user.isDeleted == false
+        FILTER user.userId == ${userId} AND user.orgId == ${orgId} AND user.isActive == true
         RETURN user
     `);
 
@@ -849,7 +682,7 @@ export class RecordRelationService {
       if (email && email !== `user-${userId}@example.com`) {
         const emailCursor = await this.db.query(aql`
       FOR user IN ${this.userCollection}
-        FILTER user.email == ${email} AND user.orgId == ${orgId} AND user.isDeleted == false
+        FILTER user.email == ${email} AND user.orgId == ${orgId} AND user.isActive == true
         RETURN user
       `);
 
@@ -894,11 +727,11 @@ export class RecordRelationService {
         orgId: orgId, // Ensure orgId is stored in the document
         email,
         firstName: firstName || '',
+        middleName : middleName || '',
         lastName: lastName || '',
         fullName,
         designation: designation || '',
         isActive: true,
-        isDeleted: false,
         createdAtTimestamp: currentTime,
         updatedAtTimestamp: currentTime,
       };
@@ -936,9 +769,7 @@ export class RecordRelationService {
         email,
         error,
       });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -962,7 +793,7 @@ export class RecordRelationService {
       try {
         const userCursor = await this.db.query(aql`
         FOR user IN ${this.userCollection}
-          FILTER user.userId == ${userId} AND user.orgId == ${orgId} AND user.isDeleted != true
+          FILTER user.userId == ${userId} AND user.orgId == ${orgId} AND user.isActive == true
           RETURN user
       `);
 
@@ -990,8 +821,8 @@ export class RecordRelationService {
         FILTER kb.isDeleted != true AND kb.orgId == ${orgId}
         RETURN { 
           kb, 
-          permissions: edge.type,
-          role: edge.role
+          permissions: edge.role,
+          role: edge.type
         }
     `);
 
@@ -1012,12 +843,12 @@ export class RecordRelationService {
 
       // Check if the record exists and its relationship to the user's knowledge bases
       const kbRecordCursor = await this.db.query(aql`
-      LET record = DOCUMENT(${COLLECTIONS.RECORD}, ${recordId})
+      LET record = DOCUMENT(${COLLECTIONS.RECORDS}, ${recordId})
       FILTER record != null AND record.isDeleted != true
       
       LET recordKbs = (
         FOR edge IN ${this.kbToRecordEdges}
-          FILTER edge._from == ${COLLECTIONS.RECORD + '/' + recordId}
+          FILTER edge._from == ${COLLECTIONS.RECORDS + '/' + recordId}
           LET knowledgeBaseKey = PARSE_IDENTIFIER(edge._to).key
           RETURN knowledgeBaseKey
       )
@@ -1032,7 +863,7 @@ export class RecordRelationService {
         record: record,
         kbs: (
           FOR knowledgeBaseKey IN authorizedKbs
-            LET kbDoc = DOCUMENT(${COLLECTIONS.KNOWLEDGEBASE}, knowledgeBaseKey)
+            LET kbDoc = DOCUMENT(${COLLECTIONS.KNOWLEDGE_BASE}, knowledgeBaseKey)
             FILTER kbDoc.orgId == ${orgId}
             RETURN kbDoc
         ),
@@ -1077,7 +908,7 @@ export class RecordRelationService {
         // First check for is_of_type relationship
         const fileRelationCursor = await this.db.query(aql`
         FOR edge IN ${this.isOfTypeEdges}
-          FILTER edge._from == ${COLLECTIONS.RECORD + '/' + recordId}
+          FILTER edge._from == ${COLLECTIONS.RECORDS + '/' + recordId}
           LET fileRec = DOCUMENT(PARSE_IDENTIFIER(edge._to).collection, PARSE_IDENTIFIER(edge._to).key)
           RETURN fileRec
       `);
@@ -1108,16 +939,16 @@ export class RecordRelationService {
       // Get related records
       const relatedRecordsCursor = await this.db.query(aql`
       FOR edge IN ${this.recordToRecordEdges}
-        FILTER edge._from == ${COLLECTIONS.RECORD + '/' + recordId} OR edge._to == ${COLLECTIONS.RECORD + '/' + recordId}
-        LET otherRecord = edge._from == ${COLLECTIONS.RECORD + '/' + recordId} ? 
-          DOCUMENT(${COLLECTIONS.RECORD}, PARSE_IDENTIFIER(edge._to).key) : 
-          DOCUMENT(${COLLECTIONS.RECORD}, PARSE_IDENTIFIER(edge._from).key)
+        FILTER edge._from == ${COLLECTIONS.RECORDS + '/' + recordId} OR edge._to == ${COLLECTIONS.RECORDS + '/' + recordId}
+        LET otherRecord = edge._from == ${COLLECTIONS.RECORDS + '/' + recordId} ? 
+          DOCUMENT(${COLLECTIONS.RECORDS}, PARSE_IDENTIFIER(edge._to).key) : 
+          DOCUMENT(${COLLECTIONS.RECORDS}, PARSE_IDENTIFIER(edge._from).key)
         FILTER otherRecord != null AND otherRecord.isDeleted != true
         RETURN {
           record: otherRecord,
           relationship: {
             type: edge.relationshipType,
-            direction: edge._from == ${COLLECTIONS.RECORD + '/' + recordId} ? 'outbound' : 'inbound',
+            direction: edge._from == ${COLLECTIONS.RECORDS + '/' + recordId} ? 'outbound' : 'inbound',
             createdAt: edge.createdAt
           }
         }
@@ -1160,9 +991,7 @@ export class RecordRelationService {
         orgId,
         error,
       });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -1217,7 +1046,7 @@ export class RecordRelationService {
       const { knowledgeBase: kb } = await this.validateUserKbAccess(
         userId,
         orgId,
-        ['READ'],
+        ['OWNER','READER','FILEORGANIZER','WRITER','COMMENTER','ORGANIZER'],
       );
 
       const skip = (page - 1) * limit;
@@ -1332,7 +1161,7 @@ export class RecordRelationService {
       // Build the complete AQL query for records that belong to this knowledge base
       const query = aql`
       FOR edge IN ${this.kbToRecordEdges}
-        FILTER edge._to == ${COLLECTIONS.KNOWLEDGEBASE + '/' + kb._key}
+        FILTER edge._to == ${COLLECTIONS.KNOWLEDGE_BASE + '/' + kb._key}
         LET record = DOCUMENT(PARSE_IDENTIFIER(edge._from).collection, PARSE_IDENTIFIER(edge._from).key)
         ${filterQuery}
         ${sortStatement}
@@ -1345,6 +1174,7 @@ export class RecordRelationService {
         RETURN {
           id: record._key,
           externalRecordId : record.externalRecordId,
+          externalRevisionId : record.externalRevisionId,
           recordName: record.recordName,
           recordType: record.recordType,
           origin: record.origin,
@@ -1374,7 +1204,7 @@ export class RecordRelationService {
       // Get total count for pagination using a similar query but without LIMIT
       const countQuery = aql`
       FOR edge IN ${this.kbToRecordEdges}
-        FILTER edge._to == ${COLLECTIONS.KNOWLEDGEBASE + '/' + kb._key}
+        FILTER edge._to == ${COLLECTIONS.KNOWLEDGE_BASE + '/' + kb._key}
         LET record = DOCUMENT(PARSE_IDENTIFIER(edge._from).collection, PARSE_IDENTIFIER(edge._from).key)
         ${filterQuery}
         COLLECT WITH COUNT INTO total
@@ -1405,7 +1235,7 @@ export class RecordRelationService {
       // For record types
       const recordTypesCursor = await this.db.query(aql`
       FOR edge IN ${this.kbToRecordEdges}
-        FILTER edge._to == ${COLLECTIONS.KNOWLEDGEBASE + '/' + kb._key}
+        FILTER edge._to == ${COLLECTIONS.KNOWLEDGE_BASE + '/' + kb._key}
         LET record = DOCUMENT(PARSE_IDENTIFIER(edge._from).collection, PARSE_IDENTIFIER(edge._from).key)
         FILTER record.isDeleted != true AND record.orgId == ${orgId}
         COLLECT recordType = record.recordType WITH COUNT INTO count
@@ -1416,7 +1246,7 @@ export class RecordRelationService {
       // For origins
       const originsCursor = await this.db.query(aql`
       FOR edge IN ${this.kbToRecordEdges}
-        FILTER edge._to == ${COLLECTIONS.KNOWLEDGEBASE + '/' + kb._key}
+        FILTER edge._to == ${COLLECTIONS.KNOWLEDGE_BASE + '/' + kb._key}
         LET record = DOCUMENT(PARSE_IDENTIFIER(edge._from).collection, PARSE_IDENTIFIER(edge._from).key)
         FILTER record.isDeleted != true AND record.orgId == ${orgId}
         COLLECT origin = record.origin WITH COUNT INTO count
@@ -1427,7 +1257,7 @@ export class RecordRelationService {
       // For indexing statuses
       const statusCursor = await this.db.query(aql`
       FOR edge IN ${this.kbToRecordEdges}
-        FILTER edge._to == ${COLLECTIONS.KNOWLEDGEBASE + '/' + kb._key}
+        FILTER edge._to == ${COLLECTIONS.KNOWLEDGE_BASE + '/' + kb._key}
         LET record = DOCUMENT(PARSE_IDENTIFIER(edge._from).collection, PARSE_IDENTIFIER(edge._from).key)
         FILTER record.isDeleted != true AND record.orgId == ${orgId}
         COLLECT status = record.indexingStatus WITH COUNT INTO count
@@ -1462,9 +1292,7 @@ export class RecordRelationService {
       };
     } catch (error) {
       logger.error('Error in getRecords', { options, error });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -1478,7 +1306,7 @@ export class RecordRelationService {
   async validateUserKbAccess(
     userId: string,
     orgId: string,
-    requiredPermissions: string[] = ['READ'],
+    requiredPermissions: string[] = ['READER'],
   ): Promise<{
     knowledgeBase: any;
     permissions: string[];
@@ -1523,11 +1351,10 @@ export class RecordRelationService {
       const permissionCursor = await this.db.query(aql`
       FOR edge IN ${this.permissionEdges}
         FILTER edge._from == ${user._id}
-          AND edge._to == ${COLLECTIONS.KNOWLEDGEBASE + '/' + kb._key}
-          AND edge.isDeleted != true
+          AND edge._to == ${COLLECTIONS.KNOWLEDGE_BASE + '/' + kb._key}
         RETURN {
-          permissions: edge.type,
-          role: edge.role
+          permissions: edge.role,
+          role: edge.type
         }
     `);
 
@@ -1584,9 +1411,7 @@ export class RecordRelationService {
         orgId,
         error,
       });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -1752,12 +1577,7 @@ export class RecordRelationService {
           // Map record fields to file record fields
           const fieldMappings: Record<string, string> = {
             recordName: 'name', // Record name -> File name
-            updatedAtTimestamp: 'updatedAtTimestamp',
-            isDeleted: 'isDeleted',
-            deletedByUserId: 'deletedByUserId',
-            deletedAtTimestamp: 'deletedAtTimestamp',
-            version: 'version',
-            isLatestVersion: 'isLatestVersion',
+            sizeInBytes : 'sizeInBytes'
           };
 
           // Copy mapped fields to file record update
@@ -1798,9 +1618,7 @@ export class RecordRelationService {
       return result.new;
     } catch (error) {
       logger.error('Error updating record', { recordId, error });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 
@@ -1880,9 +1698,7 @@ export class RecordRelationService {
       return true;
     } catch (error) {
       logger.error('Error soft deleting record', { recordId, error });
-      throw new InternalServerError(
-        error instanceof Error ? error.message : 'Unexpected error occurred',
-      );
+      throw error
     }
   }
 }

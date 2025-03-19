@@ -501,6 +501,7 @@ export function createStorageRouter(container: Container): Router {
       next: NextFunction,
     ): Promise<void> => {
       try {
+        console.log("In upload next version")
         const { buffer, originalname, size, mimetype } = req.body.fileBuffer;
         const currentVersionNote = req.body.currentVersionNote; // use this only when current was already modified when upload next version was clicked
         const nextVersionNote = req.body.nextVersionNote; // use this for next version note

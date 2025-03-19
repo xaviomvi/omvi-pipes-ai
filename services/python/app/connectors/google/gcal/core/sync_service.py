@@ -25,7 +25,7 @@ class GCalSyncProgress:
         self.processed_calendars = 0
         self.percentage = 0
         self.status = "initializing"
-        self.last_updated = datetime.now(timezone.utc).isoformat()
+        self.lastUpdatedTimestampAtSource = datetime.now(timezone.utc).isoformat()
 
 
 class BaseGCalSyncService(ABC):

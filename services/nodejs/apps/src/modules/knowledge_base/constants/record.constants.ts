@@ -31,13 +31,20 @@ export const INDEXING_STATUS = {
   COMPLETED: 'COMPLETED',
 } as const;
 
+export const ENTITY_TYPE = {
+  KNOWLEDGE_BASE : 'KB'
+}
+
 // Collection names
 export const COLLECTIONS = {
   // Document collections
-  RECORD: 'records',
-  FILE_RECORD: 'files',
-  USER: 'users',
-  KNOWLEDGEBASE: 'knowledgeBase',
+  RECORDS: 'records',
+  FILES: 'files',
+  USERS: 'users',
+  KNOWLEDGE_BASE: 'knowledgeBase',
+  BELONGS_TO_KNOWLEDGE_BASE :'belongsToKnowledgeBase',
+  PERMISSIONS_TO_KNOWLEDGE_BASE : 'permissionsToKnowledgeBase',
+
 
   // Edge collections
   RECORD_TO_RECORD: 'recordRelations',

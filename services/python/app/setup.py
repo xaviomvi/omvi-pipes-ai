@@ -60,7 +60,8 @@ class AppContainer(containers.DeclarativeContainer):
                 api_key=await config_service.get_config(config_node_constants.AZURE_API_KEY.value),
                 azure_endpoint=await config_service.get_config(config_node_constants.AZURE_ENDPOINT.value),
                 azure_api_version=await config_service.get_config(config_node_constants.AZURE_API_VERSION.value),
-                azure_deployment=await config_service.get_config(config_node_constants.AZURE_DEPLOYMENT_NAME.value, 'gpt-4o')
+                # azure_deployment=await config_service.get_config(config_node_constants.AZURE_DEPLOYMENT_NAME.value, 'gpt-4o')
+                azure_deployment='gpt-4o'
             )
         elif provider == 'openai':
             return OpenAILLMConfig(

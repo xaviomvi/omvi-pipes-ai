@@ -51,6 +51,12 @@ class CollectionNames(Enum):
     RECORDS = 'records'
     RECORD_RELATIONS = 'recordRelations'
 
+    # Knowledge base
+    KNOWLEDGE_BASE = 'knowledgeBase'
+    IS_OF_TYPE = 'isOfType'
+    BELONGS_TO_KNOWLEDGE_BASE = 'belongsToKnowledgeBase'
+    PERMISSIONS_TO_KNOWLEDGE_BASE = 'permissionsToKnowledgeBase'
+
     # Drive related
     DRIVES = 'drives'
     USER_DRIVE_RELATION = 'userDriveRelation'

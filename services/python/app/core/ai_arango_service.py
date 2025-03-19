@@ -9,7 +9,8 @@ from typing import Dict, List, Optional
 from app.config.arangodb_constants import CollectionNames, DepartmentNames
 from arango.database import TransactionDatabase
 from app.config.configuration_service import config_node_constants
-from app.schema.documents import user_schema, orgs_schema
+from app.schema.documents import user_schema, orgs_schema, kb_schema
+from app.schema.edges import belongs_to_schema, permissions_schema
 
 class ArangoService():
     """ArangoDB service for interacting with the database"""
@@ -230,6 +231,21 @@ class ArangoService():
                     if self.db.has_collection(CollectionNames.PAGE_TOKENS.value)
                     else self.db.create_collection(CollectionNames.PAGE_TOKENS.value)
                 )
+                self._collections[CollectionNames.KNOWLEDGE_BASE.value] = (
+                    self.db.collection(CollectionNames.KNOWLEDGE_BASE.value)
+                    if self.db.has_collection(CollectionNames.KNOWLEDGE_BASE.value)
+                    else self.db.create_collection(CollectionNames.KNOWLEDGE_BASE.value, schema=kb_schema)
+                )
+                self._collections[CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value] = (
+                    self.db.collection(CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value)
+                    if self.db.has_collection(CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, edge=True, schema=belongs_to_schema)
+                )
+                self._collections[CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value] = (
+                    self.db.collection(CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value)
+                    if self.db.has_collection(CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value)
+                    else self.db.create_collection(CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value, edge=True, schema=permissions_schema)
+                )
 
                 # Create the permissions graph
                 if not self.db.has_graph(CollectionNames.FILE_ACCESS_GRAPH.value):
@@ -260,6 +276,24 @@ class ArangoService():
                         edge_collection=CollectionNames.BELONGS_TO_CATEGORY.value,
                         from_vertex_collections=[CollectionNames.RECORDS.value],
                         to_vertex_collections=[CollectionNames.CATEGORIES.value, CollectionNames.SUBCATEGORIES1.value, CollectionNames.SUBCATEGORIES2.value, CollectionNames.SUBCATEGORIES3.value]
+                    )
+
+                    graph.create_edge_definition(
+                        edge_collection=CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value,
+                        from_vertex_collections=[CollectionNames.RECORDS.value],
+                        to_vertex_collections=[CollectionNames.KNOWLEDGE_BASE.value]
+                    )
+
+                    graph.create_edge_definition(
+                        edge_collection=CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value,
+                        from_vertex_collections=[CollectionNames.USERS.value],
+                        to_vertex_collections=[CollectionNames.KNOWLEDGE_BASE.value]
+                    )
+
+                    graph.create_edge_definition(
+                        edge_collection=CollectionNames.IS_OF_TYPE.value,
+                        from_vertex_collections=[CollectionNames.RECORDS.value],
+                        to_vertex_collections=[CollectionNames.FILES.value]
                     )
 
                     logger.info("✅ File access graph created successfully")

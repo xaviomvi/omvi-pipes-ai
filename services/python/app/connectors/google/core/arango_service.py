@@ -563,7 +563,7 @@ class ArangoService(BaseArangoService):
                 'type': permission_data.get('type').upper(),
                 'role': permission_data.get('role', 'READER').upper(),
                 'externalPermissionId': permission_data.get('id'),
-                'last_updated': timestamp,
+                'lastUpdatedTimestampAtSource': timestamp,
             }
 
             # Log the edge document for debugging
@@ -747,7 +747,7 @@ class ArangoService(BaseArangoService):
                             'organization': await self.config.get_config('organization'),
                             'role': new_perm.get('role', 'reader'),
                             'externalPermissionId': new_perm.get('id'),
-                            'last_updated': timestamp,
+                            'lastUpdatedTimestampAtSource': timestamp,
                             'active': True
                         }
                     # Store/update permission
@@ -855,7 +855,7 @@ class ArangoService(BaseArangoService):
             query = """
             FOR perm IN permissions
                 FILTER perm._from == @file_id
-                SORT perm.last_updated DESC
+                SORT perm.lastUpdatedTimestampAtSource DESC
                 RETURN {
                     entity: DOCUMENT(perm._to),
                     permission: perm

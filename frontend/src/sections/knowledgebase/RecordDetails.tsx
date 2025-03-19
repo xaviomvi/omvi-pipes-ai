@@ -34,8 +34,6 @@ import EditRecordDialog from './edit-record-dialog';
 
 import type { RecordDetailsResponse } from './types/record-details';
 
-
-
 export default function RecordDetails() {
   const { recordId } = useParams<{ recordId: string }>();
   const navigate = useNavigate();
@@ -140,7 +138,7 @@ export default function RecordDetails() {
   const updatedAt = new Date(record.updatedAtTimestamp).toLocaleString();
 
   // Get file extension, size, etc.
-  const {fileRecord} = record;
+  const { fileRecord } = record;
   const fileSize = fileRecord ? formatFileSize(fileRecord.sizeInBytes) : 'N/A';
   const fileType = fileRecord ? fileRecord.extension.toUpperCase() : 'N/A';
 
@@ -456,19 +454,16 @@ export default function RecordDetails() {
                             Permissions
                           </Typography>
                           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {permissions && permissions.length > 0 ? (
-                              permissions.map((permission, index) => (
-                                <Chip
-                                  key={index}
-                                  label={permission}
-                                  size="small"
-                                  sx={{
-                                    height: 22,
-                                    fontSize: '0.75rem',
-                                    fontWeight: 500,
-                                  }}
-                                />
-                              ))
+                            {permissions ? (
+                              <Chip
+                                label={permissions}
+                                size="small"
+                                sx={{
+                                  height: 22,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 500,
+                                }}
+                              />
                             ) : (
                               <Typography variant="body2">No permissions assigned</Typography>
                             )}
@@ -730,9 +725,9 @@ export default function RecordDetails() {
             open={isEditDialogOpen}
             onClose={() => setIsEditDialogOpen(false)}
             onRecordUpdated={refreshRecordData}
-            storageDocumentId = {record.externalRecordId}
-            recordId = {record._key}
-            record = {record}
+            storageDocumentId={record.externalRecordId}
+            recordId={record._key}
+            record={record}
           />
         )}
       </Box>
@@ -839,7 +834,7 @@ const formatFileSize = (bytes: number): string => {
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / (k ** i)).toFixed(2))} ${sizes[i]}`;
+  return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
 };
 
 // Get file icon based on extension

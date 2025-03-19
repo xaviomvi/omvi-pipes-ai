@@ -21,8 +21,8 @@ user_schema = {
     "rule": {
         "type": "object",
         "properties": {
-            "_key": {"type": "string"},
-            "userId": {"type": "string"},
+            "_key": {"type": "string"}, #uuid
+            "userId" :{"type" : "string"}, 
             "orgId": {"type": "string"},
             "firstName": {"type": "string"},
             "middleName": {"type": "string"},
@@ -130,6 +130,7 @@ record_schema = {
 
             "isDeleted": {"type": "boolean", "default": False},
             "isArchived": {"type": "boolean", "default": False},
+            "deletedByUserId" :{"type":"string"},
 
             "lastIndexTimestamp": {"type": ["number", "null"]},
             "lastExtractionTimestamp": {"type": ["number", "null"]},
@@ -151,6 +152,7 @@ file_record_schema = {
     "rule": {
         "type": "object",
         "properties": {
+            "orgId" : {"type" :"string"},
             "name": {"type": "string", "minLength": 1},
             "isFile": {"type": "boolean"},
             "extension": {"type": ["string", "null"]},
@@ -166,7 +168,7 @@ file_record_schema = {
             "sha256Hash": {"type": ["string", "null"]},
             "path": {"type": "string"}
         },
-        "required": ["name"],
+        "required": ["name","orgId"],
         "additionalProperties": False,
     },
     "level": "strict",
@@ -243,6 +245,25 @@ department_schema = {
             "orgId": {"type": ["string", "null"]},
         },
         "required": ["departmentName"],
+        "additionalProperties": False,
+    },
+    "level": "strict",
+    "message": "Document does not match the department schema."
+}
+
+kb_schema = {
+    "rule": {
+        "type": "object",
+        "properties": {
+            "orgId": {"type": "string"},
+            "name": { "type": "string", "default": "Default" },
+            "createdAtTimestamp": { "type": "number" },
+            "updatedAtTimestamp": { "type": "number" },
+            "deletedAtTimestamp": { "type": "number" },
+            "isDeleted": { "type": "boolean", "default": False },
+            "isArchived": { "type": "boolean", "default": False },
+        },
+        "required": ["orgId"],
         "additionalProperties": False,
     },
     "level": "strict",

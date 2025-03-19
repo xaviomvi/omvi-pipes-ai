@@ -4,7 +4,10 @@ record_relations_schema = {
         "properties": {
             "_from": {"type": "string", "minLength": 1},
             "_to": {"type": "string", "minLength": 1},
-            "relationshipType": {"type": "string", "enum": ["PARENT_CHILD", "DUPLICATE", "ATTACHMENT", "SIBLING"]},
+            "relationshipType": {"type": "string", "enum": ["PARENT_CHILD", "DUPLICATE", "ATTACHMENT", "SIBLING","OTHERS"]},
+            "customRelationshipTag" : { "type" : "string" },
+            "createdAtTimestamp" : {"type" : "number"},
+            "updatedAtTimestamp" : {"type" :"number"},
         },
         "additionalProperties": True,
     },
@@ -18,6 +21,8 @@ is_of_type_schema = {
         "properties": {
             "_from": {"type": "string", "minLength": 1},
             "_to": {"type": "string", "minLength": 1},
+            "createdAtTimestamp" : {"type" : "number"},
+            "updatedAtTimestamp" : {"type" :"number"},
         },
     },
     "level": "strict",
@@ -43,10 +48,14 @@ belongs_to_schema = {
     "rule": {
         "type": "object",
         "properties": {
+            "_from": {"type": "string", "minLength": 1},
+            "_to": {"type": "string", "minLength": 1},
             "entityType": {
                 "type": "string",
-                "enum": ["GROUP", "DOMAIN", "ORGANIZATION"]
-            }
+                "enum": ["GROUP", "DOMAIN", "ORGANIZATION","KB"]
+            },
+            "createdAtTimestamp" : {"type" : "number"},
+            "updatedAtTimestamp" : {"type" :"number"},
         },
         "required": ["entityType"],
         "additionalProperties": True
@@ -59,12 +68,19 @@ permissions_schema = {
     "rule": {
         "type": "object",
         "properties": {
-            "externalPermissionId": {"type": "string", "minLength": 1},
+            "_from": {"type": "string", "minLength": 1},
+            "_to": {"type": "string", "minLength": 1},
+            "externalPermissionId": {"type": "string"},
             "type": {"type": "string", "enum": ["USER", "GROUP", "DOMAIN"]},
             "role": {"type": "string", "enum": ["OWNER", "ORGANIZER", "FILEORGANIZER", "WRITER", "COMMENTER", "READER"]},
-            "last_updated": {"type": "number"}
+            "createdAtTimestamp" : {"type" : "number"},
+            "updatedAtTimestamp" : {"type" :"number"},
+            "lastUpdatedTimestampAtSource" : { "type" : "number"}
         },
-    }
+        "additionalProperties": True
+    },
+    "level": "strict",
+    "message": "Document does not match the permissions schema."
 }
 
 org_app_relation_schema = {
