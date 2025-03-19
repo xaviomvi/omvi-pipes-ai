@@ -11,11 +11,13 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import BatchHttpRequest
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from app.config.arangodb_constants import Connectors, RecordTypes
 from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.utils.logger import logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
+from uuid import uuid4
 
 class DriveUserService:
     """DriveService class for interacting with Google Drive API"""
@@ -104,7 +106,7 @@ class DriveUserService:
             return False
 
     @exponential_backoff()
-    async def list_individual_user(self) -> List[Dict]:
+    async def list_individual_user(self, org_id) -> List[Dict]:
         """Get individual user info"""
         try:
             logger.info("🚀 Getting individual user info")
@@ -115,13 +117,23 @@ class DriveUserService:
 
                 user = about.get('user', {})
                 logger.info("🚀 User info: %s", user)
-                return [{
+                
+                user = {
+                    '_key': str(uuid4()),
+                    'userId': str(uuid4()),
+                    'orgId': org_id,
                     'email': user.get('emailAddress'),
-                    'name': user.get('displayName'),
-                    'id': user.get('permissionId'),
-                    'isAdmin': False,
-                    'isActive': False
-                }]
+                    'fullName': user.get('displayName'),
+                    'firstName': user.get('givenName', ''),
+                    'middleName': user.get('middleName', ''),
+                    'lastName': user.get('familyName', ''),
+                    'designation': user.get('designation', ''),
+                    'businessPhones': user.get('businessPhones', []),
+                    'isActive': False,
+                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000),
+                    'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000)
+                }
+                return [user]
 
         except Exception as e:
             logger.error("❌ Failed to get individual user info: %s", str(e))
@@ -646,10 +658,10 @@ class DriveUserService:
                         'recordName': response.get('name', 'My Drive'),
                         'externalRecordId': response.get('id', 'root'),
                         'externalRevisionId': '0',
-                        'recordType': 'DRIVE',
+                        'recordType': RecordTypes.DRIVE.value,
                         'version': 0,
-                        'origin': 'CONNECTOR',
-                        'connectorName': 'GOOGLE_DRIVE',
+                        "origin": OriginTypes.CONNECTOR.value,
+                        'connectorName': Connectors.GOOGLE_DRIVE.value,
                         'createdAtTimestamp': current_time,
                         'updatedAtTimestamp': current_time,
                         'lastSyncTimestamp': current_time,
@@ -689,11 +701,11 @@ class DriveUserService:
                         '_key': drive_key,
                         'orgId': org_id,  # Added as per schema
                         'recordName': response.get('name', 'My Drive'),
-                        'recordType': 'DRIVE',
+                        'recordType': RecordTypes.DRIVE.value,
                         'externalRecordId': response.get('id', 'root'),
                         'externalRevisionId': response.get('id', 'root'),
-                        'origin': 'CONNECTOR',
-                        'connectorName': 'GOOGLE_DRIVE',
+                        "origin": OriginTypes.CONNECTOR.value,
+                        'connectorName': Connectors.GOOGLE_DRIVE.value,
                         'version': 0,
                         'createdAtTimestamp': current_time,
                         'updatedAtTimestamp': current_time,

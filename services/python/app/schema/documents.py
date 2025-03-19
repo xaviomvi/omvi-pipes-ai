@@ -21,7 +21,8 @@ user_schema = {
     "rule": {
         "type": "object",
         "properties": {
-            "_key": {"type": "string"}, # userId
+            "_key": {"type": "string"},
+            "userId": {"type": "string"},
             "orgId": {"type": "string"},
             "firstName": {"type": "string"},
             "middleName": {"type": "string"},
@@ -61,7 +62,7 @@ user_group_schema = {
             # should be a uuid
             "externalGroupId": {"type": "string", "minLength": 1},
             "groupType": {"type": "string", "enum": ["MS_USER_GROUPS", "GOOGLE_USER_GROUPS"]},
-            "connectorName": {"type": "string", "enum": ["ONEDRIVE", "GOOGLE_DRIVE", "GOOGLE_GMAIL", "CONFLUENCE", "SLACK"]},
+            "connectorName": {"type": "string", "enum": ["ONEDRIVE", "DRIVE", "GMAIL", "CONFLUENCE", "SLACK"]},
             "mail": {"type": "string"},
             "mailEnabled": {"type": "boolean", "default": False},
 
@@ -113,10 +114,10 @@ record_schema = {
             # should be a uuid
             "externalRecordId": {"type": "string", "minLength": 1},
             "externalRevisionId": {"type": ["string", "null"]},
-            "recordType": {"type": "string", "enum": ["FILE", "DRIVE", "WEBPAGE", "MESSAGE", "EMAIL", "OTHERS"]},
+            "recordType": {"type": "string", "enum": ["FILE", "DRIVE", "WEBPAGE", "MESSAGE", "MAIL", "OTHERS"]},
             "version": {"type": "number", "default": 0},
             "origin": {"type": "string", "enum": ["UPLOAD", "CONNECTOR"]},
-            "connectorName": {"type": "string", "enum": ["ONEDRIVE", "GOOGLE_DRIVE", "CONFLUENCE", "GOOGLE_GMAIL", "SLACK"]},
+            "connectorName": {"type": "string", "enum": ["ONEDRIVE", "DRIVE", "CONFLUENCE", "GMAIL", "SLACK"]},
 
             # Arango collection entry
             "createdAtTimestamp": {"type": "number"},
@@ -216,7 +217,7 @@ record_group_schema = {
             # should be a uuid
             "externalGroupId": {"type": "string", "minLength": 1},
             "groupType": {"type": "string", "enum": ["SLACK_CHANNEL", "CONFLUENCE_SPACES"]},
-            "connectorName": {"type": "string", "enum": ["ONEDRIVE", "GOOGLE_DRIVE", "CONFLUENCE", "SLACK"]},
+            "connectorName": {"type": "string", "enum": ["ONEDRIVE", "DRIVE", "CONFLUENCE", "SLACK"]},
 
             "createdAtTimestamp": {"type": "number"},  # Arango record entry
             "updatedAtTimestamp": {"type": "number"},  # Arango record entry

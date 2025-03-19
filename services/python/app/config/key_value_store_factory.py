@@ -134,8 +134,6 @@ class KeyValueStoreFactory:
             host=config.host,
             port=config.port,
             timeout=config.timeout,
-            username=config.username,
-            password=config.password,
             ca_cert=config.ca_cert,
             cert_key=config.cert_key,
             cert_cert=config.cert_cert

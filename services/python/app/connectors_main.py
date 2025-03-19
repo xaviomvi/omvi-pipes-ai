@@ -216,6 +216,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Kafka consumer task cancelled")
     
     logger.debug("🔄 Shutting down application")
+    
+
 
 # Create FastAPI app with lifespan
 app = FastAPI(

@@ -11,7 +11,7 @@ from app.utils.logger import logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-
+from uuid import uuid4
 
 class GmailAdminService:
     """GmailAdminService class for interacting with Google GMail API"""
@@ -51,7 +51,7 @@ class GmailAdminService:
             return False
 
     @exponential_backoff()
-    async def list_enterprise_users(self) -> List[Dict]:
+    async def list_enterprise_users(self, org_id: str) -> List[Dict]:
         """List all users in the domain for enterprise setup"""
         try:
             logger.info("🚀 Listing domain users")
@@ -71,13 +71,19 @@ class GmailAdminService:
                     logger.info("USERS: %s", current_users)
 
                     users.extend([{
-                        '_key': user.get('id'),
+                        '_key': str(uuid4()),
+                        'userId': str(uuid4()),
+                        'orgId': org_id,
                         'email': user.get('primaryEmail'),
-                        'domain': user.get('primaryEmail', '').split('@')[-1] if user.get('primaryEmail') else None,
                         'fullName': user.get('name', {}).get('fullName'),
+                        'firstName': user.get('name', {}).get('givenName', ''),
+                        'middleName': user.get('name', {}).get('middleName', ''),
+                        'lastName': user.get('name', {}).get('familyName', ''),
                         'designation': user.get('designation', 'user'),
-                        'isActive': False,
-                        'createdAt': user.get('creationTime'),
+                        'businessPhones': user.get('phones', []),
+                        'isActive': user.get('isActive', False),
+                        'createdAtTimestamp': user.get('creationTime'),
+                        'updatedAtTimestamp': user.get('creationTime')
                     } for user in current_users if not user.get('suspended', False)])
 
                     page_token = results.get('nextPageToken')

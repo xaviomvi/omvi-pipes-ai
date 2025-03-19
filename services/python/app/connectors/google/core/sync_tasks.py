@@ -203,7 +203,7 @@ class SyncTasks:
             logger.error(f"❌ Error scheduling next changes watch: {str(e)}")
             raise  # Re-raise to trigger Celery retry
 
-    async def gmail_scheduled_sync_control(self, action: str) -> bool:
+    async def gmail_scheduled_sync_control(self, action: str, org_id: str) -> bool:
         """
         Scheduled task to control sync operations
         Args:
@@ -215,7 +215,7 @@ class SyncTasks:
             logger.info(f"Scheduled sync control - Action: {action} at {current_time_str}")
 
             # Get current user state from ArangoDB
-            user_info = await self.gmail_sync_service.gmail_user_service.list_individual_user()
+            user_info = await self.gmail_sync_service.gmail_user_service.list_individual_user(org_id)
             if not user_info:
                 logger.error("No user found for gmail sync")
                 return False
@@ -304,7 +304,7 @@ class SyncTasks:
             logger.info(f"Manual sync control - Action: {action} at {current_time}")
 
             # Get current user state from ArangoDB
-            user_info = await self.gmail_sync_service.gmail_user_service.list_individual_user()
+            user_info = await self.gmail_sync_service.gmail_user_service.list_individual_user(org_id)
             if not user_info:
                 logger.error("No user found for gmail sync")
                 return False

@@ -9,7 +9,7 @@ import os
 
 
 class SignedUrlConfig(BaseModel):
-    private_key: str = os.getenv("SIGNED_URL_PRIVATE_KEY")
+    private_key: str = os.getenv("SCOPED_JWT_SECRET")
     expiration_minutes: int = 30
     algorithm: str = "HS256"
     url_prefix: str = "/api/v1/index"

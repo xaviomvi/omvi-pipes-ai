@@ -2,7 +2,8 @@
 
 import base64
 import re
-import uuid
+from datetime import datetime, timezone
+from uuid import uuid4
 import os
 import pickle
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
@@ -105,23 +106,34 @@ class GmailUserService:
             return False
 
     @exponential_backoff()
-    async def list_individual_user(self) -> List[Dict]:
+    async def list_individual_user(self, org_id: str) -> List[Dict]:
         """Get individual user info"""
         try:
             logger.info("🚀 Getting individual user info")
             async with self.google_limiter:
-                profile = self.service.users().getProfile(
+                user = self.service.users().getProfile(
                     userId='me'
                 ).execute()
 
                 logger.info("✅ Individual user info fetched successfully")
-                return [{
-                    'email': profile.get('emailAddress'),
-                    'name': profile.get('emailAddress', '').split('@')[0],
-                    'id': str(uuid.uuid4()),  # Generate a unique ID
-                    'isAdmin': False,
-                    'isActive': False
-                }]
+                logger.info("🚀 User info: %s", user)
+                                
+                user = {
+                    '_key': str(uuid4()),
+                    'userId': str(uuid4()),
+                    'orgId': org_id,
+                    'email': user.get('emailAddress'),
+                    'fullName': user.get('displayName'),
+                    'firstName': user.get('givenName', ''),
+                    'middleName': user.get('middleName', ''),
+                    'lastName': user.get('familyName', ''),
+                    'designation': user.get('designation', ''),
+                    'businessPhones': user.get('businessPhones', []),
+                    'isActive': False,
+                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000),
+                    'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000)
+                }
+                return [user]
 
         except Exception as e:
             logger.error("❌ Failed to get individual user info: %s", str(e))
