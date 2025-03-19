@@ -90,7 +90,6 @@ const ChatSidebar = ({
       setHasMore(pagination.hasNextPage || false);
       setPage(pageNum);
     } catch (error) {
-      console.error('Error fetching conversations:', error);
       setHasMore(false);
       setSnackbar({
         open: true,
@@ -222,7 +221,6 @@ const ChatSidebar = ({
       });
       handleEditCancel();
     } catch (error) {
-      console.error('Error renaming conversation:', error);
       setSnackbar({
         open: true,
         message: 'Failed to rename conversation',
@@ -255,7 +253,6 @@ const ChatSidebar = ({
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error deleting conversation:', error);
       setSnackbar({
         open: true,
         message: 'Failed to delete conversation',
@@ -358,7 +355,6 @@ const ChatSidebar = ({
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error archiving conversation:', error);
       setSnackbar({
         open: true,
         message: 'Failed to archive conversation',

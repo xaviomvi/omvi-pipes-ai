@@ -25,7 +25,7 @@ import CardContent from '@mui/material/CardContent';
 import InputAdornment from '@mui/material/InputAdornment';
 import { Tab, Tabs, Fade, Grow, useTheme, Snackbar } from '@mui/material';
 
-import { useRouter } from 'src/routes/hooks';
+import { ErrorType, withErrorHandling } from 'src/utils/axios';
 
 import { setEmail } from 'src/store/authSlice';
 
@@ -37,13 +37,12 @@ import {
   sendOtp,
   OrgExists,
   authInitConfig,
+  forgotPassword,
   SignInWithGoogle,
   SignInWithAzureAd,
   SignInWithMicrosoft,
-  forgotPassword,
 } from 'src/auth/context/jwt';
 
-import { ErrorType, withErrorHandling } from 'src/utils/axios';
 import OtpSignIn from './otp-sign-in';
 import SamlSignIn from './saml-sign-in';
 import PasswordSignIn from './password-sign-in';
@@ -187,7 +186,6 @@ const socialConfig = {
 
 export const AuthenticationView = () => {
   const dispatch = useDispatch();
-  const router = useRouter();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState('');
   const [authSteps, setAuthSteps] = useState<AuthStep[]>([]);
@@ -274,7 +272,6 @@ export const AuthenticationView = () => {
   const handleAuthComplete = () => {
     checkUserSession?.();
     // router.push('/');
-    console.log('in handle auth complete');
     navigate('/');
   };
 

@@ -6,10 +6,12 @@ import {
   Chip, 
   Fade, 
   Stack,
+  Alert,
   Rating,
   Button,
   Tooltip,
   Collapse,
+  Snackbar,
   IconButton,
   Typography
 } from '@mui/material';
@@ -74,6 +76,31 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
   const [selectedCategories, setSelectedCategories] = useState<ValidCategory[]>([]);
   const [ratings, setRatings] = useState<RatingsState>({});
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
+
+  const handleCloseSnackbar = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  };
+
+  const showSuccessSnackbar = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: 'success',
+    });
+  };
+
+  const showErrorSnackbar = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: 'error',
+    });
+  };
 
   const handlePositiveFeedback = async () : Promise<void>=> {
     try {
@@ -83,8 +110,10 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
         categories: ["excellent_answer", "well_explained"]
       });
       setIsSubmitted(true);
+      showSuccessSnackbar('Thank you for your positive feedback');
     } catch (error) {
       console.error('Error submitting feedback:', error);
+      showErrorSnackbar('Failed to submit feedback. Please try again.');
     }
   };
 
@@ -108,8 +137,10 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
       });
       setIsSubmitted(true);
       setIsExpanded(false);
+      showSuccessSnackbar('Thank you for your detailed feedback');
     } catch (error) {
       console.error('Error submitting feedback:', error);
+      showErrorSnackbar('Failed to submit feedback. Please try again.');
     }
   };
 
@@ -246,8 +277,28 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
           </Stack>
         </Box>
       </Collapse>
+
+      {/* Snackbar for feedback submission status */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ 
+            width: '100%',
+            boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
 
-export default MessageFeedback;
+export default MessageFeedback; 

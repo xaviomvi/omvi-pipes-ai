@@ -6,13 +6,12 @@ import {
   Box,
   Tab,
   Tabs,
-  Card,
   Chip,
   Stack,
   Divider,
+  useTheme,
   Typography,
   CircularProgress,
-  useTheme,
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';

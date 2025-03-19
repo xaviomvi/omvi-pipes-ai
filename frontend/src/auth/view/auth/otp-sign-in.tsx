@@ -96,7 +96,6 @@ export default function OtpSignIn({
           await sendOtp({ email });
           setOtpSent(true);
         } catch (error) {
-          console.error('Error sending OTP:', error);
           setError('root.serverError', {
             type: 'server',
             message: 'Failed to send OTP. Please try again.',
@@ -130,7 +129,6 @@ export default function OtpSignIn({
       setOtpSent(true);
       setCountdown(60);
     } catch (error) {
-      console.error('Error resending OTP:', error);
       setError('root.serverError', {
         type: 'server',
         message: 'Failed to resend OTP. Please try again.',
@@ -166,7 +164,6 @@ export default function OtpSignIn({
         }
       }
     } catch (error) {
-      console.error('OTP verification error:', error);
       const errorMessage =
         typeof error === 'string' ? error : (error as ErrorResponse)?.errorMessage;
 

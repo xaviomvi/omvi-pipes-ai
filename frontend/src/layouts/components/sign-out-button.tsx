@@ -34,7 +34,6 @@ export function SignOutButton({ onClose, ...other }: Props) {
       onClose?.();
       router.refresh();
     } catch (error) {
-      console.error(error);
       toast.error('Unable to logout!');
     }
   }, [checkUserSession, onClose, router]);

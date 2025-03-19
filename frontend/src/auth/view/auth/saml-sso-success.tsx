@@ -13,7 +13,6 @@ export default function SamlSsoSuccess() {
     const initAuth = async () => {
       const accessToken: string | null = Cookies.get('accessToken') ?? null;
       const refreshToken: string | null = Cookies.get('refreshToken') ?? null;
-      console.log('access token after saml sso', accessToken); 
 
       setSession(accessToken, refreshToken);
       await checkUserSession?.();

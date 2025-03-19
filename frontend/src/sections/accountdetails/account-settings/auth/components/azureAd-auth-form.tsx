@@ -5,6 +5,7 @@ import {
   Box, 
   Grid, 
   Alert, 
+  Snackbar,
   TextField, 
   Typography,
   InputAdornment,
@@ -40,7 +41,32 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
     
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
+    const [snackbar, setSnackbar] = useState({
+      open: false,
+      message: '',
+      severity: 'success' as 'success' | 'error',
+    });
+
+    // Helper functions for snackbar
+    const showSuccessSnackbar = (message: string) => {
+      setSnackbar({
+        open: true,
+        message,
+        severity: 'success',
+      });
+    };
+
+    const showErrorSnackbar = (message: string) => {
+      setSnackbar({
+        open: true,
+        message,
+        severity: 'error',
+      });
+    };
+
+    const handleCloseSnackbar = () => {
+      setSnackbar((prev) => ({ ...prev, open: false }));
+    };
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
@@ -61,6 +87,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
           }));
         } catch (error) {
           console.error('Failed to load Azure AD auth config:', error);
+          showErrorSnackbar('Failed to load Azure AD authentication configuration');
         } finally {
           setIsLoading(false);
         }
@@ -114,7 +141,6 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
     // Handle save
     const handleSave = async (): Promise<boolean> => {
       setIsSaving(true);
-      setSaveError(null);
       
       try {
         // Use the utility function to update Azure AD configuration
@@ -123,13 +149,15 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
           tenantId: formData.tenantId
         });
         
+        showSuccessSnackbar('Azure AD authentication configuration saved successfully');
+        
         if (onSaveSuccess) {
           onSaveSuccess();
         }
         
         return true;
       } catch (error) {
-        setSaveError('Failed to save Azure AD authentication configuration');
+        showErrorSnackbar('Failed to save Azure AD authentication configuration');
         console.error('Error saving Azure AD auth config:', error);
         return false;
       } finally {
@@ -145,18 +173,6 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
           </Box>
         ) : (
           <>
-            {saveError && (
-              <Alert 
-                severity="error" 
-                sx={{ 
-                  mb: 3,
-                  borderRadius: 1,
-                }}
-              >
-                {saveError}
-              </Alert>
-            )}
-            
             <Box 
               sx={{ 
                 mb: 3, 
@@ -257,6 +273,34 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
             )}
           </>
         )}
+
+        {/* Snackbar for success and error messages */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{
+              width: '100%',
+              boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
+              ...(snackbar.severity === 'error' && {
+                bgcolor: theme.palette.error.main,
+                color: theme.palette.error.contrastText,
+              }),
+              ...(snackbar.severity === 'success' && {
+                bgcolor: theme.palette.success.main,
+                color: theme.palette.success.contrastText,
+              }),
+            }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </>
     );
   }

@@ -74,13 +74,6 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
   const [open, setOpen] = useState(false);
   const [menuItems, setMenuItems] = useState(data);
 
-  // Debug logging
-  useEffect(() => {
-    console.log("User data in AccountDrawer:", user);
-    console.log("Account type:", user?.accountType);
-    console.log("Is business account?", user?.accountType === 'business');
-    console.log("Input data prop:", data);
-  }, [user, data]);
 
   // Build menu items when user data changes
   useEffect(() => {
@@ -92,9 +85,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
     
     // Otherwise build based on account type
     const items = [...baseAccountItems];
-    
-    console.log("Building menu items, accountType =", user?.accountType);
-    
+        
     // Check for business account type with fallbacks
     const isBusiness = 
       user?.accountType === 'business' || 
@@ -102,11 +93,9 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
       user?.role === 'business';
     
     if (isBusiness) {
-      console.log("Adding company settings item");
       items.push(companySettingsItem);
     }
     
-    console.log("Final menu items:", items);
     setMenuItems(items);
   }, [data, user]);
 

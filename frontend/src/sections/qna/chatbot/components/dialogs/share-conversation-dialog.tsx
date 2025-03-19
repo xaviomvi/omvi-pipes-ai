@@ -59,7 +59,6 @@ const ShareConversationDialog = ({ open, onClose, conversationId } : ShareConver
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error sharing conversation:', error);
       setSnackbarState({
         open: true,
         message: 'Failed to share conversation',
@@ -77,7 +76,6 @@ const ShareConversationDialog = ({ open, onClose, conversationId } : ShareConver
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to copy link:', error);
       setSnackbarState({
         open: true,
         message: 'Failed to copy link',

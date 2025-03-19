@@ -128,7 +128,6 @@ const ArchivedChatsDialog = ({ open, onClose, onSelectChat, onUnarchive } : Arch
       });
       setArchivedChats(response.data.conversations || []);
     } catch (error) {
-      console.error('Error fetching archived chats:', error);
       setSnackbar({
         open: true,
         message: 'Failed to load archived conversations',
@@ -153,7 +152,6 @@ const ArchivedChatsDialog = ({ open, onClose, onSelectChat, onUnarchive } : Arch
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error unarchiving chat:', error);
       setSnackbar({
         open: true,
         message: 'Failed to unarchive conversation',

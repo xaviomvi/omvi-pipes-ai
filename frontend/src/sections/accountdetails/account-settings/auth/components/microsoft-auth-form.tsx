@@ -5,6 +5,7 @@ import {
   Box,
   Grid,
   Alert,
+  Snackbar,
   TextField,
   Typography,
   InputAdornment,
@@ -40,7 +41,32 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
+    const [snackbar, setSnackbar] = useState({
+      open: false,
+      message: '',
+      severity: 'error' as 'success' | 'error',
+    });
+
+    // Helper functions for snackbar
+    const showErrorSnackbar = (message: string) => {
+      setSnackbar({
+        open: true,
+        message,
+        severity: 'error',
+      });
+    };
+
+    const showSuccessSnackbar = (message: string) => {
+      setSnackbar({
+        open: true,
+        message,
+        severity: 'success',
+      });
+    };
+
+    const handleCloseSnackbar = () => {
+      setSnackbar((prev) => ({ ...prev, open: false }));
+    };
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
@@ -60,7 +86,7 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
             tenantId: config?.tenantId || 'common',
           }));
         } catch (error) {
-          console.error('Failed to load Microsoft auth config:', error);
+          showErrorSnackbar('Failed to load Microsoft authentication configuration');
         } finally {
           setIsLoading(false);
         }
@@ -114,7 +140,6 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
     // Handle save
     const handleSave = async (): Promise<boolean> => {
       setIsSaving(true);
-      setSaveError(null);
 
       try {
         // Use the utility function to update Microsoft configuration
@@ -123,14 +148,15 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
           tenantId: formData.tenantId,
         });
 
+        showSuccessSnackbar('Microsoft authentication configuration saved successfully');
+
         if (onSaveSuccess) {
           onSaveSuccess();
         }
 
         return true;
       } catch (error) {
-        setSaveError('Failed to save Microsoft authentication configuration');
-        console.error('Error saving Microsoft auth config:', error);
+        showErrorSnackbar('Failed to save Microsoft authentication configuration');
         return false;
       } finally {
         setIsSaving(false);
@@ -145,18 +171,6 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
           </Box>
         ) : (
           <>
-            {saveError && (
-              <Alert
-                severity="error"
-                sx={{
-                  mb: 3,
-                  borderRadius: 1,
-                }}
-              >
-                {saveError}
-              </Alert>
-            )}
-
             <Box
               sx={{
                 mb: 3,
@@ -272,6 +286,34 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
             )}
           </>
         )}
+
+        {/* Snackbar for success and error messages */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{
+              width: '100%',
+              boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
+              ...(snackbar.severity === 'error' && {
+                bgcolor: theme.palette.error.main,
+                color: theme.palette.error.contrastText,
+              }),
+              ...(snackbar.severity === 'success' && {
+                bgcolor: theme.palette.success.main,
+                color: theme.palette.success.contrastText,
+              }),
+            }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </>
     );
   }

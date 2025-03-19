@@ -34,18 +34,20 @@ const AuthenticationSettings: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [configureDialogOpen, setConfigureDialogOpen] = useState(false);
   const [currentConfigMethod, setCurrentConfigMethod] = useState<string | null>(null);
   const [smtpConfigured, setSmtpConfigured] = useState(false);
-  const [successMessage, setSuccessMessage] = useState(
-    'Authentication settings updated successfully'
-  );
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
 
   // Fetch auth methods from API
   useEffect(() => {
     fetchAuthMethods();
     checkSmtpConfiguration();
+    // eslint-disable-next-line 
   }, []);
 
   // Check if SMTP is configured for OTP validation
@@ -56,8 +58,8 @@ const AuthenticationSettings: React.FC = () => {
       // Set SMTP as configured if we have at least host and from fields
       setSmtpConfigured(!!response.data?.host && !!response.data?.fromEmail);
     } catch (err) {
-      console.error('Failed to check SMTP configuration:', err);
       setSmtpConfigured(false);
+      showErrorSnackbar('Failed to check SMTP configuration');
     }
   };
 
@@ -84,8 +86,8 @@ const AuthenticationSettings: React.FC = () => {
 
       setAuthMethods(allMethods);
     } catch (err) {
-      console.error('Failed to fetch auth methods:', err);
       setError('Failed to load authentication settings');
+      showErrorSnackbar('Failed to load authentication settings');
     } finally {
       setIsLoading(false);
     }
@@ -103,6 +105,7 @@ const AuthenticationSettings: React.FC = () => {
       // Validation: Single authentication method
       if (!validateSingleMethodSelection(enabledMethods)) {
         setError('Only one authentication method can be enabled at a time');
+        showErrorSnackbar('Only one authentication method can be enabled at a time');
         setIsLoading(false);
         return;
       }
@@ -110,6 +113,7 @@ const AuthenticationSettings: React.FC = () => {
       // Validation: OTP requires SMTP configuration
       if (!validateOtpConfiguration(enabledMethods, smtpConfigured)) {
         setError('OTP authentication requires SMTP configuration. Please configure SMTP first.');
+        showErrorSnackbar('OTP authentication requires SMTP configuration. Please configure SMTP first.');
         setIsLoading(false);
         return;
       }
@@ -128,18 +132,38 @@ const AuthenticationSettings: React.FC = () => {
       await axios.post('/api/v1/orgAuthConfig/updateAuthMethod', payload);
 
       // Show success message
-      setSuccessMessage('Authentication settings updated successfully');
-      setSuccess(true);
+      showSuccessSnackbar('Authentication settings updated successfully');
       setIsEditing(false);
 
       // Refresh data
       fetchAuthMethods();
     } catch (err) {
-      console.error('Failed to update auth config:', err);
       setError('Failed to save changes. Please try again.');
+      showErrorSnackbar('Failed to save changes. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper functions for snackbars
+  const showSuccessSnackbar = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: 'success',
+    });
+  };
+
+  const showErrorSnackbar = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: 'error',
+    });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
   // Handle toggling auth methods - allow only one active method
@@ -176,21 +200,18 @@ const AuthenticationSettings: React.FC = () => {
     setConfigureDialogOpen(true);
   };
 
-  // In AuthenticationSettings.tsx
-
   // Handle save in configure dialog
   const handleSaveConfiguration = () => {
     // Refresh SMTP status if we just configured SMTP
     if (currentConfigMethod === 'smtp') {
       checkSmtpConfiguration();
-      setSuccessMessage('SMTP configuration updated successfully');
+      showSuccessSnackbar('SMTP configuration updated successfully');
     } else {
-      setSuccessMessage('Authentication provider configured successfully');
+      showSuccessSnackbar('Authentication provider configured successfully');
     }
 
     setConfigureDialogOpen(false);
     setCurrentConfigMethod(null);
-    setSuccess(true);
 
     // Exit edit mode if we were in it
     if (isEditing) {
@@ -202,11 +223,6 @@ const AuthenticationSettings: React.FC = () => {
   const handleCancelEdit = () => {
     setIsEditing(false);
     fetchAuthMethods();
-  };
-
-  // Handle close for success message
-  const handleCloseSuccess = () => {
-    setSuccess(false);
   };
 
   return (
@@ -385,23 +401,31 @@ const AuthenticationSettings: React.FC = () => {
         methodType={currentConfigMethod}
       />
 
-      {/* Success snackbar */}
+      {/* Snackbar for success and error messages */}
       <Snackbar
-        open={success}
-        autoHideDuration={5000}
-        onClose={handleCloseSuccess}
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert
-          onClose={handleCloseSuccess}
-          severity="success"
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
           variant="filled"
           sx={{
             width: '100%',
             boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
+            ...(snackbar.severity === 'error' && {
+              bgcolor: theme.palette.error.main,
+              color: theme.palette.error.contrastText,
+            }),
+            ...(snackbar.severity === 'success' && {
+              bgcolor: theme.palette.success.main,
+              color: theme.palette.success.contrastText,
+            }),
           }}
         >
-          {successMessage}
+          {snackbar.message}
         </Alert>
       </Snackbar>
     </Container>

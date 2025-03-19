@@ -1,9 +1,8 @@
 import { z as zod } from 'zod';
-import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useLocation, useNavigate } from 'react-router-dom';
-
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -12,7 +11,6 @@ import Grow from '@mui/material/Grow';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-
 import { alpha } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
@@ -130,7 +128,6 @@ export default function ResetPassword() {
       }, 2000);
       
     } catch (error) {
-      console.error(error);
       setErrorMsg(typeof error === 'string' ? error : (error as ErrorResponse).errorMessage || 'Failed to reset password. Please try again.');
     } finally {
       setIsSubmitting(false);

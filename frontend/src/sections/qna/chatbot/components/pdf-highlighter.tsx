@@ -187,7 +187,6 @@ const PdfHighlighterComp = ({
   }, [pdfUrl, citations]);
 
   const addHighlight = useCallback((highlight: Omit<HighlightType, 'id'>): void => {
-    console.log('New highlight:', highlight);
     setHighlights((prevHighlights) => [
       {
         ...highlight,

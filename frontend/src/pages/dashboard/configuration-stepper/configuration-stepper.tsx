@@ -7,6 +7,7 @@ import {
   Dialog,
   Stepper,
   useTheme,
+  Snackbar,
   StepLabel,
   Typography,
   DialogTitle,
@@ -19,9 +20,9 @@ import axios from 'src/utils/axios';
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { storageTypes } from './types';
 import LlmConfigStep from './llm-config';
 import SmtpConfigStep from './smtp-config';
-import { storageTypes } from './types';
 import StorageConfigStep from './storage-config';
 import ConnectorConfigStep from './connector-config';
 
@@ -55,7 +56,11 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string>('');
   const [submissionSuccess, setSubmissionSuccess] = useState<boolean>(false);
-
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
   // Use a ref to track if onboarding status has been updated
   // This prevents redundant API calls
   const statusUpdated = useRef<boolean>(false);
@@ -102,16 +107,18 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
   // This function should ONLY be called when explicitly needed via button clicks
   const updateOnboardingStatus = async (status: 'configured' | 'skipped'): Promise<void> => {
     if (statusUpdated.current) {
-      console.log('Onboarding status already updated, skipping API call');
       return;
     }
 
     try {
       await axios.put(`${ORG_API_BASE_URL}/onboarding-status`, { status });
-      console.log(`Onboarding status updated to: ${status}`);
       statusUpdated.current = true;
     } catch (error) {
-      console.error('Failed to update onboarding status:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to update on borading status`,
+        severity: 'error',
+      });
       throw error;
     }
   };
@@ -149,7 +156,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         baseUrl: '',
       };
       setStorageValues(defaultLocalStorage);
-      console.log('Storage step skipped, defaulting to local storage');
     }
 
     // If this is the last step, we need to submit the configs after skipping
@@ -378,12 +384,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       setSubmissionError('');
       setSubmissionSuccess(false);
 
-      console.log('Submitting configurations...');
-      console.log('LLM Values:', llmValues);
-      console.log('Storage Values:', storageValues);
-      console.log('Connector Skipped:', skipSteps.connector, 'Connector Values:', connectorValues);
-      console.log('SMTP Skipped:', skipSteps.smtp, 'SMTP Values:', smtpValues || smtpData);
-
       // Make sure we have LLM values (required)
       if (!llmValues) {
         // Try to submit the LLM form
@@ -421,7 +421,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
                 };
 
                 // Only include clientId if it has a value
-                const clientId = (llmValues as OpenAILlmFormValues).clientId;
+                const {clientId} = (llmValues as OpenAILlmFormValues);
                 if (clientId && clientId.trim() !== '') {
                   config.clientId = clientId;
                 }
@@ -458,7 +458,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         multiModal: [],
       };
 
-      console.log('Adding LLM API call with config:', llmConfig);
       apiCalls.push(axios.post(`${API_BASE_URL}/aiModelsConfig`, llmConfig));
 
       // Prepare Storage config API call
@@ -523,7 +522,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             break;
         }
 
-        console.log('Adding Storage API call with config:', storageConfig);
         apiCalls.push(
           axios.post(`${API_BASE_URL}/storageConfig`, storageConfig, {
             headers: {
@@ -570,7 +568,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
               }
             }
 
-            console.log('Adding Google Workspace API call with file for business account');
             apiCalls.push(
               axios.post(`${API_BASE_URL}/googleWorkspaceConfig`, formData, {
                 headers: {
@@ -603,7 +600,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
 
           // Only make the API call if we have at least one field
           if (Object.keys(payload).length > 0) {
-            console.log('Adding Google Workspace OAuth config API call for individual account');
             apiCalls.push(
               axios.post(`${API_BASE_URL}/connectors/googleWorkspaceOauthConfig`, payload, {
                 headers: {
@@ -634,16 +630,12 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           smtpConfig.password = finalSmtpData.password;
         }
 
-        console.log('Adding SMTP API call with config:', smtpConfig);
         apiCalls.push(axios.post(`${API_BASE_URL}/smtpConfig`, smtpConfig));
       }
 
       // Execute all API calls in parallel
-      console.log(`Executing ${apiCalls.length} API calls...`);
       if (apiCalls.length > 0) {
         await Promise.all(apiCalls);
-        console.log('All API calls completed successfully');
-
         // Update onboarding status to 'configured' - explicitly calling after successful submission
         await updateOnboardingStatus('configured');
 
@@ -651,13 +643,16 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         setTimeout(() => {
           onClose();
         }, 2000);
+        setSnackbar({
+          open: true,
+          message: `Configuration completed`,
+          severity: 'success',
+        });
       } else {
         // Should not happen anymore since LLM is required
-        console.log('No API calls to make - all steps skipped or incomplete');
         setSubmissionError('No configurations were set. Please configure at least one service.');
       }
     } catch (error: any) {
-      console.error('Error submitting configuration:', error);
       setSubmissionError(
         error.response?.data?.message || 'An error occurred while saving configurations'
       );
@@ -679,7 +674,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         onClose();
       }, 2000);
     } catch (error) {
-      console.error('Error skipping configuration:', error);
       setSubmissionError('Failed to skip the configuration process. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -711,6 +705,13 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             onSkip={() => handleSkipStep('connector')}
             initialValues={connectorValues}
             initialFile={serviceCredentialsFile}
+            setMessage={(message) =>
+              setSnackbar({
+                open: true,
+                message,
+                severity: 'error',
+              })
+            }
           />
         );
       case 3:
@@ -876,8 +877,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
   };
 
   const handleManualSubmit = async () => {
-    console.log('Manual submit button clicked');
-
     // Verify LLM is configured - required now
     if (!llmValues) {
       setSubmissionError('LLM configuration is required.');
@@ -890,40 +889,31 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       if (!skipSteps.smtp) {
         try {
           if (typeof (window as any).submitSmtpForm === 'function') {
-            console.log('Trying to submit SMTP form via window method');
             const isValid = (window as any).submitSmtpForm();
 
             // If form is invalid, skip this step since LLM is already configured
             if (!isValid) {
-              console.log('SMTP form invalid, proceeding with LLM only');
               // Mark SMTP as skipped since we can't validate it
               setSkipSteps((prev) => ({ ...prev, smtp: true }));
               // Submit all configurations without SMTP
               await submitAllConfigurations();
             } else {
               // If SMTP form is valid, it already called onSubmit which will call submitAllConfigurations
-              console.log('SMTP form valid, continuing with normal flow');
             }
           } else {
             // Fallback: No submitSmtpForm method, but we can proceed with LLM
-            console.log('No submitSmtpForm method found, proceeding with LLM');
             setSkipSteps((prev) => ({ ...prev, smtp: true }));
             await submitAllConfigurations();
           }
         } catch (error) {
-          console.error('Error submitting SMTP form:', error);
           // We can proceed without SMTP since LLM is configured
           setSkipSteps((prev) => ({ ...prev, smtp: true }));
           await submitAllConfigurations();
         }
       } else {
-        // SMTP is already skipped, just submit with LLM
-        console.log('SMTP already skipped, proceeding with LLM');
         await submitAllConfigurations();
       }
     } else {
-      // For other cases, just submit all configurations
-      console.log('Submitting all configurations directly');
       await submitAllConfigurations();
     }
   };
@@ -995,6 +985,26 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>{renderFooterButtons()}</DialogActions>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          sx={{
+            width: '100%',
+            ...(snackbar.severity === 'success' && {
+              bgcolor: theme.palette.success.main,
+              color: theme.palette.success.contrastText,
+            }),
+          }}
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Dialog>
   );
 };

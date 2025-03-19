@@ -318,7 +318,6 @@ const RecordSalesAgent = ({ initialContext, recordId }: RecordSalesAgentProps) =
           lastActivityAt: conversation.lastActivityAt,
         });
       } catch (error) {
-        console.error('Error loading conversation:', error);
         setMessages([
           {
             type: 'bot',
@@ -440,7 +439,6 @@ const RecordSalesAgent = ({ initialContext, recordId }: RecordSalesAgentProps) =
         }));
       }
     } catch (error) {
-      console.error('Message send error:', error);
       setMessages((prev) => [
         ...prev,
         {
@@ -517,7 +515,6 @@ const RecordSalesAgent = ({ initialContext, recordId }: RecordSalesAgentProps) =
           return newStates;
         });
       } catch (error) {
-        console.error('Regeneration error:', error);
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
             msg.id === messageId

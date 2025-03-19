@@ -13,7 +13,6 @@ import {
   Select,
   Button,
   MenuItem,
-  useTheme,
   TextField,
   Typography,
   InputLabel,
@@ -54,7 +53,6 @@ interface LlmConfigStepProps {
 }
 
 const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initialValues }) => {
-  const theme = useTheme();
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [modelType, setModelType] = useState<'openai' | 'azure'>(
     initialValues?.modelType || 'openai'
@@ -297,7 +295,7 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
                 error={!!fieldState.error}
                 helperText={
                   fieldState.error?.message ||
-                  (modelType === 'openai' ? 'e.g., gpt-4-turbo' : 'e.g., gpt-4')
+                  (modelType === 'openai' ? 'e.g., gpt-4-turbo' : 'e.g., gpt-4o')
                 }
               />
             )}

@@ -22,9 +22,10 @@ import {
   CircularProgress,
 } from '@mui/material';
 
+import { useAdmin } from 'src/context/AdminContext';
+
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
-import { useAdmin } from 'src/context/AdminContext';
 
 import {
   updateUser,

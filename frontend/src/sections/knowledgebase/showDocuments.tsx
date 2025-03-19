@@ -4,12 +4,9 @@ import { Icon } from '@iconify/react';
 
 import { Box, Card, Stack, Typography, IconButton, CardContent } from '@mui/material';
 
-import axios from 'src/utils/axios';
-
-import { CONFIG } from 'src/config-global';
+import { handleDownloadDocument } from './utils';
 
 import type { Record } from './types/record-details';
-import { handleDownloadDocument } from './utils';
 
 // Keep the existing utility functions
 const getFileIcon = (extension: string) => {

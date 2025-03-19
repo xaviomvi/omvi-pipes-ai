@@ -47,7 +47,6 @@ const CitationHoverCard = ({
   aggregatedCitations,
 }: CitationHoverCardProps) => {
   const hasRecordId = Boolean(citation.metadata?.recordId);
-  console.log(aggregatedCitations);
   const handleClick = (e: React.MouseEvent): void => {
     e.preventDefault();
     e.stopPropagation();
@@ -66,13 +65,11 @@ const CitationHoverCard = ({
   };
 
   const handleOpenPdf = async () => {
-    console.log(aggregatedCitations[0]?.citationMetaData?.recordId);
     if (aggregatedCitations[0]?.citationMetaData?.recordId) {
       try {
         const isExcelOrCSV = aggregatedCitations[0].citationMetaData?.recordOriginFormat === 'CSV';
         const recordId = aggregatedCitations[0]?.citationMetaData?.recordId;
         const getRecord = await axiosInstance.get(`/api/v1/knowledgebase/${recordId}`);
-        console.log(getRecord.data.fileRecord.storageDocumentId);
         const { storageDocumentId } = getRecord.data.fileRecord;
         const response = await axiosInstance.get(`/api/v1/document/${storageDocumentId}/download`);
 

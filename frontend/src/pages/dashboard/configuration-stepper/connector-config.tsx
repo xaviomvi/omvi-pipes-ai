@@ -55,6 +55,7 @@ interface ConnectorConfigStepProps {
   onSkip: () => void;
   initialValues: ConnectorFormValues | null;
   initialFile: File | null;
+  setMessage : (message : string)=> void;
 }
 
 const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
@@ -62,6 +63,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   onSkip,
   initialValues,
   initialFile,
+  setMessage
 }) => {
   const theme = useTheme();
   const { user } = useAuthContext();
@@ -122,40 +124,77 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   }, [initialValues, initialFile, accountType, businessForm, individualForm]);
 
   // Extract data from uploaded JSON for individual users
-  const extractIndividualDataFromJson = useCallback(
-    (jsonData: any) => {
-      try {
-        // Try both formats: camelCase and snake_case
-        const clientId = jsonData.clientId || jsonData.client_id;
-        const clientSecret = jsonData.clientSecret || jsonData.client_secret;
-        const redirectUri = jsonData.redirectUri || jsonData.redirect_uri;
-
+// Extract data from uploaded JSON for individual users
+const extractIndividualDataFromJson = useCallback(
+  (jsonData: any) => {
+    try {
+      // Debug the incoming JSON data structure
+      console.log('Parsing individual JSON data:', jsonData);
+      
+      // Try different JSON structures that Google might provide
+      // Web application credentials format
+      if (jsonData.web) {
+        const clientId = jsonData.web.client_id;
+        const clientSecret = jsonData.web.client_secret;
+        const redirectUri = jsonData.web.redirect_uris && jsonData.web.redirect_uris[0];
+        
         if (clientId && clientSecret) {
-          // Set values in the form
           individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
-          individualForm.setValue('googleWorkspace.clientSecret', clientSecret, {
-            shouldValidate: true,
-          });
-
-          // If redirectUri is present, use it; otherwise keep the default
+          individualForm.setValue('googleWorkspace.clientSecret', clientSecret, { shouldValidate: true });
+          
           if (redirectUri) {
-            individualForm.setValue('googleWorkspace.redirectUri', redirectUri, {
-              shouldValidate: true,
-            });
+            individualForm.setValue('googleWorkspace.redirectUri', redirectUri, { shouldValidate: true });
           }
-
           return true;
         }
-        return false;
-      } catch (error) {
-        return false;
       }
-    },
-    [individualForm]
-  );
+      
+      // Try installed application format
+      if (jsonData.installed) {
+        const clientId = jsonData.installed.client_id;
+        const clientSecret = jsonData.installed.client_secret;
+        const redirectUri = jsonData.installed.redirect_uris && jsonData.installed.redirect_uris[0];
+        
+        if (clientId && clientSecret) {
+          individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
+          individualForm.setValue('googleWorkspace.clientSecret', clientSecret, { shouldValidate: true });
+          
+          if (redirectUri) {
+            individualForm.setValue('googleWorkspace.redirectUri', redirectUri, { shouldValidate: true });
+          }
+          return true;
+        }
+      }
+      
+      // Try direct properties (less common but possible)
+      const clientId = jsonData.clientId || jsonData.client_id;
+      const clientSecret = jsonData.clientSecret || jsonData.client_secret;
+      const redirectUri = jsonData.redirectUri || jsonData.redirect_uri || 
+                         (jsonData.redirect_uris && jsonData.redirect_uris[0]);
+
+      if (clientId && clientSecret) {
+        individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
+        individualForm.setValue('googleWorkspace.clientSecret', clientSecret, { shouldValidate: true });
+
+        if (redirectUri) {
+          individualForm.setValue('googleWorkspace.redirectUri', redirectUri, { shouldValidate: true });
+        }
+        return true;
+      }
+      
+      setMessage('Could not find client ID and client secret in the JSON file');
+      return false;
+    } catch (error) {
+      console.error('Error parsing JSON file:', error);
+      setMessage('Failed to extract data from JSON file');
+      return false;
+    }
+  },
+  [individualForm, setMessage]
+);
 
   // Extract data from uploaded JSON for business users
-  const extractBusinessDataFromJson = useCallback(
+  const extractBusinessDataFromJson = useCallback( 
     (jsonData: any) => {
       try {
         // Store the full parsed JSON for later use
@@ -177,9 +216,11 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
 
         return true;
       } catch (error) {
+        setMessage('Failed to extract JSON data');
         return false;
       }
     },
+    // eslint-disable-next-line
     [businessForm]
   );
 

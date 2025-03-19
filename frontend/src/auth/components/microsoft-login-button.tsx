@@ -63,7 +63,6 @@ function MicrosoftLoginButton({
               loggerCallback: (level: number, message: string) => {
                 if (level > 3) {
                   // Only log warnings & errors
-                  console.log(`MSAL: ${message}`);
                 }
               },
               piiLoggingEnabled: false,
@@ -83,7 +82,6 @@ function MicrosoftLoginButton({
           setIsInitialized(true);
         }
       } catch (error) {
-        console.error(`Failed to initialize MSAL for ${method}:`, error);
         if (mounted) {
           onError(`Failed to initialize authentication for ${method}. Please try again.`);
         }
@@ -124,7 +122,6 @@ function MicrosoftLoginButton({
         method,
       });
     } catch (error) {
-      console.error(`${method} login failed`, error);
       onError(`${method} login failed. Please try again.`);
     } finally {
       setIsLoading(false);

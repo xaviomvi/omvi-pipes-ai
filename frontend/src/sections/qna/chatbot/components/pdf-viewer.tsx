@@ -79,7 +79,6 @@ export default function PDFViewer({ open, onClose, pdfUrl, fileName } : PDFViewe
   const [error, setError] = useState<string | null>(null);
   const [key, setKey] = useState<number>(0);
 
-  console.log(pdfUrl)
   // Reset states when URL changes
   useEffect(() => {
     if (pdfUrl) {

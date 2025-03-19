@@ -78,7 +78,6 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
   const [isPDFViewerOpen, setIsPDFViewerOpen] = useState<boolean>(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
-console.log(citations)
   useEffect(() => {
     if (!recordId) return;
 

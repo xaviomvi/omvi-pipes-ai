@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { styled } from '@mui/material/styles';
@@ -16,8 +16,6 @@ import {
   AccordionDetails,
   FormControlLabel,
 } from '@mui/material';
-
-import { fetchTags, fetchModules, fetchDepartments, fetchRecordCategories } from './utils';
 
 import type { Modules } from './types/modules';
 import type { Departments } from './types/departments';
@@ -69,25 +67,7 @@ export default function KnowledgeSearchSideBar({ filters, onFilterChange } : Kno
   // const [selectedModules, setSelectedModules] = useState([]);
   // const [selectedTags, setSelectedTags] = useState([]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [deptData, catData, tagData, moduleData] = await Promise.all([
-          fetchDepartments(),
-          fetchRecordCategories(),
-          fetchTags(),
-          fetchModules(),
-        ]);
-        setDepartments(deptData);
-        setRecordCategories(catData);
-        setTags(tagData);
-        setModules(moduleData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
-    fetchData();
-  }, []);
+
 
   const handleDrawerToggle = () => {
     setOpen(!open);

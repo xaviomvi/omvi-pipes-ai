@@ -1,11 +1,12 @@
 import { z } from 'zod';
-import React, { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useState, useEffect, forwardRef, useCallback, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
   Grid,
   Alert,
+  Snackbar,
   TextField,
   Typography,
   IconButton,
@@ -58,9 +59,33 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
     const [initialLoad, setInitialLoad] = useState(true);
+    const [snackbar, setSnackbar] = useState({
+      open: false,
+      message: '',
+      severity: 'success' as 'success' | 'error',
+    });
+
+    const showSuccessSnackbar = useCallback((message: string) => {
+      setSnackbar({
+        open: true,
+        message,
+        severity: 'success',
+      });
+    }, [setSnackbar]);
+    
+    const showErrorSnackbar = useCallback((message: string) => {
+      setSnackbar({
+        open: true,
+        message,
+        severity: 'error',
+      });
+    }, [setSnackbar]); 
+
+    const handleCloseSnackbar = () => {
+      setSnackbar((prev) => ({ ...prev, open: false }));
+    };
 
     // Validate form function - memoized with useCallback to ensure it can be safely used in dependency arrays
     const validateForm = useCallback((data: SmtpConfigFormData) => {
@@ -109,12 +134,11 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
     useImperativeHandle(ref, () => ({
       handleSave: async (): Promise<boolean> => {
         setIsSaving(true);
-        setSaveError(null);
   
         try {
           // Validate the form data with Zod before saving
           if (!validateForm(formData)) {
-            setSaveError('Please correct the form errors before saving');
+            showErrorSnackbar('Please correct the form errors before saving');
             return false;
           }
   
@@ -130,6 +154,8 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
           // Send the update request
           await axios.post('/api/v1/configurationManager/smtpConfig', payload);
   
+          showSuccessSnackbar('SMTP configuration saved successfully');
+
           if (onSaveSuccess) {
             onSaveSuccess();
           }
@@ -144,18 +170,17 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
               errorMap[path] = err.message;
             });
             setErrors(errorMap);
-            setSaveError('Please correct the form errors before saving');
+            showErrorSnackbar('Please correct the form errors before saving');
           } else {
             // Handle API errors
-            setSaveError('Failed to save SMTP configuration');
-            console.error('Error saving SMTP config:', error);
+            showErrorSnackbar('Failed to save SMTP configuration');
           }
           return false;
         } finally {
           setIsSaving(false);
         }
       }
-    }), [formData, onSaveSuccess, validateForm]);
+    }), [formData, onSaveSuccess, validateForm, showErrorSnackbar, showSuccessSnackbar]);
 
     // Load existing config on mount
     useEffect(() => {
@@ -183,7 +208,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
             }
           }
         } catch (error) {
-          console.error('Failed to load SMTP config:', error);
+          showErrorSnackbar('Failed to load SMTP configuration');
         } finally {
           setIsLoading(false);
           setInitialLoad(false);
@@ -191,7 +216,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
       };
 
       fetchConfig();
-    }, [validateForm]);
+    }, [validateForm,showErrorSnackbar]);
 
     // Use effect for validation, but only after initial load is complete
     useEffect(() => {
@@ -211,18 +236,6 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
           </Box>
         ) : (
           <>
-            {saveError && (
-              <Alert
-                severity="error"
-                sx={{
-                  mb: 3,
-                  borderRadius: 1,
-                }}
-              >
-                {saveError}
-              </Alert>
-            )}
-
             <Box
               sx={{
                 mb: 3,
@@ -426,6 +439,34 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
             )}
           </>
         )}
+
+        {/* Snackbar for success and error messages */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{
+              width: '100%',
+              boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
+              ...(snackbar.severity === 'error' && {
+                bgcolor: theme.palette.error.main,
+                color: theme.palette.error.contrastText,
+              }),
+              ...(snackbar.severity === 'success' && {
+                bgcolor: theme.palette.success.main,
+                color: theme.palette.success.contrastText,
+              }),
+            }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </>
     );
   }

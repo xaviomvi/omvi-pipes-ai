@@ -40,8 +40,6 @@ export default function GoogleSignIn({ email }: GoogleSignInProps) {
         if (popup.closed) {
           clearInterval(checkPopupClosed);
           setLoading(false);
-          console.log('Google sign-in window closed.');
-          // Optionally trigger any auth state updates
         }
       }, 1000);
     } catch (err) {

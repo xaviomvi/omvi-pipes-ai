@@ -8,29 +8,31 @@ import {
   Paper,
   Alert,
   Stack,
+  alpha,
   Button,
-  TableRow,
+  Dialog,
   Tooltip,
+  TableRow,
   Snackbar,
+  useTheme,
   InputBase,
   TableBody,
   TableCell,
   TableHead,
   Typography,
   IconButton,
-  TableContainer,
-  TablePagination,
-  CircularProgress,
-  useTheme,
-  alpha,
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  TableContainer,
+  TablePagination,
+  CircularProgress,
 } from '@mui/material';
+
 import { useAdmin } from 'src/context/AdminContext';
 
 import { Iconify } from 'src/components/iconify';
+
 import { decrementInvitesCount } from '../../../store/userAndGroupsSlice';
 import { removeUser, resendInvite, getAllUsersWithGroups } from '../utils';
 

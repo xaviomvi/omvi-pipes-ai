@@ -147,7 +147,6 @@ const RecordSidebar = ({
         setHasMore(pagination.hasNextPage || false);
         setPage(pageNum);
       } catch (error) {
-        console.error('Error fetching records:', error);
         setHasMore(false);
         setSnackbar({
           open: true,

@@ -199,7 +199,7 @@ const AuthMethodsList: React.FC<AuthMethodsListProps> = ({
           }
         }
       } catch (error) {
-        console.error('Error checking authentication configurations:', error);
+        setErrorMessage('Error checking authentication configurations:');
       } finally {
         setCheckingConfigs(false);
       }
@@ -214,19 +214,19 @@ const AuthMethodsList: React.FC<AuthMethodsListProps> = ({
     return method?.title || type;
   };
 
-// Check if at least one method is enabled
-useEffect(() => {
-  if (isEditing) {
-    const enabledCount = authMethods.filter((method) => method.enabled).length;
-    if (enabledCount === 0) {
-      setErrorMessage('At least one authentication method must be enabled');
-      setShowError(true);
-    } else if (!(errorMessage && errorMessage.includes('successfully'))) {
-      // Hide error only if it's not a success message
-      setShowError(false);
+  // Check if at least one method is enabled
+  useEffect(() => {
+    if (isEditing) {
+      const enabledCount = authMethods.filter((method) => method.enabled).length;
+      if (enabledCount === 0) {
+        setErrorMessage('At least one authentication method must be enabled');
+        setShowError(true);
+      } else if (!(errorMessage && errorMessage.includes('successfully'))) {
+        // Hide error only if it's not a success message
+        setShowError(false);
+      }
     }
-  }
-}, [authMethods, isEditing, errorMessage]);
+  }, [authMethods, isEditing, errorMessage]);
 
   // Handle toggling with validation
   const handleToggleWithValidation = (type: string) => {

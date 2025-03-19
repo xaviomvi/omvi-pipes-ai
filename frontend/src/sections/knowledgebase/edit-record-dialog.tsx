@@ -1,25 +1,26 @@
 import { Icon } from '@iconify/react';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 
 import {
   Box,
   alpha,
+  Alert,
   Dialog,
   Button,
+  Divider,
   TextField,
   Typography,
   IconButton,
+  AlertTitle,
   DialogTitle,
   DialogContent,
   DialogActions,
   CircularProgress,
-  Alert,
-  AlertTitle,
-  Divider,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
-import { Record } from './types/record-details';
+
+import type { Record } from './types/record-details';
 
 // Define a constant for maximum file size (30MB)
 const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB in bytes
