@@ -57,7 +57,7 @@ class KafkaTestProducer:
             "timestamp": current_timestamp,
             "payload": {
                 "orgId": org_id,
-                "accountType": "enterprise",
+                "accountType": "individual",
                 "registeredName": "PipesHub"
             }
         }

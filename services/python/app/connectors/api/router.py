@@ -447,11 +447,8 @@ async def download_file(
             )
             
             # Get the user email from the record to impersonate
-            user_credentials = credentials.with_subject(record.get('userEmail'))
-            
-            drive_service = build('drive', 'v3', credentials=user_credentials)
-            gmail_service = build('gmail', 'v1', credentials=user_credentials)
-            return drive_service, gmail_service
+            credentials = credentials.with_subject(record.get('userEmail'))
+            return credentials
         
         except Exception as e:
             logger.error(f"Error getting service account credentials: {str(e)}")
@@ -467,23 +464,17 @@ async def download_file(
         if os.path.exists(token_path):
             with open(token_path, 'rb') as token_file:
                 creds = pickle.load(token_file)
-
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(GoogleRequest())
             with open(token_path, 'wb') as token_file:
                 pickle.dump(creds, token_file)
-
         if not creds:
             raise HTTPException(status_code=401, detail="No valid Google credentials found")
-        
         with open(token_path, 'wb') as token:
             pickle.dump(creds, token)
-
-        drive_service = build('drive', 'v3', credentials=creds)
-        gmail_service = build('gmail', 'v1', credentials=creds)
         logger.info("✅ GmailUserService connected successfully")
 
-        return drive_service, gmail_service
+        return creds
 
     try:
         logger.info(f"Downloading file {record_id} with connector {connector}")
@@ -512,36 +503,39 @@ async def download_file(
         # Different auth handling based on account type
         if org['accountType'] in ['enterprise', 'business']:
             # Use service account credentials
-            drive_service, gmail_service = await get_service_account_credentials(config)
+            creds = await get_service_account_credentials(config)
         else:
             # Individual account - use stored OAuth credentials
-            drive_service, gmail_service = await get_user_credentials(config)
+            creds = await get_user_credentials(config)
 
         # Download file based on connector type
         try:
             if connector == "drive":
                 logger.info(f"Downloading Drive file: {file_id}")
-                request = drive_service.files().get_media(fileId=file_id)
-                response = request.execute()
-                return StreamingResponse(
-                    io.BytesIO(response),
-                    media_type="application/octet-stream"
-                )
+                file_url = f"""https://www.googleapis.com/drive/v3/files/{
+                    file_id}?alt=media"""
+                
             elif connector == "gmail":
                 logger.info(f"Downloading Gmail attachment: {file_id}")
-                request = gmail_service.users().messages().attachments().get(
-                    userId='me',
-                    messageId=record.get('messageId'),
-                    id=file_id
-                )
-                attachment = request.execute()
-                file_data = base64.urlsafe_b64decode(attachment['data'])
-                return StreamingResponse(
-                    io.BytesIO(file_data),
-                    media_type="application/octet-stream"
-                )
+                file_url = f"""https://www.googleapis.com/gmail/v1/users/me/messages/{
+                    file_id}/attachments/{file_id}?alt=media"""
             else:
                 raise HTTPException(status_code=400, detail="Invalid connector type")
+            
+            headers = {"Authorization": f"Bearer {creds.token}"}
+            logger.info(f"headers: {headers}")
+            response = requests.get(file_url, headers=headers, stream=True)
+
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Error fetching file")
+
+            # Stream the response
+            return StreamingResponse(
+                response.iter_content(chunk_size=4096),
+                media_type=response.headers.get(
+                    "Content-Type", "application/octet-stream")
+            )
+
 
         except Exception as e:
             logger.error(f"Error downloading file: {str(e)}")

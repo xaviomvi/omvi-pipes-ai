@@ -263,7 +263,7 @@ class DomainExtractor:
             for department in metadata.departments:
                 try:
                     # Find department node using await properly
-                    dept_query = f'FOR d IN departments FILTER d.department_name == @department RETURN d'
+                    dept_query = f'FOR d IN departments FILTER d.departmentName == @department RETURN d'
                     cursor = self.arango_service.db.aql.execute(
                         dept_query,
                         bind_vars={'department': department.value}
@@ -271,7 +271,7 @@ class DomainExtractor:
                     
                     # Get the first result directly from the cursor
                     dept_doc = cursor.next()
-                    print(dept_doc)
+                    logger.info(f"🚀 Department: {dept_doc}")
                     
                     if dept_doc:  # If we found a matching department
                         # Create edge document
