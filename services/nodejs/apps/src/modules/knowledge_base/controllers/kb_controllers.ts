@@ -64,6 +64,7 @@ export const createRecords =
         orgId,
         req.user?.firstName,
         req.user?.lastName,
+        req.user?.middleName,
         req.user?.designation,
       );
 
@@ -75,7 +76,7 @@ export const createRecords =
         kb._key,
         userDoc._key,
         RELATIONSHIP_TYPE.USER,
-        ['OWNER'],
+        'OWNER',
       );
 
       const records: IRecordDocument[] = [];
@@ -310,7 +311,7 @@ export const updateRecord =
       // Check if user has permission to update records
       try {
         await recordRelationService.validateUserKbAccess(userId, orgId, [
-          'OWNER',
+          'OWNER','WRITER','FILEORGANIZER'
         ]);
       } catch (error) {
         throw new ForbiddenError('Permission denied');
@@ -360,26 +361,16 @@ export const updateRecord =
         ...updateData,
         updatedAtTimestamp: Date.now(),
         isLatestVersion: true,
+        sizeInBytes : size
       };
 
-      // Set flag for file record updates if this is a file record
-      const isFileRecord = existingRecord.record.fileRecord !== null;
-      if (isFileRecord) {
-        updatedData.isFileRecordUpdate = true;
-      }
 
       // Handle file uploads if present
       let fileUploaded = false;
       let fileName = '';
 
       // Handle file uploads if we found files
-      if (hasFileBuffer) {
-        // Verify this is a file record before attempting to update the file
-        if (!isFileRecord) {
-          throw new BadRequestError(
-            'Cannot upload a file to a non-file record type',
-          );
-        }
+      if (hasFileBuffer) {        
 
         // Use the externalRecordId as the storageDocumentId
         const storageDocumentId = existingRecord.record.externalRecordId;
@@ -518,7 +509,7 @@ export const deleteRecord =
       // Check if user has permission to delete records
       try {
         await recordRelationService.validateUserKbAccess(userId, orgId, [
-          'DELETE',
+          'OWNER','WRITER','FILEORGANIZER'
         ]);
       } catch (error) {
         throw new ForbiddenError('Permission denied');
@@ -712,7 +703,7 @@ export const archiveRecord =
       // Check if user has permission to archive records
       try {
         await recordRelationService.validateUserKbAccess(userId, orgId, [
-          'WRITE',
+          'OWNER','WRITER','FILEORGANIZER'
         ]);
       } catch (error) {
         throw new ForbiddenError('Permission denied');
@@ -818,7 +809,7 @@ export const unarchiveRecord =
       // Check if user has permission to unarchive records
       try {
         await recordRelationService.validateUserKbAccess(userId, orgId, [
-          'WRITE',
+          'OWNER','WRITER','FILEORGANIZER'
         ]);
       } catch (error) {
         res.status(403).json({

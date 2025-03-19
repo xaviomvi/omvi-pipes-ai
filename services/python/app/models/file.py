@@ -20,7 +20,7 @@ class FileMetadata:
     last_modifying_user: Optional[Dict[str, str]] = None
     permissions: List[Permission] = None
     access_control: Optional[AccessControl] = None
-    last_updated: Optional[str] = None
+    lastUpdatedTimestampAtSource: Optional[str] = None
 
 
 @dataclass

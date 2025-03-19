@@ -211,12 +211,16 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
       if (file) {
         formData.append('file', file);
       }
-
+      const config = {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      };
       // Always append the current name (which might be changed or not)
       formData.append('recordName', name.trim() || (file ? file.name : initialName));
 
       // Send the file to the API
-      const response = await axios.put(`/api/v1/knowledgeBase/${recordId}`, formData);
+      const response = await axios.put(`/api/v1/knowledgeBase/${recordId}`, formData,config);
 
       if (!response) {
         throw new Error(`Upload failed with status: ${response}`);
@@ -416,7 +420,7 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
                 />
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography variant="body1" fontWeight={500} sx={{ mb: 0.5 }}>
-                    {record.fileRecord.name || record.recordName}
+                    { record.recordName}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <span>{getFileTypeName(currentExtension)} (.{currentExtension})</span>

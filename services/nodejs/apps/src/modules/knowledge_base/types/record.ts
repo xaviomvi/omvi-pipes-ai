@@ -21,6 +21,7 @@ export interface IRecordDocument {
   // Required fields
   recordName: string;
   externalRecordId: string;
+  externalRevisionId?: string;
   recordType: RecordType;
   origin: OriginType;
   createdAtTimestamp: number;
@@ -39,6 +40,7 @@ export interface IRecordDocument {
 
   isDeleted?: boolean; // default: false
   isArchived?: boolean; // default: false
+  deletedByUserId?: string;
 
   lastIndexTimestamp?: number;
   lastExtractionTimestamp?: number;

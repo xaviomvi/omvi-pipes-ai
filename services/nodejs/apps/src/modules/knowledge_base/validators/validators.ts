@@ -162,6 +162,7 @@ export const updateRecordSchema = z.object({
   params: z.object({ recordId: z.string().min(1) }),
   body: z.object({
     fileBuffer: z.any(),
+    recordName : z.string().optional(),
   }),
 });
 

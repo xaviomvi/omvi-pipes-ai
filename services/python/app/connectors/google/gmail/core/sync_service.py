@@ -25,7 +25,7 @@ class GmailSyncProgress:
         self.processed_files = 0
         self.percentage = 0
         self.status = "initializing"
-        self.last_updated = datetime.now(
+        self.lastUpdatedTimestampAtSource = datetime.now(
             timezone(timedelta(hours=5, minutes=30))).isoformat()
 
 
