@@ -32,6 +32,8 @@ import {
 import { StorageService } from '../storage.service';
 import {
   DocumentInfoResponse,
+  extractOrgId,
+  extractUserId,
   getBaseUrl,
   getDocumentInfo,
   getStorageVendor,
@@ -153,7 +155,7 @@ export class StorageController {
   }
 
   async initializeStorageAdapter(
-    req: AuthenticatedUserRequest,
+    req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
   ): Promise<StorageServiceAdapter> {
     storageConfig = await this.getStorageConfig(
       req,
@@ -177,7 +179,7 @@ export class StorageController {
   }
 
   async uploadDocument(
-    req: AuthenticatedServiceRequest,
+    req: AuthenticatedServiceRequest | AuthenticatedUserRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -203,7 +205,7 @@ export class StorageController {
   }
 
   async createPlaceholderDocument(
-    req: AuthenticatedServiceRequest,
+    req: AuthenticatedServiceRequest | AuthenticatedUserRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -217,6 +219,11 @@ export class StorageController {
         isVersionedFile,
       } = req.body as Partial<Document>;
 
+      const orgId = extractOrgId(req);
+      const userId = extractUserId(req);
+      if (!orgId) {
+        throw new BadRequestError('OrgId not found in AuthToken');
+      }
       if (hasExtension(documentName)) {
         throw new BadRequestError(
           'The name of the document cannot have extensions',
@@ -237,8 +244,9 @@ export class StorageController {
         documentName,
         documentPath,
         alternativeDocumentName,
-        orgId: new mongoose.Types.ObjectId(`${req.tokenPayload?.orgId}`),
+        orgId: new mongoose.Types.ObjectId(orgId),
         isVersionedFile: isVersionedFile,
+        initiatorUserId: userId ? new mongoose.Types.ObjectId(userId) : null,
         permissions: permissions,
         customMetadata,
         storageVendor: storageVendor,
@@ -252,7 +260,7 @@ export class StorageController {
   }
 
   async getDocumentById(
-    req: AuthenticatedUserRequest,
+    req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -262,10 +270,10 @@ export class StorageController {
       if (!documentId) {
         throw new BadRequestError(' document id is not passed ');
       }
-
+      const orgId = extractOrgId(req);
       const doc = await DocumentModel.findOne({
         _id: documentId,
-        orgId: req.user?.orgId,
+        orgId: orgId,
       });
 
       if (!doc) {
@@ -279,15 +287,17 @@ export class StorageController {
   }
 
   async deleteDocumentById(
-    req: AuthenticatedUserRequest,
+    req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
     try {
+      const orgId = extractOrgId(req);
+      const userId = extractUserId(req);
       const { documentId } = req.params;
       const document = await DocumentModel.findOne({
         _id: documentId,
-        orgId: req.user?.orgId,
+        orgId,
       });
 
       if (!document) {
@@ -295,7 +305,12 @@ export class StorageController {
       }
 
       document.isDeleted = true;
-      document.deletedByUserId = req.user?.userId;
+      document.deletedByUserId = userId
+        ? (new mongoose.Types.ObjectId(
+            userId,
+          ) as unknown as mongoose.Schema.Types.ObjectId)
+        : undefined;
+
       await document.save();
 
       res.status(HTTP_STATUS.OK).json(document);
@@ -304,7 +319,7 @@ export class StorageController {
     }
   }
   async downloadDocument(
-    req: AuthenticatedUserRequest,
+    req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -366,8 +381,9 @@ export class StorageController {
       next(error);
     }
   }
+
   async getDocumentBuffer(
-    req: AuthenticatedUserRequest,
+    req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -406,7 +422,7 @@ export class StorageController {
     }
   }
   async createDocumentBuffer(
-    req: AuthenticatedUserRequest,
+    req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -443,7 +459,7 @@ export class StorageController {
   }
 
   async uploadNextVersionDocument(
-    req: AuthenticatedUserRequest,
+    req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -451,7 +467,7 @@ export class StorageController {
       const { buffer, originalname, size, mimetype } = req.body.fileBuffer;
       const currentVersionNote = req.body.currentVersionNote; // use this only when current was already modified when upload next version was clicked
       const nextVersionNote = req.body.nextVersionNote; // use this for next version note
-
+      const userId = extractUserId(req);
       const docResult: DocumentInfoResponse | undefined = await getDocumentInfo(
         req,
         next,
@@ -532,7 +548,11 @@ export class StorageController {
           size: document.sizeInBytes,
           extension: document.extension,
           note: currentVersionNote,
-          initiatedByUserId: req.user?.userId,
+          initiatedByUserId: userId
+            ? (new mongoose.Types.ObjectId(
+                userId,
+              ) as unknown as mongoose.Schema.Types.ObjectId)
+            : undefined,
           createdAt: Date.now(),
         });
 
@@ -587,7 +607,11 @@ export class StorageController {
         mutationCount: document.mutationCount,
         extension: fileExtension,
         note: nextVersionNote,
-        initiatedByUserId: req.user?.userId,
+        initiatedByUserId: userId
+          ? (new mongoose.Types.ObjectId(
+              userId,
+            ) as unknown as mongoose.Schema.Types.ObjectId)
+          : undefined,
         createdAt: Date.now(),
       });
 
@@ -602,13 +626,13 @@ export class StorageController {
   }
 
   async rollBackToPreviousVersion(
-    req: AuthenticatedUserRequest,
+    req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
     try {
       const { version, note } = req.body as { version: string; note: string };
-
+      const userId = extractUserId(req);
       const docResult: DocumentInfoResponse | undefined = await getDocumentInfo(
         req,
         next,
@@ -696,7 +720,11 @@ export class StorageController {
         extension: document.extension,
         note: note,
         size: document.versionHistory[Number(version)]?.size,
-        initiatedByUserId: req.user?.userId,
+        initiatedByUserId: userId
+          ? (new mongoose.Types.ObjectId(
+              userId,
+            ) as unknown as mongoose.Schema.Types.ObjectId)
+          : undefined,
         createdAt: Date.now(),
       });
 
@@ -780,15 +808,21 @@ export class StorageController {
   }
 
   async documentDiffChecker(
-    req: AuthenticatedUserRequest,
+    req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
     try {
+      const orgId = extractOrgId(req);
+      if (!orgId) {
+        throw new NotFoundError('Organization ID not found');
+      }
+      // Fetch document info
       const docResult: DocumentInfoResponse | undefined = await getDocumentInfo(
         req,
         next,
       );
+
       if (!docResult) {
         throw new NotFoundError('Document does not exist');
       }
