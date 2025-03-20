@@ -1,7 +1,10 @@
 import mongoose from 'mongoose';
 import { inject, injectable } from 'inversify';
 import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
-import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
+import {
+  AuthenticatedUserRequest,
+  ScopedTokenRequest,
+} from '../../../libs/middlewares/types';
 import { Response, NextFunction } from 'express';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { storageEtcdPaths } from '../constants/constants';
@@ -174,7 +177,7 @@ export class StorageController {
   }
 
   async uploadDocument(
-    req: AuthenticatedUserRequest,
+    req: ScopedTokenRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -200,7 +203,7 @@ export class StorageController {
   }
 
   async createPlaceholderDocument(
-    req: AuthenticatedUserRequest,
+    req: ScopedTokenRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -234,12 +237,9 @@ export class StorageController {
         documentName,
         documentPath,
         alternativeDocumentName,
-        orgId: new mongoose.Types.ObjectId(`${req.user?.orgId}`),
+        orgId: new mongoose.Types.ObjectId(`${req.tokenPayload?.orgId}`),
         isVersionedFile: isVersionedFile,
         permissions: permissions,
-        initiatorUserId: req.user?.userId
-          ? new mongoose.Types.ObjectId(`${req.user?.userId}`)
-          : null,
         customMetadata,
         storageVendor: storageVendor,
       };

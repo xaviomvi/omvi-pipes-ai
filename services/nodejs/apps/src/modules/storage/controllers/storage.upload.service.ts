@@ -15,7 +15,7 @@ import {
   InternalServerError,
 } from '../../../libs/errors/http.errors';
 import { StorageServiceAdapter } from '../adapter/base-storage.adapter';
-import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
+import { ScopedTokenRequest } from '../../../libs/middlewares/types';
 import { HTTP_STATUS } from '../../../libs/enums/http-status.enum';
 import {
   parseBoolean,
@@ -67,7 +67,7 @@ export class UploadDocumentService {
   }
 
   async uploadDocument(
-    req: AuthenticatedUserRequest,
+    req: ScopedTokenRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -160,7 +160,7 @@ export class UploadDocumentService {
   }
 
   async handleDocumentUpload(
-    req: AuthenticatedUserRequest,
+    req: ScopedTokenRequest,
     res: Response,
     getDocumentDetails: () => DocumentDetails,
   ): Promise<void> {
@@ -181,12 +181,9 @@ export class UploadDocumentService {
     const documentInfo: Partial<Document> = {
       documentName,
       alternativeDocumentName,
-      orgId: new mongoose.Types.ObjectId(`${req.user?.orgId}`),
+      orgId: new mongoose.Types.ObjectId(req.tokenPayload?.orgId),
       isVersionedFile: isVersioned,
       permissions,
-      initiatorUserId: req.user?.userId
-        ? new mongoose.Types.ObjectId(`${req.user?.userId}`)
-        : null,
       sizeInBytes: size,
       customMetadata,
       extension: fileExtension,
@@ -199,9 +196,9 @@ export class UploadDocumentService {
     let rootPath = '';
     // path of the document in the storage service
     if (documentPath) {
-      rootPath = `${req.user?.orgId}/PipesHub/${req.user?.userId}/${documentPath}/${savedDocument._id}`;
+      rootPath = `${req.tokenPayload?.orgId}/PipesHub/${documentPath}/${savedDocument._id}`;
     } else {
-      rootPath = `${req.user?.orgId}/PipesHub/${req.user?.userId}/${savedDocument._id}`;
+      rootPath = `${req.tokenPayload?.orgId}/PipesHub/${savedDocument._id}`;
     }
 
     const concatenatedPath =

@@ -553,6 +553,9 @@ export function createConnectorRouter(container: Container) {
         //     'Account email is different from the consent giving mail',
         //   );
         // }
+        const refreshTokenExpiryDate = data.refresh_token_expires_in
+          ? data.refresh_token_expires_in * 1000 + Date.now()
+          : undefined;
         response = await setGoogleWorkspaceIndividualCredentials(
           req,
           config.cmUrl,
@@ -560,7 +563,7 @@ export function createConnectorRouter(container: Container) {
           data.access_token,
           data.refresh_token,
           data.expires_in * 1000 + Date.now(),
-          data.refresh_token_expires_in * 1000 + Date.now(),
+          refreshTokenExpiryDate,
         );
         if (response.statusCode !== 200) {
           throw new InternalServerError(
@@ -705,7 +708,8 @@ export function createConnectorRouter(container: Container) {
             data.access_token,
             refreshTokenCommandResponse?.data.refresh_token,
             data.expires_in * 1000 + Date.now(),
-            refreshTokenCommandResponse?.data.refresh_token_expiry_time,
+            refreshTokenCommandResponse?.data?.refresh_token_expiry_time ||
+              undefined,
           ));
         if (accessTokenCommandResponse.statusCode !== 200) {
           throw new InternalServerError(
