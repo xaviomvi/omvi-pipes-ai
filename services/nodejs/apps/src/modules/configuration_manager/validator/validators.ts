@@ -224,6 +224,16 @@ export const googleWorkspaceIndividualCredentialsSchema = z.object({
   refresh_token: z
     .string()
     .min(1, { message: 'Google workspace refresh token is required' }),
+  access_token_expiry_time: z
+    .number()
+    .min(1, {
+      message: 'Google workspace access token expiry time is required',
+    }),
+  refresh_token_expiry_time: z
+    .number()
+    .min(1, {
+      message: 'Google workspace refresh token expiry time is required',
+    }),
 });
 
 export const googleWorkspaceCredentialsSchema = z.object({

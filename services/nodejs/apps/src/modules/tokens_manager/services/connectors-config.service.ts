@@ -179,6 +179,8 @@ export const setGoogleWorkspaceIndividualCredentials = async (
   scopedJwtSecret: string,
   access_token: string,
   refresh_token: string,
+  access_token_expiry_time: number,
+  refresh_token_expiry_time: number,
 ): Promise<ConfigurationManagerResponse> => {
   if (!req.user) {
     throw new NotFoundError('User Not Found');
@@ -194,6 +196,8 @@ export const setGoogleWorkspaceIndividualCredentials = async (
       body: {
         access_token,
         refresh_token,
+        access_token_expiry_time,
+        refresh_token_expiry_time,
       },
     };
 
@@ -251,6 +255,8 @@ export const setRefreshTokenCredentials = async (
   url: string,
   access_token: string,
   refresh_token: string,
+  access_token_expiry_time: number,
+  refresh_token_expiry_time: number,
 ): Promise<ConfigurationManagerResponse> => {
   if (!req.tokenPayload) {
     throw new NotFoundError('User Not Found');
@@ -263,6 +269,8 @@ export const setRefreshTokenCredentials = async (
       body: {
         access_token,
         refresh_token,
+        access_token_expiry_time,
+        refresh_token_expiry_time,
       },
     };
 
