@@ -103,8 +103,15 @@ export const fetchConfigJwtGenerator = (
   );
 };
 
-export const scopedServiceJwtGenerator = (scopedJwtSecret: string) => {
-  return jwt.sign({ scopes: [TokenScopes.SERVICE_TOKEN] }, scopedJwtSecret, {
-    expiresIn: '1h',
-  });
+export const scopedStorageServiceJwtGenerator = (
+  orgId: string,
+  scopedJwtSecret: string,
+) => {
+  return jwt.sign(
+    { orgId, scopes: [TokenScopes.STORAGE_TOKEN] },
+    scopedJwtSecret,
+    {
+      expiresIn: '1h',
+    },
+  );
 };
