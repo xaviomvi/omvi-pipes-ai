@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Alert,
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
@@ -26,9 +27,7 @@ import type { KafkaConfigFormRef } from './components/kafka-config-form';
 import type { QdrantConfigFormRef } from './components/qdrant-config-form';
 import type { MongoDBConfigFormRef } from './components/mongodb-config-form';
 import type { ArangoDBConfigFormRef } from './components/arangodb-config-form';
-import type {
-  BackendNodejsConfigFormRef,
-} from './components/backend-nodejs-config-form';
+import type { BackendNodejsConfigFormRef } from './components/backend-nodejs-config-form';
 
 // Method configurations
 interface ServiceConfigType {
@@ -65,7 +64,6 @@ const SERVICE_CONFIG: ServiceConfigType = {
     title: 'Qdrant',
     color: '#FF9800',
   },
-
   backendNodejs: {
     icon: 'mdi:nodejs',
     title: 'NodeJs Url',
@@ -73,16 +71,23 @@ const SERVICE_CONFIG: ServiceConfigType = {
   },
 };
 
+// Expected save result interface
+interface SaveResult {
+  success: boolean;
+  warning?: string;
+  error?: string;
+}
+
 interface ConfigureServiceDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (result?: SaveResult) => void;
   serviceType: string | null;
 }
 
 // Create a type for any form ref that has a handleSave method
 type AnyFormRef = {
-  handleSave: () => Promise<any>;
+  handleSave: () => Promise<SaveResult | boolean>;
 };
 
 const ConfigureServiceDialog = ({
@@ -93,6 +98,8 @@ const ConfigureServiceDialog = ({
 }: ConfigureServiceDialogProps) => {
   const theme = useTheme();
   const [isValid, setIsValid] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [dialogError, setDialogError] = useState<string | null>(null);
 
   const kafkaConfigFormRef = useRef<KafkaConfigFormRef>(null);
   const redisConfigFormRef = useRef<RedisConfigFormRef>(null);
@@ -104,6 +111,12 @@ const ConfigureServiceDialog = ({
   // Get connector config if available
   const serviceConfig = serviceType ? SERVICE_CONFIG[serviceType] : null;
 
+  // Reset state when dialog opens
+  if (!open) {
+    if (dialogError) setDialogError(null);
+    if (isSaving) setIsSaving(false);
+  }
+
   // Form validation state
   const handleValidationChange = (valid: boolean) => {
     setIsValid(valid);
@@ -112,6 +125,8 @@ const ConfigureServiceDialog = ({
   // Handle save button click - triggers the form's save method based on the active connector type
   const handleSaveClick = async () => {
     let currentRef: React.RefObject<AnyFormRef> | null = null;
+    setIsSaving(true);
+    setDialogError(null);
 
     // Determine which form ref to use based on connector type
     switch (serviceType) {
@@ -137,19 +152,49 @@ const ConfigureServiceDialog = ({
         currentRef = null;
     }
 
-    // If we have a valid ref with handleSave method
-    if (currentRef?.current?.handleSave) {
-      const result = await currentRef.current.handleSave();
-      // Don't call onSave if the result is explicitly false
-      if (result !== false) {
-        onSave();
-      }
-    }
-  };
+    try {
+      // If we have a valid ref with handleSave method
+      if (currentRef?.current?.handleSave) {
+        const result = await currentRef.current.handleSave();
 
-  // Handle successful save in forms
-  const handleFormSaveSuccess = () => {
-    onSave();
+        // Handle different types of results
+        if (result === false) {
+          // Legacy support: false means error
+          setDialogError('Failed to save configuration');
+          setIsSaving(false);
+          return;
+        }
+
+        if (typeof result === 'object') {
+          // New system with structured result
+          if (result.success) {
+            // Pass any warnings to the parent component for snackbar display
+            onSave(result);
+          } else {
+            // Show error in dialog and don't close
+            setDialogError(result.error || 'Failed to save configuration');
+            setIsSaving(false);
+          }
+        } else {
+          // Legacy support: any other result (true or undefined) means success
+          onSave({ success: true });
+        }
+      }
+    } catch (error) {
+      console.error('Error saving configuration:', error);
+      setDialogError('An unexpected error occurred');
+
+      // Also pass the error to parent for snackbar display
+      onSave({
+        success: false,
+        error: 'An unexpected error occurred while saving configuration',
+      });
+
+      setIsSaving(false);
+      return;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -221,46 +266,52 @@ const ConfigureServiceDialog = ({
               },
             }}
           >
+            {dialogError && (
+              <Alert
+                severity="error"
+                sx={{
+                  mb: 3,
+                  borderRadius: 1,
+                }}
+              >
+                {dialogError}
+              </Alert>
+            )}
+
             <Box>
               {serviceType === 'redis' && (
                 <RedisConfigForm
                   onValidationChange={handleValidationChange}
-                  onSaveSuccess={handleFormSaveSuccess}
                   ref={redisConfigFormRef}
                 />
               )}
               {serviceType === 'kafka' && (
                 <KafkaConfigForm
                   onValidationChange={handleValidationChange}
-                  onSaveSuccess={handleFormSaveSuccess}
                   ref={kafkaConfigFormRef}
                 />
               )}
               {serviceType === 'mongoDb' && (
                 <MongoDBConfigForm
                   onValidationChange={handleValidationChange}
-                  onSaveSuccess={handleFormSaveSuccess}
                   ref={mongoDBConfigFormRef}
                 />
               )}
               {serviceType === 'arangoDb' && (
                 <ArangoDBConfigForm
                   onValidationChange={handleValidationChange}
-                  onSaveSuccess={handleFormSaveSuccess}
                   ref={arangoDBConfigFormRef}
                 />
               )}
               {serviceType === 'qdrant' && (
                 <QdrantConfigForm
                   onValidationChange={handleValidationChange}
-                  onSaveSuccess={handleFormSaveSuccess}
                   ref={qdrantConfigFormRef}
                 />
               )}
               {serviceType === 'backendNodejs' && (
                 <BackendNodejsConfigForm
                   onValidationChange={handleValidationChange}
-                  onSaveSuccess={handleFormSaveSuccess}
                   ref={backendNodejsConfigFormRef}
                 />
               )}
@@ -291,7 +342,7 @@ const ConfigureServiceDialog = ({
             <Button
               variant="contained"
               onClick={handleSaveClick}
-              disabled={!isValid}
+              disabled={!isValid || isSaving}
               sx={{
                 bgcolor: theme.palette.primary.main,
                 boxShadow: 'none',
@@ -303,7 +354,7 @@ const ConfigureServiceDialog = ({
                 px: 3,
               }}
             >
-              Save
+              {isSaving ? 'Saving...' : 'Save'}
             </Button>
           </DialogActions>
         </>

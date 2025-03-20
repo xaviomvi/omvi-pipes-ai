@@ -4,8 +4,8 @@ import {
   NotFoundError,
 } from '../../../libs/errors/http.errors';
 
-import { MailConfig } from '../config/config';
 import { ContainerRequest } from '../../auth/middlewares/types';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 export const smtpConfigChecker = (
   req: ContainerRequest,
@@ -17,8 +17,8 @@ export const smtpConfigChecker = (
     if (!container) {
       throw new NotFoundError('Mail container not found');
     }
-    const config = container.get<MailConfig>('MailConfig');
-    if (!config.smtp.username || !config.smtp.host || !config.smtp.fromEmail) {
+    const config = container.get<AppConfig>('AppConfig');
+    if (!config.smtp.port || !config.smtp.host || !config.smtp.fromEmail) {
       throw new BadRequestError('Smtp not configured properly');
     }
     next();

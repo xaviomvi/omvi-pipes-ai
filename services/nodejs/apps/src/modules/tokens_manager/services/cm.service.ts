@@ -13,9 +13,7 @@ export interface SmtpConfig {
 }
 
 export interface KafkaConfig {
-  clientId: string;
   brokers: string[];
-  groupId: string;
   sasl?: {
     mechanism: 'plain' | 'scram-sha-256' | 'scram-sha-512';
     username: string;
@@ -32,18 +30,18 @@ export interface RedisConfig {
 
 export interface MongoConfig {
   uri: string;
-  dbName: string;
+  db: string;
 }
 
 export interface QdrantConfig {
   apiKey: string;
   host: string;
-  gprc_port: number;
+  grpcPort: number;
 }
 
 export interface ArangoConfig {
   url: string;
-  dbName: string;
+  db: string;
   username: string;
   password: string;
 }
@@ -145,12 +143,10 @@ export class ConfigService {
   // Kafka Configuration
   public async getKafkaConfig(): Promise<KafkaConfig> {
     return this.getEncryptedConfig<KafkaConfig>(configPaths.broker.kafka, {
-      clientId: process.env.KAFKA_CLIENT_ID!,
       brokers: process.env.KAFKA_BROKERS!.split(','),
-      groupId: process.env.KAFKA_GROUP_ID!,
       ...(process.env.KAFKA_USERNAME && {
         sasl: {
-          mechanism: 'plain' as const,
+          mechanism: process.env.KAFKA_SASL_MECHANISM,
           username: process.env.KAFKA_USERNAME,
           password: process.env.KAFKA_PASSWORD!,
         },
@@ -175,7 +171,7 @@ export class ConfigService {
   public async getMongoConfig(): Promise<MongoConfig> {
     return this.getEncryptedConfig<MongoConfig>(configPaths.db.mongodb, {
       uri: process.env.MONGO_URI!,
-      dbName: process.env.MONGO_DB_NAME!,
+      db: process.env.MONGO_DB_NAME!,
     });
   }
 
@@ -184,7 +180,7 @@ export class ConfigService {
     return this.getEncryptedConfig<QdrantConfig>(configPaths.db.qdrant, {
       apiKey: process.env.QDRANT_API_KEY!,
       host: process.env.QDRANT_HOST!,
-      gprc_port: parseInt(process.env.QDRANT_GPRC_PORT || '6334', 10),
+      grpcPort: parseInt(process.env.QDRANT_GRPC_PORT || '6334', 10),
     });
   }
 
@@ -192,7 +188,7 @@ export class ConfigService {
   public async getArangoConfig(): Promise<ArangoConfig> {
     return this.getEncryptedConfig<ArangoConfig>(configPaths.db.arangodb, {
       url: process.env.ARANGO_URL!,
-      dbName: process.env.ARANGO_DB_NAME!,
+      db: process.env.ARANGO_DB_NAME!,
       username: process.env.ARANGO_USERNAME!,
       password: process.env.ARANGO_PASSWORD!,
     });

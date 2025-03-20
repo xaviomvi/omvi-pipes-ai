@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { InternalServerError } from '../../../libs/errors/http.errors';
 import { EmailTemplateType, MailBody, SmtpConfig } from '../middlewares/types';
-import { MailConfig } from '../config/config';
 import { MailModel } from '../schema/mailInfo.schema';
 import {
   accountCreation,
@@ -13,10 +12,11 @@ import {
 import nodemailer from 'nodemailer';
 import { inject, injectable } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
+import { AppConfig } from '../../tokens_manager/config/config';
 @injectable()
 export class MailController {
   constructor(
-    @inject('MailConfig') private config: MailConfig,
+    @inject('AppConfig') private config: AppConfig,
     @inject('Logger') private logger: Logger,
   ) {}
   async sendMail(

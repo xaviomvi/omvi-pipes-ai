@@ -15,6 +15,7 @@ import {
   AlertTitle,
   IconButton,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -24,7 +25,7 @@ import { Iconify } from 'src/components/iconify';
 import { CONNECTORS_LIST } from './components/connectors-list';
 import ConfigureConnectorDialog from './components/configure-connector-company-dialog';
 
-import type { ConnectorConfig} from './components/connectors-list';
+import type { ConnectorConfig } from './components/connectors-list';
 
 // Define connector types and interfaces
 interface ConnectorStatusMap {
@@ -64,6 +65,36 @@ const ConnectorSettings = () => {
       return null;
     }
   }, []);
+  const handleFileRemoved = async (connectorId: string) => {
+    // Update the configuredStatus state to show not configured
+    setConfiguredStatus((prev) => ({
+      ...prev,
+      [connectorId]: false,
+    }));
+
+    // If the connector was enabled, disable it
+    if (connectorStatus[connectorId]) {
+      const response = await axios.post(`/api/v1/connectors/disable`, null, {
+        params: {
+          service: connectorId,
+        },
+      });
+      setConnectorStatus((prev) => ({
+        ...prev,
+        [connectorId]: false,
+      }));
+
+      // Show success message
+      setSuccessMessage(`${getConnectorTitle(connectorId)} ${'disabled'} successfully`);
+    }
+
+    // Refresh connector statuses to get latest from server
+    fetchConnectorStatuses();
+
+    // Show success message for removal
+    setSuccessMessage(`${getConnectorTitle(connectorId)} configuration has been removed`);
+    setSuccess(true);
+  };
 
   // Check configurations separately
   const checkConnectorConfigurations = useCallback(async () => {
@@ -144,18 +175,6 @@ const ConnectorSettings = () => {
         };
 
         setConfiguredStatus(newConfigStatus);
-
-        // Show success message if we just configured a connector
-        if (lastConfigured) {
-          const wasConfigured = lastConfigured === 'googleWorkspace' && googleConfigured;
-
-          if (wasConfigured) {
-            const connectorTitle = getConnectorTitle(lastConfigured);
-            setSuccessMessage(`${connectorTitle} configuration has been successfully applied`);
-            setSuccess(true);
-            setLastConfigured(null);
-          }
-        }
       } catch (err) {
         console.error('Error checking connector configurations:', err);
       } finally {
@@ -344,6 +363,13 @@ const ConnectorSettings = () => {
           {CONNECTORS_LIST.map((connector) => {
             const isEnabled = connectorStatus[connector.id] || false;
             const isConfigured = configuredStatus[connector.id] || false;
+            const isDisabled = !isConfigured && !isEnabled;
+            const getTooltipMessage = () => {
+              if (isDisabled) {
+                return `${connector.title} needs to be configured before it can be enabled`;
+              }
+              return '';
+            };
 
             // Determine status color and text
             const getStatusColor = () => {
@@ -455,24 +481,34 @@ const ConnectorSettings = () => {
                     <Iconify icon="eva:settings-2-outline" width={20} height={20} />
                   </IconButton>
 
-                  {/* Toggle switch */}
-                  <Switch
-                    checked={isEnabled}
-                    onChange={() => handleToggleConnector(connector.id)}
-                    disabled={!isConfigured && !isEnabled}
-                    color="primary"
-                    sx={{
-                      '& .MuiSwitch-switchBase.Mui-checked': {
-                        color: connector.color,
-                        '&:hover': {
-                          backgroundColor: alpha(connector.color, 0.1),
-                        },
-                      },
-                      '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                        backgroundColor: connector.color,
-                      },
-                    }}
-                  />
+                  <Tooltip
+                    title={getTooltipMessage()}
+                    placement="top"
+                    arrow
+                    disableHoverListener={!isDisabled}
+                  >
+                    <div>
+                      {' '}
+                      {/* Wrapper div needed for disabled elements */}
+                      <Switch
+                        checked={isEnabled}
+                        onChange={() => handleToggleConnector(connector.id)}
+                        disabled={isDisabled}
+                        color="primary"
+                        sx={{
+                          '& .MuiSwitch-switchBase.Mui-checked': {
+                            color: connector.color,
+                            '&:hover': {
+                              backgroundColor: alpha(connector.color, 0.1),
+                            },
+                          },
+                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                            backgroundColor: connector.color,
+                          },
+                        }}
+                      />
+                    </div>
+                  </Tooltip>
                 </Paper>
               </Grid>
             );
@@ -513,6 +549,7 @@ const ConnectorSettings = () => {
         open={configDialogOpen}
         onClose={() => setConfigDialogOpen(false)}
         onSave={handleSaveConfiguration}
+        onFileRemoved={handleFileRemoved}
         connectorType={currentConnector}
       />
 
@@ -522,6 +559,7 @@ const ConnectorSettings = () => {
         autoHideDuration={5000}
         onClose={handleCloseSuccess}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: 6 }}
       >
         <Alert
           onClose={handleCloseSuccess}

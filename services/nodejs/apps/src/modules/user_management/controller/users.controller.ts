@@ -239,7 +239,6 @@ export class UserController {
 
       await this.eventService.start();
 
-      // Todo: Publish event only if fullName, designation, mail, firstName, lastName, MiddleName changed
       const event: Event = {
         eventType: EventType.UpdateUserEvent,
         timestamp: Date.now(),
@@ -249,6 +248,7 @@ export class UserController {
           fullName: req.user.fullName,
           ...(req.user.firstName && { firstName: req.user.firstName }),
           ...(req.user.lastName && { lastName: req.user.lastName }),
+          ...(req.user.designation && { designation: req.user.designation }),
           email: req.user.email,
         } as UserUpdatedEvent,
       };
@@ -475,44 +475,21 @@ export class UserController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      if (!req.files || req.files.length == 0) {
-        throw new BadRequestError('DP file is required');
-      }
-      let dpFile: Express.Multer.File | undefined;
-
-      if (Array.isArray(req.files)) {
-        // Case 1: `req.files` is an array (upload.array())
-        dpFile = req.files[0];
-      } else {
-        // Case 2: `req.files` is an object (upload.fields())
-        const fieldFiles = Object.values(req.files)[0]; // Get first file array
-        if (Array.isArray(fieldFiles)) {
-          dpFile = fieldFiles[0];
-        }
-      }
+      const dpFile = req.body.fileBuffer;
       const orgId = req.user?.orgId;
       const userId = req.user?.userId;
-      const { id } = req.params;
-      if (new mongoose.Types.ObjectId(id).equals(userId)) {
-        throw new UnauthorizedError('Unauthorized');
-      }
+
       if (!dpFile) {
         throw new BadRequestError('DP File is required');
       }
-
-      if (dpFile.size > 1048576) {
-        throw new LargePayloadError('File too large , limit:1MB');
-      }
-      let quality = 100; // Start with 100% quality
+      let quality = 100;
       let compressedImageBuffer = await sharp(dpFile.buffer)
-        .jpeg({ quality }) // Initial compression
+        .jpeg({ quality })
         .toBuffer();
-
-      // Keep reducing quality until file size is below 100KB
       while (compressedImageBuffer.length > 100 * 1024 && quality > 10) {
         quality -= 10;
-        compressedImageBuffer = await sharp(dpFile.buffer) // Resize to 300x300
-          .jpeg({ quality }) // Reduce quality dynamically
+        compressedImageBuffer = await sharp(dpFile.buffer)
+          .jpeg({ quality })
           .toBuffer();
       }
 
@@ -525,11 +502,11 @@ export class UserController {
       await UserDisplayPicture.findOneAndUpdate(
         {
           orgId,
-          userId: id,
+          userId,
         },
         {
           orgId,
-          userId: id,
+          userId,
           pic: compressedPic,
           mimeType: compressedPicMimeType,
         },
@@ -550,9 +527,9 @@ export class UserController {
   ): Promise<void> {
     try {
       const orgId = req.user?.orgId;
-      const { id } = req.params;
+      const userId = req.user?.userId;
 
-      const userDp = await UserDisplayPicture.findOne({ orgId, userId: id })
+      const userDp = await UserDisplayPicture.findOne({ orgId, userId })
         .lean()
         .exec();
       if (!userDp || !userDp.pic) {
@@ -579,15 +556,10 @@ export class UserController {
     try {
       const orgId = req.user?.orgId;
       const userId = req.user?.userId;
-      const { id } = req.params;
-
-      if (new mongoose.Types.ObjectId(id).equals(userId)) {
-        throw new UnauthorizedError('Unauthorized to remove the user Dp');
-      }
 
       const userDp = await UserDisplayPicture.findOne({
         orgId,
-        userId: id,
+        userId,
       }).exec();
 
       if (!userDp) {

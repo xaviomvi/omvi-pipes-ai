@@ -1,6 +1,6 @@
 export interface SmtpConfig {
-  username: string;
-  password: string;
+  username?: string;
+  password?: string;
   host: string;
   fromEmail: string;
   port: number;

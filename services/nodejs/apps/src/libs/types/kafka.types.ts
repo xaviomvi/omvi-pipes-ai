@@ -1,10 +1,9 @@
 import { SASLOptions } from 'kafkajs';
 
 export interface KafkaConfig {
-  clientId: string;
+  clientId?: string;
   brokers: string[];
   groupId?: string;
-  // ssl?: SSL;
   sasl?: SASLOptions;
   maxRetries?: number;
   initialRetryTime?: number;

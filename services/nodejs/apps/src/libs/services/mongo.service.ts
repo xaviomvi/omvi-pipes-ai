@@ -10,7 +10,7 @@ const logger = Logger.getInstance({
 
 export interface MongooseConfig {
   uri: string;
-  dbName: string;
+  db: string;
   options?: ConnectOptions;
 }
 
@@ -32,7 +32,7 @@ export class MongoService {
     }
 
     try {
-      const { uri, dbName, options } = this.config;
+      const { uri, db, options } = this.config;
       const defaultOptions = {
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
@@ -41,7 +41,7 @@ export class MongoService {
       };
       // Configure connection options
       const connectOptions: ConnectOptions = {
-        dbName,
+        dbName: db,
         ...(options ?? defaultOptions),
         autoCreate: true,
         autoIndex: true,
@@ -55,7 +55,7 @@ export class MongoService {
       this.setupConnectionHandlers();
 
       this.isInitialized = true;
-      logger.info(`Connected to MongoDB database: ${dbName}`);
+      logger.info(`Connected to MongoDB database: ${db}`);
     } catch (error) {
       const err =
         error instanceof Error ? error : new Error('Unknown error occurred');

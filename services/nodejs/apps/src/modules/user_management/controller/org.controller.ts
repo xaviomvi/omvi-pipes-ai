@@ -20,7 +20,6 @@ import { SALT_ROUNDS } from '../../auth/controller/userAccount.controller';
 import {
   BadRequestError,
   InternalServerError,
-  LargePayloadError,
   NotFoundError,
 } from '../../../libs/errors/http.errors';
 import { Logger } from '../../../libs/services/logger.service';
@@ -362,45 +361,24 @@ export class OrgController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      if (!req.files || req.files.length == 0) {
-        throw new BadRequestError('Organisation logo file is required');
-      }
-      let logoFile: Express.Multer.File | undefined;
-
-      if (Array.isArray(req.files)) {
-        logoFile = req.files[0];
-      } else {
-        const fieldFiles = Object.values(req.files)[0];
-        if (Array.isArray(fieldFiles)) {
-          logoFile = fieldFiles[0];
-        }
-      }
-
+      const logoFile = req.body.fileBuffer;
       const orgId = req.user?.orgId;
       if (!logoFile) {
         throw new BadRequestError('Organisation logo file is required');
       }
 
-      if (logoFile.size > 1048576) {
-        throw new LargePayloadError('File too large , limit:1MB');
-      }
-      let quality = 100; // Start with 100% quality
+      let quality = 100;
       let compressedImageBuffer = await sharp(logoFile.buffer)
-        .jpeg({ quality }) // Initial compression
+        .jpeg({ quality })
         .toBuffer();
 
-      // Keep reducing quality until file size is below 100KB
       while (compressedImageBuffer.length > 100 * 1024 && quality > 10) {
         quality -= 10;
         compressedImageBuffer = await sharp(logoFile.buffer)
-          // Resize to 300x300
-          .jpeg({ quality }) // Reduce quality dynamically
+          .jpeg({ quality })
           .toBuffer();
       }
 
-      if (compressedImageBuffer.length > 100 * 1024) {
-        throw new LargePayloadError('File too large , limit:1MB');
-      }
       const compressedPic = compressedImageBuffer.toString('base64');
       const compressedPicMimeType = 'image/jpeg';
       await OrgLogos.findOneAndUpdate(

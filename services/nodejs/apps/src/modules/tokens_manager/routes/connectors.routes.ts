@@ -531,7 +531,27 @@ export function createConnectorRouter(container: Container) {
           throw new BadRequestError('Error getting code');
         }
         const data = googleResponse.data;
+        console.log(data);
+        const userInfoResponse = await axios.get(
+          'https://www.googleapis.com/oauth2/v2/userinfo',
+          {
+            headers: { Authorization: `Bearer ${data.access_token}` },
+          },
+        );
+        console.log('ho');
 
+        if (userInfoResponse.status !== 200) {
+          throw new BadRequestError('Error fetching user info');
+        }
+
+        const userInfo = userInfoResponse.data;
+        logger.info('User Info:', userInfo);
+
+        if (userInfo.email !== req.user.email) {
+          throw new BadRequestError(
+            'Account email is different from the consent giving mail',
+          );
+        }
         response = await setGoogleWorkspaceIndividualCredentials(
           req,
           config.cmUrl,
@@ -628,6 +648,7 @@ export function createConnectorRouter(container: Container) {
           });
         }
       } catch (err) {
+        console.log(err);
         next(err);
       }
       // Check if connector exists in MongoDB

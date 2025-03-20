@@ -88,9 +88,8 @@ export class TokenManagerContainer {
         .toConstantValue(tokenReferenceService);
 
       const kafkaConfig = {
-        clientId: config.kafka.clientId,
         brokers: config.kafka.brokers,
-        groupId: config.kafka.groupId,
+        ...(config.kafka.sasl && { sasl: config.kafka.sasl }), // Only includes `sasl` if it exists
       };
 
       const entityEventsService = new EntitiesEventProducer(

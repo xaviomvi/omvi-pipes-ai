@@ -21,8 +21,13 @@ interface QdrantConfigFormProps {
   onSaveSuccess?: () => void;
 }
 
+interface SaveResult {
+  success: boolean;
+  warning?: string;
+  error?: string;
+}
 export interface QdrantConfigFormRef {
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<SaveResult>;
 }
 
 const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
@@ -52,9 +57,7 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
-      handleSave: async () => {
-        await handleSave();
-      },
+      handleSave: async (): Promise<SaveResult> => handleSave(),
     }));
 
     // Load existing config on mount
@@ -66,7 +69,7 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
 
           const data = {
             host: config?.host || '',
-            grpcPort: config?.grpcPort || '',
+            grpcPort: config?.grpcPort?.toString() || '',
             apiKey: config?.apiKey || '',
           };
 
@@ -153,12 +156,13 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
       setSaveError(null);
 
       try {
-        await updateQdrantConfig({
+        const response = await updateQdrantConfig({
           host: formData.host,
-          grpcPort: formData.grpcPort,
+          grpcPort: parseInt(formData.grpcPort, 10),
           apiKey: formData.apiKey,
         });
 
+        const warningHeader = response.data?.warningMessage;
         // Update original data after successful save
         setOriginalData({
           host: formData.host,
@@ -172,12 +176,19 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
         if (onSaveSuccess) {
           onSaveSuccess();
         }
-
-        return true;
+        return {
+          success: true,
+          warning: warningHeader || undefined,
+        };
       } catch (error) {
-        setSaveError('Failed to save Qdrant configuration');
+        const errorMessage = 'Failed to save Qdrant configuration';
+        setSaveError(error.message || errorMessage);
         console.error('Error saving Qdrant config:', error);
-        return false;
+        // Return error result
+        return {
+          success: false,
+          error: error.message || errorMessage,
+        };
       } finally {
         setIsSaving(false);
       }
@@ -193,18 +204,6 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
 
     return (
       <>
-        {saveError && (
-          <Alert
-            severity="error"
-            sx={{
-              mb: 3,
-              borderRadius: 1,
-            }}
-          >
-            {saveError}
-          </Alert>
-        )}
-
         <Box
           sx={{
             mb: 3,

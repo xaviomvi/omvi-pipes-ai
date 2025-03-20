@@ -16,9 +16,7 @@ import { Iconify } from 'src/components/iconify';
 
 import GoogleWorkSpaceConfigForm from './google-workspace-config-company-form';
 
-import type {
-  GoogleWorkspaceConfigFormRef,
-} from './google-workspace-config-company-form';
+import type { GoogleWorkspaceConfigFormRef } from './google-workspace-config-company-form';
 
 // Method configurations
 interface ConnectorConfigType {
@@ -41,6 +39,7 @@ interface ConfigureConnectorDialogProps {
   open: boolean;
   onClose: () => void;
   onSave: () => void;
+  onFileRemoved: (connectorId: string) => void;
   connectorType: string | null;
 }
 
@@ -53,6 +52,7 @@ const ConfigureConnectorDialog = ({
   open,
   onClose,
   onSave,
+  onFileRemoved,
   connectorType,
 }: ConfigureConnectorDialogProps) => {
   const theme = useTheme();
@@ -170,6 +170,7 @@ const ConfigureConnectorDialog = ({
                 <GoogleWorkSpaceConfigForm
                   onValidationChange={handleValidationChange}
                   onSaveSuccess={handleFormSaveSuccess}
+                  onFileRemoved={() => onFileRemoved('googleWorkspace')} //
                   ref={googleWorkspaceFormRef}
                 />
               )}

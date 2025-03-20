@@ -407,6 +407,7 @@ const AuthenticationSettings: React.FC = () => {
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: 6 }}
       >
         <Alert
           onClose={handleCloseSnackbar}
