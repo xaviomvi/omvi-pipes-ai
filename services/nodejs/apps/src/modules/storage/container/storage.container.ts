@@ -7,6 +7,7 @@ import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
 import { AppConfig } from '../../tokens_manager/config/config';
 import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
+import { StorageController } from '../controllers/storage.controller';
 
 const loggerConfig = {
   service: 'Storage service',
@@ -68,6 +69,15 @@ export class StorageContainer {
       container
         .bind<DefaultStorageConfig>('StorageConfig')
         .toConstantValue(storageConfig);
+
+      const storageController = new StorageController(
+        storageConfig,
+        Logger.getInstance(loggerConfig),
+        keyValueStoreService,
+      );
+      container
+        .bind<StorageController>('StorageController')
+        .toConstantValue(storageController);
     } catch (error) {
       this.logger.error('Failed to initialize storage services', {
         error: error instanceof Error ? error.message : 'Unknown error',

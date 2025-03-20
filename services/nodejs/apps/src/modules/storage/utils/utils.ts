@@ -96,10 +96,12 @@ export function parseBoolean(
   return false;
 }
 
-export function isValidStorageVendor(
-  vendor: string,
-): vendor is StorageVendor {
-  const validStorageTypes = [StorageVendor.S3, StorageVendor.AzureBlob, StorageVendor.Local];
+export function isValidStorageVendor(vendor: string): vendor is StorageVendor {
+  const validStorageTypes = [
+    StorageVendor.S3,
+    StorageVendor.AzureBlob,
+    StorageVendor.Local,
+  ];
   return validStorageTypes.includes(vendor as StorageVendor);
 }
 
@@ -131,7 +133,11 @@ export function hasExtension(documentName: string | undefined): boolean {
   return mimeType !== '';
 }
 
-export async function createPlaceholderDocument(req: AuthenticatedUserRequest, next: NextFunction, size: number) : Promise<DocumentInfoResponse | undefined> {
+export async function createPlaceholderDocument(
+  req: AuthenticatedUserRequest,
+  next: NextFunction,
+  size: number,
+): Promise<DocumentInfoResponse | undefined> {
   try {
     const {
       documentName,
@@ -177,15 +183,16 @@ export async function createPlaceholderDocument(req: AuthenticatedUserRequest, n
   }
 }
 
-export async function generatePresignedUrlForDirectUpload(adapter: StorageServiceAdapter, documentPath: string | undefined) : Promise<string | undefined> {
+export async function generatePresignedUrlForDirectUpload(
+  adapter: StorageServiceAdapter,
+  documentPath: string | undefined,
+): Promise<string | undefined> {
   try {
     if (!documentPath) {
       throw new BadRequestError('Document path is required');
     }
     const presignedUrlResponse =
-      await adapter.generatePresignedUrlForDirectUpload(
-        documentPath,
-      );
+      await adapter.generatePresignedUrlForDirectUpload(documentPath);
 
     if (presignedUrlResponse.statusCode !== 200) {
       logger.error(
@@ -209,7 +216,7 @@ export async function generatePresignedUrlForDirectUpload(adapter: StorageServic
   }
 }
 
-export function getBaseUrl(url: string) : string | undefined {
+export function getBaseUrl(url: string): string | undefined {
   const baseUrl = url.split('?')[0];
   return baseUrl;
 }
@@ -254,10 +261,7 @@ export function serveFileFromLocalStorage(document: Document, res: Response) {
     // convert the document.mimeType to a valid mime type
     const mimeType = getMimeType(document.extension);
     // Set appropriate headers
-    res.setHeader(
-      'Content-Type',
-      mimeType || 'application/octet-stream',
-    );
+    res.setHeader('Content-Type', mimeType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${document.documentName}${document.extension}"`,
