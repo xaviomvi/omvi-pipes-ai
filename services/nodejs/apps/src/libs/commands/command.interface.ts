@@ -1,16 +1,4 @@
-import {
-  BadRequestError,
-  UnauthorizedError,
-  ForbiddenError,
-  NotFoundError,
-  InternalServerError,
-  ServiceUnavailableError,
-  BadGatewayError,
-  GatewayTimeoutError,
-  TooManyRequestsError,
-  ConflictError,
-  UnprocessableEntityError,
-} from '../errors/http.errors';
+import { InternalServerError } from "../errors/http.errors";
 
 export interface ICommand<T> {
   execute(): Promise<T>;
@@ -89,7 +77,6 @@ export abstract class BaseCommand<T> implements ICommand<T> {
     while (attempt < retries) {
       try {
         const response = await fn();
-        this.handleResponse(response as Response);
         return response;
       } catch (error) {
         attempt++;
@@ -103,49 +90,6 @@ export abstract class BaseCommand<T> implements ICommand<T> {
     }
     // Should never reach here.
     throw new InternalServerError('Unexpected error in retry logic.');
-  }
-
-  protected handleResponse(response: Response) {
-    if (!response.ok) {
-      switch (response.status) {
-        case 400:
-          throw new BadRequestError(`Bad Request: ${response.statusText}`);
-        case 401:
-          throw new UnauthorizedError(`Unauthorized: ${response.statusText}`);
-        case 403:
-          throw new ForbiddenError(`Forbidden: ${response.statusText}`);
-        case 404:
-          throw new NotFoundError(`Not Found: ${response.statusText}`);
-        case 422:
-          throw new UnprocessableEntityError(
-            `Unprocessable Entity: ${response.statusText}`,
-          );
-        case 429:
-          throw new TooManyRequestsError(
-            `Too Many Requests: ${response.statusText}`,
-          );
-        case 409:
-          throw new ConflictError(`Conflict: ${response.statusText}`);
-        case 500:
-          throw new InternalServerError(
-            `Internal Server Error: ${response.statusText}`,
-          );
-        case 502:
-          throw new BadGatewayError(`Bad Gateway: ${response.statusText}`);
-        case 503:
-          throw new ServiceUnavailableError(
-            `Service Unavailable: ${response.statusText}`,
-          );
-        case 504:
-          throw new GatewayTimeoutError(
-            `Gateway Timeout: ${response.statusText}`,
-          );
-        default:
-          throw new Error(
-            `AI service command failed: ${response.statusText} (Status: ${response.status})`,
-          );
-      }
-    }
   }
 
   public abstract execute(): Promise<T>;
