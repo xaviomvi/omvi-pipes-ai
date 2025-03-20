@@ -681,7 +681,12 @@ export const createGoogleWorkspaceCredentials =
             if (!validationResult.success) {
               throw new BadRequestError(validationResult.error.message);
             }
-            const { access_token, refresh_token } = configData;
+            const {
+              access_token,
+              refresh_token,
+              access_token_expiry_time,
+              refresh_token_expiry_time,
+            } = configData;
 
             encryptedGoogleWorkspaceConfig = EncryptionService.getInstance(
               configManagerConfig.algorithm,
@@ -690,6 +695,8 @@ export const createGoogleWorkspaceCredentials =
               JSON.stringify({
                 access_token,
                 refresh_token,
+                access_token_expiry_time,
+                refresh_token_expiry_time,
               }),
             );
           }
@@ -1056,12 +1063,10 @@ export const createQdrantConfig =
         encryptedQdrantConfig,
       );
       const warningMessage = res.getHeader('Warning');
-      res
-        .status(200)
-        .json({
-          message: 'Qdrant config created successfully',
-          warningMessage,
-        });
+      res.status(200).json({
+        message: 'Qdrant config created successfully',
+        warningMessage,
+      });
     } catch (error: any) {
       logger.error('Error creating Sso config', { error });
       next(error);

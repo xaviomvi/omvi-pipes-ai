@@ -532,32 +532,35 @@ export function createConnectorRouter(container: Container) {
         }
         const data = googleResponse.data;
         console.log(data);
-        const userInfoResponse = await axios.get(
-          'https://www.googleapis.com/oauth2/v2/userinfo',
-          {
-            headers: { Authorization: `Bearer ${data.access_token}` },
-          },
-        );
-        console.log('ho');
 
-        if (userInfoResponse.status !== 200) {
-          throw new BadRequestError('Error fetching user info');
-        }
+        // const userInfoResponse = await axios.get(
+        //   'https://www.googleapis.com/oauth2/v2/userinfo',
+        //   {
+        //     headers: { Authorization: `Bearer ${data.access_token}` },
+        //   },
+        // );
+        // console.log('ho');
 
-        const userInfo = userInfoResponse.data;
-        logger.info('User Info:', userInfo);
+        // if (userInfoResponse.status !== 200) {
+        //   throw new BadRequestError('Error fetching user info');
+        // }
 
-        if (userInfo.email !== req.user.email) {
-          throw new BadRequestError(
-            'Account email is different from the consent giving mail',
-          );
-        }
+        // const userInfo = userInfoResponse.data;
+        // logger.info('User Info:', userInfo);
+
+        // if (userInfo.email !== req.user.email) {
+        //   throw new BadRequestError(
+        //     'Account email is different from the consent giving mail',
+        //   );
+        // }
         response = await setGoogleWorkspaceIndividualCredentials(
           req,
           config.cmUrl,
           config.scopedJwtSecret,
           data.access_token,
           data.refresh_token,
+          data.expires_in * 1000 + Date.now(),
+          data.refresh_token_expires_in * 1000 + Date.now(),
         );
         if (response.statusCode !== 200) {
           throw new InternalServerError(
@@ -701,6 +704,8 @@ export function createConnectorRouter(container: Container) {
             config.cmUrl,
             data.access_token,
             refreshTokenCommandResponse?.data.refresh_token,
+            data.expires_in * 1000 + Date.now(),
+            refreshTokenCommandResponse?.data.refresh_token_expiry_time,
           ));
         if (accessTokenCommandResponse.statusCode !== 200) {
           throw new InternalServerError(
