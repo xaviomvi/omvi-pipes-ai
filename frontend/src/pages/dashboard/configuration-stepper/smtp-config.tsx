@@ -71,13 +71,11 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
     (window as any).submitSmtpForm = () => {
       if (isValid) {
         // If the form is valid, submit it normally
-        console.log('SMTP form is valid, submitting normally');
         handleSubmit(onSubmit)();
         return true;
       }
 
       // No need for else - we'll only reach here if isValid is false
-      console.log('SMTP form is invalid, cannot submit');
       return false;
     };
 

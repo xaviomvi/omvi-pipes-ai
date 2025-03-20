@@ -35,7 +35,6 @@ export const GroupsProvider: React.FC<GroupsProviderProps> = ({ children }) => {
         const response = await axiosInstance.get<Group[]>('/api/v1/userGroups');
         setGroups(response.data);
       } catch (error) {
-        console.error('Error fetching member groups:', error);
         // Set empty array in case of error to prevent infinite loading
         setGroups([]);
       }

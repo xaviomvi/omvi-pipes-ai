@@ -79,7 +79,6 @@ export function JwtSignUpView() {
 
       router.refresh();
     } catch (error) {
-      console.error(error);
       setErrorMsg(typeof error === 'string' ? error : error.message);
     }
   });

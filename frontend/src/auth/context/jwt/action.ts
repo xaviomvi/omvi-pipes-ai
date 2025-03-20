@@ -92,8 +92,7 @@ export const resetPassword = async ({ token, newPassword }: ResetPasswordParams)
 
     await axios.post(`${CONFIG.authUrl}/api/v1/userAccount/password/reset/token`, params, config);
   } catch (error) {
-    console.error('Error in resetting password', error);
-    throw error;
+    throw new Error('Error in resetting password', error);
   }
 };
 
@@ -102,8 +101,7 @@ export const OrgExists = async (): Promise<orgExistsReponse> => {
     const response = await axios.get(`${CONFIG.authUrl}/api/v1/org/exists`);
     return response.data;
   } catch (error) {
-    console.error('Error in resetting password', error);
-    throw error;
+    throw new Error('Error in resetting password', error);
   }
 };
 
@@ -116,8 +114,7 @@ export const forgotPassword = async ({ email }: ForgotPasswordParams): Promise<v
     const params = { email };
     await axios.post(`${CONFIG.authUrl}/api/v1/userAccount/password/forgot`, params);
   } catch (error) {
-    console.error('error in sending mail to reset password', error);
-    throw error;
+    throw new Error('error in sending mail to reset password', error);
   }
 };
 
@@ -128,8 +125,7 @@ export const sendOtp = async ({ email }: GetOtpParams): Promise<void> => {
   try {
     await axios.post(`${CONFIG.authUrl}/api/v1/userAccount/login/otp/generate`, { email });
   } catch (error) {
-    console.error('error in sending otp', error);
-    throw error;
+    throw new Error('error in sending otp', error);
   }
 };
 
@@ -159,8 +155,7 @@ export const VerifyOtp = async ({ email, otp }: SignInOtpParams): Promise<AuthRe
 
     return response;
   } catch (error) {
-    console.error('Error during OTP verification:', error);
-    throw error;
+    throw new Error('Error during OTP verification:', error);
   }
 };
 
@@ -183,8 +178,7 @@ export const authInitConfig = async (email: string): Promise<AuthInitResponse> =
 
     return response.data;
   } catch (error) {
-    console.log('Failed to initialize authentication. Please try again.');
-    throw error;
+    throw new Error('Failed to initialize authentication. Please try again.');
   }
 };
 
@@ -217,8 +211,7 @@ export const signInWithPassword = async ({
 
     return response;
   } catch (error) {
-    console.error('Error during password authentication:', error);
-    throw error;
+    throw new Error('Error during password authentication:', error);
   }
 };
 
@@ -249,8 +242,7 @@ export const SignInWithGoogle = async ({
 
     return response;
   } catch (error) {
-    console.error('Error during sign in with Google:', error);
-    throw error;
+    throw new Error('Error during sign in with Google:', error);
   }
 };
 
@@ -278,8 +270,7 @@ export const SignInWithAzureAd = async (credential: AzureCredientals): Promise<A
 
     return response;
   } catch (error) {
-    console.error('Error during sign in with Google:', error);
-    throw error;
+    throw new Error('Error during sign in with Google:', error);
   }
 };
 
@@ -309,8 +300,7 @@ export const SignInWithMicrosoft = async (
 
     return response;
   } catch (error) {
-    console.error('Error during sign in with Google:', error);
-    throw error;
+    throw new Error('Error during sign in with Google:', error);
   }
 };
 
@@ -322,39 +312,25 @@ export const AccountSetUp = async (accountSetupData: AccountSetupParams): Promis
   try {
     const res = await axios.post(`${CONFIG.authUrl}/api/v1/org`, accountSetupData);
 
-    // Logging the response to inspect data
-    console.log('API Response:', res.data);
-
     if (accountSetupData.accountType === 'business') {
       // Extract organization details from response
-      const { registeredName, domain, contactEmail, _id, slug } = res.data;
+      const { _id } = res.data;
 
       if (!_id) {
         throw new Error('Organization ID not found in response');
       }
 
-      console.log('Organization created successfully:', {
-        registeredName,
-        domain,
-        contactEmail,
-        slug,
-      });
     } else {
       // Extract user details from response for individual accounts
-      const { fullName, email, _id } = res.data;
+      const { _id } = res.data;
 
       if (!_id) {
         throw new Error('User ID not found in response');
       }
 
-      console.log('Individual account created successfully:', {
-        fullName,
-        email,
-      });
     }
   } catch (error) {
-    console.error('Error during account setup:', error);
-    throw error;
+    throw new Error('Error during account setup:', error);
   }
 };
 
@@ -386,8 +362,7 @@ export const signUp = async ({
 
     localStorage.setItem(STORAGE_KEY, accessToken);
   } catch (error) {
-    console.error('Error during sign up:', error);
-    throw error;
+    throw new Error('Error during sign up:', error);
   }
 };
 
@@ -398,7 +373,6 @@ export const signOut = async (): Promise<void> => {
   try {
     await setSession(null, null);
   } catch (error) {
-    console.error('Error during sign out:', error);
-    throw error;
+    throw new Error('Error during sign out:', error);
   }
 };

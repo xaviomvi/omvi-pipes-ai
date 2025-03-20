@@ -1,15 +1,16 @@
 // WelcomeMessage.js
 import React from 'react';
+import { Icon } from '@iconify/react';
+
 import { 
   Box, 
-  Typography, 
-  Paper, 
+  Grid, 
+  Fade, 
+  Zoom,
+  Paper,
   useTheme,
-  Grid,
-  Fade,
-  Zoom
+  Typography
 } from '@mui/material';
-import { Icon } from '@iconify/react';
 
 const WelcomeMessage = () => {
   const theme = useTheme();

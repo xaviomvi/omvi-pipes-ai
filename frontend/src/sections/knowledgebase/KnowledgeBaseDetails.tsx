@@ -1,9 +1,9 @@
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import { Icon } from '@iconify/react';
-import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useDropzone } from 'react-dropzone';
+import React, { useState, useEffect } from 'react';
 
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -12,6 +12,7 @@ import {
   Paper,
   Stack,
   alpha,
+  Alert,
   Button,
   Dialog,
   Select,
@@ -25,13 +26,12 @@ import {
   Typography,
   Pagination,
   IconButton,
+  AlertTitle,
   DialogTitle,
   DialogContent,
   DialogActions,
   FormControlLabel,
-  CircularProgress,
-  Alert,
-  AlertTitle
+  CircularProgress
 } from '@mui/material';
 
 import { useUsers } from 'src/context/UserContext';

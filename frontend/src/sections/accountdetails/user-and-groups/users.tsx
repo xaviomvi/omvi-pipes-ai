@@ -1,4 +1,3 @@
-import { Icon } from '@iconify/react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import React, { useRef, useState, useEffect } from 'react';
@@ -11,21 +10,23 @@ import {
   Stack,
   Paper,
   Alert,
+  alpha,
   Avatar,
   Button,
   Dialog,
   Popover,
+  Tooltip,
   TableRow,
   Snackbar,
   MenuItem,
-  Tooltip,
+  useTheme,
   TableBody,
   TableCell,
   TableHead,
   TextField,
+  InputBase,
   Typography,
   IconButton,
-  InputBase,
   DialogTitle,
   Autocomplete,
   DialogContent,
@@ -33,12 +34,12 @@ import {
   TableContainer,
   TablePagination,
   CircularProgress,
-  useTheme,
-  alpha,
 } from '@mui/material';
+
 import { useAdmin } from 'src/context/AdminContext';
 
 import { Iconify } from 'src/components/iconify';
+
 import { updateInvitesCount } from '../../../store/userAndGroupsSlice';
 import {
   allGroups,
@@ -102,7 +103,6 @@ const Users = () => {
         setUsers(loggedInUsers);
         setGroups(groupsData);
       } catch (error) {
-        console.error('Error adding users to groups:', error);
         setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
       } finally {
         setLoading(false);
@@ -154,7 +154,6 @@ const Users = () => {
       setUsers(loggedInUsers);
       setSnackbarState({ open: true, message: 'User removed successfully', severity: 'success' });
     } catch (error) {
-      console.error('Error removing user:', error);
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
@@ -186,7 +185,6 @@ const Users = () => {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error updating users after addition to groups:', error);
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
@@ -203,7 +201,6 @@ const Users = () => {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error updating users after invitation:', error);
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
@@ -786,7 +783,6 @@ function AddUserModal({ open, onClose, groups, onUsersAdded }: AddUserModalProps
       onUsersAdded();
       onClose();
     } catch (error) {
-      console.error('Error inviting users:', error);
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
@@ -910,7 +906,6 @@ function AddUsersToGroupsModal({
       onUsersAdded();
       onClose();
     } catch (error) {
-      console.error('Error fetching users and groups:', error);
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };

@@ -4,7 +4,8 @@ import { alpha, useTheme } from '@mui/material/styles';
 import { 
   Box, 
   Grid, 
-  Alert, 
+  Alert,
+  Snackbar, 
   TextField, 
   Typography,
   InputAdornment,
@@ -13,7 +14,7 @@ import {
 
 import { Iconify } from 'src/components/iconify';
 
-import {  getGoogleAuthConfig, updateGoogleAuthConfig } from '../utils/auth-configuration-service';
+import { getGoogleAuthConfig, updateGoogleAuthConfig } from '../utils/auth-configuration-service';
 
 interface GoogleAuthFormProps {
   onValidationChange: (isValid: boolean) => void;
@@ -21,7 +22,7 @@ interface GoogleAuthFormProps {
 }
 
 export interface GoogleAuthFormRef {
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<boolean>;
 }
 
 const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
@@ -38,13 +39,36 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
     
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
+    const [snackbar, setSnackbar] = useState({
+      open: false,
+      message: '',
+      severity: 'success' as 'success' | 'error',
+    });
+
+    // Helper functions for snackbar
+    const showSuccessSnackbar = (message: string) => {
+      setSnackbar({
+        open: true,
+        message,
+        severity: 'success',
+      });
+    };
+
+    const showErrorSnackbar = (message: string) => {
+      setSnackbar({
+        open: true,
+        message,
+        severity: 'error',
+      });
+    };
+
+    const handleCloseSnackbar = () => {
+      setSnackbar((prev) => ({ ...prev, open: false }));
+    };
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
-      handleSave: async () => {
-        await handleSave();
-      }
+      handleSave
     }));
 
     // Load existing config on mount
@@ -54,12 +78,12 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
         try {
           const config = await getGoogleAuthConfig();
           
-            setFormData(prev => ({
-              ...prev,
-              clientId: config?.clientId || ''
-            }));
+          setFormData(prev => ({
+            ...prev,
+            clientId: config?.clientId || ''
+          }));
         } catch (error) {
-          console.error('Failed to load Google auth config:', error);
+          showErrorSnackbar('Failed to load Google authentication configuration');
         } finally {
           setIsLoading(false);
         }
@@ -107,9 +131,8 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
     };
 
     // Handle save
-    const handleSave = async () => {
+    const handleSave = async (): Promise<boolean> => {
       setIsSaving(true);
-      setSaveError(null);
       
       try {
         // Use the utility function to update Google configuration
@@ -117,14 +140,15 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
           clientId: formData.clientId
         });
         
+        showSuccessSnackbar('Google authentication configuration saved successfully');
+        
         if (onSaveSuccess) {
           onSaveSuccess();
         }
         
         return true;
       } catch (error) {
-        setSaveError('Failed to save Google authentication configuration');
-        console.error('Error saving Google auth config:', error);
+        showErrorSnackbar('Failed to save Google authentication configuration');
         return false;
       } finally {
         setIsSaving(false);
@@ -139,18 +163,6 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
           </Box>
         ) : (
           <>
-            {saveError && (
-              <Alert 
-                severity="error" 
-                sx={{ 
-                  mb: 3,
-                  borderRadius: 1,
-                }}
-              >
-                {saveError}
-              </Alert>
-            )}
-            
             <Box 
               sx={{ 
                 mb: 3, 
@@ -222,6 +234,34 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
             )}
           </>
         )}
+
+        {/* Snackbar for success and error messages */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{
+              width: '100%',
+              boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
+              ...(snackbar.severity === 'error' && {
+                bgcolor: theme.palette.error.main,
+                color: theme.palette.error.contrastText,
+              }),
+              ...(snackbar.severity === 'success' && {
+                bgcolor: theme.palette.success.main,
+                color: theme.palette.success.contrastText,
+              }),
+            }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </>
     );
   }

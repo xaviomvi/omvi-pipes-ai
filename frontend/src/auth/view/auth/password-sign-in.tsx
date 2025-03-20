@@ -3,7 +3,6 @@ import type { Theme, SxProps } from '@mui/material';
 import { z as zod } from 'zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useDispatch } from 'react-redux';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
@@ -78,7 +77,6 @@ export default function PasswordSignIn({
   sx 
 }: PasswordSignInProps) {
   const router = useRouter();
-  const dispatch = useDispatch();
   const { checkUserSession } = useAuthContext();
   const showPassword = useBoolean();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -132,7 +130,6 @@ export default function PasswordSignIn({
         }
       }
     } catch (error) {
-      console.error('Authentication error:', error);
       const errorMessage = typeof error === 'string' 
         ? error 
         : (error as ErrorResponse)?.errorMessage;

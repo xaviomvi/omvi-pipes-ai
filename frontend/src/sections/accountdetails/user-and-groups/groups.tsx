@@ -8,17 +8,20 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Box,
   Menu,
+  Chip,
   Table,
   Paper,
   Alert,
   Stack,
+  alpha,
   Button,
   Avatar,
   Dialog,
+  Tooltip,
   TableRow,
   Snackbar,
   MenuItem,
-  Tooltip,
+  useTheme,
   InputBase,
   TableBody,
   TableCell,
@@ -31,10 +34,8 @@ import {
   TableContainer,
   TablePagination,
   CircularProgress,
-  useTheme,
-  alpha,
-  Chip,
 } from '@mui/material';
+
 import { useAdmin } from 'src/context/AdminContext';
 
 import { Iconify } from 'src/components/iconify';
@@ -101,7 +102,6 @@ export default function Groups() {
         const sortedGroups = [...data].sort((a, b) => a.name.localeCompare(b.name));
         setGroups(sortedGroups);
       } catch (error) {
-        console.error('Error loading groups:', error);
         setSnackbarState({
           open: true,
           message: error.errorMessage || 'Error loading groups',
@@ -148,7 +148,6 @@ export default function Groups() {
       dispatch(decrementGroupCount());
       setSnackbarState({ open: true, message: 'Group deleted successfully', severity: 'success' });
     } catch (error) {
-      console.error('Error deleting group:', error);
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
@@ -164,7 +163,6 @@ export default function Groups() {
       handleCloseCreateModal();
       setSnackbarState({ open: true, message: 'Group created successfully', severity: 'success' });
     } catch (error) {
-      console.error('Error creating group:', error);
       setErrorMsg(error.errorMessage || 'Failed to create group. Please try again.');
       setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }

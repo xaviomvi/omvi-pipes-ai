@@ -44,7 +44,6 @@ export default function Page() {
     const checkOrgExists = async () => {
       try {
         const response = await OrgExists();
-        console.log(response)
         setOrgExists(response.exists);
         if (response.exists === false) {
           setSnackbar({

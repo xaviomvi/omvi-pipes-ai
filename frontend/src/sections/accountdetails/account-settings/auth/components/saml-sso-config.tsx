@@ -9,6 +9,7 @@ import {
   Alert,
   Button,
   styled,
+  Snackbar,
   Container,
   TextField,
   Typography,
@@ -49,14 +50,38 @@ const SamlSsoConfigPage = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [parsingSuccess, setParsingSuccess] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
 
   // Load existing config on mount
   useEffect(() => {
     fetchSamlConfiguration();
+    // eslint-disable-next-line 
   }, []);
+
+  // Helper functions for snackbar
+  const showSuccessSnackbar = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: 'success',
+    });
+  };
+
+  const showErrorSnackbar = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: 'error',
+    });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  };
 
   // Fetch SAML Configuration
   const fetchSamlConfiguration = async () => {
@@ -70,8 +95,7 @@ const SamlSsoConfigPage = () => {
         setConfiguration(DEFAULT_SAML_CONFIG);
       }
     } catch (error) {
-      console.error('Failed to load SAML configuration:', error);
-      setConfiguration(DEFAULT_SAML_CONFIG);
+      showErrorSnackbar('Failed to load SAML configuration');
     } finally {
       setIsLoading(false);
     }
@@ -168,15 +192,13 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
                 validateField('certificate', updatedConfig.certificate);
               }
               
-              setParsingSuccess(true);
-              setTimeout(() => setParsingSuccess(false), 3000);
+              showSuccessSnackbar('Successfully parsed XML metadata file');
             } else {
-              setSaveError('Could not extract required fields from XML. Please check the format or enter details manually.');
+              showErrorSnackbar('Could not extract required fields from XML. Please check the format or enter details manually.');
             }
           }
         } catch (err) {
-          console.error('Error parsing XML file:', err);
-          setSaveError('Failed to parse XML file. Please check the format.');
+          showErrorSnackbar('Failed to parse XML file. Please check the format.');
         }
       };
       reader.readAsText(file);
@@ -232,8 +254,6 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
   // Handle save
   const handleSave = async () => {
     setIsSaving(true);
-    setSaveError(null);
-    setSaveSuccess(false);
 
     try {
       // Prepare payload
@@ -247,10 +267,9 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
       
       // Send to API
       await updateSamlSsoConfig(payload);
-      setSaveSuccess(true);
+      showSuccessSnackbar('SAML configuration successfully updated');
     } catch (error) {
-      setSaveError('Failed to save SAML configuration');
-      console.error('Error saving SAML config:', error);
+      showErrorSnackbar('Failed to save SAML configuration');
     } finally {
       setIsSaving(false);
     }
@@ -269,45 +288,6 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
         </IconButton>
         <Typography variant="h6">Back to Authentication Settings</Typography>
       </Box>
-
-      {saveError && (
-        <Alert
-          severity="error"
-          sx={{
-            mb: 3,
-            borderRadius: 1,
-          }}
-          onClose={() => setSaveError(null)}
-        >
-          {saveError}
-        </Alert>
-      )}
-
-      {saveSuccess && (
-        <Alert
-          severity="success"
-          sx={{
-            mb: 3,
-            borderRadius: 1,
-          }}
-          onClose={() => setSaveSuccess(false)}
-        >
-          SAML configuration successfully updated
-        </Alert>
-      )}
-
-      {parsingSuccess && (
-        <Alert
-          severity="success"
-          sx={{
-            mb: 3,
-            borderRadius: 1,
-          }}
-          onClose={() => setParsingSuccess(false)}
-        >
-          Successfully parsed XML metadata file
-        </Alert>
-      )}
 
       <Paper sx={{ borderRadius: 1, mb: 3, p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -435,6 +415,34 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
           </Box>
         )}
       </Paper>
+
+      {/* Snackbar for success and error messages */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{
+            width: '100%',
+            boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
+            ...(snackbar.severity === 'error' && {
+              bgcolor: theme.palette.error.main,
+              color: theme.palette.error.contrastText,
+            }),
+            ...(snackbar.severity === 'success' && {
+              bgcolor: theme.palette.success.main,
+              color: theme.palette.success.contrastText,
+            }),
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

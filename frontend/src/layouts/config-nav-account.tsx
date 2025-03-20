@@ -96,16 +96,12 @@ const individualMenuItems = [
  */
 export const useAccountMenu = () => {
   const { user } = useAuthContext();
-  
-  console.log("User in useAccountMenu:", user);
-  
+    
   // Check for business account type
   const isBusiness = 
     user?.accountType === 'business' || 
     user?.accountType === 'organization';
-  
-  console.log("Is business account?", isBusiness);
-  
+    
   // Return different menu items based on account type
   if (isBusiness) {
     return businessMenuItems;

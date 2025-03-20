@@ -87,14 +87,12 @@ export default function PasswordSignIn({ defaultEmail, onForgotPassword, sx } : 
 
   const onSubmit = handleSubmit(async (data : SignInSchemaType) : Promise<void> => {
     try {
-      console.log(data, 'data');
       await signInWithPassword({ email: data.email, password: data.password });
 
       await checkUserSession?.();
 
       router.refresh();
     } catch (error) {
-      console.error(error);
       setErrorMsg(typeof error === 'string' ? error : (error as ErrorResponse).errorMessage);
     }
   });

@@ -3,9 +3,9 @@ import type { Control } from 'react-hook-form';
 import { z } from 'zod';
 import { Icon } from '@iconify/react';
 import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router';
 import React, { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useLocation, useNavigate } from 'react-router';
 import { useForm, Controller, FormProvider, useFormContext } from 'react-hook-form';
 
 import {
@@ -57,7 +57,6 @@ const StyledButton = styled(Button)(({ theme }) => ({
 }));
 
 // Validation Schemas
-const jurisdictionEnum = z.enum(SUPPORTED_COUNTRIES);
 
 const permanentAddressSchema = z.object({
   addressLine1: z.string().max(100).optional(),
@@ -136,9 +135,6 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
   gap: theme.spacing(1),
 }));
 
-// Define the combined form data type
-type FormData = z.infer<typeof organizationSchema>;
-
 interface PasswordSectionProps {
   control: Control<any>;
 }
@@ -147,7 +143,6 @@ const PasswordSection = ({ control }: PasswordSectionProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { watch } = useFormContext();
-  const password = watch('password');
 
   return (
     <>
@@ -266,7 +261,6 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const location = useLocation();
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',

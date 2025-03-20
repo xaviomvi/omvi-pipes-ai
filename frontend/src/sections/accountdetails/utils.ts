@@ -1,10 +1,9 @@
-import { AxiosError } from 'axios';
+
+import axios from 'src/utils/axios';
 
 import { CONFIG } from 'src/config-global';
 
 import { jwtDecode } from 'src/auth/context/jwt';
-
-import axios from 'src/utils/axios';
 import { STORAGE_KEY } from 'src/auth/context/jwt/constant';
 
 import type { UserData } from './types/user-data';
@@ -36,16 +35,7 @@ export const getOrgById = async (orgId: string): Promise<OrganizationData> => {
     const response = await axios.get<OrganizationData>(`${CONFIG.iamUrl}/api/v1/org`);
     return response.data;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      console.error('Error fetching organization:', {
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-      });
-    } else {
-      console.error('Error fetching organization:', error);
-    }
-    throw error;
+    throw new Error('Error fetching organization');
   }
 };
 
@@ -56,16 +46,7 @@ export const getUserById = async (userId: string | null): Promise<UserData> => {
 
     return response.data;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      console.error('Error fetching user data:', {
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-      });
-    } else {
-      console.error('Error fetching user data:', error);
-    }
-    throw error;
+    throw new Error('Error fetching user data');
   }
 };
 
@@ -93,11 +74,7 @@ export const getOrgLogo = async (orgId: string): Promise<string | null> => {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    if (error.response && error.response.status === 404) {
-      return null;
-    }
-    console.error('Error fetching organization logo:', error);
-    return null;
+    throw new Error('Error fetching org logo');
   }
 };
 
@@ -125,11 +102,7 @@ export const getUserLogo = async (userId: string): Promise<string | null> => {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    if (error.response && error.response.status === 404) {
-      return null;
-    }
-    console.error('Error fetching user logo:', error);
-    return null;
+    throw new Error('Error fetching user logo');
   }
 };
 
@@ -138,8 +111,7 @@ export const updateOrg = async (orgId: string, orgData: any) => {
     const response = await axios.put(`${CONFIG.iamUrl}/api/v1/orgs/${orgId}`, orgData);
     return response.data.message;
   } catch (error) {
-    console.error('Error updating organization:', error);
-    throw error;
+    throw new Error('Error updating org');
   }
 };
 
@@ -160,8 +132,7 @@ export const changePassword = async ({ currentPassword, newPassword }: PasswordC
     );
     return response.data;
   } catch (error) {
-    console.error('Error changing password:', error);
-    throw error;
+    throw new Error('Error updating password');
   }
 };
 
@@ -170,8 +141,7 @@ export const updateUser = async (userId: string, userData: any) => {
     const response = await axios.put(`${CONFIG.iamUrl}/api/v1/users/${userId}`, userData);
     return response.data.message;
   } catch (error) {
-    console.error('Error updating user:', error);
-    throw error;
+    throw new Error('Error updating user');
   }
 };
 
@@ -184,8 +154,7 @@ export const uploadOrgLogo = async (orgId: string, formData: any) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error uploading logo:', error);
-    throw error;
+    throw new Error('Error uplaoding org logo');
   }
 };
 
@@ -198,8 +167,7 @@ export const uploadUserLogo = async (userId: string, formData: any) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error uploading User logo:', error);
-    throw error;
+    throw new Error('Error uploading user logo');
   }
 };
 
@@ -208,8 +176,7 @@ export const deleteOrgLogo = async (orgId: string) => {
     const response = await axios.delete(`${CONFIG.iamUrl}/api/v1/orgs/${orgId}/logo`);
     return response.data;
   } catch (error) {
-    console.error('Error deleting logo:', error);
-    throw error;
+    throw new Error('Error deleting logo');
   }
 };
 
@@ -218,8 +185,7 @@ export const deleteUserLogo = async (userId: string) => {
     const response = await axios.delete(`${CONFIG.iamUrl}/api/v1/users/${userId}/dp`);
     return response.data;
   } catch (error) {
-    console.error('Error deleting User logo:', error);
-    throw error;
+    throw new Error('Error deleting User logo');
   }
 };
 
@@ -231,16 +197,7 @@ export const getAllUsersWithGroups = async () => {
 
     return response.data;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      console.error('Error fetching iam users:', {
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-      });
-    } else {
-      console.error('Error fetching iam users:', error);
-    }
-    throw error;
+    throw new Error('Error fetching users');
   }
 };
 
@@ -249,16 +206,7 @@ export const allGroups = async () => {
     const response = await axios.get<AppUserGroup[]>(`${CONFIG.backendUrl}/api/v1/userGroups`); // Replace with the actual API endpoint
     return response.data;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      console.error('Error fetching groups:', {
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-      });
-    } else {
-      console.error('Error fetching groups:', error);
-    }
-    throw error;
+    throw new Error('Error fetching groups');
   }
 };
 
@@ -267,29 +215,19 @@ export const resendInvite = async (userId: string) => {
     const response = await axios.post(`${CONFIG.backendUrl}/api/v1/users/${userId}/resend-invite`);
     return response.data;
   } catch (error) {
-    console.error('Error resending invite:', error);
-    throw error;
+    throw new Error('Error resending invite');
   }
 };
 
-export const removeUserFromGroup = async (userId: string, groupId : string | null) => {
+export const removeUserFromGroup = async (userId: string, groupId: string | null) => {
   try {
     const response = await axios.post(`${CONFIG.backendUrl}/api/v1/userGroups/remove-users`, {
       userIds: [userId],
-      groupIds : [groupId]
+      groupIds: [groupId],
     });
     return response.data;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      console.error('Error fetching group:', {
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-      });
-    } else {
-      console.error('Error fetching group:', error);
-    }
-    throw error;
+    throw new Error('Error fetching group');
   }
 };
 
@@ -298,16 +236,7 @@ export const removeUser = async (userId: string) => {
     const response = await axios.post(`${CONFIG.backendUrl}/api/v1/users/${userId}`);
     return response.data;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      console.error('Error deleting user:', {
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-      });
-    } else {
-      console.error('Error deleting user:', error);
-    }
-    throw error;
+    throw new Error('Error deleting user');
   }
 };
 
@@ -321,16 +250,7 @@ export const fetchGroupDetails = async (groupId: string | null) => {
     ); // Adjust the URL if needed
     return response.data;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      console.error('Error fetching group details', {
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-      });
-    } else {
-      console.error('Error fetching group details', error);
-    }
-    throw error;
+    throw new Error('Error fetching group details');
   }
 };
 
@@ -339,8 +259,7 @@ export const createGroup = async (groupData: createGroupProps) => {
     const response = await axios.post(`${CONFIG.backendUrl}/api/v1/userGroups`, groupData);
     return response.data;
   } catch (error) {
-    console.error('Error creating group:', error);
-    throw error;
+    throw new Error('Error creating groups');
   }
 };
 
@@ -352,8 +271,7 @@ export const addUsersToGroups = async ({ userIds, groupIds }: AddUsersToGroupsRe
     });
     return response.data;
   } catch (error) {
-    console.error('Error adding users to groups:', error);
-    throw error;
+    throw new Error('Error adding users to groups');
   }
 };
 
@@ -365,8 +283,7 @@ export const inviteUsers = async ({ emails, groupIds }: InviteUsersRequest) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error inviting users to groups:', error);
-    throw error;
+    throw new Error('Error inviting users to groups');
   }
 };
 
@@ -374,8 +291,7 @@ export const deleteGroup = async (groupId: string) => {
   try {
     await axios.delete(`${CONFIG.backendUrl}/api/v1/userGroups/${groupId}`);
   } catch (error) {
-    console.error('Error creating group:', error);
-    throw error;
+    throw new Error('Error creating group');
   }
 };
 
@@ -384,16 +300,7 @@ export const fetchAllUsers = async () => {
     const response = await axios.get<AppUser[]>(`${CONFIG.backendUrl}/api/v1/users`); // Adjust the URL if needed
     return response.data;
   } catch (error) {
-    if (error instanceof AxiosError) {
-      console.error('Error fetching user:', {
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-      });
-    } else {
-      console.error('Error fetching user:', error);
-    }
-    throw error;
+    throw new Error('Error fetching users');
   }
 };
 
@@ -409,4 +316,4 @@ export const getUserIdFromToken = (): string => {
   const decodedToken = jwtDecode(accessToken);
   const { userId } = decodedToken;
   return userId;
-}; 
+};

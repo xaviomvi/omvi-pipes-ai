@@ -4,23 +4,28 @@ import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Menu,
+  Chip,
   Table,
   Paper,
   Alert,
+  Stack,
+  alpha,
   Button,
   Avatar,
   Dialog,
   Popover,
+  Tooltip,
   TableRow,
   Snackbar,
   MenuItem,
+  useTheme,
   TableBody,
   TableCell,
   TableHead,
-  Tooltip,
-  Breadcrumbs,
+  TextField,
   Typography,
   IconButton,
+  Breadcrumbs,
   DialogTitle,
   Autocomplete,
   DialogContent,
@@ -29,22 +34,18 @@ import {
   TablePagination,
   Link as MuiLink,
   CircularProgress,
-  Stack,
-  Chip,
-  useTheme,
-  alpha,
-  TextField,
 } from '@mui/material';
+
 import { useAdmin } from 'src/context/AdminContext';
 
 import { Iconify } from 'src/components/iconify';
 
 import {
-  removeUserFromGroup,
   fetchAllUsers,
   addUsersToGroups,
   fetchGroupDetails,
   getUserIdFromToken,
+  removeUserFromGroup,
   getAllUsersWithGroups,
 } from '../utils';
 
@@ -117,7 +118,6 @@ export default function GroupDetails() {
         setGroup(groupData);
         setGroupUsers(filteredUsersList);
       } catch (error) {
-        console.error('Error fetching data:', error);
         setSnackbarState({
           open: true,
           message: error.errorMessage || 'Error fetching group data',
@@ -206,7 +206,11 @@ export default function GroupDetails() {
       const filteredUsersList = filterGroupUsers(loggedInUsers, groupData.users);
       setGroupUsers(filteredUsersList);
     } catch (error) {
-      console.error('Error refreshing user data:', error);
+      setSnackbarState({
+        open: true,
+        message: 'Error refreshing user data, please reload',
+        severity: 'error',
+      });
     }
   };
 
@@ -221,7 +225,6 @@ export default function GroupDetails() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Error removing user:', error);
       setSnackbarState({
         open: true,
         message: error.errorMessage || 'Error removing user',
@@ -858,7 +861,6 @@ function EditGroupModal({
       });
       onClose();
     } catch (error) {
-      console.error('Error updating group:', error);
       setSnackbarState({
         open: true,
         message: error.errorMessage || 'Error updating group',
@@ -1019,7 +1021,6 @@ function AddUsersToGroupsModal({
       onUsersAdded();
       onClose();
     } catch (error) {
-      console.error('Error adding users to groups:', error);
       setSnackbarState({
         open: true,
         message: error.errorMessage || 'Error adding users to group',

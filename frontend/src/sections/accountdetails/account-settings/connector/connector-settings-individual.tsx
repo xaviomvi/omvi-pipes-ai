@@ -27,7 +27,6 @@ import {
   GOOGLE_WORKSPACE_SCOPE,
 } from './components/connectors-list';
 
-
 import type {ConnectorConfig} from './components/connectors-list';
 
 // Define connector types and interfaces

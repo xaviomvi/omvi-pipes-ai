@@ -28,8 +28,7 @@ export function jwtDecode(token: string | null) {
 
     return decoded;
   } catch (error) {
-    console.error('Error decoding token:', error);
-    throw error;
+    throw new Error('Error decoding jwt token',error);
   }
 }
 
@@ -62,18 +61,15 @@ export async function isValidToken(accessToken: string): Promise<boolean> {
             },
           }
         );
-        console.log(res, 'response of refresh api in isValid function');
         setSession(res.data.accessToken, refreshToken);
         return true;
       } catch (error) {
-        console.error('error refreshing the accestoken', error);
         return false;
       }
     }
 
     return true;
   } catch (error) {
-    console.error('Error during token validation:', error);
     return false;
   }
 }
@@ -82,9 +78,7 @@ export async function isValidToken(accessToken: string): Promise<boolean> {
 
 export function tokenExpired(exp: number): void {
   const currentTime = Date.now();
-  // console.log(currentTime, "currenttime");
   const timeLeft = exp * 1000 - currentTime;
-  // console.log(timeLeft, "timeleft");
   const refreshTime = timeLeft - 2 * 60 * 1000;
 
   setTimeout(async () => {
@@ -107,9 +101,7 @@ export function tokenExpired(exp: number): void {
         }
       );
       setSession(res.data.accessToken, refreshToken);
-      console.log('access token succesfully refreshed! ');
     } catch (error) {
-      console.error('Error during refreshing access token', error);
       alert('session expired. PLease signin again');
       localStorage.removeItem(STORAGE_KEY);
       window.location.href = paths.auth.jwt.signIn;
@@ -130,8 +122,7 @@ export async function setSessionToken(sessionToken: string | null): Promise<void
       delete axios.defaults.headers.common['x-session-token'];
     }
   } catch (error) {
-    console.error('Error handling session token:', error);
-    throw error;
+    throw new Error('Error setting session token');
   }
 }
 
@@ -147,7 +138,6 @@ export async function setSession(
       axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
 
       const decodedToken = jwtDecode(accessToken);
-      // console.log(decodedToken, 'decodedtoken');
 
       if (decodedToken && 'exp' in decodedToken) {
         tokenExpired(decodedToken.exp);
@@ -160,7 +150,6 @@ export async function setSession(
       delete axios.defaults.headers.common.Authorization;
     }
   } catch (error) {
-    console.error('Error during set session:', error);
-    throw error;
+    throw new Error('Error during set session');
   }
 }

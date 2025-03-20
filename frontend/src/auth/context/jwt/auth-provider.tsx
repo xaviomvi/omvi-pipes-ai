@@ -38,13 +38,10 @@ export function AuthProvider({ children }: Props) {
     try {
       let accessToken = localStorage.getItem(STORAGE_KEY);
       const refreshToken = localStorage.getItem(STORAGE_KEY_REFRESH);
-      console.log('access token ', accessToken);
-      console.log('refresh token ', refreshToken);
       if (accessToken && (await isValidToken(accessToken))) {
         accessToken = localStorage.getItem(STORAGE_KEY); // isValidToken might change accesstoken
         setSession(accessToken, refreshToken);
         const decodedToken = jwtDecode(accessToken);
-        console.log(decodedToken);
         const { userId } = decodedToken;
 
         const res = await axios.get(`${CONFIG.authUrl}/api/v1/users/${userId}`);
@@ -59,8 +56,6 @@ export function AuthProvider({ children }: Props) {
         setState({ user: null, loading: false });
       }
     } catch (error) {
-      console.error(error);
-      console.log(error);
       setState({ user: null, loading: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,7 +73,6 @@ export function AuthProvider({ children }: Props) {
   const status = state.loading ? 'loading' : checkAuthenticated;
 
   useEffect(() => { 
-    console.log(path.pathname)
     if (checkAuthenticated === 'authenticated' && path.pathname === '/auth/sign-in') {
       navigate('/');
     }

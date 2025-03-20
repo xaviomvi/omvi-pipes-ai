@@ -24,15 +24,13 @@ export const fetchKnowledgeBaseDetails = async (
   queryParams: URLSearchParams
 ): Promise<KnowledgeBaseResponse> => {
   try {
-    console.log(queryParams, 'queryParams');
     const response = await axios.get<KnowledgeBaseResponse>(
       `${CONFIG.backendUrl}/api/v1/knowledgebase`,
       { params: queryParams }
     );
     return response.data;
   } catch (error) {
-    console.error('Error fetching knowledge base details:', error);
-    throw error;
+    throw new Error('Error fetching knowledge base details');
   }
 };
 
@@ -55,8 +53,7 @@ export const searchKnowledgeBase = async (
     );
     return response.data;
   } catch (error) {
-    console.error('Error searching knowledge base:', error);
-    throw error;
+    throw new Error('Erro searching knowledge base ');
   }
 };
 
@@ -69,8 +66,7 @@ export const uploadKnowledgeBaseFiles = async (formData: FormData) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error uploading files:', error);
-    throw error;
+    throw new Error('Error uploading files');
   }
 };
 
@@ -79,8 +75,7 @@ export const fetchDepartments = async () => {
     const response = await axios.get<Departments[]>(`${CONFIG.backendUrl}/api/v1/departments/`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching departments:', error);
-    throw error;
+    throw new Error('Error fetching departments');
   }
 };
 
@@ -91,8 +86,7 @@ export const fetchTags = async () => {
     );
     return response.data;
   } catch (error) {
-    console.error('Error fetching Tags:', error);
-    throw error;
+    throw new Error('Error fetching Tags');
   }
 };
 
@@ -101,8 +95,7 @@ export const fetchModules = async () => {
     const response = await axios.get<Modules[]>(`${CONFIG.backendUrl}/api/v1/modules`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching modules:', error);
-    throw error;
+    throw new Error('Error fetching modules');
   }
 };
 
@@ -113,8 +106,7 @@ export const fetchRecordCategories = async () => {
     );
     return response.data;
   } catch (error) {
-    console.error('Error fetching record categories:', error);
-    throw error;
+    throw new Error('Error fetching record categories');
   }
 };
 
@@ -125,8 +117,7 @@ export const fetchRecordDetails = async (recordId: string): Promise<RecordDetail
     );
     return response.data;
   } catch (error) {
-    console.error('Error fetching record details:', error);
-    throw error;
+    throw new Error('Error fetching record details');
   }
 };
 
@@ -139,7 +130,6 @@ export const handleDownloadDocument = async (
       `${CONFIG.backendUrl}/api/v1/document/${externalRecordId}/download`,
       { responseType: 'blob' } // Set response type to blob to handle binary data
     );
-    console.log(response.headers);
     // Read the blob response as text to check if it's JSON with signedUrl
     const reader = new FileReader();
     const textPromise = new Promise<string>((resolve) => {
@@ -185,7 +175,6 @@ export const handleDownloadDocument = async (
     } catch (e) {
       // Case 2: Response is binary data
       const contentType = response.headers['content-type'] || 'application/octet-stream';
-      console.log(contentType);
       const blob = new Blob([response.data], { type: contentType });
       downloadUrl = URL.createObjectURL(blob);
 
@@ -203,6 +192,6 @@ export const handleDownloadDocument = async (
       URL.revokeObjectURL(downloadUrl);
     }
   } catch (error) {
-    console.error('Failed to download document:', error);
+    throw new Error('Failed to download document')
   }
 };

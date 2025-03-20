@@ -1,8 +1,11 @@
 // AdminContext.tsx
+import React, { useMemo, useState, useEffect, useContext, createContext } from 'react';
+
 import axios from 'src/utils/axios';
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { AuthContext } from 'src/auth/context/auth-context';
+
 import { CONFIG } from 'src/config-global';
+
+import { AuthContext } from 'src/auth/context/auth-context';
 
 // Define the context type with just isAdmin boolean
 interface AdminContextType {
@@ -30,7 +33,7 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       }
 
       // Get userId from the auth context - with safe type checking
-      const user = auth.user;
+      const {user} = auth;
       const userId = user?.id || user?._id || user?.userId;
       
       if (!userId) {
@@ -48,12 +51,12 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
           setIsAdmin(false);
         }
       } catch (error) {
-        console.error('Failed to check admin status:', error);
         setIsAdmin(false);
       }
     };
 
     checkAdmin();
+    // eslint-disable-next-line 
   }, [auth?.user, auth?.authenticated]);
 
   // Memoize the context value to prevent unnecessary re-renders

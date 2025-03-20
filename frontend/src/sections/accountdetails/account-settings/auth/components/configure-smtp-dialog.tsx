@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+
 import {
   Box,
   Dialog,
@@ -13,7 +14,9 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
+
 import SmtpConfigForm from './smtp-config-form';
+
 import type { SmtpConfigFormRef } from './smtp-config-form';
 
 interface ConfigureSmtpDialogProps {

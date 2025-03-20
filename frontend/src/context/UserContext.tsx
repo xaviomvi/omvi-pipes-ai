@@ -39,7 +39,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         const response = await axiosInstance.get<User[]>('/api/v1/users');
         setUsers(response.data);
       } catch (error) {
-        console.error('Error fetching users:', error);
         // Set empty array in case of error to prevent infinite loading
         setUsers([]);
       }

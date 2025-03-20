@@ -11,7 +11,7 @@ import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router';
 import React, { useState, useEffect, useCallback } from 'react';
 
-import { Box, Button, styled, CircularProgress, IconButton,Tooltip } from '@mui/material';
+import { Box, Button, styled, Tooltip, IconButton,CircularProgress } from '@mui/material';
 
 import axiosInstance from 'src/utils/axios';
 
@@ -314,7 +314,6 @@ const ChatInterface = () => {
         }));
       }
     } catch (error) {
-      console.error('Message send error:', error);
       const errorMessage: FormattedMessage = {
         type: 'bot',
         content: 'Sorry, I encountered an error processing your request.',
@@ -391,7 +390,6 @@ const ChatInterface = () => {
           return newStates;
         });
       } catch (error) {
-        console.error('Regeneration error:', error);
         // Show error in place of regenerated message while preserving others
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
@@ -445,14 +443,9 @@ const ChatInterface = () => {
           }
         });
 
-        console.log('Full conversation:', conversation);
-        console.log('Formatted messages:', formattedMessages);
-        console.log('Citation states:', citationStates);
-
         setMessages(formattedMessages);
         setExpandedCitations(citationStates);
       } catch (error) {
-        console.error('Error loading chat:', error);
         setSelectedChat(null);
         setCurrentConversationId(null);
         setMessages([]);
@@ -479,8 +472,7 @@ const ChatInterface = () => {
           feedback
         );
       } catch (error) {
-        console.error('Feedback submission error:', error);
-        throw error;
+        throw new Error('Feedback submission error');
       }
     },
     [currentConversationId]

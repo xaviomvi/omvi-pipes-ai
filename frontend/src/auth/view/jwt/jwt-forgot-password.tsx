@@ -63,7 +63,6 @@ export default function ForgotPassword({ onBackToSignIn, sx } : ForgotPasswordPr
         router.refresh();
       }, 3000);
     } catch (error) {
-      console.error(error);
       setErrorMsg(typeof error === 'string' ? error : error.errorMessage);
     }
   });
