@@ -131,7 +131,6 @@ export const createRecords =
         // Prepare file record object
         fileRecords.push({
           _key: key,
-          userId: userId,
           orgId: orgId,
           name: documentName,
           isFile: true,
@@ -311,7 +310,9 @@ export const updateRecord =
       // Check if user has permission to update records
       try {
         await recordRelationService.validateUserKbAccess(userId, orgId, [
-          'OWNER','WRITER','FILEORGANIZER'
+          'OWNER',
+          'WRITER',
+          'FILEORGANIZER',
         ]);
       } catch (error) {
         throw new ForbiddenError('Permission denied');
@@ -361,17 +362,15 @@ export const updateRecord =
         ...updateData,
         updatedAtTimestamp: Date.now(),
         isLatestVersion: true,
-        sizeInBytes : size
+        sizeInBytes: size,
       };
-
 
       // Handle file uploads if present
       let fileUploaded = false;
       let fileName = '';
 
       // Handle file uploads if we found files
-      if (hasFileBuffer) {        
-
+      if (hasFileBuffer) {
         // Use the externalRecordId as the storageDocumentId
         const storageDocumentId = existingRecord.record.externalRecordId;
 
@@ -509,7 +508,9 @@ export const deleteRecord =
       // Check if user has permission to delete records
       try {
         await recordRelationService.validateUserKbAccess(userId, orgId, [
-          'OWNER','WRITER','FILEORGANIZER'
+          'OWNER',
+          'WRITER',
+          'FILEORGANIZER',
         ]);
       } catch (error) {
         throw new ForbiddenError('Permission denied');
@@ -590,6 +591,62 @@ export const getRecords =
         throw new NotFoundError(
           'User not authenticated or missing organization ID',
         );
+      }
+
+      const { exists: userExists } =
+        await recordRelationService.checkUserExists(userId, orgId);
+      if (!userExists) {
+        logger.warn('Attempting to fetch records for non-existent user', {
+          userId,
+          orgId,
+          requestId: req.context?.requestId,
+        });
+
+        res.status(200).json({
+          records: [],
+          pagination: {
+            page: 1,
+            limit: 20,
+            totalCount: 0,
+            totalPages: 0,
+          },
+          meta: {
+            requestId: req.context?.requestId,
+            timestamp: new Date().toISOString(),
+            message: 'User not found in system',
+          },
+        });
+        return;
+      }
+
+      // Check if knowledge base exists
+      const { exists: kbExists } =
+        await recordRelationService.checkKBExists(orgId);
+      if (!kbExists) {
+        logger.warn(
+          'Attempting to fetch records for organization without knowledge base',
+          {
+            userId,
+            orgId,
+            requestId: req.context?.requestId,
+          },
+        );
+
+        res.status(200).json({
+          records: [],
+          pagination: {
+            page: 1,
+            limit: 20,
+            totalCount: 0,
+            totalPages: 0,
+          },
+          meta: {
+            requestId: req.context?.requestId,
+            timestamp: new Date().toISOString(),
+            message: 'No knowledge base found for this organization',
+          },
+        });
+        return;
       }
 
       // Extract and parse query parameters
@@ -703,7 +760,9 @@ export const archiveRecord =
       // Check if user has permission to archive records
       try {
         await recordRelationService.validateUserKbAccess(userId, orgId, [
-          'OWNER','WRITER','FILEORGANIZER'
+          'OWNER',
+          'WRITER',
+          'FILEORGANIZER',
         ]);
       } catch (error) {
         throw new ForbiddenError('Permission denied');
@@ -809,7 +868,9 @@ export const unarchiveRecord =
       // Check if user has permission to unarchive records
       try {
         await recordRelationService.validateUserKbAccess(userId, orgId, [
-          'OWNER','WRITER','FILEORGANIZER'
+          'OWNER',
+          'WRITER',
+          'FILEORGANIZER',
         ]);
       } catch (error) {
         res.status(403).json({

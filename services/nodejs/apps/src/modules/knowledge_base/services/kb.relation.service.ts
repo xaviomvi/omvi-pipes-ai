@@ -1,10 +1,7 @@
 import { inject, injectable } from 'inversify';
 import { v4 as uuidv4 } from 'uuid';
 import { ArangoService } from '../../../libs/services/arango.service';
-import {
-  DocumentCollection,
-  EdgeCollection
-} from 'arangojs/collections';
+import { DocumentCollection, EdgeCollection } from 'arangojs/collections';
 import { Database } from 'arangojs';
 import { aql } from 'arangojs/aql';
 import { Logger } from '../../../libs/services/logger.service';
@@ -93,7 +90,7 @@ export class RecordRelationService {
       );
     }
   }
-  
+
   /**
    * Publishes events for multiple records and their associated file records
    * @param records The inserted records
@@ -285,7 +282,51 @@ export class RecordRelationService {
         orgId,
         error,
       });
-      throw error
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a knowledge base exists for a specific organization
+   * @param orgId The organization ID
+   * @returns An object with exists flag and the knowledge base document if found
+   */
+  async checkKBExists(
+    orgId: string,
+  ): Promise<{ exists: boolean; knowledgeBase?: any }> {
+    try {
+      if (!orgId) {
+        throw new NotFoundError(
+          'Organization ID is required to check if a knowledge base exists',
+        );
+      }
+
+      // Check if a knowledge base already exists for this organization
+      const cursor = await this.db.query(aql`
+      FOR kb IN ${this.kbCollection}
+        FILTER kb.orgId == ${orgId} AND kb.isDeleted == false
+        RETURN kb
+    `);
+
+      const existingKBs = await cursor.all();
+
+      if (existingKBs.length > 0) {
+        logger.info(`Found existing knowledge base for organization ${orgId}`);
+        return {
+          exists: true,
+          knowledgeBase: existingKBs[0],
+        };
+      }
+
+      // No knowledge base found
+      logger.info(`No knowledge base found for organization ${orgId}`);
+      return { exists: false };
+    } catch (error) {
+      logger.error('Failed to check if knowledge base exists', {
+        orgId,
+        error,
+      });
+      throw error;
     }
   }
 
@@ -303,7 +344,7 @@ export class RecordRelationService {
       return result.new as IRecordDocument;
     } catch (error) {
       logger.error('Failed to insert record', { record, error });
-      throw error
+      throw error;
     }
   }
 
@@ -323,7 +364,7 @@ export class RecordRelationService {
       return result.new as IFileRecordDocument;
     } catch (error) {
       logger.error('Failed to insert file record', { fileRecord, error });
-      throw error
+      throw error;
     }
   }
 
@@ -399,7 +440,7 @@ export class RecordRelationService {
       }
 
       logger.error('Failed to insert records and file records', { error });
-      throw error
+      throw error;
     }
   }
 
@@ -454,7 +495,7 @@ export class RecordRelationService {
         relationshipType,
         error,
       });
-      throw error
+      throw error;
     }
   }
 
@@ -508,7 +549,7 @@ export class RecordRelationService {
         fileRecordId,
         error,
       });
-      throw error
+      throw error;
     }
   }
 
@@ -546,7 +587,7 @@ export class RecordRelationService {
       const edge = {
         _from: recordHandle,
         _to: kbHandle,
-        entityType : ENTITY_TYPE.KNOWLEDGE_BASE,
+        entityType: ENTITY_TYPE.KNOWLEDGE_BASE,
         createdAtTimestamp: currentTime,
         updatedAtTimestamp: currentTime,
         isDeleted: false,
@@ -562,7 +603,7 @@ export class RecordRelationService {
         recordId,
         error,
       });
-      throw error
+      throw error;
     }
   }
 
@@ -602,11 +643,11 @@ export class RecordRelationService {
       const edge = {
         _from: userHandle,
         _to: kbHandle,
-        externalPermissionId :"",
+        externalPermissionId: '',
         type,
         role,
         createdAtTimestamp: currentTime,
-        updatedAtTimestamp : currentTime,
+        updatedAtTimestamp: currentTime,
         lastUpdatedTimestampAtSource: currentTime,
       };
 
@@ -643,7 +684,7 @@ export class RecordRelationService {
     orgId: string,
     firstName?: string,
     lastName?: string,
-    middleName?:string,
+    middleName?: string,
     designation?: string,
   ): Promise<any> {
     try {
@@ -727,7 +768,7 @@ export class RecordRelationService {
         orgId: orgId, // Ensure orgId is stored in the document
         email,
         firstName: firstName || '',
-        middleName : middleName || '',
+        middleName: middleName || '',
         lastName: lastName || '',
         fullName,
         designation: designation || '',
@@ -769,7 +810,79 @@ export class RecordRelationService {
         email,
         error,
       });
-      throw error
+      throw error;
+    }
+  }
+
+  /**
+   * Checks if a user exists in the user collection based on userId and orgId
+   * @param userId External user ID reference
+   * @param email User's email (optional)
+   * @param orgId Organization ID
+   * @returns Boolean indicating whether the user exists and the user object if found
+   */
+  async checkUserExists(
+    userId: string,
+    orgId: string,
+    email?: string,
+  ): Promise<{ exists: boolean; user?: any }> {
+    try {
+      // Validate required parameters
+      if (!userId) {
+        throw new NotFoundError('UserId is required to check if a user exists');
+      }
+
+      if (!orgId) {
+        throw new NotFoundError(
+          'Organization ID is required to check if a user exists',
+        );
+      }
+
+      // First, try to find the user by both userId and orgId
+      const userByIdCursor = await this.db.query(aql`
+      FOR user IN ${this.userCollection}
+        FILTER user.userId == ${userId} AND user.orgId == ${orgId} AND user.isActive == true
+        RETURN user
+    `);
+
+      const usersById = await userByIdCursor.all();
+
+      if (usersById.length > 0) {
+        logger.info(`User with userId ${userId} and orgId ${orgId} found`);
+        return { exists: true, user: usersById[0] };
+      }
+
+      // If email is provided, try to find by email and orgId
+      if (email && email !== `user-${userId}@example.com`) {
+        const emailCursor = await this.db.query(aql`
+        FOR user IN ${this.userCollection}
+          FILTER user.email == ${email} AND user.orgId == ${orgId} AND user.isActive == true
+          RETURN user
+      `);
+
+        const usersByEmail = await emailCursor.all();
+
+        if (usersByEmail.length > 0) {
+          logger.info(
+            `User with email ${email} for organization ${orgId} already exists`,
+          );
+          return { exists: true, user: usersByEmail[0] };
+        }
+      }
+
+      // No existing user found
+      logger.info(
+        `No user found with userId ${userId} or email ${email} for orgId ${orgId}`,
+      );
+      return { exists: false };
+    } catch (error) {
+      logger.error('Error in checkUserExists', {
+        userId,
+        orgId,
+        email,
+        error,
+      });
+      throw error;
     }
   }
 
@@ -991,7 +1104,7 @@ export class RecordRelationService {
         orgId,
         error,
       });
-      throw error
+      throw error;
     }
   }
 
@@ -1046,7 +1159,14 @@ export class RecordRelationService {
       const { knowledgeBase: kb } = await this.validateUserKbAccess(
         userId,
         orgId,
-        ['OWNER','READER','FILEORGANIZER','WRITER','COMMENTER','ORGANIZER'],
+        [
+          'OWNER',
+          'READER',
+          'FILEORGANIZER',
+          'WRITER',
+          'COMMENTER',
+          'ORGANIZER',
+        ],
       );
 
       const skip = (page - 1) * limit;
@@ -1292,7 +1412,7 @@ export class RecordRelationService {
       };
     } catch (error) {
       logger.error('Error in getRecords', { options, error });
-      throw error
+      throw error;
     }
   }
 
@@ -1411,7 +1531,7 @@ export class RecordRelationService {
         orgId,
         error,
       });
-      throw error
+      throw error;
     }
   }
 
@@ -1577,7 +1697,7 @@ export class RecordRelationService {
           // Map record fields to file record fields
           const fieldMappings: Record<string, string> = {
             recordName: 'name', // Record name -> File name
-            sizeInBytes : 'sizeInBytes'
+            sizeInBytes: 'sizeInBytes',
           };
 
           // Copy mapped fields to file record update
@@ -1618,7 +1738,7 @@ export class RecordRelationService {
       return result.new;
     } catch (error) {
       logger.error('Error updating record', { recordId, error });
-      throw error
+      throw error;
     }
   }
 
@@ -1698,7 +1818,7 @@ export class RecordRelationService {
       return true;
     } catch (error) {
       logger.error('Error soft deleting record', { recordId, error });
-      throw error
+      throw error;
     }
   }
 }
