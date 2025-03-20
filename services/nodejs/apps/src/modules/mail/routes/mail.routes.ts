@@ -11,10 +11,10 @@ import {
   AuthenticatedUserRequest,
   ScopedTokenRequest,
 } from '../../../libs/middlewares/types';
-import { loadMailConfig, MailConfig } from '../config/config';
 import { smtpConfigChecker } from '../middlewares/checkSmtpConfig';
 import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
 import { jwtValidator } from '../middlewares/userAuthentication';
+import { AppConfig, loadAppConfig } from '../../tokens_manager/config/config';
 
 export const smtpConfigSchema = z.object({
   body: z.object({
@@ -68,7 +68,7 @@ export function createMailServiceRouter(container: Container) {
     ) => {
       try {
         // Reload configuration (Optional: You may choose to restart the service instead)
-        const updatedConfig: MailConfig = await loadMailConfig();
+        const updatedConfig: AppConfig = await loadAppConfig();
 
         res.status(200).json({
           message: 'SMTP configuration updated successfully',

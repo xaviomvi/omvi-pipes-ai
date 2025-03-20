@@ -30,6 +30,8 @@ import {
   getMongoDbConfig,
   deleteGoogleWorkspaceCredentials,
   getGoogleWorkspaceBusinessCredentials,
+  getQdrantConfig,
+  createQdrantConfig,
 } from '../controller/cm_controller';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { ValidationMiddleware } from '../../../libs/middlewares/validation.middleware';
@@ -45,6 +47,7 @@ import {
   googleWorkspaceConfigSchema,
   mongoDBConfigSchema,
   arangoDBConfigSchema,
+  qdrantConfigSchema,
 } from '../validator/validators';
 import { FileProcessorFactory } from '../../../libs/middlewares/file_processor/fp.factory';
 import { FileProcessingType } from '../../../libs/middlewares/file_processor/fp.constant';
@@ -53,6 +56,7 @@ import {
   checkArangoHealth,
   checkKafkaHealth,
   checkMongoHealth,
+  checkQdrantHealth,
   checkRedisHealth,
 } from '../middlewares/health.middleware';
 import { EntitiesEventProducer } from '../../user_management/services/entity_events.service';
@@ -296,6 +300,23 @@ export function createConfigurationManagerRouter(container: Container): Router {
     userAdminCheck,
     metricsMiddleware(container),
     getRedisConfig(keyValueStoreService),
+  );
+
+  router.post(
+    '/qdrantConfig',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(qdrantConfigSchema),
+    checkQdrantHealth,
+    createQdrantConfig(keyValueStoreService),
+  );
+
+  router.get(
+    '/qdrantConfig',
+    authMiddleware.authenticate,
+    userAdminCheck,
+    metricsMiddleware(container),
+    getQdrantConfig(keyValueStoreService),
   );
 
   // message broker config routes

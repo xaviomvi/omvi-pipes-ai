@@ -14,6 +14,8 @@ import { UserController } from '../controller/users.controller';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
 import { PrometheusService } from '../../../libs/services/prometheus/prometheus.service';
 import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
+import { FileProcessorFactory } from '../../../libs/middlewares/file_processor/fp.factory';
+import { FileProcessingType } from '../../../libs/middlewares/file_processor/fp.constant';
 
 const UserIdUrlParams = z.object({
   id: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid UserId'),
@@ -57,6 +59,8 @@ const updateUserBody = z.object({
       message: 'Invalid mobile number',
     }),
   designation: z.string().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   address: z
     .object({
       addressLine1: z.string().optional(),
@@ -328,6 +332,72 @@ export function createUserRouter(container: Container) {
     },
   );
 
+  router.put(
+    '/dp',
+    authMiddleware.authenticate,
+    ...FileProcessorFactory.createBufferUploadProcessor({
+      fieldName: 'file',
+      allowedMimeTypes: [
+        'image/png',
+        'image/jpeg',
+        'image/jpg',
+        'image/webp',
+        'image/gif',
+      ],
+      maxFilesAllowed: 1,
+      isMultipleFilesAllowed: false,
+      processingType: FileProcessingType.BUFFER,
+      maxFileSize: 1024 * 1024,
+      strictFileUpload: true,
+    }).getMiddleware,
+    metricsMiddleware(container),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        await userController.updateUserDisplayPicture(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.delete(
+    '/dp',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        await userController.removeUserDisplayPicture(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.get(
+    '/dp',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        await userController.getUserDisplayPicture(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   router.patch(
     '/:id/designation',
     authMiddleware.authenticate,
@@ -422,59 +492,6 @@ export function createUserRouter(container: Container) {
       try {
         res.status(200).json({ message: 'User has admin access' });
         return;
-      } catch (error) {
-        next(error);
-      }
-    },
-  );
-
-  router.put(
-    '/:id/dp',
-    authMiddleware.authenticate,
-    metricsMiddleware(container),
-    ValidationMiddleware.validate(UserIdValidationSchema),
-    async (
-      req: AuthenticatedUserRequest,
-      res: Response,
-      next: NextFunction,
-    ) => {
-      try {
-        await userController.updateUserDisplayPicture(req, res, next);
-      } catch (error) {
-        next(error);
-      }
-    },
-  );
-
-  router.delete(
-    '/:id/dp',
-    authMiddleware.authenticate,
-    metricsMiddleware(container),
-    ValidationMiddleware.validate(UserIdValidationSchema),
-    async (
-      req: AuthenticatedUserRequest,
-      res: Response,
-      next: NextFunction,
-    ) => {
-      try {
-        await userController.removeUserDisplayPicture(req, res, next);
-      } catch (error) {
-        next(error);
-      }
-    },
-  );
-  router.get(
-    '/:id/dp',
-    authMiddleware.authenticate,
-    metricsMiddleware(container),
-    ValidationMiddleware.validate(UserIdValidationSchema),
-    async (
-      req: AuthenticatedUserRequest,
-      res: Response,
-      next: NextFunction,
-    ) => {
-      try {
-        await userController.getUserDisplayPicture(req, res, next);
       } catch (error) {
         next(error);
       }

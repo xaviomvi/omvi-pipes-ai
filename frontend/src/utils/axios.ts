@@ -8,13 +8,13 @@ import { CONFIG } from 'src/config-global';
 
 // Error types for better classification
 export enum ErrorType {
-  SERVER_ERROR = 'SERVER_ERROR',          // 5xx errors
+  SERVER_ERROR = 'SERVER_ERROR', // 5xx errors
   AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR', // 401, 403 errors
-  VALIDATION_ERROR = 'VALIDATION_ERROR',   // 400 errors with validation issues
-  NOT_FOUND_ERROR = 'NOT_FOUND_ERROR',     // 404 errors
-  NETWORK_ERROR = 'NETWORK_ERROR',        // Connection issues
-  TIMEOUT_ERROR = 'TIMEOUT_ERROR',        // Request timeout
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR'         // Fallback for other errors
+  VALIDATION_ERROR = 'VALIDATION_ERROR', // 400 errors with validation issues
+  NOT_FOUND_ERROR = 'NOT_FOUND_ERROR', // 404 errors
+  NETWORK_ERROR = 'NETWORK_ERROR', // Connection issues
+  TIMEOUT_ERROR = 'TIMEOUT_ERROR', // Request timeout
+  UNKNOWN_ERROR = 'UNKNOWN_ERROR', // Fallback for other errors
 }
 
 // Standardized error response
@@ -34,10 +34,12 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     // Default error structure
+
     const processedError: ProcessedError = {
       type: ErrorType.UNKNOWN_ERROR,
-      message: 'Something went wrong. Please try again later.',
-      retry: false
+      message:
+        error?.response?.data?.error?.message || 'Something went wrong. Please try again later.',
+      retry: false,
     };
 
     // Axios error with response from server
@@ -50,14 +52,15 @@ axiosInstance.interceptors.response.use(
           processedError.retry = true;
         } else if (error.message && error.message.includes('Network Error')) {
           processedError.type = ErrorType.NETWORK_ERROR;
-          processedError.message = 'Unable to connect to server. Please check your internet connection.';
+          processedError.message =
+            'Unable to connect to server. Please check your internet connection.';
           processedError.retry = true;
         }
-      } 
+      }
       // Server responded with an error status
       else if (error.response) {
         processedError.statusCode = error.response.status;
-        
+
         // Set message and details from response if available
         if (error.response.data) {
           if (typeof error.response.data === 'string') {
@@ -67,27 +70,28 @@ axiosInstance.interceptors.response.use(
             processedError.details = error.response.data;
           }
         }
-        
+
         // Categorize by status code
         if (error.response.status >= 500) {
           processedError.type = ErrorType.SERVER_ERROR;
-          processedError.message = processedError.message || 'The server encountered an error. Please try again later.';
+          processedError.message =
+            processedError.message || 'The server encountered an error. Please try again later.';
           processedError.retry = true;
-        } 
-        else if (error.response.status === 401 || error.response.status === 403) {
+        } else if (error.response.status === 401 || error.response.status === 403) {
           processedError.type = ErrorType.AUTHENTICATION_ERROR;
-          processedError.message = processedError.message || 'Authentication failed. Please sign in again.';
-        } 
-        else if (error.response.status === 404) {
+          processedError.message =
+            processedError.message || 'Authentication failed. Please sign in again.';
+        } else if (error.response.status === 404) {
           processedError.type = ErrorType.NOT_FOUND_ERROR;
-          processedError.message = processedError.message || 'The requested resource was not found.';
-        } 
-        else if (error.response.status === 400) {
+          processedError.message =
+            processedError.message || 'The requested resource was not found.';
+        } else if (error.response.status === 400) {
           processedError.type = ErrorType.VALIDATION_ERROR;
-          processedError.message = processedError.message || 'Invalid input data. Please check and try again.';
+          processedError.message =
+            processedError.message || 'Invalid input data. Please check and try again.';
         }
       }
-    } 
+    }
     // Handle non-axios errors
     else if (error instanceof Error) {
       processedError.message = error.message;

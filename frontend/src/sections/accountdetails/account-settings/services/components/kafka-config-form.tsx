@@ -10,6 +10,17 @@ import {
   Typography,
   InputAdornment,
   CircularProgress,
+  IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
+  Paper,
+  Collapse,
+  Switch,
+  FormControlLabel,
+  SelectChangeEvent,
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
@@ -21,23 +32,47 @@ interface KafkaConfigFormProps {
   onSaveSuccess?: () => void;
 }
 
-export interface KafkaConfigFormRef {
-  handleSave: () => Promise<void>;
+// Define the save result interface
+interface SaveResult {
+  success: boolean;
+  warning?: string;
+  error?: string;
 }
+
+export interface KafkaConfigFormRef {
+  handleSave: () => Promise<SaveResult>;
+}
+
+export interface KafkaConfig {
+  brokers: string[];
+  sasl?: {
+    mechanism: 'plain' | 'scram-sha-256' | 'scram-sha-512';
+    username: string;
+    password: string;
+  };
+}
+
+type SaslMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
 const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
   ({ onValidationChange, onSaveSuccess }, ref) => {
     const theme = useTheme();
     const [formData, setFormData] = useState({
-      clientId: '',
-      brokers: '',
-      groupId: '',
+      brokers: [] as string[],
+      currentBroker: '',
+      saslEnabled: false,
+      sasl: {
+        mechanism: 'plain' as SaslMechanism,
+        username: '',
+        password: '',
+      },
     });
 
     const [errors, setErrors] = useState({
-      clientId: '',
       brokers: '',
-      groupId: '',
+      currentBroker: '',
+      saslUsername: '',
+      saslPassword: '',
     });
 
     const [isLoading, setIsLoading] = useState(false);
@@ -45,16 +80,18 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
     const [saveError, setSaveError] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [originalData, setOriginalData] = useState({
-      clientId: '',
-      brokers: '',
-      groupId: '',
+      brokers: [] as string[],
+      saslEnabled: false,
+      sasl: {
+        mechanism: 'plain' as SaslMechanism,
+        username: '',
+        password: '',
+      },
     });
 
-    // Expose the handleSave method to the parent component
+    // Expose the handleSave method to the parent component with enhanced return type
     useImperativeHandle(ref, () => ({
-      handleSave: async () => {
-        await handleSave();
-      },
+      handleSave: async (): Promise<SaveResult> => handleSave(),
     }));
 
     // Load existing config on mount
@@ -65,13 +102,26 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
           const config = await getKafkaConfig();
 
           const data = {
-            clientId: config?.clientId || '',
-            brokers: config?.brokers || '',
-            groupId: config?.groupId || '',
+            brokers: Array.isArray(config?.brokers) ? [...config.brokers] : [],
+            currentBroker: '',
+            saslEnabled: Boolean(config?.sasl),
+            sasl: {
+              mechanism: config?.sasl?.mechanism || 'plain',
+              username: config?.sasl?.username || '',
+              password: config?.sasl?.password || '',
+            },
           };
 
           setFormData(data);
-          setOriginalData(data);
+          setOriginalData({
+            brokers: data.brokers,
+            saslEnabled: data.saslEnabled,
+            sasl: {
+              mechanism: data.sasl.mechanism,
+              username: data.sasl.username,
+              password: data.sasl.password,
+            },
+          });
         } catch (error) {
           console.error('Failed to load Kafka config:', error);
         } finally {
@@ -84,46 +134,95 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
 
     // Validate form and notify parent
     useEffect(() => {
-      const isValid =
-        formData.clientId.trim() !== '' &&
-        formData.brokers.trim() !== '' &&
-        formData.groupId.trim() !== '' &&
-        !errors.clientId &&
-        !errors.brokers &&
-        !errors.groupId;
+      let isValid = formData.brokers.length > 0 && !errors.brokers;
 
-      // Only notify about validation if in edit mode or if the form has changed
-      const hasChanges =
-        formData.clientId !== originalData.clientId ||
-        formData.brokers !== originalData.brokers ||
-        formData.groupId !== originalData.groupId;
+      // Add SASL validation if enabled
+      if (formData.saslEnabled) {
+        isValid =
+          isValid &&
+          formData.sasl.username.trim() !== '' &&
+          formData.sasl.password.trim() !== '' &&
+          !errors.saslUsername &&
+          !errors.saslPassword;
+      }
+
+      // Check if form has changes
+      const brokersChanged =
+        JSON.stringify(formData.brokers) !== JSON.stringify(originalData.brokers);
+      const saslEnabledChanged = formData.saslEnabled !== originalData.saslEnabled;
+      const saslChanged =
+        formData.saslEnabled &&
+        (formData.sasl.mechanism !== originalData.sasl.mechanism ||
+          formData.sasl.username !== originalData.sasl.username ||
+          formData.sasl.password !== originalData.sasl.password);
+
+      const hasChanges = brokersChanged || saslEnabledChanged || saslChanged;
 
       onValidationChange(isValid && isEditing && hasChanges);
     }, [formData, errors, onValidationChange, isEditing, originalData]);
 
-    // Handle input change
+    // Handle input change for the current broker field
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
 
-      setFormData({
-        ...formData,
-        [name]: value,
-      });
-
-      // Validate
-      validateField(name, value);
+      if (name === 'currentBroker') {
+        setFormData({
+          ...formData,
+          currentBroker: value,
+        });
+        validateCurrentBroker(value);
+      } else if (name === 'saslUsername' || name === 'saslPassword') {
+        setFormData({
+          ...formData,
+          sasl: {
+            ...formData.sasl,
+            [name === 'saslUsername' ? 'username' : 'password']: value,
+          },
+        });
+        validateSaslField(name, value);
+      }
     };
 
-    // Field validation
-    const validateField = (name: string, value: string) => {
+    // Handle select change for SASL mechanism
+    const handleMechanismChange = (event: SelectChangeEvent) => {
+      const value = event.target.value as SaslMechanism;
+      setFormData({
+        ...formData,
+        sasl: {
+          ...formData.sasl,
+          mechanism: value,
+        },
+      });
+    };
+
+    // Handle SASL toggle
+    const handleSaslToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData({
+        ...formData,
+        saslEnabled: e.target.checked,
+      });
+    };
+
+    // Validate current broker input
+    const validateCurrentBroker = (value: string) => {
+      let error = '';
+
+      if (value !== '' && !value.includes(':')) {
+        error = 'Broker should include host:port format';
+      }
+
+      setErrors({
+        ...errors,
+        currentBroker: error,
+      });
+    };
+
+    // Validate SASL fields
+    const validateSaslField = (name: string, value: string) => {
       let error = '';
 
       if (value.trim() === '') {
         error = 'This field is required';
-      } else if (name === 'clientId' && value.length < 3) {
-        error = 'Client ID must be at least 3 characters';
-      } else if (name === 'brokers' && !value.includes(':')) {
-        error = 'Brokers should include host:port format';
       }
 
       setErrors({
@@ -132,51 +231,164 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
       });
     };
 
+    // Validate brokers array
+    const validateBrokers = (brokers: string[]) => {
+      const error = brokers.length === 0 ? 'At least one broker is required' : '';
+      setErrors({
+        ...errors,
+        brokers: error,
+      });
+      return error === '';
+    };
+
+    // Validate all SASL fields
+    const validateSasl = () => {
+      if (!formData.saslEnabled) return true;
+
+      const usernameError = formData.sasl.username.trim() === '' ? 'Username is required' : '';
+      const passwordError = formData.sasl.password.trim() === '' ? 'Password is required' : '';
+
+      setErrors({
+        ...errors,
+        saslUsername: usernameError,
+        saslPassword: passwordError,
+      });
+
+      return !usernameError && !passwordError;
+    };
+
+    // Handle add broker
+    const handleAddBroker = () => {
+      if (
+        formData.currentBroker.trim() !== '' &&
+        formData.currentBroker.includes(':') &&
+        !formData.brokers.includes(formData.currentBroker.trim())
+      ) {
+        const newBrokers = [...formData.brokers, formData.currentBroker.trim()];
+        setFormData({
+          ...formData,
+          brokers: newBrokers,
+          currentBroker: '',
+        });
+        validateBrokers(newBrokers);
+      }
+    };
+
+    // Handle broker deletion
+    const handleDeleteBroker = (brokerToDelete: string) => {
+      const newBrokers = formData.brokers.filter((broker) => broker !== brokerToDelete);
+      setFormData({
+        ...formData,
+        brokers: newBrokers,
+      });
+      validateBrokers(newBrokers);
+    };
+
+    // Handle keypress in the broker input field
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !errors.currentBroker && formData.currentBroker.trim() !== '') {
+        e.preventDefault();
+        handleAddBroker();
+      }
+    };
+
     // Handle edit mode toggle
     const handleToggleEdit = () => {
       if (isEditing) {
         // Cancel edit - revert to original data
-        setFormData(originalData);
+        setFormData({
+          ...formData,
+          brokers: [...originalData.brokers],
+          currentBroker: '',
+          saslEnabled: originalData.saslEnabled,
+          sasl: {
+            mechanism: originalData.sasl.mechanism,
+            username: originalData.sasl.username,
+            password: originalData.sasl.password,
+          },
+        });
         setErrors({
-          clientId: '',
           brokers: '',
-          groupId: '',
+          currentBroker: '',
+          saslUsername: '',
+          saslPassword: '',
         });
       }
       setIsEditing(!isEditing);
     };
 
-    // Handle save
-    const handleSave = async () => {
+    // Handle save with structured return type
+    const handleSave = async (): Promise<SaveResult> => {
+      // Validate all fields
+      const brokersValid = validateBrokers(formData.brokers);
+      const saslValid = validateSasl();
+
+      if (!brokersValid || (formData.saslEnabled && !saslValid)) {
+        return {
+          success: false,
+          error:
+            formData.saslEnabled && !saslValid
+              ? 'SASL credentials are required'
+              : 'At least one broker is required',
+        };
+      }
+
       setIsSaving(true);
       setSaveError(null);
 
       try {
-        await updateKafkaConfig({
-          clientId: formData.clientId,
+        const config: KafkaConfig = {
           brokers: formData.brokers,
-          groupId: formData.groupId,
-        });
+        };
+
+        // Add SASL if enabled
+        if (formData.saslEnabled) {
+          config.sasl = {
+            mechanism: formData.sasl.mechanism,
+            username: formData.sasl.username,
+            password: formData.sasl.password,
+          };
+        }
+
+        const response = await updateKafkaConfig(config);
+
+        // Check for warnings in the response header
+        const warningHeader = response.data?.warningMessage;
 
         // Update original data after successful save
         setOriginalData({
-          clientId: formData.clientId,
-          brokers: formData.brokers,
-          groupId: formData.groupId,
+          brokers: [...formData.brokers],
+          saslEnabled: formData.saslEnabled,
+          sasl: {
+            mechanism: formData.sasl.mechanism,
+            username: formData.sasl.username,
+            password: formData.sasl.password,
+          },
         });
 
         // Exit edit mode
         setIsEditing(false);
 
+        // Optional success callback
         if (onSaveSuccess) {
           onSaveSuccess();
         }
 
-        return true;
+        // Return success with any warnings
+        return {
+          success: true,
+          warning: warningHeader || undefined,
+        };
       } catch (error) {
-        setSaveError('Failed to save Kafka configuration');
+        const errorMessage = 'Failed to save Kafka configuration';
+        setSaveError(error.message || errorMessage);
         console.error('Error saving Kafka config:', error);
-        return false;
+
+        // Return error result
+        return {
+          success: false,
+          error: error.message || errorMessage,
+        };
       } finally {
         setIsSaving(false);
       }
@@ -192,18 +404,6 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
 
     return (
       <>
-        {saveError && (
-          <Alert
-            severity="error"
-            sx={{
-              mb: 3,
-              borderRadius: 1,
-            }}
-          >
-            {saveError}
-          </Alert>
-        )}
-
         <Box
           sx={{
             mb: 3,
@@ -225,8 +425,8 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
           />
           <Box>
             <Typography variant="body2" color="text.secondary">
-              Kafka connection details. For multiple brokers, use a comma-separated list in the
-              format <code>host1:port1,host2:port2</code>.
+              Configure Kafka connection settings. Add brokers in <code>host:port</code> format and
+              optionally configure SASL authentication.
             </Typography>
           </Box>
         </Box>
@@ -242,97 +442,212 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
           </Button>
         </Box>
 
-        <Grid container spacing={2.5}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Client ID"
-              name="clientId"
-              value={formData.clientId}
-              onChange={handleChange}
-              placeholder="my-application"
-              error={Boolean(errors.clientId)}
-              helperText={errors.clientId || 'Unique identifier for this client application'}
-              required
-              size="small"
-              disabled={!isEditing}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Iconify icon="mdi:identifier" width={18} height={18} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: alpha(theme.palette.text.primary, 0.15),
+        {/* Broker Configuration Section */}
+        <Paper
+          elevation={0}
+          sx={{
+            mb: 2,
+            p: 1.5,
+            border: `1px solid ${alpha(theme.palette.text.primary, 0.1)}`,
+            borderRadius: 1,
+          }}
+        >
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+            Brokers
+          </Typography>
+
+          {formData.brokers.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+              No brokers configured
+            </Typography>
+          ) : (
+            <Box sx={{ mb: 1 }}>
+              {formData.brokers.map((broker, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    py: 0.5,
+                    borderBottom:
+                      index < formData.brokers.length - 1
+                        ? `1px solid ${alpha(theme.palette.divider, 0.5)}`
+                        : 'none',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Iconify icon="mdi:server-network" width={16} height={16} sx={{ mr: 0.75 }} />
+                    <Typography variant="body2">{broker}</Typography>
+                  </Box>
+                  {isEditing && (
+                    <IconButton
+                      onClick={() => handleDeleteBroker(broker)}
+                      size="small"
+                      color="error"
+                      sx={{ p: 0.5 }}
+                    >
+                      <Iconify icon="mdi:delete-outline" width={18} height={18} />
+                    </IconButton>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          {errors.brokers && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {errors.brokers}
+            </Alert>
+          )}
+
+          {isEditing && (
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mt: 1 }}>
+              <TextField
+                fullWidth
+                name="currentBroker"
+                value={formData.currentBroker}
+                onChange={handleChange}
+                onKeyPress={handleKeyPress}
+                placeholder="host:port"
+                error={Boolean(errors.currentBroker)}
+                helperText={errors.currentBroker || ''}
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Iconify icon="mdi:server-network" width={16} height={16} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: alpha(theme.palette.text.primary, 0.15),
+                    },
                   },
-                },
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Group ID"
-              name="groupId"
-              value={formData.groupId}
-              onChange={handleChange}
-              placeholder="consumer-group-1"
-              error={Boolean(errors.groupId)}
-              helperText={errors.groupId || 'Consumer group identifier for this application'}
-              required
-              size="small"
-              disabled={!isEditing}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Iconify icon="mdi:account-group" width={18} height={18} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: alpha(theme.palette.text.primary, 0.15),
+                  '& .MuiFormHelperText-root': {
+                    mt: 0.5,
+                    mb: 0,
                   },
-                },
-              }}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Brokers"
-              name="brokers"
-              value={formData.brokers}
-              onChange={handleChange}
-              placeholder="kafka-host1:9092,kafka-host2:9092"
-              error={Boolean(errors.brokers)}
-              helperText={
-                errors.brokers || 'Comma-separated list of Kafka brokers in host:port format'
+                }}
+              />
+              <Button
+                onClick={handleAddBroker}
+                variant="contained"
+                size="small"
+                disabled={
+                  formData.currentBroker.trim() === '' ||
+                  Boolean(errors.currentBroker) ||
+                  formData.brokers.includes(formData.currentBroker.trim())
+                }
+                sx={{ ml: 1, minWidth: '80px', height: 40 }}
+              >
+                Add
+              </Button>
+            </Box>
+          )}
+        </Paper>
+
+        {/* SASL Authentication Section */}
+        <Paper
+          elevation={0}
+          sx={{
+            mb: 2,
+            p: 1.5,
+            border: `1px solid ${alpha(theme.palette.text.primary, 0.1)}`,
+            borderRadius: 1,
+          }}
+        >
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
+          >
+            <Typography variant="subtitle1">SASL Authentication</Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.saslEnabled}
+                  onChange={handleSaslToggle}
+                  disabled={!isEditing}
+                  color="primary"
+                  size="small"
+                />
               }
-              required
-              size="small"
-              disabled={!isEditing}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Iconify icon="mdi:server-network" width={18} height={18} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: alpha(theme.palette.text.primary, 0.15),
-                  },
-                },
-              }}
+              label={formData.saslEnabled ? 'Enabled' : 'Disabled'}
+              sx={{ m: 0 }}
             />
-          </Grid>
-        </Grid>
+          </Box>
+
+          <Collapse in={formData.saslEnabled}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small" disabled={!isEditing}>
+                  <InputLabel id="sasl-mechanism-label">Mechanism</InputLabel>
+                  <Select
+                    labelId="sasl-mechanism-label"
+                    value={formData.sasl.mechanism}
+                    onChange={handleMechanismChange}
+                    label="Mechanism"
+                  >
+                    <MenuItem value="plain">PLAIN</MenuItem>
+                    <MenuItem value="scram-sha-256">SCRAM-SHA-256</MenuItem>
+                    <MenuItem value="scram-sha-512">SCRAM-SHA-512</MenuItem>
+                  </Select>
+                  <FormHelperText>The SASL authentication mechanism</FormHelperText>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Username"
+                  name="saslUsername"
+                  value={formData.sasl.username}
+                  onChange={handleChange}
+                  error={Boolean(errors.saslUsername)}
+                  helperText={errors.saslUsername || ''}
+                  required
+                  size="small"
+                  disabled={!isEditing}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify icon="mdi:account" width={18} height={18} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Password"
+                  name="saslPassword"
+                  type="password"
+                  value={formData.sasl.password}
+                  onChange={handleChange}
+                  error={Boolean(errors.saslPassword)}
+                  helperText={errors.saslPassword || ''}
+                  required
+                  size="small"
+                  disabled={!isEditing}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify icon="mdi:lock" width={18} height={18} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </Collapse>
+
+          {!formData.saslEnabled && !isEditing && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              No authentication configured
+            </Typography>
+          )}
+        </Paper>
 
         {isSaving && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>

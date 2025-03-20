@@ -23,14 +23,17 @@ export interface ArangoDBConfig {
 }
 
 export interface KafkaConfig {
-  clientId: string;
-  brokers: string;
-  groupId: string;
+  brokers: string[];
+  sasl?: {
+    mechanism: 'plain' | 'scram-sha-256' | 'scram-sha-512';
+    username: string;
+    password: string;
+  };
 }
 
 export interface QdrantConfig {
   host: string;
-  grpcPort: string;
+  grpcPort: number;
   apiKey?: string;
 }
 
@@ -140,7 +143,7 @@ export const updateRedisConfig = async (redisConfig: RedisConfig): Promise<any> 
 export const updateMongoDBConfig = async (mongoDBConfig: MongoDBConfig): Promise<any> => {
   try {
     const response = await axios.post(`${API_BASE_URL}/mongoDBConfig`, mongoDBConfig);
-    return response.data;
+    return response;
   } catch (error) {
     console.error('Failed to update MongoDB configuration:', error);
     throw error;
@@ -155,7 +158,7 @@ export const updateMongoDBConfig = async (mongoDBConfig: MongoDBConfig): Promise
 export const updateArangoDBConfig = async (arangoDBConfig: ArangoDBConfig): Promise<any> => {
   try {
     const response = await axios.post(`${API_BASE_URL}/arangoDBConfig`, arangoDBConfig);
-    return response.data;
+    return response;
   } catch (error) {
     console.error('Failed to update ArangoDB configuration:', error);
     throw error;
@@ -168,13 +171,9 @@ export const updateArangoDBConfig = async (arangoDBConfig: ArangoDBConfig): Prom
  * @returns {Promise<any>} The API response
  */
 export const updateKafkaConfig = async (kafkaConfig: KafkaConfig): Promise<any> => {
-  try {
-    const response = await axios.post(`${API_BASE_URL}/kafkaConfig`, kafkaConfig);
-    return response.data;
-  } catch (error) {
-    console.error('Failed to update Kafka configuration:', error);
-    throw error;
-  }
+  const response = await axios.post(`${API_BASE_URL}/kafkaConfig`, kafkaConfig);
+  console.log(response);
+  return response;
 };
 
 /**
@@ -185,7 +184,7 @@ export const updateKafkaConfig = async (kafkaConfig: KafkaConfig): Promise<any> 
 export const updateQdrantConfig = async (qdrantConfig: QdrantConfig): Promise<any> => {
   try {
     const response = await axios.post(`${API_BASE_URL}/qdrantConfig`, qdrantConfig);
-    return response.data;
+    return response;
   } catch (error) {
     console.error('Failed to update Qdrant configuration:', error);
     throw error;
@@ -194,7 +193,7 @@ export const updateQdrantConfig = async (qdrantConfig: QdrantConfig): Promise<an
 export const updateBackendNodejsConfig = async (url: string): Promise<any> => {
   try {
     const response = await axios.post(`${API_BASE_URL}/kafkaConfig`, url);
-    return response.data;
+    return response;
   } catch (error) {
     console.error('Failed to update Kafka configuration:', error);
     throw error;

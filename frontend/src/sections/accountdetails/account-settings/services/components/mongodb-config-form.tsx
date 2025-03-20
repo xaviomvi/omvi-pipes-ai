@@ -20,9 +20,14 @@ interface MongoDBConfigFormProps {
   onValidationChange: (isValid: boolean) => void;
   onSaveSuccess?: () => void;
 }
+interface SaveResult {
+  success: boolean;
+  warning?: string;
+  error?: string;
+}
 
 export interface MongoDBConfigFormRef {
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<SaveResult>;
 }
 
 const MongoDBConfigForm = forwardRef<MongoDBConfigFormRef, MongoDBConfigFormProps>(
@@ -49,9 +54,7 @@ const MongoDBConfigForm = forwardRef<MongoDBConfigFormRef, MongoDBConfigFormProp
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
-      handleSave: async () => {
-        await handleSave();
-      },
+      handleSave: async (): Promise<SaveResult> => handleSave(),
     }));
 
     // Load existing config on mount
@@ -154,10 +157,11 @@ const MongoDBConfigForm = forwardRef<MongoDBConfigFormRef, MongoDBConfigFormProp
       setSaveError(null);
 
       try {
-        await updateMongoDBConfig({
+        const response = await updateMongoDBConfig({
           uri: formData.uri,
           db: formData.database,
         });
+        const warningHeader = response.data?.warningMessage;
 
         // Update original data after successful save
         setOriginalData({
@@ -172,11 +176,19 @@ const MongoDBConfigForm = forwardRef<MongoDBConfigFormRef, MongoDBConfigFormProp
           onSaveSuccess();
         }
 
-        return true;
+        return {
+          success: true,
+          warning: warningHeader || undefined,
+        };
       } catch (error) {
-        setSaveError('Failed to save MongoDB configuration');
+        const errorMessage = 'Failed to save MongoDB configuration';
+        setSaveError(error.message || errorMessage);
         console.error('Error saving MongoDB config:', error);
-        return false;
+        // Return error result
+        return {
+          success: false,
+          error: error.message || errorMessage,
+        };
       } finally {
         setIsSaving(false);
       }
@@ -192,18 +204,6 @@ const MongoDBConfigForm = forwardRef<MongoDBConfigFormRef, MongoDBConfigFormProp
 
     return (
       <>
-        {saveError && (
-          <Alert
-            severity="error"
-            sx={{
-              mb: 3,
-              borderRadius: 1,
-            }}
-          >
-            {saveError}
-          </Alert>
-        )}
-
         <Box
           sx={{
             mb: 3,

@@ -33,7 +33,13 @@ const isValidURL = (url: string): boolean => {
 };
 
 export interface BackendNodejsConfigFormRef {
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<SaveResult>;
+}
+
+interface SaveResult {
+  success: boolean;
+  warning?: string;
+  error?: string;
 }
 
 const BackendNodejsConfigForm = forwardRef<BackendNodejsConfigFormRef, BackendNodejsUrlFormProps>(
@@ -57,9 +63,7 @@ const BackendNodejsConfigForm = forwardRef<BackendNodejsConfigFormRef, BackendNo
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
-      handleSave: async () => {
-        await handleSave();
-      },
+      handleSave: async (): Promise<SaveResult> => handleSave(),
     }));
 
     // Load existing config on mount
@@ -147,8 +151,8 @@ const BackendNodejsConfigForm = forwardRef<BackendNodejsConfigFormRef, BackendNo
       setSaveError(null);
 
       try {
-        await updateBackendNodejsConfig(formData.url);
-
+        const response = await updateBackendNodejsConfig(formData.url);
+        const warningHeader = response.data?.warningMessage;
         // Update original data after successful save
         setOriginalData({
           url: formData.url,
@@ -161,11 +165,19 @@ const BackendNodejsConfigForm = forwardRef<BackendNodejsConfigFormRef, BackendNo
           onSaveSuccess();
         }
 
-        return true;
+        return {
+          success: true,
+          warning: warningHeader || undefined,
+        };
       } catch (error) {
-        setSaveError('Failed to save Backend NodeJS URL configuration');
-        console.error('Error saving Backend NodeJS URL config:', error);
-        return false;
+        const errorMessage = 'Failed to save Backend NodeJS URL configuration';
+        setSaveError(error.message || errorMessage);
+        console.error('Error saving Backend NodeJS URL ', error);
+        // Return error result
+        return {
+          success: false,
+          error: error.message || errorMessage,
+        };
       } finally {
         setIsSaving(false);
       }
@@ -181,18 +193,6 @@ const BackendNodejsConfigForm = forwardRef<BackendNodejsConfigFormRef, BackendNo
 
     return (
       <>
-        {saveError && (
-          <Alert
-            severity="error"
-            sx={{
-              mb: 3,
-              borderRadius: 1,
-            }}
-          >
-            {saveError}
-          </Alert>
-        )}
-
         <Box
           sx={{
             mb: 3,

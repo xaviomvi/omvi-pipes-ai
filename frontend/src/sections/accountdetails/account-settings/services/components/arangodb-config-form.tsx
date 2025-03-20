@@ -20,9 +20,14 @@ interface ArangoDBConfigFormProps {
   onValidationChange: (isValid: boolean) => void;
   onSaveSuccess?: () => void;
 }
+interface SaveResult {
+  success: boolean;
+  warning?: string;
+  error?: string;
+}
 
 export interface ArangoDBConfigFormRef {
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<SaveResult>;
 }
 
 const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormProps>(
@@ -55,9 +60,7 @@ const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormP
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
-      handleSave: async () => {
-        await handleSave();
-      },
+      handleSave: async (): Promise<SaveResult> => handleSave(),
     }));
 
     // Load existing config on mount
@@ -153,18 +156,19 @@ const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormP
     };
 
     // Handle save
-    const handleSave = async () => {
+    const handleSave = async (): Promise<SaveResult> => {
       setIsSaving(true);
       setSaveError(null);
 
       try {
-        await updateArangoDBConfig({
+        const response = await updateArangoDBConfig({
           uri: formData.uri,
           db: formData.db,
           username: formData.username,
           password: formData.password,
         });
 
+        const warningHeader = response.data?.warningMessage;
         // Update original data after successful save
         setOriginalData({
           uri: formData.uri,
@@ -180,11 +184,19 @@ const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormP
           onSaveSuccess();
         }
 
-        return true;
+        return {
+          success: true,
+          warning: warningHeader || undefined,
+        };
       } catch (error) {
-        setSaveError('Failed to save ArangoDB configuration');
+        const errorMessage = 'Failed to save ArangoDB configuration';
+        setSaveError(error.message || errorMessage);
         console.error('Error saving ArangoDB config:', error);
-        return false;
+        // Return error result
+        return {
+          success: false,
+          error: error.message || errorMessage,
+        };
       } finally {
         setIsSaving(false);
       }
@@ -200,18 +212,6 @@ const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormP
 
     return (
       <>
-        {saveError && (
-          <Alert
-            severity="error"
-            sx={{
-              mb: 3,
-              borderRadius: 1,
-            }}
-          >
-            {saveError}
-          </Alert>
-        )}
-
         <Box
           sx={{
             mb: 3,

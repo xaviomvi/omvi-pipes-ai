@@ -1,10 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { TokenScopes } from '../enums/token-scopes.enum';
 
-export const mailJwtGenerator = (email: string, jwtSecret: string) => {
+export const mailJwtGenerator = (email: string, scopedJwtSecret: string) => {
   return jwt.sign(
     { email: email, scopes: [TokenScopes.SEND_MAIL] },
-    jwtSecret,
+    scopedJwtSecret,
     {
       expiresIn: '1h',
     },
@@ -15,7 +15,7 @@ export const jwtGeneratorForForgotPasswordLink = (
   userEmail: string,
   userId: string,
   orgId: string,
-  jwtSecret: string,
+  scopedJwtSecret: string,
 ) => {
   // Token for password reset
   const passwordResetToken = jwt.sign(
@@ -25,7 +25,7 @@ export const jwtGeneratorForForgotPasswordLink = (
       orgId,
       scopes: [TokenScopes.PASSWORD_RESET],
     },
-    jwtSecret,
+    scopedJwtSecret,
     { expiresIn: '1h' },
   );
   const mailAuthToken = jwt.sign(
@@ -35,7 +35,7 @@ export const jwtGeneratorForForgotPasswordLink = (
       orgId,
       scopes: [TokenScopes.SEND_MAIL],
     },
-    jwtSecret,
+    scopedJwtSecret,
     { expiresIn: '1h' },
   );
 
@@ -45,19 +45,19 @@ export const jwtGeneratorForForgotPasswordLink = (
 export const refreshTokenJwtGenerator = (
   userId: string,
   orgId: string,
-  jwtSecret: string,
+  scopedJwtSecret: string,
 ) => {
   return jwt.sign(
     { userId: userId, orgId: orgId, scopes: [TokenScopes.TOKEN_REFRESH] },
-    jwtSecret,
+    scopedJwtSecret,
     { expiresIn: '720h' },
   );
 };
 
-export const iamJwtGenerator = (email: string, jwtSecret: string) => {
+export const iamJwtGenerator = (email: string, scopedJwtSecret: string) => {
   return jwt.sign(
     { email: email, scopes: [TokenScopes.USER_LOOKUP] },
-    jwtSecret,
+    scopedJwtSecret,
     { expiresIn: '1h' },
   );
 };
@@ -65,36 +65,46 @@ export const iamJwtGenerator = (email: string, jwtSecret: string) => {
 export const iamUserLookupJwtGenerator = (
   userId: string,
   orgId: string,
-  jwtSecret: string,
+  scopedJwtSecret: string,
 ) => {
   return jwt.sign(
     { userId, orgId, scopes: [TokenScopes.USER_LOOKUP] },
-    jwtSecret,
+    scopedJwtSecret,
     { expiresIn: '1h' },
   );
 };
 
 export const authJwtGenerator = (
-  jwtSecret: string,
+  scopedJwtSecret: string,
   email?: string | null,
   userId?: string | null,
   orgId?: string | null,
   fullName?: string | null,
   accountType?: string | null,
 ) => {
-  return jwt.sign({ userId, orgId, email, fullName, accountType }, jwtSecret, {
-    expiresIn: '24h',
-  });
+  return jwt.sign(
+    { userId, orgId, email, fullName, accountType },
+    scopedJwtSecret,
+    {
+      expiresIn: '24h',
+    },
+  );
 };
 
 export const fetchConfigJwtGenerator = (
   userId: string,
   orgId: string,
-  jwtSecret: string,
+  scopedJwtSecret: string,
 ) => {
   return jwt.sign(
     { userId, orgId, scopes: [TokenScopes.FETCH_CONFIG] },
-    jwtSecret,
+    scopedJwtSecret,
     { expiresIn: '1h' },
   );
+};
+
+export const scopedServiceJwtGenerator = (scopedJwtSecret: string) => {
+  return jwt.sign({ scopes: [TokenScopes.SERVICE_TOKEN] }, scopedJwtSecret, {
+    expiresIn: '1h',
+  });
 };

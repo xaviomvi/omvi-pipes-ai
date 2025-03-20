@@ -25,9 +25,13 @@ interface RedisConfigFormProps {
   onValidationChange: (isValid: boolean) => void;
   onSaveSuccess?: () => void;
 }
-
+interface SaveResult {
+  success: boolean;
+  warning?: string;
+  error?: string;
+}
 export interface RedisConfigFormRef {
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<SaveResult>;
 }
 
 const RedisConfigForm = forwardRef<RedisConfigFormRef, RedisConfigFormProps>(
@@ -68,9 +72,7 @@ const RedisConfigForm = forwardRef<RedisConfigFormRef, RedisConfigFormProps>(
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
-      handleSave: async () => {
-        await handleSave();
-      },
+      handleSave: async (): Promise<SaveResult> => handleSave(),
     }));
 
     // Load existing config on mount
@@ -192,9 +194,9 @@ const RedisConfigForm = forwardRef<RedisConfigFormRef, RedisConfigFormProps>(
         if (formData.uri) {
           const url = new URL(formData.uri);
           const host = url.hostname;
-          const {port} = url;
-          const {password} = url;
-          const {username} = url;
+          const { port } = url;
+          const { password } = url;
+          const { username } = url;
           const db = url.pathname ? url.pathname.substring(1) : '0';
           const tls = url.protocol === 'rediss:';
 
@@ -230,7 +232,7 @@ const RedisConfigForm = forwardRef<RedisConfigFormRef, RedisConfigFormProps>(
       setSaveError(null);
 
       try {
-        await updateRedisConfig({
+        const response = await updateRedisConfig({
           uri: formData.uri,
           host: formData.host,
           port: parseInt(formData.port, 10), // Convert port to number
@@ -239,7 +241,7 @@ const RedisConfigForm = forwardRef<RedisConfigFormRef, RedisConfigFormProps>(
           db: formData.db,
           tls: formData.tls, // Send as boolean
         });
-
+        const warningHeader = response.data?.warningMessage;
         // Update original data after successful save
         setOriginalData({
           uri: formData.uri,
@@ -257,12 +259,19 @@ const RedisConfigForm = forwardRef<RedisConfigFormRef, RedisConfigFormProps>(
         if (onSaveSuccess) {
           onSaveSuccess();
         }
-
-        return true;
+        return {
+          success: true,
+          warning: warningHeader || undefined,
+        };
       } catch (error) {
-        setSaveError('Failed to save Redis configuration');
+        const errorMessage = 'Failed to save Redis configuration';
+        setSaveError(error.message || errorMessage);
         console.error('Error saving Redis config:', error);
-        return false;
+        // Return error result
+        return {
+          success: false,
+          error: error.message || errorMessage,
+        };
       } finally {
         setIsSaving(false);
       }
@@ -278,18 +287,6 @@ const RedisConfigForm = forwardRef<RedisConfigFormRef, RedisConfigFormProps>(
 
     return (
       <>
-        {saveError && (
-          <Alert
-            severity="error"
-            sx={{
-              mb: 3,
-              borderRadius: 1,
-            }}
-          >
-            {saveError}
-          </Alert>
-        )}
-
         <Box
           sx={{
             mb: 3,

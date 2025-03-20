@@ -609,19 +609,20 @@ export const createKafkaConfig =
   (keyValueStoreService: KeyValueStoreService) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
-      const { clientId, brokers, groupId } = req.body;
+      const { brokers, sasl } = req.body;
       const configManagerConfig = loadConfigurationManagerConfig();
       const encryptedKafkaConfig = EncryptionService.getInstance(
         configManagerConfig.algorithm,
         configManagerConfig.secretKey,
-      ).encrypt(JSON.stringify({ clientId, brokers, groupId }));
+      ).encrypt(JSON.stringify({ brokers, sasl }));
       await keyValueStoreService.set<string>(
         configPaths.broker.kafka,
         encryptedKafkaConfig,
       );
+      const warningMessage = res.getHeader('warning');
       res
         .status(200)
-        .json({ message: 'Kafka config created successfully' })
+        .json({ message: 'Kafka config created successfully', warningMessage })
         .end();
     } catch (error: any) {
       logger.error('Error creating kafka config', { error });
@@ -1030,6 +1031,60 @@ export const getSsoAuthConfig =
           ).decrypt(encryptedSsoConfig),
         );
         res.status(200).json(ssoConfig).end();
+        return;
+      } else {
+        res.status(200).json({}).end();
+      }
+    } catch (error: any) {
+      logger.error('Error getting SsoConfig', { error });
+      next(error);
+    }
+  };
+
+export const createQdrantConfig =
+  (keyValueStoreService: KeyValueStoreService) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    try {
+      const { apiKey, host, grpcPort } = req.body;
+      const configManagerConfig = loadConfigurationManagerConfig();
+      const encryptedQdrantConfig = EncryptionService.getInstance(
+        configManagerConfig.algorithm,
+        configManagerConfig.secretKey,
+      ).encrypt(JSON.stringify({ apiKey, host, grpcPort }));
+      await keyValueStoreService.set<string>(
+        configPaths.db.qdrant,
+        encryptedQdrantConfig,
+      );
+      const warningMessage = res.getHeader('Warning');
+      res
+        .status(200)
+        .json({
+          message: 'Qdrant config created successfully',
+          warningMessage,
+        });
+    } catch (error: any) {
+      logger.error('Error creating Sso config', { error });
+      next(error);
+    }
+  };
+
+export const getQdrantConfig =
+  (keyValueStoreService: KeyValueStoreService) =>
+  async (_req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    try {
+      const configManagerConfig = loadConfigurationManagerConfig();
+      const encryptedQdrantConfig = await keyValueStoreService.get<string>(
+        configPaths.db.qdrant,
+      );
+      if (encryptedQdrantConfig) {
+        const qdrantConfig = JSON.parse(
+          EncryptionService.getInstance(
+            configManagerConfig.algorithm,
+            configManagerConfig.secretKey,
+          ).decrypt(encryptedQdrantConfig),
+        );
+        console.log(qdrantConfig);
+        res.status(200).json(qdrantConfig).end();
         return;
       } else {
         res.status(200).json({}).end();

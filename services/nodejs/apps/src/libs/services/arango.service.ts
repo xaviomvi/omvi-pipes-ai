@@ -10,7 +10,7 @@ const logger = Logger.getInstance({
 
 export interface ArangoConfig {
   url: string;
-  dbName: string;
+  db: string;
   username?: string;
   password?: string;
 }
@@ -35,7 +35,7 @@ export class ArangoService {
 
     try {
       const { url, username, password } = this.config;
-      const databaseName = this.config.dbName;
+      const databaseName = this.config.db;
       // First connect to _system database to be able to create our target database
       this.db = new Database({
         url,

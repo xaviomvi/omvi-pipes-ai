@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import {
-  googleWorkspaceTypes,
-  storageTypes,
-} from '../constants/constants';
+import { googleWorkspaceTypes, storageTypes } from '../constants/constants';
 
 export const baseStorageSchema = z.object({
   storageType: z.enum([
@@ -165,11 +162,24 @@ export const redisConfigSchema = z.object({
   }),
 });
 
+export const qdrantConfigSchema = z.object({
+  body: z.object({
+    host: z.string().min(1, { message: 'Qdrant host is required' }),
+    grpcPort: z.number().min(1, { message: 'Qdrant GRPC Port is required' }),
+    apiKey: z.string().optional(),
+  }),
+});
+
 export const kafkaConfigSchema = z.object({
   body: z.object({
-    clientId: z.string().min(1, { message: 'Kafka client ID is required' }),
-    brokers: z.string().url(),
-    groupId: z.string().min(1, { message: 'Kafka group ID is required' }),
+    brokers: z.array(z.string().url()), // Ensures an array of valid URLs
+    sasl: z
+      .object({
+        mechanism: z.string(),
+        username: z.string(),
+        password: z.string(),
+      })
+      .optional(),
   }),
 });
 

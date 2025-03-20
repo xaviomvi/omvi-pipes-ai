@@ -15,9 +15,7 @@ export interface AppConfig {
   authUrl: string;
   cmUrl: string;
   kafka: {
-    clientId: string;
     brokers: string[];
-    groupId: string;
     sasl?: {
       mechanism: 'plain' | 'scram-sha-256' | 'scram-sha-512';
       username: string;
@@ -32,18 +30,18 @@ export interface AppConfig {
   };
   mongo: {
     uri: string;
-    dbName: string;
+    db: string;
   };
 
   qdrant: {
     apiKey: string;
     host: string;
-    gprc_port: number;
+    grpcPort: number;
   };
 
   arango: {
     url: string;
-    dbName: string;
+    db: string;
     username: string;
     password: string;
   };

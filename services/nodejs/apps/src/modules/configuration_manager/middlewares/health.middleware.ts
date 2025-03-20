@@ -4,22 +4,40 @@ import Redis from 'ioredis';
 import { MongoClient } from 'mongodb';
 import { Database } from 'arangojs';
 import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
-import {
-  BadRequestError,
-  InternalServerError,
-} from '../../../libs/errors/http.errors';
+import { QdrantClient } from '@qdrant/js-client-rest';
+import net from 'net';
+import { BadRequestError } from '../../../libs/errors/http.errors';
 import { Logger } from '../../../libs/services/logger.service';
 
 const logger = Logger.getInstance({
   service: 'Health Middleware',
 });
 
-// ✅ Qdrant Configuration
-// const qdrant = new QdrantClient({ url: "http://localhost:6333" });
+// // ✅ Qdrant Configuration
+
+const isBrokerReachable = async (broker: string): Promise<boolean> => {
+  const [host, port] = broker.split(':');
+  if (!port) {
+    throw new BadRequestError('Port number not given');
+  }
+  return new Promise((resolve) => {
+    const socket = net.createConnection(
+      { host, port: parseInt(port), timeout: 3000 },
+      () => {
+        socket.end();
+        resolve(true);
+      },
+    );
+
+    socket.on('error', () => {
+      resolve(false);
+    });
+  });
+};
 
 export const checkKafkaHealth = async (
   req: AuthenticatedUserRequest,
-  _res: Response,
+  res: Response,
   next: NextFunction,
 ) => {
   try {
@@ -27,7 +45,7 @@ export const checkKafkaHealth = async (
 
     // Ensure brokers is always an array
     if (typeof brokers === 'string') {
-      brokers = [brokers]; // Convert single string to an array
+      brokers = [brokers];
     }
 
     if (!Array.isArray(brokers) || brokers.length === 0) {
@@ -36,18 +54,39 @@ export const checkKafkaHealth = async (
       );
     }
 
-    // Ensure each broker is properly formatted
-    for (const broker of brokers) {
-      if (typeof broker !== 'string' || !broker.includes(':')) {
-        throw new BadRequestError(
-          `Invalid broker format: "${broker}". Expected "host:port".`,
-        );
-      }
+    // Validate each broker
+    const reachableBrokers = await Promise.all(
+      brokers.map(async (broker) => ({
+        broker,
+        reachable: await isBrokerReachable(broker),
+      })),
+    );
+
+    const workingBrokers = reachableBrokers
+      .filter(({ reachable }) => reachable)
+      .map(({ broker }) => broker);
+
+    const failedBrokers = reachableBrokers
+      .filter(({ reachable }) => !reachable)
+      .map(({ broker }) => broker);
+
+    if (workingBrokers.length === 0) {
+      throw new BadRequestError(
+        `No reachable Kafka brokers. Failed brokers: ${failedBrokers.join(', ')}`,
+      );
     }
 
-    logger.info('Connecting to Kafka brokers:', brokers);
+    if (failedBrokers.length > 0) {
+      logger.warn(
+        `⚠️ Some Kafka brokers are unreachable: ${failedBrokers.join(', ')}`,
+      );
+      const warningMessage = `Unreachable-Brokers detected : "${failedBrokers.join(', ')}"`;
+      res.setHeader('warning', warningMessage);
+    }
 
-    const kafka = new Kafka({ brokers });
+    logger.info('Connecting to Kafka brokers:', workingBrokers);
+
+    const kafka = new Kafka({ brokers: workingBrokers });
     const kafkaAdmin = kafka.admin();
     await kafkaAdmin.connect();
 
@@ -56,14 +95,14 @@ export const checkKafkaHealth = async (
     await kafkaAdmin.disconnect();
 
     logger.info('✅ Kafka is active');
+    req.body.brokers = workingBrokers;
     next();
   } catch (error) {
     logger.error('❌ Kafka connection error:', error);
-    return next(error);
+    next(error);
   }
 };
 
-// Store a reusable Redis connection
 export const checkRedisHealth = async (
   req: AuthenticatedUserRequest,
   _res: Response,
@@ -74,7 +113,7 @@ export const checkRedisHealth = async (
 
     // Validate required fields
     if (!host || !port) {
-      throw new BadRequestError('Missing Redis host or port.');
+      return next(new BadRequestError('Missing Redis host or port.'));
     }
 
     // Construct Redis URL
@@ -83,7 +122,7 @@ export const checkRedisHealth = async (
     redisUrl += `${host}:${port}`;
     if (tls) redisUrl = redisUrl.replace('redis://', 'rediss://');
 
-    // Create Redis client with error handling
+    // Create Redis client
     const redisClient = new Redis(redisUrl, {
       connectTimeout: 5000, // Timeout in 5 seconds
       maxRetriesPerRequest: 1, // Retry only once
@@ -93,30 +132,81 @@ export const checkRedisHealth = async (
       },
     });
 
-    // Handle connection errors
-    redisClient.on('error', (error) => {
-      throw new BadRequestError('Failed to connect to Redis', error);
+    // Wait for the connection to be established or fail
+    await new Promise<void>((resolve, reject) => {
+      redisClient.once('ready', () => {
+        redisClient.quit(); // Close connection after checking
+        resolve();
+      });
+
+      redisClient.once('error', (error) => {
+        redisClient.quit(); // Ensure client is closed
+        reject(new BadRequestError('Failed to connect to Redis', error));
+      });
     });
 
-    // Ensure Redis is ready before proceeding
-    await new Promise((resolve, reject) => {
-      redisClient.once('ready', resolve);
-      redisClient.once('error', reject);
-    });
-    next(); // Move to next middleware
+    next(); // Move to next middleware if Redis is healthy
   } catch (error) {
     next(error); // Pass error to Express error handler
   }
 };
 
-// // 🛠 Qdrant Health Check
-// const checkQdrantHealth = async (req:AuthenticatedUserRequest,res:Response,next:NextFunction) => {
-//     try {
-//         await qdrant.getCollections();
-//     } catch (error) {
-//         next(error);
-//     }
-// };
+// 🛠 Qdrant Health Check
+export const checkQdrantHealth = async (
+  req: AuthenticatedUserRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    let { host, grpcPort, apiKey } = req.body;
+
+    // ✅ Validate required fields
+    if (!host || !grpcPort) {
+      throw new BadRequestError("Missing 'host' or 'grpcPort' in request.");
+    }
+
+    // ✅ Ensure grpcPort is a valid number
+    if (isNaN(grpcPort) || Number(grpcPort) <= 0) {
+      throw new BadRequestError(
+        `Invalid grpcPort: ${grpcPort}. Expected a valid port number.`,
+      );
+    }
+
+    grpcPort = String(grpcPort); // Convert to string if necessary
+
+    // ✅ Check if the host is localhost (no API key needed)
+    const isLocal = host.includes('localhost') || host === '127.0.0.1';
+
+    if (isLocal && apiKey) {
+      logger.warn("API key provided for localhost, but it's not required.");
+      res.setHeader('warning', 'localhost does not require an api key');
+      apiKey = undefined; // Remove API key if localhost
+    }
+
+    // ✅ Ensure proper protocol
+    const protocol = isLocal ? 'http' : 'https';
+    const url = `${protocol}://${host}:${grpcPort}`;
+
+    logger.info(`🔍 Checking Qdrant health at: ${url}`);
+
+    // ✅ Initialize Qdrant client with/without API key
+    const qdrantConfig: { url: string; apiKey?: string } = { url };
+    if (!isLocal && apiKey) {
+      qdrantConfig.apiKey = apiKey;
+    }
+
+    const qdrant = new QdrantClient(qdrantConfig);
+
+    // ✅ Test connection by listing collections
+    await qdrant.getCollections();
+
+    logger.info('✅ Qdrant is active and reachable.');
+    next();
+  } catch (error) {
+    logger.error('❌ Qdrant connection failed:', error);
+    next(error);
+  }
+};
 
 // 🛠 MongoDB Health Check
 
@@ -142,13 +232,12 @@ export const checkMongoHealth = async (
     const status = await admin.command({ ping: 1 });
 
     if (status.ok !== 1) {
-      throw new InternalServerError('Database is not responding');
+      throw new BadRequestError('Database is not responding');
     }
-  } catch (error) {
-    next(error);
-  } finally {
     await client.close();
     next();
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -165,6 +254,7 @@ export const checkArangoHealth = async (
   }
   try {
     await arangoDB.exists();
+    next();
   } catch (error) {
     next(error);
   }

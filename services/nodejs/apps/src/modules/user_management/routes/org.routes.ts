@@ -10,6 +10,8 @@ import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
 import { OrgController } from '../controller/org.controller';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
 import { attachContainerMiddleware } from '../../auth/middlewares/attachContainer.middleware';
+import { FileProcessorFactory } from '../../../libs/middlewares/file_processor/fp.factory';
+import { FileProcessingType } from '../../../libs/middlewares/file_processor/fp.constant';
 
 const OrgCreationBody = z
   .object({
@@ -150,6 +152,21 @@ export function createOrgRouter(container: Container) {
   router.put(
     '/logo',
     authMiddleware.authenticate,
+    ...FileProcessorFactory.createBufferUploadProcessor({
+      fieldName: 'file',
+      allowedMimeTypes: [
+        'image/png',
+        'image/jpeg',
+        'image/jpg',
+        'image/webp',
+        'image/gif',
+      ],
+      maxFilesAllowed: 1,
+      isMultipleFilesAllowed: false,
+      processingType: FileProcessingType.BUFFER,
+      maxFileSize: 1024 * 1024,
+      strictFileUpload: true,
+    }).getMiddleware,
     metricsMiddleware(container),
     userAdminCheck,
     async (
