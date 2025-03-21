@@ -1318,7 +1318,7 @@ class ArangoService(BaseArangoService):
         try:
             query = f"""
                 FOR user IN {CollectionNames.USERS.value}
-                    FILTER user._key == @user_id
+                    FILTER user.userId == @user_id
                     RETURN user
             """
             cursor = self.db.aql.execute(query, bind_vars={'user_id': user_id})

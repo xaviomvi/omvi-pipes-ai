@@ -17,6 +17,9 @@ from app.config.arangodb_constants import CollectionNames
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from typing import Optional, Any
 import google.oauth2.credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+import io
 
 router = APIRouter()
 
@@ -479,6 +482,7 @@ async def download_file(
                     if response.status != 200:
                         raise Exception(f"Failed to fetch credentials: {await response.json()}")
                     credentials_json = await response.json()
+                    logger.info(f"🚀 Credentials JSON: {credentials_json}")
 
             credentials = service_account.Credentials.from_service_account_info(
                 credentials_json,
@@ -487,7 +491,6 @@ async def download_file(
             
             # # Get the user email from the record to impersonate
             credentials = credentials.with_subject(user['email'])
-            
             return credentials
         
         except Exception as e:
@@ -549,7 +552,6 @@ async def download_file(
             if not creds.token:
                 raise HTTPException(status_code=401, detail="Invalid creds2")
             
-            
             return creds
         
         except Exception as e:
@@ -596,29 +598,54 @@ async def download_file(
         try:
             if connector == "drive":
                 logger.info(f"Downloading Drive file: {file_id}")
-                file_url = f"""https://www.googleapis.com/drive/v3/files/{
-                    file_id}?alt=media"""
+                # Build the Drive service
+                drive_service = build('drive', 'v3', credentials=creds)
+                
+                # Create a BytesIO object to store the file content
+                file_buffer = io.BytesIO()
+                
+                # Get the file metadata first to get mimeType
+                file_metadata = drive_service.files().get(fileId=file_id).execute()
+                
+                # Download the file
+                request = drive_service.files().get_media(fileId=file_id)
+                downloader = MediaIoBaseDownload(file_buffer, request)
+                
+                done = False
+                while not done:
+                    _, done = downloader.next_chunk()
+                
+                # Reset buffer position to start
+                file_buffer.seek(0)
+                
+                # Stream the response
+                return StreamingResponse(
+                    file_buffer,
+                    media_type=file_metadata.get('mimeType', 'application/octet-stream')
+                )
                 
             elif connector == "gmail":
                 logger.info(f"Downloading Gmail attachment: {file_id}")
-                file_url = f"""https://www.googleapis.com/gmail/v1/users/me/messages/{
-                    file_id}/attachments/{file_id}?alt=media"""
+                # Build the Gmail service
+                gmail_service = build('gmail', 'v1', credentials=creds)
+                
+                # Get the attachment
+                attachment = gmail_service.users().messages().attachments().get(
+                    userId='me',
+                    messageId=record.get('messageId'),  # We need the message ID
+                    id=file_id
+                ).execute()
+                
+                # Decode the attachment data
+                file_data = base64.urlsafe_b64decode(attachment['data'])
+                
+                # Stream the response
+                return StreamingResponse(
+                    iter([file_data]),
+                    media_type=attachment.get('mimeType', 'application/octet-stream')
+                )
             else:
                 raise HTTPException(status_code=400, detail="Invalid connector type")
-            
-            headers = {"Authorization": f"Bearer {creds.token}"}
-            logger.info(f"headers: {headers}")
-            response = requests.get(file_url, headers=headers, stream=True)
-
-            if response.status_code != 200:
-                raise HTTPException(status_code=500, detail="Error fetching file")
-
-            # Stream the response
-            return StreamingResponse(
-                response.iter_content(chunk_size=4096),
-                media_type=response.headers.get(
-                    "Content-Type", "application/octet-stream")
-            )
 
 
         except Exception as e:

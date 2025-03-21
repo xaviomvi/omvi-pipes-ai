@@ -191,7 +191,7 @@ class DriveUserService:
                         tz=timezone.utc
                     )
                     
-                    logger.info("✅ Successfully refreshed access token")
+                    logger.info("✅ Successfully refreshed access token, expiry: %s", self.token_expiry)
 
         except Exception as e:
             logger.error(f"❌ Failed to refresh token: {str(e)}")

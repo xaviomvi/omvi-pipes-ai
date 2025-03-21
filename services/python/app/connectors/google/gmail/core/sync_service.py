@@ -86,7 +86,6 @@ class BaseGmailSyncService(ABC):
                 users = await self.arango_service.get_users(org_id=org_id)
                 
                 for user in users:
-                
                     # Check current state using get_user_sync_state
                     sync_state = await self.arango_service.get_user_sync_state(user['email'], 'gmail')
                     current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'

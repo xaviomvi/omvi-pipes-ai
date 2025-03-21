@@ -459,9 +459,10 @@ class GmailUserService:
         """Get file ids from message by recursively checking all parts and MIME types"""
         try:
             def extract_file_ids(html_content):
+                if not isinstance(html_content, str):
+                    return []
                 try:
                     unencoded_data = base64.urlsafe_b64decode(html_content).decode('UTF-8')
-                    # logger.info("🚀 Unencoded data: %s", unencoded_data)
                     return re.findall(
                         r'https://drive\.google\.com/file/d/([^/]+)/view\?usp=drive_web',
                         unencoded_data
@@ -471,31 +472,42 @@ class GmailUserService:
                     return []
 
             def process_part(part):
+                if not isinstance(part, dict):
+                    return []
+                
                 file_ids = []
 
                 # Check for body data
-                if 'body' in part and part['body'].get('data'):
+                body = part.get('body', {})
+                if isinstance(body, dict) and body.get('data'):
                     mime_type = part.get('mimeType', '')
                     if 'text/html' in mime_type or 'text/plain' in mime_type:
-                        file_ids.extend(extract_file_ids(part['body']['data']))
+                        file_ids.extend(extract_file_ids(body['data']))
 
                 # Recursively process nested parts
-                if 'parts' in part:
-                    for nested_part in part['parts']:
+                parts = part.get('parts', [])
+                if isinstance(parts, list):
+                    for nested_part in parts:
                         file_ids.extend(process_part(nested_part))
 
                 return file_ids
 
             # Start processing from the payload
+            if not isinstance(message, dict):
+                return []
+            
             payload = message.get('payload', {})
             all_file_ids = process_part(payload)
 
-            # Remove DUPLICATEs while preserving order
+            # Remove duplicates while preserving order
             return list(dict.fromkeys(all_file_ids))
 
         except Exception as e:
             logger.error(
-                "❌ Failed to get file ids for message %s: %s", message['id'], str(e))
+                "❌ Failed to get file ids for message %s: %s", 
+                message.get('id', 'unknown'), 
+                str(e)
+            )
             return []
 
     async def create_user_watch(self, user_id="me") -> Dict:
