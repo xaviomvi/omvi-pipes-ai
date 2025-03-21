@@ -18,3 +18,21 @@ for embedding models too.
 sync status in app-user edges
 check historyID for gmail pub sub
 org id and user id pass as parameters from events.
+
+payload:
+orgid
+userid
+scope
+
+store route 
+
+http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials
+http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken
+
+{'eventType': 'appEnabled', 'timestamp': 1742394036545, 'payload': {'orgId': '67dacef24b0279978ac7ed0b', 'appGroup': 'Google Workspace', 'appGroupId': '67dad2b425d02dfbca09105a', 'credentialsRoute': 'http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials', 'refreshTokenRoute': 'http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken', 'apps': ['drive', 'gmail', 'calendar'], 'syncAction': 'immediate'}} value....
+Type of value: <class 'dict'>
+2025-03-19 19:50:36,558 - default - INFO - [kafka_consumer.py:449] - 📥 Processing app enabled event: {'orgId': '67dacef24b0279978ac7ed0b', 'appGroup': 'Google Workspace', 'appGroupId': '67dad2b425d02dfbca09105a', 'credentialsRoute': 'http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials', 'refreshTokenRoute': 'http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken', 'apps': ['drive', 'gmail', 'calendar'], 'syncAction': 'immediate'}
+
+{'eventType': 'appEnabled', 'timestamp': 1742454299771, 'payload': {'orgId': '67dbbc208697b5661cb5c234', 'appGroup': 'Google Workspace', 'appGroupId': '67dbbe1b8697b5661cb5c29e', 'credentialsRoute': 'http://localhost:3000/api/v1/configurationManager/internal/connectors/business/googleWorkspaceCredentials', 'apps': ['drive', 'gmail', 'calendar'], 'syncAction': 'immediate'}} value....
+
+/connectors/google_workspace/credentials/business/67dbbc208697b5661cb5c234

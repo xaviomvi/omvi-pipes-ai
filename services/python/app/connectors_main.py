@@ -10,6 +10,7 @@ import asyncio
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, Depends
+
 print("Starting connector app")
 
 logger = create_logger('google_connectors')

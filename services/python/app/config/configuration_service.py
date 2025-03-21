@@ -101,6 +101,21 @@ class config_node_constants(Enum):
     # Security related constants
     JWT_SECRET = "security/jwt_secret"
     SCOPED_JWT_SECRET = "security/scoped_jwt_secret"
+    
+class TokenScopes(Enum):
+    """Constants for token scopes"""
+    SEND_MAIL = "mail:send"
+    FETCH_CONFIG = "fetch:config"
+    PASSWORD_RESET = "password:reset"
+    USER_LOOKUP = "user:lookup"
+    TOKEN_REFRESH = "token:refresh"
+    
+class Routes(Enum):
+    """Constants for routes"""
+    INDIVIDUAL_CREDENTIALS = "http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials"
+    INDIVIDUAL_REFRESH_TOKEN = "http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken"
+    BUSINESS_CREDENTIALS = "http://localhost:3000/api/v1/configurationManager/internal/connectors/business/googleWorkspaceCredentials"
+    LLM_CONFIG = "http://localhost:3000/api/v1/configurationManager/internal/aiModelsConfig"
 
 class ConfigurationService:
     """Service to manage configuration using etcd store"""

@@ -188,15 +188,12 @@ class PyMuPDFOCRStrategy(OCRStrategy):
 
     def _merge_bounding_boxes(self, bboxes: List[List[Dict[str, float]]]) -> List[Dict[str, float]]:
         """Merge multiple bounding boxes into one encompassing box"""
-        logger.debug(f"🚀 Merging bounding boxes: {bboxes}")
         all_points = [point for box in bboxes for point in box]
         min_x = min(point["x"] for point in all_points)
         min_y = min(point["y"] for point in all_points)
         max_x = max(point["x"] for point in all_points)
         max_y = max(point["y"] for point in all_points)
 
-        logger.debug("✅ Merged bounding box: %s, %s, %s, %s",
-                     min_x, min_y, max_x, max_y)
         return [
             {"x": min_x, "y": min_y},  # top-left
             {"x": max_x, "y": min_y},  # top-right
@@ -206,7 +203,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
 
     def _merge_lines_to_sentences(self, lines_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Merge lines into sentences using spaCy"""
-        logger.debug(f"🚀 Merging lines to sentences: {lines_data}")
+        logger.debug(f"🚀 Merging lines to sentences")
 
         nlp = spacy.load("en_core_web_sm")
         self.nlp = self._create_custom_tokenizer(
@@ -219,9 +216,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
         # Log each line being processed
         for line_data in lines_data:
             content = line_data["content"].strip()
-            logger.debug(f"📝 Processing line: '{content}'")
-            logger.debug(f"📐 Line bbox: {line_data['bounding_box']}")
-
             if not content:
                 continue
 
@@ -229,8 +223,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
             line_map.append(
                 (char_index, char_index + len(content), line_data["bounding_box"]))
             char_index += len(content) + 1
-
-        logger.debug(f"📄 Full text for processing: '{full_text}'")
 
         doc = self.nlp(full_text)
         sentences = []
@@ -240,26 +232,19 @@ class PyMuPDFOCRStrategy(OCRStrategy):
             sent_text = sent.text.strip()
             sent_start, sent_end = sent.start_char, sent.end_char
 
-            logger.debug("================================================")
-            logger.debug(f"🔤 Processing sentence: '{sent_text}'")
-            logger.debug(f"📍 Sentence span: {sent_start} to {sent_end}")
-
             sentence_bboxes = []
             for start_idx, end_idx, bbox in line_map:
                 if start_idx < sent_end and end_idx > sent_start:
-                    logger.debug(f"📎 Including line bbox: {bbox}")
                     sentence_bboxes.append(bbox)
 
             merged_bbox = self._merge_bounding_boxes(
                 sentence_bboxes) if sentence_bboxes else None
-            logger.debug(f"📐 Merged sentence bbox: {merged_bbox}")
 
             sentences.append({
                 "sentence": sent_text,
                 "bounding_box": merged_bbox
             })
 
-        logger.debug("================================================")
         logger.debug(f"✅ Merged into {len(sentences)} sentences")
         return sentences
 
@@ -278,11 +263,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
         Returns:
             Dictionary containing processed text data including lines, spans, words and metadata
         """
-        logger.debug("================================================")
-        logger.debug(f"🔤 Processing block: {block.get('number')}")
-        logger.debug(f"📍 Block type: {block.get('type')}")
-        logger.debug(f"📐 Block bbox: {block.get('bbox')}")
-        logger.debug("================================================")
 
         block_lines = []
         block_text = []
@@ -313,12 +293,10 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                 line_text = spans[0].get("text", "")
 
             if line_text.strip():
-                logger.debug(f"📏 Processing line: {line_text}")
                 line_data = {
                     "content": line_text.strip(),
                     "bounding_box": self._normalize_bbox(line["bbox"], page_width, page_height)
                 }
-                logger.debug(f"📏 Line data: {line_data}")
                 block_lines.append(line_data)
 
                 # Process spans
@@ -333,7 +311,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                             "size": span.get("size"),
                             "flags": span.get("flags")
                         }
-                        logger.debug(f"📎 Span data: {span_data}")
                         block_spans.append(span_data)
 
                         # Process individual characters if available
@@ -346,7 +323,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                                     "bounding_box": self._normalize_bbox(char["bbox"], page_width, page_height),
                                     "confidence": None
                                 }
-                                logger.debug(f"📝 Word data: {word}")
                                 block_words.append(word)
 
         # Get block metadata from first available span
@@ -358,7 +334,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
             "color": first_span.get("color"),
             "span_type": "multi_span" if len(block.get("lines", [])[0].get("spans", [])) > 1 else "single_span"
         }
-        logger.debug(f"📋 Block metadata: {block_metadata}")
 
         # Process sentences using the lines
         logger.debug("🔄 Processing sentences from lines")
@@ -372,7 +347,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                 "block_type": block.get("type"),
                 "metadata": block_metadata
             }
-            logger.debug(f"📑 Processed sentence data: {sentence_data}")
             processed_sentences.append(sentence_data)
 
         # Create paragraph from block
@@ -384,15 +358,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
             "words": block_words,
             "metadata": block_metadata
         }
-        logger.debug("================================================")
-        logger.debug(f"📚 Processed paragraph data:")
-        logger.debug(f"📝 Content: {paragraph['content'][:100]}...")
-        logger.debug(f"📍 Block number: {paragraph['block_number']}")
-        logger.debug(f"📐 Bounding box: {paragraph['bounding_box']}")
-        logger.debug(f"📊 Metadata: {paragraph['metadata']}")
-        logger.debug(f"📎 Number of spans: {len(paragraph['spans'])}")
-        logger.debug(f"🔤 Number of words: {len(paragraph['words'])}")
-        logger.debug("================================================")
 
         return {
             "lines": block_lines,
@@ -675,8 +640,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                     )
                     # Draw rectangle with red color
                     page.draw_rect(rect, color=paragraph_color, width=1)
-                    logger.debug("📦 Drew paragraph: %s...",
-                                 para['content'][:50])
 
             # Draw sentences
             logger.debug(f"📝 Drawing sentences for page {page_idx + 1}")
@@ -691,7 +654,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                     )
                     # Draw rectangle with blue color
                     page.draw_rect(rect, color=sentence_color, width=0.5)
-                    logger.debug(f"📜 Drew sentence: {sent['content'][:50]}...")
 
         # Save debug PDF
         debug_doc.save(output_path)

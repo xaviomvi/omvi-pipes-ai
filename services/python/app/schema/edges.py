@@ -70,7 +70,7 @@ permissions_schema = {
         "properties": {
             "_from": {"type": "string", "minLength": 1},
             "_to": {"type": "string", "minLength": 1},
-            "externalPermissionId": {"type": "string"},
+            "externalPermissionId": {"type": ["string", "null"]},
             "type": {"type": "string", "enum": ["USER", "GROUP", "DOMAIN"]},
             "role": {"type": "string", "enum": ["OWNER", "ORGANIZER", "FILEORGANIZER", "WRITER", "COMMENTER", "READER"]},
             "createdAtTimestamp" : {"type" : "number"},
@@ -83,20 +83,6 @@ permissions_schema = {
     "message": "Document does not match the permissions schema."
 }
 
-org_app_relation_schema = {
-    "rule": {
-        "type": "object",
-        "properties": {
-            "_from": {"type": "string", "minLength": 1},
-            "_to": {"type": "string", "minLength": 1},
-            "createdAt": {"type": "number"},
-        },
-        "required": ["createdAt"],
-        "additionalProperties": True
-    },
-    "level": "strict",
-    "message": "Document does not match the org app relation schema."
-}
 
 user_app_relation_schema = {
     "rule": {
@@ -111,3 +97,19 @@ user_app_relation_schema = {
     "level": "strict",
     "message": "Document does not match the user app relation schema."
 }
+
+basic_edge_schema = {
+    "rule": {
+        "type": "object",
+        "properties": {
+            "_from": {"type": "string", "minLength": 1},
+            "_to": {"type": "string", "minLength": 1},
+            "createdAtTimestamp": {"type": "number"},
+        },
+        "required": ["createdAtTimestamp"],
+        "additionalProperties": False
+    },
+    "level": "strict",
+    "message": "Document does not match the basic edge schema."
+}
+

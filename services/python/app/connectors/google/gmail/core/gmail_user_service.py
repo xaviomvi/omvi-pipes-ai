@@ -2,21 +2,22 @@
 
 import base64
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 import os
-import pickle
+import jwt
+import aiohttp
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from typing import Dict, List
-from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from app.config.configuration_service import ConfigurationService, config_node_constants
+import google.oauth2.credentials
+from app.config.configuration_service import ConfigurationService, config_node_constants, Routes, TokenScopes
 from app.utils.logger import logger
-from google_auth_oauthlib.flow import InstalledAppFlow
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.gmail.core.gmail_drive_interface import GmailDriveInterface
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
+import asyncio
 
 class GmailUserService:
     """GmailUserService class for interacting with Google Gmail API"""
@@ -38,37 +39,157 @@ class GmailUserService:
         self.rate_limiter = rate_limiter
         self.google_limiter = self.rate_limiter.google_limiter
 
-    async def connect_individual_user(self) -> bool:
+        self.token_expiry = None
+        self.org_id = None
+        self.user_id = None
+
+    async def connect_individual_user(self, org_id: str, user_id: str) -> bool:
         """Connect using Oauth2 credentials for individual user"""
         try:
+            self.org_id = org_id
+            self.user_id = user_id
+            
             SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
+            
+            # Prepare payload for credentials API
+            payload = {
+                "orgId": org_id,
+                "userId": user_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            print("payload: ", payload)
 
-            # Load credentials from token file
-            token_path = await self.config.get_config(config_node_constants.GOOGLE_AUTH_TOKEN_PATH.value)
-            creds = None
-            if os.path.exists(token_path):
-                with open(token_path, 'rb') as token:
-                    creds = pickle.load(token)
-            if not creds or not creds.valid:
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-                else:
-                    credentials_path = await self.config.get_config(
-                        config_node_constants.GOOGLE_AUTH_CREDENTIALS_PATH.value)
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        credentials_path, SCOPES)
-                    creds = flow.run_local_server(port=8090)
-                with open(token_path, 'wb') as token:
-                    pickle.dump(creds, token)
+            # Create JWT token
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
 
+            # Fetch credentials from API
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch credentials: {await response.json()}")
+                    creds_data = await response.json()
+                    print("creds_data: ", creds_data)
+
+            # Create credentials object from the response using google.oauth2.credentials.Credentials
+            creds = google.oauth2.credentials.Credentials(
+                token=creds_data.get('access_token'),
+                refresh_token=creds_data.get('refresh_token'),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=creds_data.get('client_id'),
+                client_secret=creds_data.get('client_secret'),
+                scopes=SCOPES
+            )
+
+            # Store token expiry time
+            self.token_expiry = datetime.fromtimestamp(
+                creds_data.get('access_token_expiry_time', 0) / 1000,
+                tz=timezone.utc
+            )
+            
+            # Start token refresh background task
+            asyncio.create_task(self._refresh_token_periodic())
+            
             self.service = build('gmail', 'v1', credentials=creds)
             logger.info("✅ GmailUserService connected successfully")
             return True
 
         except Exception as e:
-            logger.error(
-                "❌ Failed to connect to Individual Gmail Service: %s", str(e))
+            logger.error("❌ Failed to connect to Individual Gmail Service: %s", str(e))
             return False
+
+    async def _refresh_token_periodic(self):
+        """Background task to refresh token before expiry"""
+        while True:
+            try:
+                if not self.token_expiry:
+                    await asyncio.sleep(60)  # Check every minute if expiry is set
+                    continue
+
+                now = datetime.now(timezone.utc)
+                time_until_refresh = self.token_expiry - now - timedelta(minutes=20)
+                logger.info(f"Time until refresh: {time_until_refresh.total_seconds()} seconds")
+
+                if time_until_refresh.total_seconds() <= 0:
+                    # Time to refresh
+                    await self._refresh_token()
+                    # After refresh, wait a minute before checking again
+                    await asyncio.sleep(60)
+                else:
+                    # Wait until 20 minutes before expiry
+                    await asyncio.sleep(time_until_refresh.total_seconds())
+
+            except Exception as e:
+                logger.error(f"Error in token refresh task: {str(e)}")
+                await asyncio.sleep(60)  # Wait a minute before retrying
+
+    async def _refresh_token(self):
+        """Refresh the access token"""
+        try:
+            logger.info("🔄 Refreshing access token")
+            
+            payload = {
+                "orgId": self.org_id,
+                "userId": self.user_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    Routes.INDIVIDUAL_REFRESH_TOKEN.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to refresh token: {await response.json()}")
+                    
+                    creds_data = await response.json()
+                    
+                    # Update credentials
+                    creds = google.oauth2.credentials.Credentials(
+                        token=creds_data.get('access_token'),
+                        refresh_token=creds_data.get('refresh_token'),
+                        token_uri="https://oauth2.googleapis.com/token",
+                        client_id=creds_data.get('client_id'),
+                        client_secret=creds_data.get('client_secret'),
+                        scopes=GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
+                    )
+
+                    # Update service with new credentials
+                    self.service = build('gmail', 'v1', credentials=creds)
+                    
+                    # Update token expiry
+                    self.token_expiry = datetime.fromtimestamp(
+                        creds_data.get('access_token_expiry_time', 0) / 1000,
+                        tz=timezone.utc
+                    )
+                    
+                    logger.info("✅ Successfully refreshed access token")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to refresh token: {str(e)}")
+            raise
 
     async def connect_enterprise_user(self) -> bool:
         """Connect using OAuth2 credentials for enterprise user"""
@@ -281,7 +402,7 @@ class GmailUserService:
             return []
 
     @exponential_backoff()
-    async def list_attachments(self, message) -> List[Dict]:
+    async def list_attachments(self, message, org_id: str, user_id: str, account_type: str) -> List[Dict]:
         """Get list of attachments for a message"""
         try:
             attachments = []
@@ -292,6 +413,7 @@ class GmailUserService:
                             if header['name'] == 'X-Attachment-Id':
                                 attachments.append({
                                     'message_id': message['id'],
+                                    'org_id': org_id,
                                     'attachment_id': header['value'],
                                     'filename': part.get('filename', ''),
                                     'mimeType': part.get('mimeType', ''),
@@ -306,11 +428,15 @@ class GmailUserService:
                 for file_id in file_ids:
                     file_metadata = await self.gmail_drive_interface.get_drive_file(
                         file_id=file_id,
-                        user_email=message.get('user_email')
+                        user_email=message.get('user_email'),
+                        org_id=org_id,
+                        user_id=user_id,
+                        account_type=account_type
                     )
                     if file_metadata:
                         attachments.append({
                             'message_id': message['id'],
+                            'org_id': org_id,
                             'attachment_id': file_id,
                             'filename': file_metadata.get('name', ''),
                             'mimeType': file_metadata.get('mimeType', ''),
@@ -333,9 +459,10 @@ class GmailUserService:
         """Get file ids from message by recursively checking all parts and MIME types"""
         try:
             def extract_file_ids(html_content):
+                if not isinstance(html_content, str):
+                    return []
                 try:
                     unencoded_data = base64.urlsafe_b64decode(html_content).decode('UTF-8')
-                    # logger.info("🚀 Unencoded data: %s", unencoded_data)
                     return re.findall(
                         r'https://drive\.google\.com/file/d/([^/]+)/view\?usp=drive_web',
                         unencoded_data
@@ -345,31 +472,42 @@ class GmailUserService:
                     return []
 
             def process_part(part):
+                if not isinstance(part, dict):
+                    return []
+                
                 file_ids = []
 
                 # Check for body data
-                if 'body' in part and part['body'].get('data'):
+                body = part.get('body', {})
+                if isinstance(body, dict) and body.get('data'):
                     mime_type = part.get('mimeType', '')
                     if 'text/html' in mime_type or 'text/plain' in mime_type:
-                        file_ids.extend(extract_file_ids(part['body']['data']))
+                        file_ids.extend(extract_file_ids(body['data']))
 
                 # Recursively process nested parts
-                if 'parts' in part:
-                    for nested_part in part['parts']:
+                parts = part.get('parts', [])
+                if isinstance(parts, list):
+                    for nested_part in parts:
                         file_ids.extend(process_part(nested_part))
 
                 return file_ids
 
             # Start processing from the payload
+            if not isinstance(message, dict):
+                return []
+            
             payload = message.get('payload', {})
             all_file_ids = process_part(payload)
 
-            # Remove DUPLICATEs while preserving order
+            # Remove duplicates while preserving order
             return list(dict.fromkeys(all_file_ids))
 
         except Exception as e:
             logger.error(
-                "❌ Failed to get file ids for message %s: %s", message['id'], str(e))
+                "❌ Failed to get file ids for message %s: %s", 
+                message.get('id', 'unknown'), 
+                str(e)
+            )
             return []
 
     async def create_user_watch(self, user_id="me") -> Dict:

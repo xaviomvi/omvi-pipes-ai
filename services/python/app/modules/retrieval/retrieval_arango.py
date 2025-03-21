@@ -22,7 +22,6 @@ class ArangoService():
             CollectionNames.USER_DRIVE_RELATION.value: None,
 
             CollectionNames.FILES.value: None,
-            CollectionNames.ATTACHMENTS.value: None,
             CollectionNames.LINKS.value: None,
             CollectionNames.MAILS.value: None,
 
@@ -102,11 +101,6 @@ class ArangoService():
                     self.db.collection(CollectionNames.FILES.value)
                     if self.db.has_collection(CollectionNames.FILES.value)
                     else self.db.create_collection(CollectionNames.FILES.value)
-                )
-                self._collections[CollectionNames.ATTACHMENTS.value] = (
-                    self.db.collection(CollectionNames.ATTACHMENTS.value)
-                    if self.db.has_collection(CollectionNames.ATTACHMENTS.value)
-                    else self.db.create_collection(CollectionNames.ATTACHMENTS.value)
                 )
                 self._collections[CollectionNames.MAILS.value] = (
                     self.db.collection(CollectionNames.MAILS.value)

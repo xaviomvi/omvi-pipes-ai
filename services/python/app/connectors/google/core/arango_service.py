@@ -557,6 +557,7 @@ class ArangoService(BaseArangoService):
             else:
                 to_collection = f"{entityType}s"
 
+            logger.info("Permission data is %s", permission_data)
             # Create edge document with proper formatting
             edge = {
                 '_key': edge_key,
@@ -565,6 +566,8 @@ class ArangoService(BaseArangoService):
                 'type': permission_data.get('type').upper(),
                 'role': permission_data.get('role', 'READER').upper(),
                 'externalPermissionId': permission_data.get('id'),
+                'createdAtTimestamp': timestamp,
+                'updatedAtTimestamp': timestamp,
                 'lastUpdatedTimestampAtSource': timestamp,
             }
 
@@ -1286,9 +1289,9 @@ class ArangoService(BaseArangoService):
                 "🚀 Retrieving internal key for external attachment ID %s", external_attachment_id)
 
             query = """
-            FOR attachment IN attachments
-                FILTER attachment.externalAttachmentId == @external_attachment_id
-                RETURN attachment._key
+            FOR record IN records
+                FILTER record.externalRecordId == @external_attachment_id
+                RETURN record._key
             """
             db = transaction if transaction else self.db
             cursor = db.aql.execute(
@@ -1310,6 +1313,43 @@ class ArangoService(BaseArangoService):
                 external_attachment_id,
                 str(e)
             )
+            return None
+        
+    async def get_user_by_user_id(self, user_id: str) -> Optional[Dict]:
+        """Get user by user ID"""
+        try:
+            query = f"""
+                FOR user IN {CollectionNames.USERS.value}
+                    FILTER user.userId == @user_id
+                    RETURN user
+            """
+            cursor = self.db.aql.execute(query, bind_vars={'user_id': user_id})
+            result = next(cursor, None)
+            return result
+        except Exception as e:
+            logger.error(f"Error getting user by user ID: {str(e)}")
+            return None
+
+    async def get_account_type(self, org_id: str) -> str:
+        """Get account type for an organization
+        
+        Args:
+            org_id (str): Organization ID
+            
+        Returns:
+            str: Account type ('individual' or 'business')
+        """
+        try:
+            query = f"""
+                FOR org IN organizations
+                    FILTER org._key == @org_id
+                    RETURN org.accountType
+            """
+            cursor = self.db.aql.execute(query, bind_vars={'org_id': org_id})
+            result = next(cursor, None)
+            return result
+        except Exception as e:
+            logger.error(f"Error getting account type: {str(e)}")
             return None
 
     async def update_user_sync_state(self, user_email: str, state: str, service_type: str = 'drive') -> Optional[Dict]:

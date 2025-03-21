@@ -9,12 +9,14 @@ class GmailChangeHandler:
         self.config_service = config_service
         self.arango_service = arango_service
 
-    async def process_changes(self, user_service, changes, org_id) -> bool:
+    async def process_changes(self, user_service, changes, org_id, user_id) -> bool:
         """Process changes since last sync time"""
         logger.info("🚀 Processing changes")
         try:
             for change in changes.get('history', []):
                 logger.info(f"🚀 Processing change: {change}")
+
+                account_type = await self.arango_service.get_account_type(org_id)
 
                 # Handle message additions
                 if 'messagesAdded' in change:
@@ -31,7 +33,7 @@ class GmailChangeHandler:
                             continue
 
                         # Get attachments for this message
-                        attachments = await user_service.list_attachments(message_data)
+                        attachments = await user_service.list_attachments(message_data, org_id, user_id, account_type)
 
                         # Extract headers
                         headers = message_data.get('headers', {})
@@ -87,8 +89,14 @@ class GmailChangeHandler:
 
                         # Start transaction
                         txn = self.arango_service.db.begin_transaction(
-                            read=[CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.ATTACHMENTS.value, CollectionNames.PERMISSIONS.value],
-                            write=[CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.ATTACHMENTS.value, CollectionNames.PERMISSIONS.value]
+                            read=[CollectionNames.MAILS.value,
+                                  CollectionNames.RECORDS.value, 
+                                  CollectionNames.FILES.value,
+                                  CollectionNames.PERMISSIONS.value],
+                            write=[CollectionNames.MAILS.value, 
+                                   CollectionNames.RECORDS.value, 
+                                   CollectionNames.FILES.value,
+                                   CollectionNames.PERMISSIONS.value]
                         )
 
                         try:
@@ -107,10 +115,10 @@ class GmailChangeHandler:
                             # Store attachments if any
                             if attachments:
                                 attachment_records = []
+                                record_records = []
                                 for attachment in attachments:
                                     attachment_record = {
                                         '_key': str(uuid.uuid4()),
-                                        'externalAttachmentId': attachment['id'],
                                         'messageId': message_id,
                                         'mimeType': attachment.get('mimeType'),
                                         'filename': attachment.get('filename'),
@@ -119,10 +127,42 @@ class GmailChangeHandler:
                                     }
                                     attachment_records.append(
                                         attachment_record)
+                                    
+                                    record = {
+                                        "_key": attachment_record['_key'],
+                                        "orgId": org_id,
+                                        "recordName": attachment.get('filename'),
+                                        "recordType": RecordTypes.FILE.value,
+                                        "version": 0,
+                                        "externalRecordId": attachment_record['_key'],
+                                        "externalRevisionId": None,
+                                        "createdAtTimestamp": get_epoch_timestamp_in_ms(),
+                                        "updatedAtTimestamp": get_epoch_timestamp_in_ms(),
+                                        "lastSyncTimestamp": get_epoch_timestamp_in_ms(),
+                                        "sourceCreatedAtTimestamp": message.get('internalDate'),
+                                        "sourceLastModifiedTimestamp": message.get('internalDate'),
+                                        "isDeleted": False,
+                                        "isArchived": False,
+                                        "lastIndexTimestamp": None,
+                                        "lastExtractionTimestamp": None,
+                                        "indexingStatus": "NOT_STARTED",
+                                        "extractionStatus": "NOT_STARTED",
+                                        "isLatestVersion": True,
+                                        "isDirty": False,
+                                        "reason": None
+                                    }
+
+                                    record_records.append(record)
 
                                 await self.arango_service.batch_upsert_nodes(
                                     attachment_records,
-                                    collection=CollectionNames.ATTACHMENTS.value,
+                                    collection=CollectionNames.FILES.value,
+                                    transaction=txn
+                                )
+
+                                await self.arango_service.batch_upsert_nodes(
+                                    record_records,
+                                    collection=CollectionNames.RECORDS.value,
                                     transaction=txn
                                 )
 
@@ -142,8 +182,12 @@ class GmailChangeHandler:
                                         permission_records.append({
                                             '_from': f'users/{entity_id}',
                                             '_to': f'messages/{message_record["_key"]}',
-                                            'type': 'USER',
-                                            'role': "READER"
+                                            "externalPermissionId": None,
+                                            "type": "USER",
+                                            "role": "READER",
+                                            "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                            "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                            "lastUpdatedTimestampAtSource" : get_epoch_timestamp_in_ms()
                                         })
 
                             if permission_records:
@@ -182,8 +226,17 @@ class GmailChangeHandler:
 
                             # Start transaction
                             txn = self.arango_service.db.begin_transaction(
-                                read=[CollectionNames.MAILS.value, CollectionNames.ATTACHMENTS.value, CollectionNames.PERMISSIONS.value],
-                                write=[CollectionNames.MAILS.value, CollectionNames.ATTACHMENTS.value, CollectionNames.PERMISSIONS.value]
+                                read=[CollectionNames.MAILS.value, 
+                                      CollectionNames.PERMISSIONS.value,
+                                      CollectionNames.FILES.value,
+                                      CollectionNames.RECORDS.value,
+                                      CollectionNames.RECORD_RELATIONS.value
+                                      ],
+                                write=[CollectionNames.MAILS.value, 
+                                       CollectionNames.PERMISSIONS.value,
+                                       CollectionNames.FILES.value,
+                                       CollectionNames.RECORDS.value,
+                                       CollectionNames.RECORD_RELATIONS.value]
                             )
 
                             try:

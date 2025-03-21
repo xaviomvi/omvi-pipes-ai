@@ -11,6 +11,7 @@ from uuid import uuid4
 import time
 from app.connectors.api.setup import initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
+
 # Import required services
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.config.configuration_service import ConfigurationService
@@ -469,8 +470,8 @@ class KafkaRouteConsumer:
                     'appGroup': app_group,
                     'appGroupId': app_group_id,
                     'isActive': True,
-                    'createdAtTimestamp':  get_epoch_timestamp_in_ms(),
-                    'updatedAtTimestamp':  get_epoch_timestamp_in_ms()
+                    'createdAtTimestamp': get_epoch_timestamp_in_ms(),
+                    'updatedAtTimestamp': get_epoch_timestamp_in_ms()
                 }
                 app_docs.append(app_data)
 
@@ -483,7 +484,7 @@ class KafkaRouteConsumer:
                 edge_data = {
                     '_from': f"{CollectionNames.ORGS.value}/{org_id}",
                     '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
-                    'createdAt':  get_epoch_timestamp_in_ms()
+                    'createdAtTimestamp': get_epoch_timestamp_in_ms()
                 }
                 org_app_edges.append(edge_data)
 
@@ -537,8 +538,8 @@ class KafkaRouteConsumer:
                                 )
 
                     for app_name in enabled_apps:
-                        if app_name in ['calendar']:
-                            logger.info("Skipping init")
+                        if app_name in ['calendar', 'gmail']:
+                            logger.info(f"Skipping init for {app_name}")
                             continue
 
                         # Initialize app (this will fetch and create users)
@@ -546,22 +547,16 @@ class KafkaRouteConsumer:
                             f'{app_name}.init', 
                             {'path_params': {'org_id': org_id}}
                         )
-                        await asyncio.sleep(15)
                         
-                    for user in active_users:
-                        for app in app_docs:
-                            if sync_action == 'immediate':
-                                if app_name in ['calendar']:
-                                    logger.info("Skipping start")
-                                    continue
-
-                                # Start sync for all users
-                                await self._handle_sync_event(
-                                    f'{app_name}.start', 
-                                    {'path_params': {'org_id': org_id}}
-                                )
-
-                                await asyncio.sleep(15)
+                        await asyncio.sleep(5)
+                        
+                        if sync_action == 'immediate':
+                            # Start sync for all users
+                            await self._handle_sync_event(
+                                f'{app_name}.start', 
+                                {'path_params': {'org_id': org_id}}
+                            )
+                            await asyncio.sleep(5)
 
                 # For individual accounts, create edges between existing active users and apps
                 else:
@@ -588,7 +583,7 @@ class KafkaRouteConsumer:
                     # First initialize each app
                     for app_name in enabled_apps:
                         if app_name in ['calendar']:
-                            logger.info("Skipping init")
+                            logger.info(f"Skipping init for {app_name}")
                             continue
 
                         # Initialize app
@@ -597,7 +592,7 @@ class KafkaRouteConsumer:
                             {'path_params': {'org_id': org_id}}
                         )
                         
-                        await asyncio.sleep(15)
+                        await asyncio.sleep(5)
 
                     # Then create edges and start sync if needed
                     for user in active_users:
@@ -617,7 +612,7 @@ class KafkaRouteConsumer:
                                             }
                                         }
                                     )
-                                    await asyncio.sleep(15)
+                                    await asyncio.sleep(5)
 
             logger.info(f"✅ Successfully enabled apps for org: {org_id}")
             return True
@@ -634,20 +629,22 @@ class KafkaRouteConsumer:
 
             # Stop sync for each app
             logger.info(f"📥 Processing app disabled event: {payload}")
-            for app_name in apps:
-                await self._handle_sync_event(f'{app_name}.pause', {})
 
             # Set apps as inactive
             app_updates = []
             for app_name in apps:
                 app_data = {
+                    '_key': f"{org_id}_{app_name}",  # Construct the app _key
                     'isActive': False,
-                    'updatedAt':  get_epoch_timestamp_in_ms(),
+                    'updatedAtTimestamp':  get_epoch_timestamp_in_ms(),
                 }
                 app_updates.append(app_data)
 
             # Update apps in database
-            await self.arango_service.batch_update_apps(org_id, apps, app_updates)
+            await self.arango_service.batch_upsert_nodes(
+                app_updates,
+                CollectionNames.APPS.value
+            )
 
             logger.info(f"✅ Successfully disabled apps for org: {org_id}")
             return True

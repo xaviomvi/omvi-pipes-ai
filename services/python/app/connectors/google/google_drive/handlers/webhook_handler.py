@@ -163,7 +163,7 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
         if changes:
             for change in changes:
                 try:
-                    await self.change_handler.process_change(change, user_service, org_id)
+                    await self.change_handler.process_change(change, user_service, org_id, user_id)
                 except Exception as e:
                     logger.error(f"Error processing change: {str(e)}")
                     continue
@@ -300,7 +300,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                                 len(changes), channel_id)
                     for change in changes:
                         try:
-                            await self.change_handler.process_change(change, user_service, org_id)
+                            await self.change_handler.process_change(change, user_service, org_id, user_id)
                         except Exception as e:
                             logger.error("Error processing change: %s", str(e))
                             continue
@@ -332,6 +332,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
 
             for user in users:
                 try:
+                    user_id = user['userId']
                     user_service = await self.drive_admin_service.create_user_service(user['email'])
                     page_token = await self.arango_service.get_page_token_db(
                         user['channel_id'],
@@ -340,7 +341,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                     changes = await user_service.get_changes(page_token=page_token['token'])
                     if changes:
                         for change in changes:
-                            await self.change_handler.process_change(change, user_service, org_id)
+                            await self.change_handler.process_change(change, user_service, org_id, user_id)
                         success_count += 1
                 except Exception as e:
                     logger.error("Error processing user %s: %s",
