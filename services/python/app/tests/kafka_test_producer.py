@@ -57,7 +57,7 @@ class KafkaTestProducer:
             "timestamp": current_timestamp,
             "payload": {
                 "orgId": org_id,
-                "accountType": "individual",
+                "accountType": "enterprise",
                 "registeredName": "PipesHub"
             }
         }
@@ -106,11 +106,11 @@ class KafkaTestProducer:
             "payload": {
                 "orgId": org_id,
                 "userId": user_id,
-                "fullName": "Rohil Bansal",
-                "firstName": "Rohil",
+                "fullName": "Abhishek Gupta",
+                "firstName": "Abhishek",
                 "middleName": "",
-                "lastName": "Bansal",
-                "email": "rohil.bansal@pipeshub.net",
+                "lastName": "Gupta",
+                "email": "abhishek@pipeshub.net",
                 "designation": "",
                 "businessPhones": ["9023474629"],
                 "syncAction": "none"
@@ -177,22 +177,10 @@ class KafkaTestProducer:
     async def test_app_events(self):
         """Test app-related events"""
         current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000) 
-        org_id = "org_12345"
-        app_group_id = "groupid_xyz"
-        apps = ["drive"]
         
         # Enable apps event
-        enable_event = {
-            "eventType": "appEnabled",
-            "timestamp": current_timestamp,
-            "payload": {
-                "orgId": org_id,
-                "appGroup": "googleWorkspace",
-                "appGroupId": app_group_id,
-                "apps": apps,
-                "syncAction": "immediate"
-            }
-        }
+        enable_event = {'eventType': 'appEnabled', 'timestamp': 1742552263073, 'payload': {'orgId': '67dd3c71cc22f87eac2b2178', 'appGroup': 'Google Workspace', 'appGroupId': '67dd3cc7cc22f87eac2b21db', 'credentialsRoute': 'http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials', 'refreshTokenRoute': 'http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken', 'apps': ['drive', 'gmail', 'calendar'], 'syncAction': 'immediate'}}
+
         await self.send_message('entity-events', enable_event)
         
         # # Wait 30 seconds
@@ -216,13 +204,13 @@ async def main():
     """Main function to run all tests"""
     producer = KafkaTestProducer()
     
-    # Test org events
-    logger.info("Testing org events...")
-    await producer.test_org_events()
+    # # Test org events
+    # logger.info("Testing org events...")
+    # await producer.test_org_events()
 
-    # # Test user events
-    # logger.info("Testing user events...")
-    await producer.test_user_events()
+    # # # Test user events
+    # # logger.info("Testing user events...")
+    # await producer.test_user_events()
 
     # Test app events
     logger.info("Testing app events...")

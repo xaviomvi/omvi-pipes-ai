@@ -9,16 +9,17 @@ from datetime import datetime, timedelta, timezone
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import BatchHttpRequest
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
 from app.config.arangodb_constants import Connectors, RecordTypes
-from app.config.configuration_service import ConfigurationService, config_node_constants
+from app.config.configuration_service import ConfigurationService, config_node_constants, Routes, TokenScopes
 from app.utils.logger import logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from app.config.arangodb_constants import OriginTypes
 from uuid import uuid4
+import jwt
+import aiohttp
+import google.oauth2.credentials
 
 class DriveUserService:
     """DriveService class for interacting with Google Drive API"""
@@ -40,36 +41,160 @@ class DriveUserService:
         self.rate_limiter = rate_limiter
         self.google_limiter = self.rate_limiter.google_limiter
 
-    async def connect_individual_user(self) -> bool:
+        self.token_expiry = None
+        self.org_id = None
+        self.user_id = None
+
+    async def connect_individual_user(self, org_id: str, user_id: str) -> bool:
         """Connect using OAuth2 credentials for individual user"""
         try:
+            self.org_id = org_id
+            self.user_id = user_id
+            
             SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
-            # Load credentials from token file
-            creds = None
-            if os.path.exists('token.pickle'):
-                with open('token.pickle', 'rb') as token:
-                    creds = pickle.load(token)
-            if not creds or not creds.valid:
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-                else:
-                    credentials_path = await self.config.get_config(
-                        config_node_constants.GOOGLE_AUTH_CREDENTIALS_PATH.value)
-                    print("credentials_path: ", credentials_path)
-                    print("SCOPES: ", SCOPES)
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        credentials_path, SCOPES)
-                    creds = flow.run_local_server(port=8090)
-                with open('token.pickle', 'wb') as token:
-                    pickle.dump(creds, token)
+            
+            # Prepare payload for credentials API
+            payload = {
+                "orgId": org_id,
+                "userId": user_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            print("payload: ", payload)
+            
+            # Create JWT token
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
+
+            # Fetch credentials from API
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch credentials: {await response.json()}")
+                    creds_data = await response.json()
+                    for key, value in creds_data.items():
+                        print(f"{key}: {value}")
+                    
+
+            # Create credentials object from the response using google.oauth2.credentials.Credentials
+            creds = google.oauth2.credentials.Credentials(
+                token=creds_data.get('access_token'),
+                refresh_token=creds_data.get('refresh_token'),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=creds_data.get('client_id'),
+                client_secret=creds_data.get('client_secret'),
+                scopes=SCOPES
+            )
 
             self.service = build('drive', 'v3', credentials=creds)
-            return True  # Return True to indicate successful connection
+
+            # Store token expiry time
+            self.token_expiry = datetime.fromtimestamp(
+                creds_data.get('access_token_expiry_time', 0) / 1000,
+                tz=timezone.utc
+            )
+            
+            # Start token refresh background task
+            asyncio.create_task(self._refresh_token_periodic())
+
+            return True
 
         except Exception as e:
             logger.error(
                 "❌ Failed to connect to Individual Drive Service: %s", str(e))
             return False
+
+    async def _refresh_token_periodic(self):
+        """Background task to refresh token before expiry"""
+        while True:
+            try:
+                if not self.token_expiry:
+                    await asyncio.sleep(60)  # Check every minute if expiry is set
+                    continue
+
+                now = datetime.now(timezone.utc)
+                time_until_refresh = self.token_expiry - now - timedelta(minutes=20)
+                logger.info(f"Time until refresh: {time_until_refresh.total_seconds()}")
+
+                if time_until_refresh.total_seconds() <= 0:
+                    # Time to refresh
+                    await self._refresh_token()
+                    # After refresh, wait a minute before checking again
+                    await asyncio.sleep(60)
+                else:
+                    # Wait until 20 minutes before expiry
+                    await asyncio.sleep(time_until_refresh.total_seconds())
+
+            except Exception as e:
+                logger.error(f"Error in token refresh task: {str(e)}")
+                await asyncio.sleep(60)  # Wait a minute before retrying
+
+    async def _refresh_token(self):
+        """Refresh the access token"""
+        try:
+            logger.info("🔄 Refreshing access token")
+            
+            payload = {
+                "orgId": self.org_id,
+                "userId": self.user_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    Routes.INDIVIDUAL_REFRESH_TOKEN.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to refresh token: {await response.json()}")
+                    
+                    creds_data = await response.json()
+                    
+                    # Update credentials
+                    creds = google.oauth2.credentials.Credentials(
+                        token=creds_data.get('access_token'),
+                        refresh_token=creds_data.get('refresh_token'),
+                        token_uri="https://oauth2.googleapis.com/token",
+                        client_id=creds_data.get('client_id'),
+                        client_secret=creds_data.get('client_secret'),
+                        scopes=GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
+                    )
+
+                    # Update service with new credentials
+                    self.service = build('drive', 'v3', credentials=creds)
+                    
+                    # Update token expiry
+                    self.token_expiry = datetime.fromtimestamp(
+                        creds_data.get('access_token_expiry_time', 0) / 1000,
+                        tz=timezone.utc
+                    )
+                    
+                    logger.info("✅ Successfully refreshed access token")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to refresh token: {str(e)}")
+            raise
 
     async def connect_enterprise_user(self) -> bool:
         """Connect using OAuth2 credentials for enterprise user"""

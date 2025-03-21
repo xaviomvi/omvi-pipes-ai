@@ -6,13 +6,15 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from app.config.configuration_service import ConfigurationService, config_node_constants
+from app.config.configuration_service import ConfigurationService, config_node_constants, TokenScopes, Routes
 from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
 from app.utils.logger import logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
 from uuid import uuid4
+import aiohttp
+import jwt
 
 class GmailAdminService:
     """GmailAdminService class for interacting with Google GMail API"""
@@ -24,15 +26,44 @@ class GmailAdminService:
         self.admin_service = None
         self.credentials = None
 
-    async def connect_admin(self) -> bool:
+    async def connect_admin(self, org_id: str) -> bool:
         """Initialize admin service with domain-wide delegation"""
         try:
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            service_account_path = await self.config.get_config(config_node_constants.GOOGLE_AUTH_SERVICE_ACCOUNT_PATH.value)
             admin_email = await self.config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
 
-            self.credentials = service_account.Credentials.from_service_account_file(
-                service_account_path,
+            
+            # Prepare payload for credentials API
+            payload = {
+                "orgId": org_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            
+            # Create JWT token
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
+
+            # Call credentials API
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    Routes.BUSINESS_CREDENTIALS.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch credentials: {await response.json()}")
+                    credentials_json = await response.json()
+
+            # Create credentials from JSON
+            self.credentials = service_account.Credentials.from_service_account_info(
+                credentials_json,
                 scopes=SCOPES,
                 subject=admin_email
             )
@@ -48,7 +79,7 @@ class GmailAdminService:
 
         except Exception as e:
             logger.error(
-                "❌ Failed to connect to Drive Admin Service: %s", str(e))
+                "❌ Failed to connect to Gmail Admin Service: %s", str(e))
             return False
         
     def parse_timestamp(self, timestamp_str):
@@ -253,11 +284,7 @@ class GmailAdminService:
             topic = "projects/agile-seeker-447812-p3/topics/gmail-connector"
 
             # Create user-specific credentials using domain-wide delegation
-            user_credentials = service_account.Credentials.from_service_account_file(
-                await self.config.get_config(config_node_constants.GOOGLE_AUTH_SERVICE_ACCOUNT_PATH.value),
-                scopes=['https://www.googleapis.com/auth/gmail.readonly'],
-                subject=user_email
-            )
+            user_credentials = self.credentials
 
             # Build Gmail service for the user
             gmail_service = build(

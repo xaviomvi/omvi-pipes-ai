@@ -13,11 +13,12 @@ from fastapi.responses import StreamingResponse
 from google.auth.transport.requests import Request as GoogleRequest
 import pickle
 import os
+import aiohttp
 from googleapiclient.discovery import build
-from app.config.configuration_service import config_node_constants
+from app.config.configuration_service import config_node_constants, Routes, TokenScopes
 from app.config.arangodb_constants import CollectionNames
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-import io
+from typing import Optional, Any
 
 router = APIRouter()
 
@@ -60,12 +61,27 @@ async def handle_drive_webhook(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+def get_gmail_webhook_handler() -> Optional[Any]:
+    try:
+        return AppContainer.gmail_webhook_handler()
+    except:
+        return None
+
 @router.get("/gmail/webhook")
 @router.post("/gmail/webhook")
 @inject
-async def handle_gmail_webhook(request: Request, gmail_webhook_handler=Depends(Provide[AppContainer.gmail_webhook_handler])):
+async def handle_gmail_webhook(
+    request: Request
+):
     """Handles incoming Pub/Sub messages"""
     try:
+        # Get webhook handler, which might be None if not initialized
+        gmail_webhook_handler = get_gmail_webhook_handler()
+        
+        if gmail_webhook_handler is None:
+            logger.warning("Gmail webhook handler not yet initialized - skipping webhook processing")
+            return {"status": "skipped", "message": "Webhook handler not yet initialized"}
+
         body = await request.json()
         logger.info("Received webhook request: %s", body)
 
@@ -435,19 +451,44 @@ async def download_file(
         try:
             # Load service account credentials from environment or secure storage
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            service_account_path = await config.get_config(config_node_constants.GOOGLE_AUTH_SERVICE_ACCOUNT_PATH.value)
-
-            # Load and parse the service account JSON file
-            with open(service_account_path) as f:
-                service_account_info = json.load(f)
+            admin_email = await config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
+            
+            payload = {
+                "orgId": org_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            
+            # Create JWT token
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
+            
+            # Call credentials API
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    Routes.BUSINESS_CREDENTIALS.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch credentials: {await response.json()}")
+                    credentials_json = await response.json()
 
             credentials = service_account.Credentials.from_service_account_info(
-                service_account_info,
+                credentials_json,
                 scopes=SCOPES,
+                subject=admin_email
             )
             
             # Get the user email from the record to impersonate
-            credentials = credentials.with_subject(record.get('userEmail'))
+            # credentials = credentials.with_subject(record.get('userEmail'))
+            
             return credentials
         
         except Exception as e:

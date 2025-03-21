@@ -24,8 +24,8 @@ from app.schema.edges import (
     permissions_schema,
     belongs_to_schema,
     user_drive_relation_schema,
-    org_app_relation_schema,
-    user_app_relation_schema
+    user_app_relation_schema,
+    basic_edge_schema
 )
 
 class BaseArangoService():
@@ -50,7 +50,6 @@ class BaseArangoService():
 
             # Types of records
             CollectionNames.FILES.value: None,  # file records (Node) (Google Drive)
-            CollectionNames.ATTACHMENTS.value: None,  # attachment records (Node) (Gmail)
             CollectionNames.LINKS.value: None,
             CollectionNames.MAILS.value: None,     # message records (Node) (Gmail)
 
@@ -75,10 +74,24 @@ class BaseArangoService():
             CollectionNames.ORG_APP_RELATION.value: None,
             CollectionNames.USER_APP_RELATION.value: None,
             CollectionNames.DEPARTMENTS.value: None,
+            CollectionNames.BELONGS_TO_DEPARTMENT.value: None,
             CollectionNames.ORG_DEPARTMENT_RELATION.value: None,
 
             # Knowledge base collection
             CollectionNames.KNOWLEDGE_BASE.value:None,
+            
+            # Categories and Classifications
+            CollectionNames.CATEGORIES.value: None,
+            CollectionNames.BELONGS_TO_CATEGORY.value: None,
+            CollectionNames.LANGUAGES.value: None,
+            CollectionNames.BELONGS_TO_LANGUAGE.value: None,
+            CollectionNames.TOPICS.value: None,
+            CollectionNames.BELONGS_TO_TOPIC.value: None,
+            CollectionNames.SUBCATEGORIES1.value: None,
+            CollectionNames.SUBCATEGORIES2.value: None,
+            CollectionNames.SUBCATEGORIES3.value: None,
+            CollectionNames.INTER_CATEGORY_RELATIONS.value: None,
+            
         }
 
     async def connect(self) -> bool:
@@ -155,12 +168,12 @@ class BaseArangoService():
                 self._collections[CollectionNames.BELONGS_TO_DEPARTMENT.value] = (
                     self.db.collection(CollectionNames.BELONGS_TO_DEPARTMENT.value)
                     if self.db.has_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value, edge=True)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value, edge=True, schema=basic_edge_schema)
                 )
                 self._collections[CollectionNames.ORG_DEPARTMENT_RELATION.value] = (
                     self.db.collection(CollectionNames.ORG_DEPARTMENT_RELATION.value)
                     if self.db.has_collection(CollectionNames.ORG_DEPARTMENT_RELATION.value)
-                    else self.db.create_collection(CollectionNames.ORG_DEPARTMENT_RELATION.value, edge=True)
+                    else self.db.create_collection(CollectionNames.ORG_DEPARTMENT_RELATION.value, edge=True, schema=basic_edge_schema)
                 )
                 self._collections[CollectionNames.BELONGS_TO.value] = (
                     self.db.collection(CollectionNames.BELONGS_TO.value)
@@ -176,11 +189,6 @@ class BaseArangoService():
                     self.db.collection(CollectionNames.LINKS.value)
                     if self.db.has_collection(CollectionNames.LINKS.value)
                     else self.db.create_collection(CollectionNames.LINKS.value)
-                )
-                self._collections[CollectionNames.ATTACHMENTS.value] = (
-                    self.db.collection(CollectionNames.ATTACHMENTS.value)
-                    if self.db.has_collection(CollectionNames.ATTACHMENTS.value)
-                    else self.db.create_collection(CollectionNames.ATTACHMENTS.value)
                 )
                 self._collections[CollectionNames.MAILS.value] = (
                     self.db.collection(CollectionNames.MAILS.value)
@@ -236,12 +244,63 @@ class BaseArangoService():
                 self._collections[CollectionNames.ORG_APP_RELATION.value] = (
                     self.db.collection(CollectionNames.ORG_APP_RELATION.value)
                     if self.db.has_collection(CollectionNames.ORG_APP_RELATION.value)
-                    else self.db.create_collection(CollectionNames.ORG_APP_RELATION.value, edge=True, schema=org_app_relation_schema)
+                    else self.db.create_collection(CollectionNames.ORG_APP_RELATION.value, edge=True, schema=basic_edge_schema)
                 )
                 self._collections[CollectionNames.USER_APP_RELATION.value] = (
                     self.db.collection(CollectionNames.USER_APP_RELATION.value)
                     if self.db.has_collection(CollectionNames.USER_APP_RELATION.value)
                     else self.db.create_collection(CollectionNames.USER_APP_RELATION.value, edge=True, schema=user_app_relation_schema)
+                )
+                
+                self._collections[CollectionNames.CATEGORIES.value] = (
+                    self.db.collection(CollectionNames.CATEGORIES.value)
+                    if self.db.has_collection(CollectionNames.CATEGORIES.value)
+                    else self.db.create_collection(CollectionNames.CATEGORIES.value)
+                )
+                self._collections[CollectionNames.BELONGS_TO_CATEGORY.value] = (
+                    self.db.collection(CollectionNames.BELONGS_TO_CATEGORY.value)
+                    if self.db.has_collection(CollectionNames.BELONGS_TO_CATEGORY.value)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_CATEGORY.value, edge=True, schema=basic_edge_schema)
+                )
+                self._collections[CollectionNames.LANGUAGES.value] = (
+                    self.db.collection(CollectionNames.LANGUAGES.value)
+                    if self.db.has_collection(CollectionNames.LANGUAGES.value)
+                    else self.db.create_collection(CollectionNames.LANGUAGES.value)
+                )
+                self._collections[CollectionNames.BELONGS_TO_LANGUAGE.value] = (
+                    self.db.collection(CollectionNames.BELONGS_TO_LANGUAGE.value)
+                    if self.db.has_collection(CollectionNames.BELONGS_TO_LANGUAGE.value)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_LANGUAGE.value, edge=True, schema=basic_edge_schema)
+                )
+                self._collections[CollectionNames.TOPICS.value] = (
+                    self.db.collection(CollectionNames.TOPICS.value)
+                    if self.db.has_collection(CollectionNames.TOPICS.value)
+                    else self.db.create_collection(CollectionNames.TOPICS.value)
+                )
+                self._collections[CollectionNames.BELONGS_TO_TOPIC.value] = (
+                    self.db.collection(CollectionNames.BELONGS_TO_TOPIC.value)
+                    if self.db.has_collection(CollectionNames.BELONGS_TO_TOPIC.value)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_TOPIC.value, edge=True, schema=basic_edge_schema)
+                )
+                self._collections[CollectionNames.SUBCATEGORIES1.value] = (
+                    self.db.collection(CollectionNames.SUBCATEGORIES1.value)
+                    if self.db.has_collection(CollectionNames.SUBCATEGORIES1.value)
+                    else self.db.create_collection(CollectionNames.SUBCATEGORIES1.value)
+                )
+                self._collections[CollectionNames.SUBCATEGORIES2.value] = (
+                    self.db.collection(CollectionNames.SUBCATEGORIES2.value)
+                    if self.db.has_collection(CollectionNames.SUBCATEGORIES2.value)
+                    else self.db.create_collection(CollectionNames.SUBCATEGORIES2.value)
+                )
+                self._collections[CollectionNames.SUBCATEGORIES3.value] = (
+                    self.db.collection(CollectionNames.SUBCATEGORIES3.value)
+                    if self.db.has_collection(CollectionNames.SUBCATEGORIES3.value)
+                    else self.db.create_collection(CollectionNames.SUBCATEGORIES3.value)
+                )
+                self._collections[CollectionNames.INTER_CATEGORY_RELATIONS.value] = (
+                    self.db.collection(CollectionNames.INTER_CATEGORY_RELATIONS.value)
+                    if self.db.has_collection(CollectionNames.INTER_CATEGORY_RELATIONS.value)
+                    else self.db.create_collection(CollectionNames.INTER_CATEGORY_RELATIONS.value, edge=True, schema=basic_edge_schema)
                 )
                 self._collections[CollectionNames.KNOWLEDGE_BASE.value]=(
                     self.db.collection(CollectionNames.KNOWLEDGE_BASE.value)
@@ -336,10 +395,7 @@ class BaseArangoService():
                     logger.info(f"🚀 Inserting {len(new_departments)} departments")
                     self._collections[CollectionNames.DEPARTMENTS.value].insert_many(new_departments)
                     logger.info("✅ Departments initialized successfully")
-
-                return True
-
-
+                    
                 return True
 
             except Exception as e:

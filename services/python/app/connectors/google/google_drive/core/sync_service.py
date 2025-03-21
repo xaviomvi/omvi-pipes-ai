@@ -61,7 +61,7 @@ class BaseDriveSyncService(ABC):
         self.batch_size = 100
 
     @abstractmethod
-    async def connect_services(self) -> bool:
+    async def connect_services(self, org_id: str) -> bool:
         """Connect to required services"""
         pass
 
@@ -357,7 +357,12 @@ class BaseDriveSyncService(ABC):
             user_record_relation = {
                 '_to': f'users/{user_id}',
                 '_from': f'records/{drive_info["record"]["_key"]}',
-                'permission': 'WRITER' if drive_info['drive']['access_level'] == 'writer' else 'VIEWER'
+                'role': 'WRITER' if drive_info['drive']['access_level'] == 'writer' else 'VIEWER',
+                'type': 'USER',
+                'externalPermissionId': None,
+                'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                'lastUpdatedTimestampAtSource': int(datetime.now(timezone.utc).timestamp())
             }
             
             await self.arango_service.batch_create_edges(
@@ -414,11 +419,12 @@ class BaseDriveSyncService(ABC):
                         # Prepare File, Record and File Metadata
                         file = {
                             '_key': str(uuid.uuid4()),
+                            'orgId': org_id,
                             'name': str(metadata.get('name')),
                             'isFile': metadata.get('mimeType', '') != 'application/vnd.google-apps.folder',
                             'extension': metadata.get('fileExtension', None),
                             'mimeType': metadata.get('mimeType', None),
-                            'sizeInBytes': metadata.get('size', None),
+                            'sizeInBytes': int(metadata.get('size', None)),
                             'webUrl': metadata.get('webViewLink', None),
                             'etag': metadata.get('etag', None),
                             'ctag': metadata.get('ctag', None),
@@ -428,6 +434,7 @@ class BaseDriveSyncService(ABC):
                             'sha1Hash': metadata.get('sha1Checksum', None),
                             'sha256Hash': metadata.get('sha256Checksum', None),
                             'path': metadata.get('path', None)
+                            
                         }
 
                         record = {
@@ -447,10 +454,14 @@ class BaseDriveSyncService(ABC):
                             'isArchived': False,
                             'isDeleted': False,
                             'isLatestVersion': True,
-                            'isDirty': False,
+
                             'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
                             'indexingStatus': 'NOT_STARTED',
-                            'extractionStatus': 'NOT_STARTED'
+                            'extractionStatus': 'NOT_STARTED',
+                            'lastIndexTimestamp': None,
+                            'lastExtractionTimestamp': None,
+                            'isDirty': False,
+                            'reason': None,
                         }
 
                         files.append(file)
@@ -599,13 +610,13 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
         self.drive_admin_service = drive_admin_service
         self._active_user_service = None
 
-    async def connect_services(self) -> bool:
+    async def connect_services(self, org_id: str) -> bool:
         """Connect to services for enterprise setup"""
         try:
             logger.info("🚀 Connecting to enterprise services")
 
             # Connect to Google Drive Admin
-            if not await self.drive_admin_service.connect_admin():
+            if not await self.drive_admin_service.connect_admin(org_id):
                 raise Exception("Failed to connect to Drive Admin API")
 
             logger.info("✅ Enterprise services connected successfully")
@@ -619,7 +630,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
         """Initialize enterprise sync service"""
         try:
             logger.info("Initializing Drive sync service")
-            if not await self.connect_services():
+            if not await self.connect_services(org_id):
                 return False
 
             # List and store enterprise users
@@ -855,6 +866,8 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                     file_key = await self.arango_service.get_key_by_external_file_id(file_id)
                                     record = await self.arango_service.get_document(file_key, CollectionNames.RECORDS.value)
                                     file = await self.arango_service.get_document(file_key, CollectionNames.FILES.value)
+                                    
+                                    user_id = user['userId']
 
                                     record_version = 0  # Initial version for new files
                                     extension = file.get('extension')
@@ -866,7 +879,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                         "recordVersion": record_version,
                                         "recordType": record.get('recordType'),
                                         'eventType': "create",
-                                        "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
+                                        "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                                         "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                         "connectorName": Connectors.GOOGLE_DRIVE.value,
                                         "origin": OriginTypes.CONNECTOR.value,
@@ -1048,6 +1061,8 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                 record = await self.arango_service.get_document(file_key, CollectionNames.RECORDS.value)
                                 file = await self.arango_service.get_document(file_key, CollectionNames.FILES.value)
 
+                                user_id = user['userId']
+
                                 # Send Kafka indexing event
                                 index_event = {
                                     "orgId": org_id,
@@ -1056,7 +1071,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                     "recordVersion": 0,
                                     "recordType": record.get('recordType'),
                                     'eventType': "create",
-                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
+                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                                     "origin": OriginTypes.CONNECTOR.value,
@@ -1109,13 +1124,18 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                          change_handler, kafka_service, celery_app)
         self.drive_user_service = drive_user_service
 
-    async def connect_services(self) -> bool:
+    async def connect_services(self, org_id: str) -> bool:
         """Connect to services for individual setup"""
         try:
             logger.info("🚀 Connecting to individual user services")
-
+            
+            user_info = await self.arango_service.get_users(org_id, active=True)
+            if user_info:
+                # Add sync state to user info                
+                user_id = user_info[0]['userId']
+                
             # Connect to Google Drive
-            if not await self.drive_user_service.connect_individual_user():
+            if not await self.drive_user_service.connect_individual_user(org_id, user_id):
                 raise Exception("Failed to connect to Drive API")
 
             # Connect to ArangoDB and Redis
@@ -1131,7 +1151,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
     async def initialize(self, org_id) -> bool:
         """Initialize individual user sync service"""
         try:
-            if not await self.connect_services():
+            if not await self.connect_services(org_id):
                 return False
 
             # Get and store user info with initial sync state
@@ -1304,6 +1324,8 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                 record_version = 0  # Initial version for new files
                                 extension = file.get('extension')
                                 mime_type = file.get('mimeType')
+                                user_id = user['userId']
+                                
                                 index_event = {
                                     "orgId": org_id,
                                     "recordId": file_key,
@@ -1311,7 +1333,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                     "recordVersion": record_version,
                                     "recordType": record.get('recordType'),
                                     'eventType': "create",
-                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
+                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                                     "origin": OriginTypes.CONNECTOR.value,

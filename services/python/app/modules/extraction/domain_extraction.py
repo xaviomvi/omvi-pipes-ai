@@ -10,7 +10,7 @@ import uuid
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.metrics.pairwise import cosine_similarity
-
+from datetime import datetime, timezone
 import numpy as np
 from app.core.llm_service import LLMFactory
 from app.config.arangodb_constants import CollectionNames, DepartmentNames
@@ -240,13 +240,6 @@ class DomainExtractor:
             # Start with all existing fields from record
             doc = dict(record)  # Create a copy of all existing fields
 
-            # Convert SubCategories to dict for JSON serialization
-            subcategories_dict = {
-                "level1": metadata.subcategories.level1,
-                "level2": metadata.subcategories.level2,
-                "level3": metadata.subcategories.level3
-            }
-
             # Update with new metadata fields
             doc.update({
                 "_key": document_id,  # Use same key as record
@@ -268,7 +261,7 @@ class DomainExtractor:
                         dept_query,
                         bind_vars={'department': department.value}
                     )
-                    
+
                     # Get the first result directly from the cursor
                     dept_doc = cursor.next()
                     logger.info(f"🚀 Department: {dept_doc}")
@@ -278,6 +271,7 @@ class DomainExtractor:
                         edge = {
                             "_from": f"{CollectionNames.RECORDS.value}/{document_id}",
                             "_to": f"{CollectionNames.DEPARTMENTS.value}/{dept_doc['_key']}",
+                            "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
                         }
 
                         # Insert edge into belongs_to_department collection
@@ -292,85 +286,153 @@ class DomainExtractor:
                     continue
                 
             # Handle single category
-            category_key = str(uuid.uuid4())
-            self.arango_service.db.collection(CollectionNames.CATEGORIES.value).insert({
-                "_key": category_key,
-                "name": metadata.categories,
-            })
-            self.arango_service.db.collection(CollectionNames.BELONGS_TO_CATEGORY.value).insert({
-                "_from": f"records/{document_id}",
-                "_to": f"categories/{category_key}",
-            })
+            category_query = 'FOR c IN categories FILTER c.name == @name RETURN c'
+            cursor = self.arango_service.db.aql.execute(
+                category_query, bind_vars={'name': metadata.categories})
+            try:
+                category_doc = cursor.next()
+                category_key = category_doc['_key']
+            except StopAsyncIteration:
+                category_key = str(uuid.uuid4())
+                self.arango_service.db.collection(CollectionNames.CATEGORIES.value).insert({
+                    "_key": category_key,
+                    "name": metadata.categories,
+                })
 
-            # Handle Level 1 subcategory
-            subcategory1_key = str(uuid.uuid4())
-            self.arango_service.db.collection(CollectionNames.SUBCATEGORIES1.value).insert({
-                "_key": subcategory1_key,
-                "name": metadata.subcategories.level1,
+            # Create category relationship if it doesn't exist
+            edge_query = '''
+            FOR e IN belongs_to_category 
+            FILTER e._from == @from AND e._to == @to 
+            RETURN e
+            '''
+            cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
+                'from': f"records/{document_id}",
+                'to': f"categories/{category_key}"
             })
-            self.arango_service.db.collection(CollectionNames.BELONGS_TO_CATEGORY.value).insert({
-                "_from": f"records/{document_id}",
-                "_to": f"subcategories1/{subcategory1_key}",
-            })
-            # Link to parent category
-            self.arango_service.db.collection(CollectionNames.INTER_CATEGORY_RELATIONS.value).insert({
-                "_from": f"subcategories1/{subcategory1_key}",
-                "_to": f"categories/{category_key}",
-            })
+            if not cursor.count():
+                self.arango_service.db.collection(CollectionNames.BELONGS_TO_CATEGORY.value).insert({
+                    "_from": f"records/{document_id}",
+                    "_to": f"categories/{category_key}",
+                    "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
+                })
 
-            # Handle Level 2 subcategory
-            subcategory2_key = str(uuid.uuid4())
-            self.arango_service.db.collection(CollectionNames.SUBCATEGORIES2.value).insert({
-                "_key": subcategory2_key,
-                "name": metadata.subcategories.level2,
-            })
-            self.arango_service.db.collection(CollectionNames.BELONGS_TO_CATEGORY.value).insert({
-                "_from": f"records/{document_id}",
-                "_to": f"subcategories2/{subcategory2_key}",
-            })
-            # Link to parent subcategory1
-            self.arango_service.db.collection(CollectionNames.INTER_CATEGORY_RELATIONS.value).insert({
-                "_from": f"subcategories2/{subcategory2_key}",
-                "_to": f"subcategories1/{subcategory1_key}",
-            })
+            # Handle subcategories with similar pattern
+            async def handle_subcategory(name, level, parent_key, parent_collection):
+                collection_name = getattr(CollectionNames, f'SUBCATEGORIES{level}').value
+                query = f'FOR s IN {collection_name} FILTER s.name == @name RETURN s'
+                cursor = self.arango_service.db.aql.execute(query, bind_vars={'name': name})
+                try:
+                    doc = cursor.next()
+                    key = doc['_key']
+                except StopAsyncIteration:
+                    key = str(uuid.uuid4())
+                    self.arango_service.db.collection(collection_name).insert({
+                        "_key": key,
+                        "name": name,
+                    })
 
-            # Handle Level 3 subcategory
-            subcategory3_key = str(uuid.uuid4())
-            self.arango_service.db.collection(CollectionNames.SUBCATEGORIES3.value).insert({
-                "_key": subcategory3_key,
-                "name": metadata.subcategories.level3,
-            })
-            self.arango_service.db.collection(CollectionNames.BELONGS_TO_CATEGORY.value).insert({
-                "_from": f"records/{document_id}",
-                "_to": f"subcategories3/{subcategory3_key}",
-            })
-            # Link to parent subcategory2
-            self.arango_service.db.collection(CollectionNames.INTER_CATEGORY_RELATIONS.value).insert({
-                "_from": f"subcategories3/{subcategory3_key}",
-                "_to": f"subcategories2/{subcategory2_key}",
-            })
+                # Create belongs_to relationship
+                edge_query = '''
+                FOR e IN belongs_to_category 
+                FILTER e._from == @from AND e._to == @to 
+                RETURN e
+                '''
+                cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
+                    'from': f"records/{document_id}",
+                    'to': f"{collection_name}/{key}"
+                })
+                if not cursor.count():
+                    self.arango_service.db.collection(CollectionNames.BELONGS_TO_CATEGORY.value).insert({
+                        "_from": f"records/{document_id}",
+                        "_to": f"{collection_name}/{key}",
+                        "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
+                    })
 
+                # Create hierarchy relationship
+                if parent_key:
+                    edge_query = '''
+                    FOR e IN inter_category_relations 
+                    FILTER e._from == @from AND e._to == @to 
+                    RETURN e
+                    '''
+                    cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
+                        'from': f"{collection_name}/{key}",
+                        'to': f"{parent_collection}/{parent_key}"
+                    })
+                    if not cursor.count():
+                        self.arango_service.db.collection(CollectionNames.INTER_CATEGORY_RELATIONS.value).insert({
+                            "_from": f"{collection_name}/{key}",
+                            "_to": f"{parent_collection}/{parent_key}",
+                            "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
+                        })
+                return key
+
+            # Process subcategories
+            sub1_key = await handle_subcategory(metadata.subcategories.level1, '1', category_key, 'categories')
+            sub2_key = await handle_subcategory(metadata.subcategories.level2, '2', sub1_key, 'subcategories1')
+            await handle_subcategory(metadata.subcategories.level3, '3', sub2_key, 'subcategories2')
+
+            # Handle languages
             for language in metadata.languages:
-                language_key = str(uuid.uuid4())
-                self.arango_service.db.collection(CollectionNames.LANGUAGES.value).insert({
-                    "_key": language_key,
-                    "name": language,
-                })
-                self.arango_service.db.collection(CollectionNames.BELONGS_TO_LANGUAGE.value).insert({
-                    "_from": f"records/{document_id}",
-                    "_to": f"languages/{language_key}",
-                })
+                query = 'FOR l IN languages FILTER l.name == @name RETURN l'
+                cursor = self.arango_service.db.aql.execute(query, bind_vars={'name': language})
+                try:
+                    lang_doc = cursor.next()
+                    lang_key = lang_doc['_key']
+                except StopAsyncIteration:
+                    lang_key = str(uuid.uuid4())
+                    self.arango_service.db.collection(CollectionNames.LANGUAGES.value).insert({
+                        "_key": lang_key,
+                        "name": language,
+                    })
 
+                # Create relationship if it doesn't exist
+                edge_query = '''
+                FOR e IN belongs_to_language 
+                FILTER e._from == @from AND e._to == @to 
+                RETURN e
+                '''
+                cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
+                    'from': f"records/{document_id}",
+                    'to': f"languages/{lang_key}"
+                })
+                if not cursor.count():
+                    self.arango_service.db.collection(CollectionNames.BELONGS_TO_LANGUAGE.value).insert({
+                        "_from": f"records/{document_id}",
+                        "_to": f"languages/{lang_key}",
+                        "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
+                    })
+
+            # Handle topics
             for topic in metadata.topics:
-                topic_key = str(uuid.uuid4())
-                self.arango_service.db.collection(CollectionNames.TOPICS.value).insert({
-                    "_key": topic_key,
-                    "name": topic,
+                query = 'FOR t IN topics FILTER t.name == @name RETURN t'
+                cursor = self.arango_service.db.aql.execute(query, bind_vars={'name': topic})
+                try:
+                    topic_doc = cursor.next()
+                    topic_key = topic_doc['_key']
+                except StopAsyncIteration:
+                    topic_key = str(uuid.uuid4())
+                    self.arango_service.db.collection(CollectionNames.TOPICS.value).insert({
+                        "_key": topic_key,
+                        "name": topic,
+                    })
+
+                # Create relationship if it doesn't exist
+                edge_query = '''
+                FOR e IN belongs_to_topic 
+                FILTER e._from == @from AND e._to == @to 
+                RETURN e
+                '''
+                cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
+                    'from': f"records/{document_id}",
+                    'to': f"topics/{topic_key}"
                 })
-                self.arango_service.db.collection(CollectionNames.BELONGS_TO_TOPIC.value).insert({
-                    "_from": f"records/{document_id}",
-                    "_to": f"topics/{topic_key}",
-                })
+                if not cursor.count():
+                    self.arango_service.db.collection(CollectionNames.BELONGS_TO_TOPIC.value).insert({
+                        "_from": f"records/{document_id}",
+                        "_to": f"topics/{topic_key}",
+                        "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
+                    })
 
             logger.info(f"🚀 Metadata saved successfully for document: {document_id}")
             

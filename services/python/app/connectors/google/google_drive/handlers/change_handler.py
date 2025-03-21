@@ -108,7 +108,7 @@ class DriveChangeHandler:
             )
 
             if not file_key:
-                await self.handle_insert(new_file, transaction=txn)
+                await self.handle_insert(new_file, org_id, transaction=txn)
                 change = "create"
             else:
                 if removed or is_trashed:
@@ -119,7 +119,7 @@ class DriveChangeHandler:
                         return
                     needs_update_var, reindex_var = await self.needs_update(new_file, db_file, db_record, transaction=txn)
                     if needs_update_var:
-                        await self.handle_update(new_file, db_file, db_record, transaction=txn)
+                        await self.handle_update(new_file, db_file, db_record, org_id, transaction=txn)
                         if reindex_var:
                             change = "update"
                         else:
@@ -374,7 +374,7 @@ class DriveChangeHandler:
                 "❌ Error handling removal of record: %s: %s, %s", existing_record['_key'], existing_record['recordName'], str(e))
             raise
 
-    async def handle_insert(self, file_metadata, transaction):
+    async def handle_insert(self, file_metadata, org_id, transaction):
         """Handle file insert"""
         try:
             logger.info("🚀 Handling insert of file: %s",
@@ -405,11 +405,11 @@ class DriveChangeHandler:
             else:
                 file = {
                     '_key': str(uuid.uuid4()),
-                    'orgId': await self.config_service.get_config('organization'),
-                    'fileName': str(file_metadata.get('name')),
+                    'orgId': org_id,
+                    'name': str(file_metadata.get('name')),
                     'extension': file_metadata.get('fileExtension', None),
                     'mimeType': file_metadata.get('mimeType', None),
-                    'sizeInBytes': file_metadata.get('size', None),
+                    'sizeInBytes': int(file_metadata.get('size', None)),
                     'isFile': file_metadata.get('mimeType', '') != 'application/vnd.google-apps.folder',
                     'webUrl': file_metadata.get('webViewLink', None),
                     'etag': file_metadata.get('etag', None),
@@ -424,6 +424,7 @@ class DriveChangeHandler:
 
                 record = {
                     '_key': f'{file["_key"]}',
+                    'orgId': org_id,
                     'recordName': f'{file["fileName"]}',
                     'recordType': RecordTypes.FILE.value,
                     'version': 0,
@@ -438,7 +439,18 @@ class DriveChangeHandler:
                     'isArchived': False,
                     'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
                     'indexingStatus': 'NOT_STARTED',
-                    'extractionStatus': 'NOT_STARTED'
+                    'extractionStatus': 'NOT_STARTED',
+                    'isLatestVersion': True,
+
+                    'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                    'indexingStatus': 'NOT_STARTED',
+                    'extractionStatus': 'NOT_STARTED',
+                    'lastIndexTimestamp': None,
+                    'lastExtractionTimestamp': None,
+                    
+                    'isDeleted': False,
+                    'isDirty': False,
+                    'reason': None,
                 }
 
                 recordRelations = []
@@ -484,7 +496,7 @@ class DriveChangeHandler:
             logger.error("❌ Error handling insert for file: %s", str(e))
             raise
 
-    async def handle_update(self, updated_file, existing_file, existing_record, transaction):
+    async def handle_update(self, updated_file, existing_file, existing_record, org_id, transaction):
         """Handle file update or creation"""
         try:
             logger.info("🚀 Handling update of file: %s",
@@ -501,10 +513,11 @@ class DriveChangeHandler:
 
             file = {
                 '_key': existing_file['_key'],
-                'fileName': str(updated_file.get('name')),
+                'orgId': org_id,
+                'name': str(updated_file.get('name')),
                 'extension': updated_file.get('fileExtension', None),
                 'mimeType': updated_file.get('mimeType', None),
-                'sizeInBytes': updated_file.get('size', None),
+                'sizeInBytes': int(updated_file.get('size', None)),
                 'webUrl': updated_file.get('webViewLink', None),
                 'etag': updated_file.get('etag', None),
                 'ctag': updated_file.get('ctag', None),
@@ -518,6 +531,7 @@ class DriveChangeHandler:
 
             record = {
                 '_key': existing_record['_key'],
+                'orgId': org_id,
                 'recordName': f'{file["fileName"]}',
                 'recordType': RecordTypes.FILE.value,
                 'version': 0,
@@ -531,8 +545,20 @@ class DriveChangeHandler:
                 'connectorName': Connectors.GOOGLE_DRIVE.value,
                 'isArchived': False,
                 'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
+
+                "isDeleted": False,
+                "isArchived": False,
+
                 'indexingStatus': 'NOT_STARTED',
-                'extractionStatus': 'NOT_STARTED'
+                'extractionStatus': 'NOT_STARTED',
+
+                'lastIndexTimestamp': None,
+                'lastExtractionTimestamp': None,
+                'indexingStatus': 'NOT_STARTED',
+                'extractionStatus': 'NOT_STARTED',
+                'isLatestVersion': True,
+                'isDirty': False,
+                'reason': None,
             }
 
             # 5. Update file and record nodes

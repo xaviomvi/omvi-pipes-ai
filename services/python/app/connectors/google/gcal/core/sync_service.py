@@ -59,7 +59,7 @@ class BaseGCalSyncService(ABC):
         self.batch_size = 50
 
     @abstractmethod
-    async def connect_services(self) -> bool:
+    async def connect_services(self, org_id: str) -> bool:
         """Connect to required services"""
         pass
 
@@ -110,13 +110,13 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
         super().__init__(config, arango_service, kafka_service, celery_app)
         self.gcal_admin_service = gcal_admin_service
 
-    async def connect_services(self) -> bool:
+    async def connect_services(self, org_id: str) -> bool:
         """Connect to services for enterprise setup"""
         try:
             logger.info("🚀 Connecting to enterprise services")
 
             # Connect to Google Calendar Admin
-            if not await self.gcal_admin_service.connect_admin():
+            if not await self.gcal_admin_service.connect_admin(org_id):
                 raise Exception("Failed to connect to Calendar Admin API")
 
             # Connect to ArangoDB and Redis
@@ -134,7 +134,7 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
         """Initialize enterprise sync service"""
         try:
             logger.info("🚀 Initializing enterprise sync service")
-            if not await self.connect_services():
+            if not await self.connect_services(org_id):
                 return False
 
             users = []

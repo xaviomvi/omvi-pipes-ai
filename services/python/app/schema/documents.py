@@ -152,12 +152,12 @@ file_record_schema = {
     "rule": {
         "type": "object",
         "properties": {
-            "orgId" : {"type" :"string"},
+            "orgId": {"type": "string"},
             "name": {"type": "string", "minLength": 1},
             "isFile": {"type": "boolean"},
             "extension": {"type": ["string", "null"]},
             "mimeType": {"type": ["string", "null"]},
-            "sizeInBytes": {"type": ["string", "null"]},
+            "sizeInBytes": {"type": ["number", "null"]},
             "webUrl": {"type": "string"},
             "etag": {"type": ["string", "null"]},
             "ctag": {"type": ["string", "null"]},
@@ -168,7 +168,7 @@ file_record_schema = {
             "sha256Hash": {"type": ["string", "null"]},
             "path": {"type": "string"}
         },
-        "required": ["name","orgId"],
+        "required": ["name"],
         "additionalProperties": False,
     },
     "level": "strict",
@@ -195,10 +195,22 @@ mail_record_schema = {
             "subject": {"type": "string"},
             "date": {"type": "string"},
             "from": {"type": "string"},
-            "to": {"type": "array", "items": {"type": "string"}},
-            "cc": {"type": "array", "items": {"type": "string"}},
-            "bcc": {"type": "array", "items": {"type": "string"}},
-            "messageIdHeader": {"type": "string"},
+            "to": {
+                "type": "array", 
+                "items": {"type": "string", "minLength": 0},
+                "default": []
+            },
+            "cc": {
+                "type": "array", 
+                "items": {"type": "string", "minLength": 0},
+                "default": []
+            },
+            "bcc": {
+                "type": "array", 
+                "items": {"type": "string", "minLength": 0},
+                "default": []
+            },
+            "messageIdHeader": {"type": ["string", "null"]},
             "historyId": {"type": "string"},
             "webUrl": {"type": "string"},
             "labelIds": {"type": "array", "items": {"type": "string"}},

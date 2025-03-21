@@ -21,10 +21,10 @@ class GmailDriveInterface:
         self.rate_limiter = rate_limiter
         self.drive_service = drive_service
         self.credentials = credentials
-        self.user_type = os.getenv('USER_TYPE', 'individual')
+
 
     @exponential_backoff()
-    async def get_drive_file(self, file_id: str, user_email: Optional[str] = None) -> Optional[Dict]:
+    async def get_drive_file(self, file_id: str, user_email: Optional[str] = None, org_id: Optional[str] = None, user_id: Optional[str] = None, account_type: Optional[str] = None) -> Optional[Dict]:
         """Get Drive file metadata using file ID
 
         Args:
@@ -36,7 +36,7 @@ class GmailDriveInterface:
         """
         try:
             # For enterprise setup
-            if self.user_type == 'enterprise' or self.user_type == 'business':
+            if account_type == 'enterprise' or account_type == 'business':
                 if not user_email:
                     logger.error("❌ User email required for enterprise setup")
                     return None
@@ -47,7 +47,7 @@ class GmailDriveInterface:
                         config=self.config,
                         rate_limiter=self.rate_limiter
                     )
-                    if not await self.drive_service.connect_admin():
+                    if not await self.drive_service.connect_admin(org_id):
                         logger.error(
                             "❌ Failed to connect to Drive Admin service")
                         return None
@@ -71,7 +71,8 @@ class GmailDriveInterface:
                         rate_limiter=self.rate_limiter,
                         credentials=self.credentials
                     )
-                    if not await self.drive_service.connect_individual_user():
+                    
+                    if not await self.drive_service.connect_individual_user(org_id, user_id):
                         logger.error(
                             "❌ Failed to connect to Drive User service")
                         return None

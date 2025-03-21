@@ -4,15 +4,18 @@
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from app.config.configuration_service import ConfigurationService, config_node_constants
+from app.config.configuration_service import ConfigurationService, config_node_constants, TokenScopes, Routes
 from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
 from app.utils.logger import logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
 from uuid import uuid4
+import aiohttp
+import jwt
 
 class DriveAdminService:
     """DriveAdminService class for interacting with Google Drive API"""
@@ -24,16 +27,44 @@ class DriveAdminService:
         self.admin_service = None
         self.credentials = None
 
-    async def connect_admin(self) -> bool:
+    async def connect_admin(self, org_id: str) -> bool:
         """Initialize admin service with domain-wide delegation"""
         try:
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-
-            service_account_path = await self.config.get_config(config_node_constants.GOOGLE_AUTH_SERVICE_ACCOUNT_PATH.value)
             admin_email = await self.config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
+            
+            # Prepare payload for credentials API
+            payload = {
+                "orgId": org_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            
+            # Create JWT token
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
 
-            self.credentials = service_account.Credentials.from_service_account_file(
-                service_account_path,
+            # Call credentials API
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    Routes.BUSINESS_CREDENTIALS.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch credentials: {await response.json()}")
+                    credentials_json = await response.json()
+                    print("CREDENTIALS: ", credentials_json)
+
+            # Create credentials from JSON
+            self.credentials = service_account.Credentials.from_service_account_info(
+                credentials_json,
                 scopes=SCOPES,
                 subject=admin_email
             )

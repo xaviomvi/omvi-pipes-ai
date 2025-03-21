@@ -228,7 +228,7 @@ class KafkaRouteConsumer:
                 relation_data = {
                     '_from': f"{CollectionNames.ORGS.value}/{payload['orgId']}",
                     '_to': f"{CollectionNames.DEPARTMENTS.value}/{department['_key']}",
-                    'createdAt': int(datetime.now(timezone.utc).timestamp())
+                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp())
                 }
                 org_department_relations.append(relation_data)
             
@@ -484,7 +484,7 @@ class KafkaRouteConsumer:
                 edge_data = {
                     '_from': f"{CollectionNames.ORGS.value}/{org_id}",
                     '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
-                    'createdAt': int(datetime.now(timezone.utc).timestamp())
+                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp())
                 }
                 org_app_edges.append(edge_data)
 
@@ -547,7 +547,7 @@ class KafkaRouteConsumer:
                             f'{app_name}.init', 
                             {'path_params': {'org_id': org_id}}
                         )
-                        await asyncio.sleep(15)
+                        await asyncio.sleep(5)
                         
                     for user in active_users:
                         for app in app_docs:
@@ -562,7 +562,7 @@ class KafkaRouteConsumer:
                                     {'path_params': {'org_id': org_id}}
                                 )
 
-                                await asyncio.sleep(15)
+                                await asyncio.sleep(5)
 
                 # For individual accounts, create edges between existing active users and apps
                 else:
@@ -598,7 +598,7 @@ class KafkaRouteConsumer:
                             {'path_params': {'org_id': org_id}}
                         )
                         
-                        await asyncio.sleep(15)
+                        await asyncio.sleep(5)
 
                     # Then create edges and start sync if needed
                     for user in active_users:
@@ -618,7 +618,7 @@ class KafkaRouteConsumer:
                                             }
                                         }
                                     )
-                                    await asyncio.sleep(15)
+                                    await asyncio.sleep(5)
 
             logger.info(f"✅ Successfully enabled apps for org: {org_id}")
             return True

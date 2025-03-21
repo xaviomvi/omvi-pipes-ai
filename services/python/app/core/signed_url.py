@@ -4,8 +4,13 @@ import jwt
 from fastapi import HTTPException, Request
 from jose import JWTError
 from pydantic import BaseModel, ValidationError
-from app.utils.logger import logger
+from app.utils.logger import create_logger
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+logger = create_logger('signed_url')
 
 
 class SignedUrlConfig(BaseModel):
@@ -13,7 +18,6 @@ class SignedUrlConfig(BaseModel):
     expiration_minutes: int = 30
     algorithm: str = "HS256"
     url_prefix: str = "/api/v1/index"
-
 
 class TokenPayload(BaseModel):
     record_id: str
@@ -25,7 +29,6 @@ class TokenPayload(BaseModel):
         json_encoders = {
             datetime: lambda v: v.timestamp()  # Convert datetime to timestamp
         }
-
 
 class SignedUrlHandler:
     def __init__(self, config: SignedUrlConfig):

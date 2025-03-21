@@ -293,6 +293,7 @@ class IndexingPipeline:
             print(f"Meta: {meta}")
             enhanced_metadata = {
                 'orgId': meta.get('orgId', ''),
+                'recordId': meta.get('recordId', ''),
                 'recordName': meta.get('recordName', ''),
                 'recordType': meta.get('recordType', ''),
                 'recordVersion': meta.get('version', ''),

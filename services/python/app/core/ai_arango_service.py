@@ -9,8 +9,25 @@ from typing import Dict, List, Optional
 from app.config.arangodb_constants import CollectionNames, DepartmentNames
 from arango.database import TransactionDatabase
 from app.config.configuration_service import config_node_constants
-from app.schema.documents import user_schema, orgs_schema, kb_schema
-from app.schema.edges import belongs_to_schema, permissions_schema
+from app.schema.documents import (
+    user_schema,
+    orgs_schema,
+    app_schema,
+    record_schema,
+    file_record_schema,
+    mail_record_schema,
+    department_schema,
+    kb_schema
+)
+from app.schema.edges import (
+    record_relations_schema,
+    is_of_type_schema,
+    permissions_schema,
+    belongs_to_schema,
+    user_drive_relation_schema,
+    user_app_relation_schema,
+    basic_edge_schema
+)
 
 class ArangoService():
     """ArangoDB service for interacting with the database"""
@@ -30,7 +47,6 @@ class ArangoService():
             CollectionNames.USER_DRIVE_RELATION.value: None,
 
             CollectionNames.FILES.value: None,
-            CollectionNames.ATTACHMENTS.value: None,
             CollectionNames.LINKS.value: None,
             CollectionNames.MAILS.value: None,
 
@@ -111,11 +127,6 @@ class ArangoService():
                     if self.db.has_collection(CollectionNames.FILES.value)
                     else self.db.create_collection(CollectionNames.FILES.value)
                 )
-                self._collections[CollectionNames.ATTACHMENTS.value] = (
-                    self.db.collection(CollectionNames.ATTACHMENTS.value)
-                    if self.db.has_collection(CollectionNames.ATTACHMENTS.value)
-                    else self.db.create_collection(CollectionNames.ATTACHMENTS.value)
-                )
                 self._collections[CollectionNames.MAILS.value] = (
                     self.db.collection(CollectionNames.MAILS.value)
                     if self.db.has_collection(CollectionNames.MAILS.value)
@@ -129,7 +140,7 @@ class ArangoService():
                 self._collections[CollectionNames.BELONGS_TO_DEPARTMENT.value] = (
                     self.db.collection(CollectionNames.BELONGS_TO_DEPARTMENT.value)
                     if self.db.has_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value, edge=True)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value, edge=True, schema=basic_edge_schema)
                 )
                 self._collections[CollectionNames.ORG_DEPARTMENT_RELATION.value] = (
                     self.db.collection(CollectionNames.ORG_DEPARTMENT_RELATION.value)
@@ -144,7 +155,7 @@ class ArangoService():
                 self._collections[CollectionNames.BELONGS_TO_CATEGORY.value] = (
                     self.db.collection(CollectionNames.BELONGS_TO_CATEGORY.value)
                     if self.db.has_collection(CollectionNames.BELONGS_TO_CATEGORY.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO_CATEGORY.value, edge=True)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_CATEGORY.value, edge=True, schema=basic_edge_schema)
                 )
                 self._collections[CollectionNames.SUBCATEGORIES1.value] = (
                     self.db.collection(CollectionNames.SUBCATEGORIES1.value)
@@ -164,7 +175,7 @@ class ArangoService():
                 self._collections[CollectionNames.INTER_CATEGORY_RELATIONS.value] = (
                     self.db.collection(CollectionNames.INTER_CATEGORY_RELATIONS.value)
                     if self.db.has_collection(CollectionNames.INTER_CATEGORY_RELATIONS.value)
-                    else self.db.create_collection(CollectionNames.INTER_CATEGORY_RELATIONS.value, edge=True)
+                    else self.db.create_collection(CollectionNames.INTER_CATEGORY_RELATIONS.value, edge=True, schema=basic_edge_schema)
                 )
                 self._collections[CollectionNames.LANGUAGES.value] = (
                     self.db.collection(CollectionNames.LANGUAGES.value)
@@ -174,7 +185,7 @@ class ArangoService():
                 self._collections[CollectionNames.BELONGS_TO_LANGUAGE.value] = (
                     self.db.collection(CollectionNames.BELONGS_TO_LANGUAGE.value)
                     if self.db.has_collection(CollectionNames.BELONGS_TO_LANGUAGE.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO_LANGUAGE.value, edge=True)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_LANGUAGE.value, edge=True, schema=basic_edge_schema)
                 )
                 self._collections[CollectionNames.TOPICS.value] = (
                     self.db.collection(CollectionNames.TOPICS.value)
@@ -184,7 +195,7 @@ class ArangoService():
                 self._collections[CollectionNames.BELONGS_TO_TOPIC.value] = (
                     self.db.collection(CollectionNames.BELONGS_TO_TOPIC.value)
                     if self.db.has_collection(CollectionNames.BELONGS_TO_TOPIC.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO_TOPIC.value, edge=True)
+                    else self.db.create_collection(CollectionNames.BELONGS_TO_TOPIC.value, edge=True, schema=basic_edge_schema)
                 )
                 self._collections[CollectionNames.PEOPLE.value] = (
                     self.db.collection(CollectionNames.PEOPLE.value)
@@ -531,6 +542,35 @@ class ArangoService():
             )
             if transaction:
                 raise
+            return False
+        
+    async def batch_create_edges(self, edges: List[Dict], collection: str, transaction: Optional[TransactionDatabase] = None):
+        """Batch create PARENT_CHILD relationships"""
+        try:
+            logger.info("🚀 Batch creating edges: %s", collection)
+
+            batch_query = """
+            FOR edge IN @edges
+                UPSERT { _from: edge._from, _to: edge._to }
+                INSERT edge
+                UPDATE edge
+                IN @@collection
+                RETURN NEW
+            """
+            bind_vars = {'edges': edges, '@collection': collection}
+
+            db = transaction if transaction else self.db
+
+            cursor = db.aql.execute(batch_query, bind_vars=bind_vars)
+            results = list(cursor)
+            logger.info("✅ Successfully created %d edges in collection '%s'.", len(
+                results), collection)
+            return True
+        except Exception as e:
+            logger.error(
+                "❌ Batch edge creation failed: %s",
+                str(e)
+            )
             return False
 
     async def get_user_accessible_files(self, user_key: str) -> List[str]:

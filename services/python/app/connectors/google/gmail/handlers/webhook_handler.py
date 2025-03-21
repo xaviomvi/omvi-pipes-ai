@@ -218,7 +218,7 @@ class IndividualGmailWebhookHandler(AbstractGmailWebhookHandler):
                 if changes:
                     logger.info("%s webhook: Found %s changes to process",
                                 self.handler_type, len(changes))
-                    await self.change_handler.process_changes(user_service, changes, org_id)
+                    await self.change_handler.process_changes(user_service, changes, org_id, user_id)
                 else:
                     logger.info("%s webhook: No changes to process",
                                 self.handler_type)
@@ -320,7 +320,7 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                 if changes:
                     logger.info("%s webhook: Found %s changes to process",
                                 self.handler_type, len(changes))
-                    await self.change_handler.process_changes(user_service, changes, org_id)
+                    await self.change_handler.process_changes(user_service, changes, org_id, user_id)
                 else:
                     logger.info("%s webhook: No changes to process",
                                 self.handler_type)
@@ -344,7 +344,7 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                     changes = await user_service.get_changes()
                     if changes:
                         for change in changes:
-                            await self.change_handler.process_changes(change, user_service, org_id)
+                            await self.change_handler.process_changes(user_service, change, org_id, user['userId'])
                         success_count += 1
                 except Exception as e:
                     logger.error("Error processing user %s: %s",
