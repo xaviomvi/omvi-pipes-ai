@@ -49,12 +49,10 @@ class AppContainer(containers.DeclarativeContainer):
 
     async def _create_llm_config(config_service):
         """Async factory method to create LLMConfig."""
-        
         provider = await config_service.get_config(config_node_constants.LLM_PROVIDER.value)
-        
         if provider == 'azure':
             return AzureLLMConfig(
-                 provider= await config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'azure'),
+                provider=await config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'azure'),
                 model=await config_service.get_config(config_node_constants.LLM_MODEL.value, 'gpt-4o'),
                 temperature=await config_service.get_config(config_node_constants.LLM_TEMPERATURE.value, 0.3),
                 api_key=await config_service.get_config(config_node_constants.AZURE_API_KEY.value),
@@ -65,7 +63,7 @@ class AppContainer(containers.DeclarativeContainer):
             )
         elif provider == 'openai':
             return OpenAILLMConfig(
-                provider= await config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'openai'),
+                provider=await config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'openai'),
                 model=await config_service.get_config(config_node_constants.LLM_MODEL.value, 'gpt-4o'),
                 temperature=await config_service.get_config(config_node_constants.LLM_TEMPERATURE.value, 0.3),
                 api_key=await config_service.get_config(config_node_constants.OPENAI_API_KEY.value),

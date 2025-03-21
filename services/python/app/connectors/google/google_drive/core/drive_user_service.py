@@ -22,6 +22,7 @@ import jwt
 import aiohttp
 import google.oauth2.credentials
 
+
 class DriveUserService:
     """DriveService class for interacting with Google Drive API"""
 
@@ -814,6 +815,7 @@ class DriveUserService:
 
                 drive_key = str(uuid.uuid4())
                 current_time = get_epoch_timestamp_in_ms()
+
                 
                 logger.info("🚀 /sync/start shared drive: %s", response)
                 return {

@@ -138,6 +138,7 @@ export const createRecords =
           mimeType: mimetype,
           sizeInBytes: size,
           webUrl: webUrl,
+          path: '/',
         });
       }
 

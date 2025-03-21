@@ -8,6 +8,8 @@ from app.config.providers.etcd3_store import Etcd3DistributedKeyValueStore
 from enum import Enum
 from app.utils.logger import create_logger
 
+dotenv.load_dotenv()
+
 logger = create_logger('etcd')
 
 class config_node_constants(Enum):
@@ -124,7 +126,6 @@ class ConfigurationService:
         self.prefix = '/config/' + environment
         logger.debug("🔧 Creating ETCD store...")
         self.store = self._create_store()
-        dotenv.load_dotenv()
         logger.debug("✅ ConfigurationService initialized successfully")
 
     def _create_store(self) -> Etcd3DistributedKeyValueStore:

@@ -1,5 +1,4 @@
 from typing import Dict, List, Optional
-from datetime import datetime, timezone, timedelta
 from app.utils.logger import logger
 import uuid
 from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, OriginTypes
@@ -68,9 +67,9 @@ class GmailChangeHandler:
                             "origin": OriginTypes.CONNECTOR.value,
                             "connectorName": Connectors.GOOGLE_MAIL.value,
 
-                            "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                            "updatedAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                            "lastSyncTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                            "createdAtTimestamp":  get_epoch_timestamp_in_ms(),
+                            "updatedAtTimestamp":  get_epoch_timestamp_in_ms(),
+                            "lastSyncTimestamp":  get_epoch_timestamp_in_ms(),
                             "sourceCreatedAtTimestamp": message.get('internalDate'),
                             "sourceLastModifiedTimestamp": message.get('internalDate'),
                             
@@ -124,7 +123,7 @@ class GmailChangeHandler:
                                         'mimeType': attachment.get('mimeType'),
                                         'filename': attachment.get('filename'),
                                         'size': attachment.get('size'),
-                                        
+                                        'lastSyncTimestamp':  get_epoch_timestamp_in_ms()
                                     }
                                     attachment_records.append(
                                         attachment_record)

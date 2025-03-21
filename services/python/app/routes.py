@@ -42,7 +42,7 @@ async def search(query: SearchQuery, retrieval_service=Depends(get_retrieval_ser
             filters=query.filters,
             retrieval_mode=mode
         )
-        return {"results": results}
+        return results
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -57,7 +57,7 @@ async def find_similar_documents(query: SimilarDocumentQuery, retrieval_service=
             top_k=query.top_k,
             filters=query.filters
         )
-        return {"results": results}
+        return results
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

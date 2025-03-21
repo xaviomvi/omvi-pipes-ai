@@ -16,6 +16,7 @@ from app.connectors.google.google_drive.core.drive_user_service import DriveUser
 from app.connectors.core.kafka_service import KafkaService
 from app.config.configuration_service import ConfigurationService
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
+
 class DriveSyncProgress:
     """Class to track sync progress"""
 
@@ -399,7 +400,6 @@ class BaseDriveSyncService(ABC):
                             'extension': metadata.get('fileExtension', None),
                             'mimeType': metadata.get('mimeType', None),
                             'sizeInBytes': int(metadata.get('size', None)),
-                            'sizeInBytes': int(metadata.get('size', None)),
                             'webUrl': metadata.get('webViewLink', None),
                             'etag': metadata.get('etag', None),
                             'ctag': metadata.get('ctag', None),
@@ -420,8 +420,8 @@ class BaseDriveSyncService(ABC):
                             'version': 0,
                             'externalRecordId': str(file_id),
                             'externalRevisionId': metadata.get('headRevisionId', None),
-                            'createdAtTimestamp': get_epoch_timestamp_in_ms(),
-                            'updatedAtTimestamp': get_epoch_timestamp_in_ms(),
+                            'createdAtTimestamp':  get_epoch_timestamp_in_ms(),
+                            'updatedAtTimestamp':  get_epoch_timestamp_in_ms(),
                             'sourceCreatedAtTimestamp': int(self.parse_timestamp(metadata.get('createdTime')).timestamp()),
                             'sourceLastModifiedTimestamp': int(self.parse_timestamp(metadata.get('modifiedTime')).timestamp()),
                             "origin": OriginTypes.CONNECTOR.value,
@@ -429,8 +429,8 @@ class BaseDriveSyncService(ABC):
                             'isArchived': False,
                             'isDeleted': False,
                             'isLatestVersion': True,
-
-                            'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                            'isDirty': False,
+                            'lastSyncTimestamp':  get_epoch_timestamp_in_ms(),
                             'indexingStatus': 'NOT_STARTED',
                             'extractionStatus': 'NOT_STARTED',
                             'lastIndexTimestamp': None,

@@ -1,4 +1,3 @@
-import os
 from fastapi import FastAPI, Depends
 from dependency_injector import containers, providers
 from fastapi.middleware.cors import CORSMiddleware

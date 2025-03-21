@@ -1,6 +1,5 @@
 import { DocumentModel } from '../schema/document.schema';
 import { NextFunction, Response } from 'express';
-import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
 import {
   BadRequestError,
   InternalServerError,
@@ -15,6 +14,10 @@ import { ErrorMetadata } from '../../../libs/errors/base.error';
 import { createReadStream } from 'fs';
 import { StorageServiceAdapter } from '../adapter/base-storage.adapter';
 import { access } from 'fs';
+import {
+  AuthenticatedServiceRequest,
+  AuthenticatedUserRequest,
+} from '../../../libs/middlewares/types';
 
 const logger = Logger.getInstance({
   service: 'storage',
@@ -66,16 +69,18 @@ async function getDocumentInfoFromDb(
 }
 
 export async function getDocumentInfo(
-  req: AuthenticatedUserRequest,
+  req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
   next: NextFunction,
 ): Promise<DocumentInfoResponse | undefined> {
   try {
+    const orgId = extractOrgId(req);
     const documentId = req.params.documentId;
-    const orgId = new mongoose.Types.ObjectId(`${req.user?.orgId}`);
+
+    const orgID = new mongoose.Types.ObjectId(orgId);
     if (!documentId) {
       throw new NotFoundError('Document ID is required');
     }
-    const documentInfo = await getDocumentInfoFromDb(documentId, orgId);
+    const documentInfo = await getDocumentInfoFromDb(documentId, orgID);
     if (!documentInfo) {
       throw new NotFoundError('Document not found');
     }
@@ -134,7 +139,7 @@ export function hasExtension(documentName: string | undefined): boolean {
 }
 
 export async function createPlaceholderDocument(
-  req: AuthenticatedUserRequest,
+  req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
   next: NextFunction,
   size: number,
 ): Promise<DocumentInfoResponse | undefined> {
@@ -147,7 +152,8 @@ export async function createPlaceholderDocument(
       customMetadata,
       isVersionedFile,
     } = req.body as Partial<Document>;
-
+    const orgId = extractOrgId(req);
+    const userId = extractUserId(req);
     if (hasExtension(documentName)) {
       throw new BadRequestError(
         'The name of the document cannot have extensions',
@@ -164,12 +170,10 @@ export async function createPlaceholderDocument(
       documentName,
       documentPath,
       alternativeDocumentName,
-      orgId: new mongoose.Types.ObjectId(`${req.user?.orgId}`),
+      orgId: new mongoose.Types.ObjectId(orgId),
       isVersionedFile: isVersionedFile,
       permissions: permissions,
-      initiatorUserId: req.user?.userId
-        ? new mongoose.Types.ObjectId(`${req.user?.userId}`)
-        : null,
+      initiatorUserId: userId ? new mongoose.Types.ObjectId(userId) : null,
       customMetadata,
       sizeInBytes: size,
       storageVendor: StorageVendor.S3,
@@ -285,4 +289,35 @@ export function serveFileFromLocalStorage(document: Document, res: Response) {
     logger.error('Error serving local file:', error);
     throw error;
   }
+}
+
+export function extractOrgId(
+  req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
+): string {
+  // Check user request first
+  if ('user' in req && req.user && 'orgId' in req.user) {
+    return req.user.orgId;
+  }
+
+  // Check service request
+  if (
+    'tokenPayload' in req &&
+    req.tokenPayload &&
+    'orgId' in req.tokenPayload
+  ) {
+    return req.tokenPayload.orgId;
+  }
+
+  throw new BadRequestError('Organization ID not found in request');
+}
+
+export function extractUserId(
+  req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
+): string | null {
+  // Check user request first
+  if ('user' in req && req.user && 'userId' in req.user) {
+    return req.user.userId;
+  }
+
+  return null;
 }

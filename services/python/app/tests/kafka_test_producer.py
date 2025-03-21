@@ -3,7 +3,7 @@ from confluent_kafka import Producer
 import json
 import logging
 from typing import Dict, Any
-from datetime import datetime, timezone
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -48,7 +48,7 @@ class KafkaTestProducer:
 
     async def test_org_events(self):
         """Test organization-related events"""
-        current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)  # Convert to milliseconds
+        current_timestamp = get_epoch_timestamp_in_ms()  # Convert to milliseconds
         org_id = "org_12345"
         
         # Create org event
@@ -67,7 +67,7 @@ class KafkaTestProducer:
         # await asyncio.sleep(10)
         
         # # Update org event
-        # current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+        # current_timestamp = get_epoch_timestamp_in_ms()
         # update_event = {
         #     "eventType": "orgUpdated",
         #     "timestamp": current_timestamp,
@@ -83,7 +83,7 @@ class KafkaTestProducer:
         # await asyncio.sleep(10)
         
         # Delete org event
-        # current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+        # current_timestamp = get_epoch_timestamp_in_ms()
         # delete_event = {
         #     "eventType": "orgDeleted",
         #     "timestamp": current_timestamp,
@@ -95,7 +95,7 @@ class KafkaTestProducer:
 
     async def test_user_events(self):
         """Test user-related events"""
-        current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)  # Convert to milliseconds
+        current_timestamp = get_epoch_timestamp_in_ms()  # Convert to milliseconds
         org_id = "org_12345"
         user_id = "user_6789"
         
@@ -142,7 +142,7 @@ class KafkaTestProducer:
         # await asyncio.sleep(10)
         
         # # Update user event
-        # current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+        # current_timestamp = get_epoch_timestamp_in_ms()
         # update_event = {
         #     "eventType": "updateUserEvent",
         #     "timestamp": current_timestamp,
@@ -162,7 +162,7 @@ class KafkaTestProducer:
         # await asyncio.sleep(10)
         
         # Delete user event
-        # current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+        # current_timestamp = get_epoch_timestamp_in_ms()
         # delete_event = {
         #     "eventType": "deleteUserEvent",
         #     "timestamp": current_timestamp,
@@ -176,7 +176,11 @@ class KafkaTestProducer:
 
     async def test_app_events(self):
         """Test app-related events"""
-        current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000) 
+
+        current_timestamp = get_epoch_timestamp_in_ms() 
+        org_id = "org_12345"
+        app_group_id = "groupid_xyz"
+        apps = ["drive"]
         
         # Enable apps event
         enable_event = {'eventType': 'appEnabled', 'timestamp': 1742552263073, 'payload': {'orgId': '67dd3c71cc22f87eac2b2178', 'appGroup': 'Google Workspace', 'appGroupId': '67dd3cc7cc22f87eac2b21db', 'credentialsRoute': 'http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials', 'refreshTokenRoute': 'http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken', 'apps': ['drive', 'gmail', 'calendar'], 'syncAction': 'immediate'}}
@@ -187,7 +191,7 @@ class KafkaTestProducer:
         # await asyncio.sleep(30)
         
         # # Disable apps event
-        # current_timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+        # current_timestamp = get_epoch_timestamp_in_ms()
         # disable_event = {
         #     "eventType": "appDisabled",
         #     "timestamp": current_timestamp,

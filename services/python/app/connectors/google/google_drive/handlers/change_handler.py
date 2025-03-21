@@ -1,11 +1,10 @@
 from typing import Dict
-from datetime import datetime, timezone
+from datetime import datetime
 from app.utils.logger import logger
 import uuid
 import traceback
 from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations, OriginTypes
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
-
 
 class DriveChangeHandler:
     def __init__(self, config_service, arango_service):
@@ -411,7 +410,6 @@ class DriveChangeHandler:
                     'extension': file_metadata.get('fileExtension', None),
                     'mimeType': file_metadata.get('mimeType', None),
                     'sizeInBytes': int(file_metadata.get('size', None)),
-                    'sizeInBytes': int(file_metadata.get('size', None)),
                     'isFile': file_metadata.get('mimeType', '') != 'application/vnd.google-apps.folder',
                     'webUrl': file_metadata.get('webViewLink', None),
                     'etag': file_metadata.get('etag', None),
@@ -432,8 +430,8 @@ class DriveChangeHandler:
                     'version': 0,
                     'externalRecordId': str(file_metadata.get('id')),
                     "externalRevisionId": file_metadata.get('headRevisionId', None),
-                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
-                    'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                    'createdAtTimestamp':  get_epoch_timestamp_in_ms(),
+                    'updatedAtTimestamp':  get_epoch_timestamp_in_ms(),
                     'sourceCreatedAtTimestamp': int(parse_timestamp(file_metadata.get('createdTime')).timestamp()),
                     'sourceLastModifiedTimestamp': int(parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                     "origin": OriginTypes.CONNECTOR.value,
@@ -517,7 +515,6 @@ class DriveChangeHandler:
                 'extension': updated_file.get('fileExtension', None),
                 'mimeType': updated_file.get('mimeType', None),
                 'sizeInBytes': int(updated_file.get('size', None)),
-                'sizeInBytes': int(updated_file.get('size', None)),
                 'webUrl': updated_file.get('webViewLink', None),
                 'etag': updated_file.get('etag', None),
                 'ctag': updated_file.get('ctag', None),
@@ -537,25 +534,20 @@ class DriveChangeHandler:
                 'version': 0,
                 'externalRecordId': str(updated_file.get('id')),
                 "externalRevisionId": updated_file.get('headRevisionId', None),
-                'createdAtTimestamp': existing_record.get('createdAtTimestamp', int(datetime.now(timezone.utc).timestamp())),
-                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                'createdAtTimestamp': existing_record.get('createdAtTimestamp',  get_epoch_timestamp_in_ms()),
+                'updatedAtTimestamp':  get_epoch_timestamp_in_ms(),
                 'sourceCreatedAtTimestamp': existing_record.get('sourceCreatedAtTimestamp', int(parse_timestamp(updated_file.get('createdTime')).timestamp())),
                 'sourceLastModifiedTimestamp': existing_record.get('sourceLastModifiedTimestamp', int(parse_timestamp(updated_file.get('modifiedTime')).timestamp())),
                 "origin": OriginTypes.CONNECTOR.value,
                 'connectorName': Connectors.GOOGLE_DRIVE.value,
                 'isArchived': False,
                 'lastSyncTimestamp':  get_epoch_timestamp_in_ms(),
-
                 "isDeleted": False,
-                "isArchived": False,
-
                 'indexingStatus': 'NOT_STARTED',
                 'extractionStatus': 'NOT_STARTED',
 
                 'lastIndexTimestamp': None,
                 'lastExtractionTimestamp': None,
-                'indexingStatus': 'NOT_STARTED',
-                'extractionStatus': 'NOT_STARTED',
                 'isLatestVersion': True,
                 'isDirty': False,
                 'reason': None,
