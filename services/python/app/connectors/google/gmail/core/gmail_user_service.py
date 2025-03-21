@@ -16,6 +16,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.gmail.core.gmail_drive_interface import GmailDriveInterface
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 class GmailUserService:
     """GmailUserService class for interacting with Google Gmail API"""
@@ -131,8 +132,8 @@ class GmailUserService:
                     'designation': user.get('designation', ''),
                     'businessPhones': user.get('businessPhones', []),
                     'isActive': False,
-                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000),
-                    'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000)
+                    'createdAtTimestamp': get_epoch_timestamp_in_ms(),
+                    'updatedAtTimestamp': get_epoch_timestamp_in_ms()
                 }
                 return [user]
 

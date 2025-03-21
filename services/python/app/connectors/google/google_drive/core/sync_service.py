@@ -15,6 +15,7 @@ from app.connectors.google.google_drive.core.drive_admin_service import DriveAdm
 from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
 from app.connectors.core.kafka_service import KafkaService
 from app.config.configuration_service import ConfigurationService
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 class DriveSyncProgress:
     """Class to track sync progress"""
@@ -418,7 +419,7 @@ class BaseDriveSyncService(ABC):
                             'isFile': metadata.get('mimeType', '') != 'application/vnd.google-apps.folder',
                             'extension': metadata.get('fileExtension', None),
                             'mimeType': metadata.get('mimeType', None),
-                            'sizeInBytes': metadata.get('size', None),
+                            'sizeInBytes': int(metadata.get('size', None)),
                             'webUrl': metadata.get('webViewLink', None),
                             'etag': metadata.get('etag', None),
                             'ctag': metadata.get('ctag', None),
@@ -438,8 +439,8 @@ class BaseDriveSyncService(ABC):
                             'version': 0,
                             'externalRecordId': str(file_id),
                             'externalRevisionId': metadata.get('headRevisionId', None),
-                            'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
-                            'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                            'createdAtTimestamp':  get_epoch_timestamp_in_ms(),
+                            'updatedAtTimestamp':  get_epoch_timestamp_in_ms(),
                             'sourceCreatedAtTimestamp': int(self.parse_timestamp(metadata.get('createdTime')).timestamp()),
                             'sourceLastModifiedTimestamp': int(self.parse_timestamp(metadata.get('modifiedTime')).timestamp()),
                             "origin": OriginTypes.CONNECTOR.value,
@@ -448,7 +449,7 @@ class BaseDriveSyncService(ABC):
                             'isDeleted': False,
                             'isLatestVersion': True,
                             'isDirty': False,
-                            'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp()),
+                            'lastSyncTimestamp':  get_epoch_timestamp_in_ms(),
                             'indexingStatus': 'NOT_STARTED',
                             'extractionStatus': 'NOT_STARTED'
                         }

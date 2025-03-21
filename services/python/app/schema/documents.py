@@ -49,7 +49,7 @@ user_schema = {
         "additionalProperties": False,  # disallow extra fields
     },
     "level": "strict",  # Strict validation (reject invalid documents)
-    "message": "Document does not match the user schema.",
+    "message": "Document does not match the record schema.",
 }
 
 user_group_schema = {
@@ -152,12 +152,11 @@ file_record_schema = {
     "rule": {
         "type": "object",
         "properties": {
-            "orgId" : {"type" :"string"},
             "name": {"type": "string", "minLength": 1},
             "isFile": {"type": "boolean"},
             "extension": {"type": ["string", "null"]},
             "mimeType": {"type": ["string", "null"]},
-            "sizeInBytes": {"type": ["string", "null"]},
+            "sizeInBytes": {"type": "number"},
             "webUrl": {"type": "string"},
             "etag": {"type": ["string", "null"]},
             "ctag": {"type": ["string", "null"]},
@@ -166,9 +165,9 @@ file_record_schema = {
             "crc32Hash": {"type": ["string", "null"]},
             "sha1Hash": {"type": ["string", "null"]},
             "sha256Hash": {"type": ["string", "null"]},
-            "path": {"type": "string"}
+            "path": {"type": ["string", "null"]}
         },
-        "required": ["name","orgId"],
+        "required": ["name"],
         "additionalProperties": False,
     },
     "level": "strict",
