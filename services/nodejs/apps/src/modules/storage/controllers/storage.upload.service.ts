@@ -15,7 +15,10 @@ import {
   InternalServerError,
 } from '../../../libs/errors/http.errors';
 import { StorageServiceAdapter } from '../adapter/base-storage.adapter';
-import { AuthenticatedServiceRequest } from '../../../libs/middlewares/types';
+import {
+  AuthenticatedServiceRequest,
+  AuthenticatedUserRequest,
+} from '../../../libs/middlewares/types';
 import { HTTP_STATUS } from '../../../libs/enums/http-status.enum';
 import {
   parseBoolean,
@@ -25,6 +28,8 @@ import {
   generatePresignedUrlForDirectUpload,
   getBaseUrl,
   isValidStorageVendor,
+  extractOrgId,
+  extractUserId,
 } from '../utils/utils';
 import { FileBufferInfo } from '../../../libs/middlewares/file_processor/fp.interface';
 import {
@@ -67,7 +72,7 @@ export class UploadDocumentService {
   }
 
   async uploadDocument(
-    req: AuthenticatedServiceRequest,
+    req: AuthenticatedServiceRequest | AuthenticatedUserRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -160,7 +165,7 @@ export class UploadDocumentService {
   }
 
   async handleDocumentUpload(
-    req: AuthenticatedServiceRequest,
+    req: AuthenticatedServiceRequest | AuthenticatedUserRequest,
     res: Response,
     getDocumentDetails: () => DocumentDetails,
   ): Promise<void> {
@@ -178,11 +183,14 @@ export class UploadDocumentService {
 
     const fileExtension = path.extname(originalName);
     // Create document record
+    const orgId = extractOrgId(req);
+    const userId = extractUserId(req);
     const documentInfo: Partial<Document> = {
       documentName,
       alternativeDocumentName,
-      orgId: new mongoose.Types.ObjectId(req.tokenPayload?.orgId),
+      orgId: new mongoose.Types.ObjectId(orgId),
       isVersionedFile: isVersioned,
+      initiatorUserId: userId ? new mongoose.Types.ObjectId(userId) : null,
       permissions,
       sizeInBytes: size,
       customMetadata,
@@ -196,9 +204,9 @@ export class UploadDocumentService {
     let rootPath = '';
     // path of the document in the storage service
     if (documentPath) {
-      rootPath = `${req.tokenPayload?.orgId}/PipesHub/${documentPath}/${savedDocument._id}`;
+      rootPath = `${orgId}/PipesHub/${documentPath}/${savedDocument._id}`;
     } else {
-      rootPath = `${req.tokenPayload?.orgId}/PipesHub/${savedDocument._id}`;
+      rootPath = `${orgId}/PipesHub/${savedDocument._id}`;
     }
 
     const concatenatedPath =

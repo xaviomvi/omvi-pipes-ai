@@ -38,6 +38,33 @@ export function createStorageRouter(container: Container): Router {
   storageController.watchStorageType(keyValueStoreService);
 
   router.post(
+    '/upload',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ...FileProcessorFactory.createBufferUploadProcessor({
+      fieldName: 'file',
+      allowedMimeTypes: Object.values(extensionToMimeType),
+      maxFilesAllowed: 1,
+      isMultipleFilesAllowed: false,
+      processingType: FileProcessingType.BUFFER,
+      maxFileSize: 1024 * 1024 * 100,
+      strictFileUpload: true,
+    }).getMiddleware,
+    ValidationMiddleware.validate(UploadNewSchema),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        await storageController.uploadDocument(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.post(
     '/internal/upload',
     authMiddleware.scopedTokenValidator(TokenScopes.STORAGE_TOKEN),
     metricsMiddleware(container),
@@ -57,7 +84,7 @@ export function createStorageRouter(container: Container): Router {
       next: NextFunction,
     ): Promise<void> => {
       try {
-        return await storageController.uploadDocument(req, res, next);
+        await storageController.uploadDocument(req, res, next);
       } catch (error) {
         next(error);
       }
@@ -67,6 +94,28 @@ export function createStorageRouter(container: Container): Router {
   // Create a document placeholder and then client can upload the
   // document to the placeholder documentPath via direct upload api
   // provided by storage vendors
+
+  router.post(
+    '/placeholder',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(CreateDocumentSchema),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        return await storageController.createPlaceholderDocument(
+          req,
+          res,
+          next,
+        );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   router.post(
     '/internal/placeholder',
@@ -89,7 +138,23 @@ export function createStorageRouter(container: Container): Router {
       }
     },
   );
-
+  router.get(
+    '/:documentId',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(DocumentIdParams),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        return await storageController.getDocumentById(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
   router.get(
     '/internal/:documentId',
     authMiddleware.scopedTokenValidator(TokenScopes.STORAGE_TOKEN),
@@ -108,6 +173,23 @@ export function createStorageRouter(container: Container): Router {
     },
   );
 
+  router.delete(
+    '/:documentId/',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(DocumentIdParams),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        return await storageController.deleteDocumentById(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
   router.delete(
     '/internal/:documentId/',
     authMiddleware.scopedTokenValidator(TokenScopes.STORAGE_TOKEN),
@@ -161,6 +243,24 @@ export function createStorageRouter(container: Container): Router {
     },
   );
 
+  router.get(
+    '/:documentId/buffer',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(GetBufferSchema),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        return await storageController.getDocumentBuffer(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   // Document Operations Routes
   router.get(
     '/internal/:documentId/buffer',
@@ -175,6 +275,34 @@ export function createStorageRouter(container: Container): Router {
       try {
         return await storageController.getDocumentBuffer(req, res, next);
       } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.put(
+    '/:documentId/buffer',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ...FileProcessorFactory.createBufferUploadProcessor({
+      fieldName: 'file',
+      allowedMimeTypes: Object.values(extensionToMimeType),
+      maxFilesAllowed: 1,
+      isMultipleFilesAllowed: false,
+      processingType: FileProcessingType.BUFFER,
+      maxFileSize: 1024 * 1024 * 100,
+      strictFileUpload: true,
+    }).getMiddleware,
+    ValidationMiddleware.validate(DocumentIdParams),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        return await storageController.createDocumentBuffer(req, res, next);
+      } catch (error: any) {
+        logger.error(`Failed to upload buffer: ${error.message}`);
         next(error);
       }
     },
@@ -207,11 +335,40 @@ export function createStorageRouter(container: Container): Router {
       }
     },
   );
-
+  router.post(
+    '/:documentId/uploadNextVersion',
+    authMiddleware.authenticate,
+    ...FileProcessorFactory.createBufferUploadProcessor({
+      fieldName: 'file',
+      allowedMimeTypes: Object.values(extensionToMimeType),
+      maxFilesAllowed: 1,
+      isMultipleFilesAllowed: false,
+      processingType: FileProcessingType.BUFFER,
+      maxFileSize: 1024 * 1024 * 100,
+      strictFileUpload: true,
+    }).getMiddleware,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(UploadNextVersionSchema),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        return await storageController.uploadNextVersionDocument(
+          req,
+          res,
+          next,
+        );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
   // Version Control Routes
   router.post(
     '/internal/:documentId/uploadNextVersion',
-    authMiddleware.authenticate,
+    authMiddleware.scopedTokenValidator(TokenScopes.STORAGE_TOKEN),
     ...FileProcessorFactory.createBufferUploadProcessor({
       fieldName: 'file',
       allowedMimeTypes: Object.values(extensionToMimeType),
@@ -239,11 +396,32 @@ export function createStorageRouter(container: Container): Router {
       }
     },
   );
+  router.post(
+    '/:documentId/rollBack',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(RollBackToPreviousVersionSchema),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        return await storageController.rollBackToPreviousVersion(
+          req,
+          res,
+          next,
+        );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   // Rollback to previous version
   router.post(
     '/internal/:documentId/rollBack',
-    authMiddleware.authenticate,
+    authMiddleware.scopedTokenValidator(TokenScopes.STORAGE_TOKEN),
     metricsMiddleware(container),
     ValidationMiddleware.validate(RollBackToPreviousVersionSchema),
     async (
@@ -264,8 +442,26 @@ export function createStorageRouter(container: Container): Router {
   );
 
   router.post(
-    '/internal/:documentId/directUpload',
+    '/:documentId/directUpload',
     authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(DirectUploadSchema),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        return await storageController.uploadDirectDocument(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.post(
+    '/internal/:documentId/directUpload',
+    authMiddleware.scopedTokenValidator(TokenScopes.STORAGE_TOKEN),
     metricsMiddleware(container),
     ValidationMiddleware.validate(DirectUploadSchema),
     async (
@@ -282,8 +478,26 @@ export function createStorageRouter(container: Container): Router {
   );
 
   router.get(
-    '/internal/:documentId/isModified',
+    '/:documentId/isModified',
     authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(DocumentIdParams),
+    async (
+      req: AuthenticatedUserRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        return await storageController.documentDiffChecker(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  router.get(
+    '/internal/:documentId/isModified',
+    authMiddleware.scopedTokenValidator(TokenScopes.STORAGE_TOKEN),
     metricsMiddleware(container),
     ValidationMiddleware.validate(DocumentIdParams),
     async (
