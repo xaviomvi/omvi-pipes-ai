@@ -540,9 +540,9 @@ class BaseGmailSyncService(ABC):
                                             'role': role,
                                             "externalPermissionId": None,
                                             "type": permType,
-                                            "createdAtTimestamp" : int(datetime.now(timezone.utc).timestamp()),
-                                            "updatedAtTimestamp" : int(datetime.now(timezone.utc).timestamp()),
-                                            "lastUpdatedTimestampAtSource" : int(datetime.now(timezone.utc).timestamp())
+                                            "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                            "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                            "lastUpdatedTimestampAtSource" : get_epoch_timestamp_in_ms()
                                         })
                             else:
                                 logger.warning(

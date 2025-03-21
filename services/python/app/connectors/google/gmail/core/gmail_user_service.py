@@ -16,6 +16,7 @@ from app.utils.logger import logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.gmail.core.gmail_drive_interface import GmailDriveInterface
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 import asyncio
 
 class GmailUserService:

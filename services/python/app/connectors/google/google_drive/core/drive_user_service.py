@@ -17,6 +17,7 @@ from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from app.config.arangodb_constants import OriginTypes
 from uuid import uuid4
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 import jwt
 import aiohttp
 import google.oauth2.credentials

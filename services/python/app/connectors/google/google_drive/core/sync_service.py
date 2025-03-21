@@ -334,9 +334,9 @@ class BaseDriveSyncService(ABC):
                 'role': 'WRITER' if drive_info['drive']['access_level'] == 'writer' else 'VIEWER',
                 'type': 'USER',
                 'externalPermissionId': None,
-                'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
-                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
-                'lastUpdatedTimestampAtSource': int(datetime.now(timezone.utc).timestamp())
+                'createdAtTimestamp': get_epoch_timestamp_in_ms(),
+                'updatedAtTimestamp': get_epoch_timestamp_in_ms(),
+                'lastUpdatedTimestampAtSource': get_epoch_timestamp_in_ms()
             }
             
             await self.arango_service.batch_create_edges(
@@ -398,6 +398,7 @@ class BaseDriveSyncService(ABC):
                             'isFile': metadata.get('mimeType', '') != 'application/vnd.google-apps.folder',
                             'extension': metadata.get('fileExtension', None),
                             'mimeType': metadata.get('mimeType', None),
+                            'sizeInBytes': int(metadata.get('size', None)),
                             'sizeInBytes': int(metadata.get('size', None)),
                             'webUrl': metadata.get('webViewLink', None),
                             'etag': metadata.get('etag', None),

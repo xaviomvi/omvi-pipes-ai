@@ -123,7 +123,7 @@ class GmailChangeHandler:
                                         'mimeType': attachment.get('mimeType'),
                                         'filename': attachment.get('filename'),
                                         'size': attachment.get('size'),
-                                        'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp())
+                                        
                                     }
                                     attachment_records.append(
                                         attachment_record)
@@ -136,8 +136,9 @@ class GmailChangeHandler:
                                         "version": 0,
                                         "externalRecordId": attachment_record['_key'],
                                         "externalRevisionId": None,
-                                        "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                                        "updatedAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                                        "createdAtTimestamp": get_epoch_timestamp_in_ms(),
+                                        "updatedAtTimestamp": get_epoch_timestamp_in_ms(),
+                                        "lastSyncTimestamp": get_epoch_timestamp_in_ms(),
                                         "sourceCreatedAtTimestamp": message.get('internalDate'),
                                         "sourceLastModifiedTimestamp": message.get('internalDate'),
                                         "isDeleted": False,
@@ -183,10 +184,10 @@ class GmailChangeHandler:
                                             '_to': f'messages/{message_record["_key"]}',
                                             "externalPermissionId": None,
                                             "type": "USER",
-                                            "role": "HAS_ACCESS",
-                                            "createdAtTimestamp" : int(datetime.now(timezone.utc).timestamp()),
-                                            "updatedAtTimestamp" : int(datetime.now(timezone.utc).timestamp()),
-                                            "lastUpdatedTimestampAtSource" : int(datetime.now(timezone.utc).timestamp())
+                                            "role": "READER",
+                                            "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                            "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                            "lastUpdatedTimestampAtSource" : get_epoch_timestamp_in_ms()
                                         })
 
                             if permission_records:
