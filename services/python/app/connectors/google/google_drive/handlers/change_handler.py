@@ -4,6 +4,7 @@ from app.utils.logger import logger
 import uuid
 import traceback
 from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations, OriginTypes
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 
 class DriveChangeHandler:

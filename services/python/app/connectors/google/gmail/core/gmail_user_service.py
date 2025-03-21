@@ -253,8 +253,8 @@ class GmailUserService:
                     'designation': user.get('designation', ''),
                     'businessPhones': user.get('businessPhones', []),
                     'isActive': False,
-                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000),
-                    'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000)
+                    'createdAtTimestamp': get_epoch_timestamp_in_ms(),
+                    'updatedAtTimestamp': get_epoch_timestamp_in_ms()
                 }
                 return [user]
 

@@ -257,8 +257,8 @@ class DriveUserService:
                     'designation': user.get('designation', ''),
                     'businessPhones': user.get('businessPhones', []),
                     'isActive': False,
-                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000),
-                    'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp() * 1000)
+                    'createdAtTimestamp': get_epoch_timestamp_in_ms(),
+                    'updatedAtTimestamp': get_epoch_timestamp_in_ms()
                 }
                 return [user]
 
@@ -769,7 +769,7 @@ class DriveUserService:
 
                 logger.info("🚀 Drive info for root drive: %s", response)
                 drive_key = str(uuid.uuid4())
-                current_time = int(datetime.now(timezone.utc).timestamp())
+                current_time = get_epoch_timestamp_in_ms()
                 
                 return {
                     'drive': {
@@ -813,7 +813,7 @@ class DriveUserService:
                 ).execute()
 
                 drive_key = str(uuid.uuid4())
-                current_time = int(datetime.now(timezone.utc).timestamp())
+                current_time = get_epoch_timestamp_in_ms()
                 
                 logger.info("🚀 /sync/start shared drive: %s", response)
                 return {

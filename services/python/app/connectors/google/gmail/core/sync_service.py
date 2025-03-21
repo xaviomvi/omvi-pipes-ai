@@ -15,7 +15,7 @@ from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
 from app.connectors.google.gmail.handlers.change_handler import GmailChangeHandler
 from app.connectors.core.kafka_service import KafkaService
 from app.config.configuration_service import ConfigurationService
-
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 class GmailSyncProgress:
     """Class to track sync progress"""
@@ -339,9 +339,9 @@ class BaseGmailSyncService(ABC):
                                 "origin": OriginTypes.CONNECTOR.value,
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
 
-                                "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                                "updatedAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                                "lastSyncTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                                "createdAtTimestamp": get_epoch_timestamp_in_ms(),
+                                "updatedAtTimestamp": get_epoch_timestamp_in_ms(),
+                                "lastSyncTimestamp": get_epoch_timestamp_in_ms(),
                                 "sourceCreatedAtTimestamp": int(message.get('internalDate')) if message.get('internalDate') else None,
                                 "sourceLastModifiedTimestamp": int(message.get('internalDate')) if message.get('internalDate') else None,
                                 
@@ -421,8 +421,8 @@ class BaseGmailSyncService(ABC):
                                 "recordType": RecordTypes.FILE.value,
                                 "version": 0,
                                 
-                                "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                                "updatedAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                                "createdAtTimestamp": get_epoch_timestamp_in_ms(),
+                                "updatedAtTimestamp": get_epoch_timestamp_in_ms(),
                                 "sourceCreatedAtTimestamp": int(attachment.get('internalDate')) if attachment.get('internalDate') else None,
                                 "sourceLastModifiedTimestamp": int(attachment.get('internalDate')) if attachment.get('internalDate') else None,
                                 
@@ -432,7 +432,7 @@ class BaseGmailSyncService(ABC):
                                 "origin": OriginTypes.CONNECTOR.value,
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
                                 "isArchived": False,
-                                "lastSyncTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                                "lastSyncTimestamp": get_epoch_timestamp_in_ms(),
                                 
                                 "isDeleted": False,
                                 "isArchived": False,
@@ -503,9 +503,9 @@ class BaseGmailSyncService(ABC):
                                         'role': role,
                                         "externalPermissionId": None,
                                         "type": permType,
-                                        "createdAtTimestamp" : int(datetime.now(timezone.utc).timestamp()),
-                                        "updatedAtTimestamp" : int(datetime.now(timezone.utc).timestamp()),
-                                        "lastUpdatedTimestampAtSource" : int(datetime.now(timezone.utc).timestamp())
+                                        "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                        "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                        "lastUpdatedTimestampAtSource" : get_epoch_timestamp_in_ms()
                                     })
                         else:
                             logger.warning(

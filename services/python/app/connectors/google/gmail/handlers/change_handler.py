@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from app.utils.logger import logger
 import uuid
 from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, OriginTypes
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 class GmailChangeHandler:
     def __init__(self, config_service, arango_service):
