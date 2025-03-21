@@ -254,51 +254,25 @@ class BaseDriveSyncService(ABC):
                 logger.error("❌ Failed to resume sync service: %s", str(e))
                 return False
 
-    # async def process_sync_period_changes(self, start_token: str, user_service) -> bool:
-    #     """Delegate change processing to ChangeHandler"""
-    #     logger.info("🚀 Delegating change processing to ChangeHandler")
-    #     return await self.change_handler.process_sync_period_changes(start_token, user_service)
-
-    # Common methods shared between both services
     async def _should_stop(self, org_id) -> bool:
         """Check if operation should stop"""
         if self._stop_requested:
-            user_info = await self.drive_user_service.list_individual_user(org_id)
-            if user_info:
-                user_email = user_info[0]['email']
-                await self.arango_service.update_user_sync_state(
-                    user_email,
-                    'PAUSED',
-                    service_type='drive'
-                )
-                logger.info("✅ Sync state stored before stopping")
-                return True
+            users = await self.arango_service.get_users(org_id=org_id)
+            for user in users:
+                current_state = await self.arango_service.get_user_sync_state(user['email'], 'drive')
+                if current_state:
+                    current_state = current_state.get('syncState')
+                    if current_state == 'IN_PROGRESS':
+                        await self.arango_service.update_user_sync_state(
+                            user['email'],
+                            'PAUSED',
+                            service_type='drive'
+                        )
+                        logger.info("✅ Drive sync state updated before stopping")
+                        return True
+            return False
         return False
 
-    async def stop(self, user_service: DriveUserService) -> bool:
-        """Stop the sync service"""
-        async with self._transition_lock:
-            try:
-                logger.info("🚀 Stopping sync service")
-                self._stop_requested = True  # Set stop flag
-
-                # Wait for current operations to complete
-                if self._sync_lock.locked():
-                    async with self._sync_lock:
-                        pass
-
-                await user_service.disconnect()
-                await self.arango_service.disconnect()
-
-                # Reset states
-                self._stop_requested = False  # Reset for next run
-
-                logger.info("✅ Sync service stopped")
-                return True
-
-            except Exception as e:
-                logger.error("❌ Failed to stop sync service: %s", str(e))
-                return False
 
     async def process_drive_data(self, drive_info, user):
         """Process drive data including drive document, file record, record and permissions
@@ -1223,7 +1197,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                 logger.info("Sync stopped before starting")
                 return False
 
-            user = await self.drive_user_service.list_individual_user(org_id)
+            user = await self.arango_service.get_users(org_id, active=True)
             user = user[0]
 
             # Update user sync state to RUNNING

@@ -10,15 +10,13 @@ from fastapi import Request, Depends, HTTPException, BackgroundTasks, status
 from app.connectors.api.setup import AppContainer
 from app.utils.logger import logger
 from fastapi.responses import StreamingResponse
-from google.auth.transport.requests import Request as GoogleRequest
-import pickle
 import os
 import aiohttp
-from googleapiclient.discovery import build
 from app.config.configuration_service import config_node_constants, Routes, TokenScopes
 from app.config.arangodb_constants import CollectionNames
-from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
+from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from typing import Optional, Any
+import google.oauth2.credentials
 
 router = APIRouter()
 
@@ -406,10 +404,11 @@ async def sync_user(
         ) from e
 
 
-@router.get("/api/v1/{org_id}/{connector}/record/{record_id}/signedUrl")
+@router.get("/api/v1/{org_id}/{user_id}/{connector}/record/{record_id}/signedUrl")
 @inject
 async def get_signed_url(
     org_id: str,
+    user_id: str,
     connector: str,
     record_id: str,
     signed_url_handler=Depends(Provide[AppContainer.signed_url_handler])
@@ -424,6 +423,7 @@ async def get_signed_url(
         signed_url = signed_url_handler.create_signed_url(
             record_id,
             org_id,
+            user_id,
             additional_claims=additional_claims,
             connector=connector
         )
@@ -443,15 +443,14 @@ async def download_file(
     token: str,
     arango_service=Depends(Provide[AppContainer.arango_service]),
     signed_url_handler=Depends(Provide[AppContainer.signed_url_handler]),
-    config=Depends(Provide[AppContainer.config_service])
 ):
     
-    async def get_service_account_credentials(config):
+    async def get_service_account_credentials(user_id):
         """Helper function to get service account credentials"""
         try:
             # Load service account credentials from environment or secure storage
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            admin_email = await config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
+            # admin_email = await config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
             
             payload = {
                 "orgId": org_id,
@@ -469,6 +468,7 @@ async def download_file(
                 "Authorization": f"Bearer {jwt_token}"
             }
             
+            user = await arango_service.get_user_by_user_id(user_id)
             # Call credentials API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
@@ -482,12 +482,11 @@ async def download_file(
 
             credentials = service_account.Credentials.from_service_account_info(
                 credentials_json,
-                scopes=SCOPES,
-                subject=admin_email
+                scopes=SCOPES
             )
             
-            # Get the user email from the record to impersonate
-            # credentials = credentials.with_subject(record.get('userEmail'))
+            # # Get the user email from the record to impersonate
+            credentials = credentials.with_subject(user['email'])
             
             return credentials
         
@@ -498,29 +497,73 @@ async def download_file(
                 detail="Error accessing service account credentials"
             )
             
-    async def get_user_credentials(config):
+    async def get_user_credentials(user_id):
         """Helper function to get user credentials"""
-        creds = None
-        token_path = await config.get_config(config_node_constants.GOOGLE_AUTH_TOKEN_PATH.value)
-        if os.path.exists(token_path):
-            with open(token_path, 'rb') as token_file:
-                creds = pickle.load(token_file)
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(GoogleRequest())
-            with open(token_path, 'wb') as token_file:
-                pickle.dump(creds, token_file)
-        if not creds:
-            raise HTTPException(status_code=401, detail="No valid Google credentials found")
-        with open(token_path, 'wb') as token:
-            pickle.dump(creds, token)
-        logger.info("✅ GmailUserService connected successfully")
+        try:
+            SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 
-        return creds
+            # Prepare payload for credentials API
+            payload = {
+                "orgId": org_id,
+                "userId": user_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            print("payload", payload)
+
+            # Create JWT token
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            print("jwt_token", jwt_token)
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
+            print("headers", headers)
+            # Fetch credentials from API
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch credentials: {await response.json()}")
+                    creds_data = await response.json()
+                    print("creds_data", creds_data)
+
+            # Create credentials object from the response using google.oauth2.credentials.Credentials
+            creds = google.oauth2.credentials.Credentials(
+                token=creds_data.get('access_token'),
+                refresh_token=creds_data.get('refresh_token'),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=creds_data.get('client_id'),
+                client_secret=creds_data.get('client_secret'),
+                scopes=SCOPES
+            )
+            print("creds data token", creds_data.get('access_token'))
+            print("creds token", creds.token)
+            if not creds_data.get('access_token'):
+                raise HTTPException(status_code=401, detail="Invalid creds1")
+            if not creds.token:
+                raise HTTPException(status_code=401, detail="Invalid creds2")
+            
+            
+            return creds
+        
+        except Exception as e:
+            logger.error(f"Error getting user credentials: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Error accessing user credentials"
+            )
 
     try:
         logger.info(f"Downloading file {record_id} with connector {connector}")
         # Verify signed URL using the handler
         payload = signed_url_handler.validate_token(token)
+        user_id = payload.user_id
 
         # Verify file_id matches the token
         if payload.record_id != record_id:
@@ -544,10 +587,10 @@ async def download_file(
         # Different auth handling based on account type
         if org['accountType'] in ['enterprise', 'business']:
             # Use service account credentials
-            creds = await get_service_account_credentials(config)
+            creds = await get_service_account_credentials(user_id)
         else:
             # Individual account - use stored OAuth credentials
-            creds = await get_user_credentials(config)
+            creds = await get_user_credentials(user_id)
 
         # Download file based on connector type
         try:

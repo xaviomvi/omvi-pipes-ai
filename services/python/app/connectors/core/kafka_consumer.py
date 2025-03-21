@@ -635,20 +635,22 @@ class KafkaRouteConsumer:
 
             # Stop sync for each app
             logger.info(f"📥 Processing app disabled event: {payload}")
-            for app_name in apps:
-                await self._handle_sync_event(f'{app_name}.pause', {})
 
             # Set apps as inactive
             app_updates = []
             for app_name in apps:
                 app_data = {
+                    '_key': f"{org_id}_{app_name}",  # Construct the app _key
                     'isActive': False,
-                    'updatedAt': int(datetime.now(timezone.utc).timestamp()),
+                    'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
                 }
                 app_updates.append(app_data)
 
             # Update apps in database
-            await self.arango_service.batch_update_apps(org_id, apps, app_updates)
+            await self.arango_service.batch_upsert_nodes(
+                app_updates,
+                CollectionNames.APPS.value
+            )
 
             logger.info(f"✅ Successfully disabled apps for org: {org_id}")
             return True

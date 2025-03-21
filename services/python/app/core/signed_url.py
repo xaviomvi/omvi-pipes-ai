@@ -21,6 +21,7 @@ class SignedUrlConfig(BaseModel):
 
 class TokenPayload(BaseModel):
     record_id: str
+    user_id: str
     exp: datetime
     iat: datetime
     additional_claims: Dict[str, Any] = {}
@@ -42,7 +43,7 @@ class SignedUrlHandler:
         if self.config.expiration_minutes <= 0:
             raise ValueError("Expiration minutes must be positive")
 
-    def create_signed_url(self, record_id: str, org_id: str, additional_claims: Dict[str, Any] = None, connector: str = None) -> str:
+    def create_signed_url(self, record_id: str, org_id: str, user_id: str, additional_claims: Dict[str, Any] = None, connector: str = None) -> str:
         """Create a signed URL with optional additional claims"""
         try:
             expiration = datetime.now(timezone(timedelta(
@@ -50,6 +51,7 @@ class SignedUrlHandler:
 
             payload = TokenPayload(
                 record_id=record_id,
+                user_id=user_id,
                 exp=expiration,
                 iat=datetime.utcnow(),
                 additional_claims=additional_claims or {}
@@ -58,13 +60,14 @@ class SignedUrlHandler:
             # Convert to dict before encoding
             payload_dict = {
                 "record_id": record_id,  # Ensure file_id is at the top level
+                "user_id": user_id,
                 "exp": payload.exp.timestamp(),  # Convert datetime to timestamp
                 "iat": payload.iat.timestamp(),
                 "additional_claims": additional_claims or {}
             }
 
             token = jwt.encode(
-                payload_dict,  # Use the properly structured dict
+                payload_dict,
                 self.config.private_key,
                 algorithm=self.config.algorithm
             )
@@ -92,7 +95,12 @@ class SignedUrlHandler:
                 algorithms=[self.config.algorithm]
             )
             logger.info(f"Payload: {payload}")
-            print("payload", payload)
+
+            # Convert timestamps back to datetime for validation
+            if 'exp' in payload:
+                payload['exp'] = datetime.fromtimestamp(payload['exp'])
+            if 'iat' in payload:
+                payload['iat'] = datetime.fromtimestamp(payload['iat'])
 
             token_data = TokenPayload(**payload)
             logger.info(f"Token data: {token_data}")

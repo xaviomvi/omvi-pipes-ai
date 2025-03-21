@@ -39,7 +39,7 @@ class DriveChangeHandler:
     #         logger.error(f"❌ Failed to process sync period changes: {str(e)}")
     #         return False
 
-    async def process_change(self, change: Dict, user_service, org_id):
+    async def process_change(self, change: Dict, user_service, org_id, user_id):
         """Process a single change with revision checking"""
         txn = None
         try:
@@ -157,7 +157,7 @@ class DriveChangeHandler:
                     "recordVersion": 0,
                     "recordType": record.get('recordType'),
                     'eventType': change,
-                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
+                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                     "origin": OriginTypes.CONNECTOR.value,
@@ -175,7 +175,7 @@ class DriveChangeHandler:
                     'recordVersion': 0,
                     'recordType': record.get('recordType'),
                     'eventType': change,
-                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
+                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                     "origin": OriginTypes.CONNECTOR.value,
@@ -193,7 +193,7 @@ class DriveChangeHandler:
                     'recordVersion': 0,
                     'recordType': record.get('recordType'),
                     'eventType': change,
-                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/drive/record/{file_key}/signedUrl",
+                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                     "origin": OriginTypes.CONNECTOR.value,

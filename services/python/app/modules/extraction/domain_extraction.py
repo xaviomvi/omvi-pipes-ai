@@ -237,48 +237,37 @@ class DomainExtractor:
             logger.info(f"🚀 Record: {record}")
 
             # Create domain metadata document for batch upsert
-            # Start with all existing fields from record
-            doc = dict(record)  # Create a copy of all existing fields
-
-            # Update with new metadata fields
+            doc = dict(record)
             doc.update({
-                "_key": document_id,  # Use same key as record
+                "_key": document_id,
                 "extractionStatus": "COMPLETED"
             })
-
             docs = [doc]
 
             logger.info(f"🎯 Upserting domain metadata for document: {document_id}")
-            # Batch upsert the domain metadata
             await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)
 
             # Create relationships with departments
             for department in metadata.departments:
                 try:
-                    # Find department node using await properly
-                    dept_query = f'FOR d IN departments FILTER d.departmentName == @department RETURN d'
+                    dept_query = f'FOR d IN {CollectionNames.DEPARTMENTS.value} FILTER d.departmentName == @department RETURN d'
                     cursor = self.arango_service.db.aql.execute(
                         dept_query,
                         bind_vars={'department': department.value}
                     )
-
-                    # Get the first result directly from the cursor
                     dept_doc = cursor.next()
                     logger.info(f"🚀 Department: {dept_doc}")
                     
-                    if dept_doc:  # If we found a matching department
-                        # Create edge document
+                    if dept_doc:
                         edge = {
                             "_from": f"{CollectionNames.RECORDS.value}/{document_id}",
                             "_to": f"{CollectionNames.DEPARTMENTS.value}/{dept_doc['_key']}",
                             "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
                         }
-
-                        # Insert edge into belongs_to_department collection
                         await self.arango_service.batch_create_edges([edge], CollectionNames.BELONGS_TO_DEPARTMENT.value)
                         logger.info(f"🔗 Created relationship between document {document_id} and department {department.value}")
 
-                except StopAsyncIteration:
+                except StopIteration:
                     logger.warning(f"⚠️ No department found for: {department.value}")
                     continue
                 except Exception as e:
@@ -286,13 +275,15 @@ class DomainExtractor:
                     continue
                 
             # Handle single category
-            category_query = 'FOR c IN categories FILTER c.name == @name RETURN c'
+            category_query = f'FOR c IN {CollectionNames.CATEGORIES.value} FILTER c.name == @name RETURN c'
             cursor = self.arango_service.db.aql.execute(
                 category_query, bind_vars={'name': metadata.categories})
             try:
                 category_doc = cursor.next()
+                if category_doc is None:
+                    raise KeyError("No category found")
                 category_key = category_doc['_key']
-            except StopAsyncIteration:
+            except (StopIteration, KeyError, TypeError):
                 category_key = str(uuid.uuid4())
                 self.arango_service.db.collection(CollectionNames.CATEGORIES.value).insert({
                     "_key": category_key,
@@ -300,8 +291,8 @@ class DomainExtractor:
                 })
 
             # Create category relationship if it doesn't exist
-            edge_query = '''
-            FOR e IN belongs_to_category 
+            edge_query = f'''
+            FOR e IN {CollectionNames.BELONGS_TO_CATEGORY.value} 
             FILTER e._from == @from AND e._to == @to 
             RETURN e
             '''
@@ -317,14 +308,16 @@ class DomainExtractor:
                 })
 
             # Handle subcategories with similar pattern
-            async def handle_subcategory(name, level, parent_key, parent_collection):
+            def handle_subcategory(name, level, parent_key, parent_collection):
                 collection_name = getattr(CollectionNames, f'SUBCATEGORIES{level}').value
                 query = f'FOR s IN {collection_name} FILTER s.name == @name RETURN s'
                 cursor = self.arango_service.db.aql.execute(query, bind_vars={'name': name})
                 try:
                     doc = cursor.next()
+                    if doc is None:
+                        raise KeyError("No subcategory found")
                     key = doc['_key']
-                except StopAsyncIteration:
+                except (StopIteration, KeyError, TypeError):
                     key = str(uuid.uuid4())
                     self.arango_service.db.collection(collection_name).insert({
                         "_key": key,
@@ -332,8 +325,8 @@ class DomainExtractor:
                     })
 
                 # Create belongs_to relationship
-                edge_query = '''
-                FOR e IN belongs_to_category 
+                edge_query = f'''
+                FOR e IN {CollectionNames.BELONGS_TO_CATEGORY.value} 
                 FILTER e._from == @from AND e._to == @to 
                 RETURN e
                 '''
@@ -350,8 +343,8 @@ class DomainExtractor:
 
                 # Create hierarchy relationship
                 if parent_key:
-                    edge_query = '''
-                    FOR e IN inter_category_relations 
+                    edge_query = f'''
+                    FOR e IN {CollectionNames.INTER_CATEGORY_RELATIONS.value}
                     FILTER e._from == @from AND e._to == @to 
                     RETURN e
                     '''
@@ -368,18 +361,20 @@ class DomainExtractor:
                 return key
 
             # Process subcategories
-            sub1_key = await handle_subcategory(metadata.subcategories.level1, '1', category_key, 'categories')
-            sub2_key = await handle_subcategory(metadata.subcategories.level2, '2', sub1_key, 'subcategories1')
-            await handle_subcategory(metadata.subcategories.level3, '3', sub2_key, 'subcategories2')
+            sub1_key = handle_subcategory(metadata.subcategories.level1, '1', category_key, 'categories')
+            sub2_key = handle_subcategory(metadata.subcategories.level2, '2', sub1_key, 'subcategories1')
+            handle_subcategory(metadata.subcategories.level3, '3', sub2_key, 'subcategories2')
 
             # Handle languages
             for language in metadata.languages:
-                query = 'FOR l IN languages FILTER l.name == @name RETURN l'
+                query = f'FOR l IN {CollectionNames.LANGUAGES.value} FILTER l.name == @name RETURN l'
                 cursor = self.arango_service.db.aql.execute(query, bind_vars={'name': language})
                 try:
                     lang_doc = cursor.next()
+                    if lang_doc is None:
+                        raise KeyError("No language found")
                     lang_key = lang_doc['_key']
-                except StopAsyncIteration:
+                except (StopIteration, KeyError, TypeError):
                     lang_key = str(uuid.uuid4())
                     self.arango_service.db.collection(CollectionNames.LANGUAGES.value).insert({
                         "_key": lang_key,
@@ -387,8 +382,8 @@ class DomainExtractor:
                     })
 
                 # Create relationship if it doesn't exist
-                edge_query = '''
-                FOR e IN belongs_to_language 
+                edge_query = f'''
+                FOR e IN {CollectionNames.BELONGS_TO_LANGUAGE.value} 
                 FILTER e._from == @from AND e._to == @to 
                 RETURN e
                 '''
@@ -405,12 +400,14 @@ class DomainExtractor:
 
             # Handle topics
             for topic in metadata.topics:
-                query = 'FOR t IN topics FILTER t.name == @name RETURN t'
+                query = f'FOR t IN {CollectionNames.TOPICS.value} FILTER t.name == @name RETURN t'
                 cursor = self.arango_service.db.aql.execute(query, bind_vars={'name': topic})
                 try:
                     topic_doc = cursor.next()
+                    if topic_doc is None:
+                        raise KeyError("No topic found")
                     topic_key = topic_doc['_key']
-                except StopAsyncIteration:
+                except (StopIteration, KeyError, TypeError):
                     topic_key = str(uuid.uuid4())
                     self.arango_service.db.collection(CollectionNames.TOPICS.value).insert({
                         "_key": topic_key,
@@ -418,8 +415,8 @@ class DomainExtractor:
                     })
 
                 # Create relationship if it doesn't exist
-                edge_query = '''
-                FOR e IN belongs_to_topic 
+                edge_query = f'''
+                FOR e IN {CollectionNames.BELONGS_TO_TOPIC.value} 
                 FILTER e._from == @from AND e._to == @to 
                 RETURN e
                 '''

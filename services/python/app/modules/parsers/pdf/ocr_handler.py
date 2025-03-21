@@ -136,13 +136,6 @@ class OCRHandler:
             logger.debug("📊 Extracting text and layout")
             result = await self.strategy.extract_text()
 
-            logger.debug("================================================")
-            logger.debug("🔤 Extracted text components:")
-            logger.debug(f"Paragraphs: {result.get('paragraphs', [])}")
-            logger.debug(f"Lines: {result.get('lines', [])}")
-            logger.debug(f"Sentences: {result.get('sentences', [])}")
-            logger.debug("================================================")
-
             logger.info("✅ Document processing completed successfully")
             return result
         except Exception as e:

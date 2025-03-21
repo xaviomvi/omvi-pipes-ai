@@ -83,35 +83,29 @@ class BaseGmailSyncService(ABC):
         async with self._transition_lock:
             try:
                 # Get current user
-                user = await self.gmail_user_service.list_individual_user(org_id)
-                user = user[0]
+                users = await self.arango_service.get_users(org_id=org_id)
                 
-                # Check current state using get_user_sync_state
-                sync_state = await self.arango_service.get_user_sync_state(user['email'], 'gmail')
-                current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
+                for user in users:
+                
+                    # Check current state using get_user_sync_state
+                    sync_state = await self.arango_service.get_user_sync_state(user['email'], 'gmail')
+                    current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
 
-                if current_state == 'IN_PROGRESS':
-                    logger.warning("💥 Gmail sync service is already running")
-                    return False
+                    if current_state == 'IN_PROGRESS':
+                        logger.warning("💥 Gmail sync service is already running")
+                        return False
 
-                if current_state == 'PAUSED':
-                    logger.warning("💥 Gmail sync is paused, use resume to continue")
-                    return False
+                    if current_state == 'PAUSED':
+                        logger.warning("💥 Gmail sync is paused, use resume to continue")
+                        return False
 
-                # Cancel any existing task
-                if self._sync_task and not self._sync_task.done():
-                    self._sync_task.cancel()
-                    try:
-                        await self._sync_task
-                    except asyncio.CancelledError:
-                        pass
-
-                # Update state in Arango
-                await self.arango_service.update_user_sync_state(
-                    user['email'],
-                    'IN_PROGRESS',
-                    'gmail'
-                )
+                    # Cancel any existing task
+                    if self._sync_task and not self._sync_task.done():
+                        self._sync_task.cancel()
+                        try:
+                            await self._sync_task
+                        except asyncio.CancelledError:
+                            pass
 
                 # Start fresh sync
                 self._sync_task = asyncio.create_task(
@@ -129,34 +123,33 @@ class BaseGmailSyncService(ABC):
         logger.info("⏸️ Pausing Gmail sync service")
         async with self._transition_lock:
             try:
-                # Get current user
-                user = await self.gmail_user_service.list_individual_user(org_id)
-                user = user[0]
+                users = await self.arango_service.get_users(org_id=org_id)
+                for user in users:
                 
-                # Check current state using get_user_sync_state
-                sync_state = await self.arango_service.get_user_sync_state(user['email'], 'gmail')
-                current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
+                    # Check current state using get_user_sync_state
+                    sync_state = await self.arango_service.get_user_sync_state(user['email'], 'gmail')
+                    current_state = sync_state.get('syncState') if sync_state else 'NOT_STARTED'
 
-                if current_state != 'IN_PROGRESS':
-                    logger.warning("💥 Gmail sync service is not running")
-                    return False
+                    if current_state != 'IN_PROGRESS':
+                        logger.warning("💥 Gmail sync service is not running")
+                        return False
 
-                self._stop_requested = True
+                    self._stop_requested = True
 
-                # Update state in Arango
-                await self.arango_service.update_user_sync_state(
-                    user['email'],
-                    'PAUSED',
-                    'gmail'
-                )
+                    # Update state in Arango
+                    await self.arango_service.update_user_sync_state(
+                        user['email'],
+                        'PAUSED',
+                        'gmail'
+                    )
 
-                # Cancel current sync task
-                if self._sync_task and not self._sync_task.done():
-                    self._sync_task.cancel()
-                    try:
-                        await self._sync_task
-                    except asyncio.CancelledError:
-                        pass
+                    # Cancel current sync task
+                    if self._sync_task and not self._sync_task.done():
+                        self._sync_task.cancel()
+                        try:
+                            await self._sync_task
+                        except asyncio.CancelledError:
+                            pass
 
                 logger.info("✅ Gmail sync service paused")
                 return True
@@ -169,34 +162,27 @@ class BaseGmailSyncService(ABC):
         logger.info("🔄 Resuming Gmail sync service")
         async with self._transition_lock:
             try:
-                # Get current user
-                user = await self.gmail_user_service.list_individual_user(org_id)
-                user = user[0]
-                
-                # Check current state using get_user_sync_state
-                sync_state = await self.arango_service.get_user_sync_state(user['email'], 'gmail')
-                if not sync_state:
-                    logger.warning("⚠️ No user found, starting fresh")
-                    return await self.start(org_id)
+                users = await self.arango_service.get_users(org_id=org_id)
+                for user in users:
+                    
+                    # Check current state using get_user_sync_state
+                    sync_state = await self.arango_service.get_user_sync_state(user['email'], 'gmail')
+                    if not sync_state:
+                        logger.warning("⚠️ No user found, starting fresh")
+                        return await self.start(org_id)
 
-                current_state = sync_state.get('syncState')
-                if current_state == 'IN_PROGRESS':
-                    logger.warning("💥 Gmail sync service is already running")
-                    return False
+                    current_state = sync_state.get('syncState')
+                    if current_state == 'IN_PROGRESS':
+                        logger.warning("💥 Gmail sync service is already running")
+                        return False
 
-                if current_state != 'PAUSED':
-                    logger.warning("💥 Gmail sync was not paused, use start instead")
-                    return False
+                    if current_state != 'PAUSED':
+                        logger.warning("💥 Gmail sync was not paused, use start instead")
+                        return False
 
-                # Update state in Arango
-                await self.arango_service.update_user_sync_state(
-                    user['email'],
-                    'IN_PROGRESS',
-                    'gmail'
-                )
 
-                self._pause_event.set()
-                self._stop_requested = False
+                    self._pause_event.set()
+                    self._stop_requested = False
 
                 # Start sync with resume state
                 self._sync_task = asyncio.create_task(
@@ -214,57 +200,22 @@ class BaseGmailSyncService(ABC):
         """Check if operation should stop"""
         if self._stop_requested:
             # Get current user
-            user = await self.gmail_user_service.list_individual_user(org_id)
-            user = user[0]
-            
-            await self.arango_service.update_user_sync_state(
-                user['email'],
-                'PAUSED',
-                'gmail'
-            )
-            logger.info("✅ Gmail sync state updated before stopping")
-            return True
+            users = await self.arango_service.get_users(org_id=org_id)
+            for user in users:
+                current_state = await self.arango_service.get_user_sync_state(user['email'], 'gmail')
+                if current_state:
+                    current_state = current_state.get('syncState')
+                    if current_state == 'IN_PROGRESS':
+                        await self.arango_service.update_user_sync_state(
+                            user['email'],
+                            'PAUSED',
+                            'gmail'
+                        )
+                        logger.info("✅ Gmail sync state updated before stopping")
+                        return True
+            return False
         return False
 
-    async def stop(self, org_id) -> bool:
-        """Stop the sync service"""
-        async with self._transition_lock:
-            try:
-                logger.info("🚀 Stopping Gmail sync service")
-                self._stop_requested = True
-
-                # Wait for current operations to complete
-                if self._sync_lock.locked():
-                    async with self._sync_lock:
-                        pass
-
-                # Get current user and update state
-                user = await self.gmail_user_service.list_individual_user(org_id)
-                user = user[0]
-                
-                await self.arango_service.update_user_sync_state(
-                    user['email'],
-                    'STOPPED',
-                    'gmail'
-                )
-
-                await self.gmail_user_service.disconnect()
-                await self.arango_service.disconnect()
-
-                # Reset states
-                self._stop_requested = False  # Reset for next run
-
-                logger.info("✅ Gmail sync service stopped")
-                return True
-
-            except Exception as e:
-                logger.error("❌ Failed to stop Gmail sync service: %s", str(e))
-                return False
-
-    # async def process_sync_period_changes(self, start_token: str, user_service) -> bool:
-    #     """Delegate change processing to ChangeHandler"""
-    #     logger.info("🚀 Delegating change processing to ChangeHandler")
-    #     return await self.change_handler.process_sync_period_changes(start_token, user_service)
 
     async def process_batch(self, metadata_list, org_id):
         """Process a single batch with atomic operations"""
@@ -1008,6 +959,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                         for message_data in metadata['messages']:
                             message = message_data['message']
                             message_key = await self.arango_service.get_key_by_external_message_id(message['id'])
+                            user_id = user['userId']
                             
                             headers = message.get('headers', {})
                             message_event = {
@@ -1018,7 +970,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                                 "recordVersion": 0,
                                 "eventType": "create",
                                 "body": message.get('body', ''),
-                                "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/gmail/record/{message_key}/signedUrl",
+                                "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
                                 "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
                                 "origin": OriginTypes.CONNECTOR.value,
@@ -1188,7 +1140,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                     for message_data in metadata['messages']:
                         message = message_data['message']
                         message_key = await self.arango_service.get_key_by_external_message_id(message['id'])
-                        
+                        user_id = user['userId']
                         headers = message.get('headers', {})
                         message_event = {
                             "orgId": org_id,
@@ -1198,7 +1150,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             "recordVersion": 0,
                             "eventType": "create",
                             "body": message.get('body', ''),
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/gmail/record/{message_key}/signedUrl",
+                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
@@ -1429,7 +1381,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                         message_key = await self.arango_service.get_key_by_external_message_id(message['id'])
                         # message = await self.arango_service.get_document(message_key, "messages")
                         
-
+                        user_id = user['userId']
                         headers = message.get('headers', {})
                         message_event = {
                             "orgId": org_id,
@@ -1439,7 +1391,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                             "recordVersion": 0,
                             "eventType": "create",
                             "body": message.get('body', ''),
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/gmail/record/{message_key}/signedUrl",
+                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
