@@ -58,7 +58,7 @@ export class ArangoService {
         await sysDb.createDatabase(databaseName);
         logger.info(`Database ${databaseName} created successfully`);
       }
-
+      console.log(url, databaseName, 'url and databse of arango');
       // Now reconnect to the specific database
       this.db = new Database({
         url,

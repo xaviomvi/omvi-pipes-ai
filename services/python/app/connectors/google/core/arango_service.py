@@ -9,7 +9,9 @@ import uuid
 import json
 from arango import ArangoClient
 from app.connectors.core.base_arango_service import BaseArangoService
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 from app.config.arangodb_constants import CollectionNames
+
 logger = create_logger('google_connectors')
 
 
@@ -546,7 +548,7 @@ class ArangoService(BaseArangoService):
             permissions_collection = db.collection(CollectionNames.PERMISSIONS.value)
 
             edge_key = str(uuid.uuid4())
-            timestamp = int(datetime.now(timezone.utc).timestamp())
+            timestamp =  get_epoch_timestamp_in_ms()
 
             # Determine the correct collection for the _to field
             entityType = permission_data.get("type", "user").lower()
@@ -638,7 +640,7 @@ class ArangoService(BaseArangoService):
         """
         try:
             logger.info("🚀 Processing permissions for file %s", file_key)
-            timestamp = int(datetime.now(timezone.utc).timestamp())
+            timestamp =  get_epoch_timestamp_in_ms()
 
             db = transaction if transaction else self.db
 
@@ -895,7 +897,7 @@ class ArangoService(BaseArangoService):
 
                 bind_vars = {
                     'node_key': node_key,
-                    'timestamp': int(datetime.now(timezone.utc).timestamp())
+                    'timestamp':  get_epoch_timestamp_in_ms()
                 }
 
             else:

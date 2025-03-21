@@ -2,9 +2,7 @@
 export interface IFileRecordDocument {
   // Optional organization ID
   _key?: string;
-  userId?: string;
   orgId: string;
-
   // 'name' is required
   name: string;
 

@@ -15,7 +15,7 @@ from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
 from app.connectors.google.gmail.handlers.change_handler import GmailChangeHandler
 from app.connectors.core.kafka_service import KafkaService
 from app.config.configuration_service import ConfigurationService
-
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 class GmailSyncProgress:
     """Class to track sync progress"""
@@ -388,9 +388,9 @@ class BaseGmailSyncService(ABC):
                                 "origin": OriginTypes.CONNECTOR.value,
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
 
-                                "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                                "updatedAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                                "lastSyncTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                                "createdAtTimestamp":  get_epoch_timestamp_in_ms(),
+                                "updatedAtTimestamp":  get_epoch_timestamp_in_ms(),
+                                "lastSyncTimestamp":  get_epoch_timestamp_in_ms(),
                                 "sourceCreatedAtTimestamp": int(message.get('internalDate')) if message.get('internalDate') else None,
                                 "sourceLastModifiedTimestamp": int(message.get('internalDate')) if message.get('internalDate') else None,
                                 
@@ -459,7 +459,7 @@ class BaseGmailSyncService(ABC):
                                 'filename': attachment.get('filename'),
                                 'size': attachment.get('size'),
                                 'webUrl': f"https://mail.google.com/mail?authuser={{user.email}}#all/{message_id}",
-                                'lastSyncTimestamp': int(datetime.now(timezone.utc).timestamp())
+                                'lastSyncTimestamp':  get_epoch_timestamp_in_ms()
                             }
                             record = {
                                 "_key": attachment_record['_key'],
@@ -468,8 +468,8 @@ class BaseGmailSyncService(ABC):
                                 "recordType": RecordTypes.FILE.value,
                                 "version": 0,
                                 
-                                "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                                "updatedAtTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                                "createdAtTimestamp":  get_epoch_timestamp_in_ms(),
+                                "updatedAtTimestamp":  get_epoch_timestamp_in_ms(),
                                 "sourceCreatedAtTimestamp": int(attachment.get('internalDate')) if attachment.get('internalDate') else None,
                                 "sourceLastModifiedTimestamp": int(attachment.get('internalDate')) if attachment.get('internalDate') else None,
                                 
@@ -479,7 +479,7 @@ class BaseGmailSyncService(ABC):
                                 "origin": OriginTypes.CONNECTOR.value,
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
                                 "isArchived": False,
-                                "lastSyncTimestamp": int(datetime.now(timezone.utc).timestamp()),
+                                "lastSyncTimestamp":  get_epoch_timestamp_in_ms(),
                                 
                                 "isDeleted": False,
                                 "isArchived": False,
@@ -544,8 +544,8 @@ class BaseGmailSyncService(ABC):
                                     permissions.append({
                                         '_from': f'{entityType}/{entity_id}',
                                         '_to': f'records/{message_key}',
-                                        'relationType': 'HAS_ACCESS',
-                                        'role': role
+                                        'type': 'USER',
+                                        'role': role.upper()
                                     })
                         else:
                             logger.warning(
@@ -576,8 +576,8 @@ class BaseGmailSyncService(ABC):
                                         permissions.append({
                                             '_from': f'{entityType}/{entity_id}',
                                             '_to': f'attachments/{attachment_key}',
-                                            'relationType': 'HAS_ACCESS',
-                                            'role': role
+                                            'type': 'USER',
+                                            'role': role.upper()
                                         })
                             else:
                                 logger.warning(
@@ -644,6 +644,8 @@ class BaseGmailSyncService(ABC):
                         if permissions:
                             logger.debug(
                                 "🔗 Creating %d permissions", len(permissions))
+                            
+                            print(permissions, "gmail permissions")
                             if not await self.arango_service.batch_create_edges(permissions, collection=CollectionNames.PERMISSIONS.value, transaction=txn):
                                 raise Exception(
                                     "Failed to batch create permissions")
@@ -1441,8 +1443,8 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                     #         "size": attachment.get('size', 0),
                     #         "messageId": attachment.get('message_id'),
                     #         "threadId": metadata['thread']['id'],
-                    #         "createdAtSourceTimestamp": int(datetime.now(timezone.utc).timestamp()),
-                    #         "modifiedAtSourceTimestamp": int(datetime.now(timezone.utc).timestamp())
+                    #         "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
+                    #         "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
                     #     }
                     #     await self.kafka_service.send_event_to_kafka(attachment_event)
 

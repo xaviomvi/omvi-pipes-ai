@@ -8,10 +8,9 @@ from typing import Dict, List
 from datetime import datetime, timezone
 from app.config.arangodb_constants import CollectionNames
 from uuid import uuid4
-import os
 import time
 from app.connectors.api.setup import initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
-
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 # Import required services
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.config.configuration_service import ConfigurationService
@@ -205,8 +204,8 @@ class KafkaRouteConsumer:
                 'accountType': accountType,
  
                 'isActive': True,
-                'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
-                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
+                'createdAtTimestamp': get_epoch_timestamp_in_ms(),
+                'updatedAtTimestamp': get_epoch_timestamp_in_ms()
             }
             
             # Batch upsert org
@@ -228,7 +227,7 @@ class KafkaRouteConsumer:
                 relation_data = {
                     '_from': f"{CollectionNames.ORGS.value}/{payload['orgId']}",
                     '_to': f"{CollectionNames.DEPARTMENTS.value}/{department['_key']}",
-                    'createdAt': int(datetime.now(timezone.utc).timestamp())
+                    'createdAtTimestamp': get_epoch_timestamp_in_ms()
                 }
                 org_department_relations.append(relation_data)
             
@@ -254,7 +253,7 @@ class KafkaRouteConsumer:
             org_data = {
                 '_key': payload['orgId'],
                 'name': payload['registeredName'],
-                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
+                'updatedAtTimestamp': get_epoch_timestamp_in_ms()
             }
 
             # Batch upsert org
@@ -273,7 +272,7 @@ class KafkaRouteConsumer:
             org_data = {
                 '_key': payload['orgId'],
                 'isActive': False,
-                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
+                'updatedAtTimestamp': get_epoch_timestamp_in_ms()
             }
 
             # Batch upsert org with isActive = False
@@ -295,7 +294,7 @@ class KafkaRouteConsumer:
                 payload['email']
             )
 
-            current_timestamp = int(datetime.now(timezone.utc).timestamp())
+            current_timestamp = get_epoch_timestamp_in_ms()
 
             if existing_user:
                 user_data = {
@@ -356,7 +355,7 @@ class KafkaRouteConsumer:
                         '_from': f"{CollectionNames.USERS.value}/{user_data['_key']}",
                         '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
                         'syncState': 'NOT_STARTED',
-                        'lastSyncUpdate': int(datetime.now(timezone.utc).timestamp())
+                        'lastSyncUpdate':  get_epoch_timestamp_in_ms()
                     }
                     await self.arango_service.batch_create_edges(
                         [app_edge_data],
@@ -398,7 +397,7 @@ class KafkaRouteConsumer:
                 'orgId': payload['orgId'],
                 'email': payload['email'],
                 'isActive': True,
-                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
+                'updatedAtTimestamp':  get_epoch_timestamp_in_ms()
             }
 
             # Add only non-null optional fields
@@ -430,7 +429,7 @@ class KafkaRouteConsumer:
                 'orgId': payload['orgId'],
                 'email': payload['email'],
                 'isActive': False,
-                'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
+                'updatedAtTimestamp':  get_epoch_timestamp_in_ms()
             }
 
             # Batch upsert user with isActive = False
@@ -470,8 +469,8 @@ class KafkaRouteConsumer:
                     'appGroup': app_group,
                     'appGroupId': app_group_id,
                     'isActive': True,
-                    'createdAtTimestamp': int(datetime.now(timezone.utc).timestamp()),
-                    'updatedAtTimestamp': int(datetime.now(timezone.utc).timestamp())
+                    'createdAtTimestamp':  get_epoch_timestamp_in_ms(),
+                    'updatedAtTimestamp':  get_epoch_timestamp_in_ms()
                 }
                 app_docs.append(app_data)
 
@@ -484,7 +483,7 @@ class KafkaRouteConsumer:
                 edge_data = {
                     '_from': f"{CollectionNames.ORGS.value}/{org_id}",
                     '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
-                    'createdAt': int(datetime.now(timezone.utc).timestamp())
+                    'createdAt':  get_epoch_timestamp_in_ms()
                 }
                 org_app_edges.append(edge_data)
 
@@ -528,7 +527,7 @@ class KafkaRouteConsumer:
                                     '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
                                     '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
                                     'syncState': 'NOT_STARTED',
-                                    'lastSyncUpdate': int(datetime.now(timezone.utc).timestamp())
+                                    'lastSyncUpdate':  get_epoch_timestamp_in_ms()
                                 }
                                 
                                 user_app_edges.append(edge_data)
@@ -576,7 +575,7 @@ class KafkaRouteConsumer:
                                     '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
                                     '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
                                     'syncState': 'NOT_STARTED',
-                                    'lastSyncUpdate': int(datetime.now(timezone.utc).timestamp())
+                                    'lastSyncUpdate':  get_epoch_timestamp_in_ms()
                                 }
                                 
                                 user_app_edges.append(edge_data)
@@ -643,7 +642,7 @@ class KafkaRouteConsumer:
             for app_name in apps:
                 app_data = {
                     'isActive': False,
-                    'updatedAt': int(datetime.now(timezone.utc).timestamp()),
+                    'updatedAt':  get_epoch_timestamp_in_ms(),
                 }
                 app_updates.append(app_data)
 
