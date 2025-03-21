@@ -72,15 +72,17 @@ class RetrievalService:
         return f"Represent this document for retrieval: {query.strip()}"
 
     def _format_results(self, results: List[tuple]) -> List[Dict[str, Any]]:
-        """Format search results into a consistent structure."""
+        """Format search results into a consistent structure with flattened metadata."""
         formatted_results = []
         for doc, score in results:
-            formatted_results.append({
+            formatted_result = {
                 "content": doc.page_content,
-                "metadata": doc.metadata,
                 "score": float(score),
-            })
+                **doc.metadata  # Unpack metadata keys at the top level
+            }
+            formatted_results.append(formatted_result)
         return formatted_results
+
 
     async def search(
         self,
