@@ -39,7 +39,7 @@ import type {
 const steps: string[] = ['LLM', 'Storage', 'Connector', 'SMTP'];
 
 // API base URLs
-const API_BASE_URL = '/api/v1/configurationManager';
+const API_BASE_URL = '/api/v1/configurationManager/connectors';
 const ORG_API_BASE_URL = '/api/v1/org';
 
 interface ConfigurationStepperProps {
