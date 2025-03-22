@@ -96,7 +96,7 @@ export const createRecords =
 
         const frontendUrl =
           (await keyValueStoreService.get<string>(
-            configPaths.url.publicEndpoint,
+            configPaths.url.frontend.publicEndpoint,
           )) || appConfig.frontendUrl;
 
         const webUrl = `${frontendUrl}/knowledge-base/record/${key}`;

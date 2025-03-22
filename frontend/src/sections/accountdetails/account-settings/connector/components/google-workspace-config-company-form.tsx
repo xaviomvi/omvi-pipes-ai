@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -10,6 +10,7 @@ import {
   Button,
   Typography,
   CircularProgress,
+  TextField,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -40,6 +41,39 @@ export const GoogleWorkspaceConfigForm = forwardRef<
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [hasExistingFile, setHasExistingFile] = useState(false);
+  const [adminEmail, setAdminEmail] = useState<string>('');
+  const [adminEmailError, setAdminEmailError] = useState<string | null>(null);
+
+  // Validate email format
+  const validateEmail = useCallback((email: string): boolean => {
+    if (!email) {
+      setAdminEmailError('Google Workspace Admin email is required');
+      return false;
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const isValid = emailPattern.test(email);
+
+    if (!isValid) {
+      setAdminEmailError('Please enter a valid email address');
+      return false;
+    }
+
+    setAdminEmailError(null);
+    return true;
+  }, []);
+
+  // Validate form based on file and admin email
+  const validateForm = useCallback(
+    (hasFile: boolean, email: string) => {
+      const isFileValid = hasFile;
+      const isEmailValid = validateEmail(email);
+
+      onValidationChange(isFileValid && isEmailValid);
+      return isFileValid && isEmailValid;
+    },
+    [onValidationChange, validateEmail]
+  );
 
   // Load existing configuration on component mount
   useEffect(() => {
@@ -58,7 +92,13 @@ export const GoogleWorkspaceConfigForm = forwardRef<
           } else {
             setFileName('google-workspace-credentials.json');
           }
-          onValidationChange(true);
+
+          // Set admin email if it exists in the response
+          if (response.data.adminEmail) {
+            setAdminEmail(response.data.adminEmail);
+          }
+
+          validateForm(true, response.data.adminEmail || '');
         }
       } catch (error) {
         console.error('Error fetching existing configuration:', error);
@@ -70,21 +110,24 @@ export const GoogleWorkspaceConfigForm = forwardRef<
     };
 
     fetchExistingConfig();
-  }, [onValidationChange]);
+  }, [validateForm]);
 
   // Expose the handleSave method to the parent component
   useImperativeHandle(ref, () => ({
     handleSave,
   }));
 
-  // Update validation state when file is selected or removed
+  // Update validation state when file is selected or removed or admin email changes
   useEffect(() => {
-    if (hasExistingFile || selectedFile) {
-      onValidationChange(true);
-    } else {
-      onValidationChange(false);
-    }
-  }, [selectedFile, hasExistingFile, onValidationChange]);
+    validateForm(hasExistingFile || !!selectedFile, adminEmail);
+  }, [selectedFile, hasExistingFile, adminEmail, validateForm]);
+
+  // Handle admin email change
+  const handleAdminEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const email = e.target.value;
+    setAdminEmail(email);
+    validateEmail(email);
+  };
 
   // Handle file upload click
   const handleUploadClick = () => {
@@ -101,7 +144,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
         setSelectedFile(null);
         setFileName(null);
         setFileUploadError(null);
-        onValidationChange(false);
+        validateForm(false, adminEmail);
       }
       return;
     }
@@ -114,13 +157,13 @@ export const GoogleWorkspaceConfigForm = forwardRef<
       setFileUploadError('Only JSON files are accepted.');
       setSelectedFile(null);
       if (!hasExistingFile) {
-        onValidationChange(false);
+        validateForm(false, adminEmail);
       }
       return;
     }
 
     setSelectedFile(file);
-    onValidationChange(true);
+    validateForm(true, adminEmail);
   };
 
   // Handle file download
@@ -156,7 +199,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
         URL.revokeObjectURL(url);
       } catch (error) {
         console.error('Error downloading file:', error);
-        setSaveError('Failed to download configuration file');
+        setSaveError(`Failed to download configuration file":${error.message}`);
       } finally {
         setIsLoading(false);
       }
@@ -165,9 +208,35 @@ export const GoogleWorkspaceConfigForm = forwardRef<
 
   // Handle save - upload the file directly
   const handleSave = async (): Promise<boolean> => {
-    // If no new file is selected and we already have a config, just return success
+    // Validate form before saving
+    if (!validateForm(hasExistingFile || !!selectedFile, adminEmail)) {
+      return false;
+    }
+
+    // If no new file is selected and we already have a config, just update admin email
     if (!selectedFile && hasExistingFile) {
-      return true;
+      try {
+        setIsSaving(true);
+        setSaveError(null);
+
+        // Send admin email update
+        await axios.post('/api/v1/connectors/credentials/update', {
+          service: 'googleWorkspace',
+          adminEmail,
+        });
+
+        if (onSaveSuccess) {
+          onSaveSuccess();
+        }
+
+        return true;
+      } catch (error) {
+        console.error('Error updating admin email:', error);
+        setSaveError(`Failed to update Google Workspace admin email: ${error.message}`);
+        return false;
+      } finally {
+        setIsSaving(false);
+      }
     }
 
     if (!selectedFile) {
@@ -179,14 +248,14 @@ export const GoogleWorkspaceConfigForm = forwardRef<
     setSaveError(null);
 
     try {
-      // Create FormData with the specific field name that the server expects
+      // Create FormData with the file and admin email
       const formData = new FormData();
 
-      // Make sure "file" is the field name expected by your server middleware
+      // Add the file
       formData.append('googleWorkspaceCredentials', selectedFile);
 
-      // Add the userType to the form data
-      formData.append('userType', 'business');
+      // Add the admin email
+      formData.append('adminEmail', adminEmail);
 
       // Send the file to the backend
       const response = await axios.post('/api/v1/connectors/credentials', formData, {
@@ -205,7 +274,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
       return true;
     } catch (error) {
       console.error('Error uploading Google Workspace config:', error);
-      setSaveError('Failed to upload Google Workspace configuration file');
+      setSaveError(`Failed to upload Google Workspace configuration file :${error.message}`);
       return false;
     } finally {
       setIsSaving(false);
@@ -227,7 +296,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
         .then(() => {
           setHasExistingFile(false);
           setFileName(null);
-          onValidationChange(false);
+          validateForm(false, adminEmail);
           if (onFileRemoved) {
             onFileRemoved();
           }
@@ -235,7 +304,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
 
         .catch((error) => {
           console.error('Error removing configuration:', error);
-          setSaveError('Failed to remove configuration');
+          setSaveError(`Failed to remove configuration ${error.message}`);
         })
         .finally(() => {
           setIsLoading(false);
@@ -245,7 +314,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
       setSelectedFile(null);
       if (!hasExistingFile) {
         setFileName(null);
-        onValidationChange(false);
+        validateForm(false, adminEmail);
       }
 
       if (fileInputRef.current) {
@@ -308,6 +377,27 @@ export const GoogleWorkspaceConfigForm = forwardRef<
                 .
               </Typography>
             </Box>
+          </Box>
+
+          {/* Google Workspace Admin Email Field */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+              Google Workspace Admin Email
+            </Typography>
+            <TextField
+              fullWidth
+              required
+              value={adminEmail}
+              onChange={handleAdminEmailChange}
+              placeholder="admin@yourdomain.com"
+              error={!!adminEmailError}
+              helperText={adminEmailError}
+              sx={{ mb: 1 }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              Enter the email address of a Google Workspace administrator with appropriate
+              permissions
+            </Typography>
           </Box>
 
           {/* File Upload Section */}

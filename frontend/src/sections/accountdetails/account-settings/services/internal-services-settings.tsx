@@ -10,12 +10,26 @@ import ConfigureServiceDialog from './configure-services-dialog';
 // Service configuration list
 const SERVICES_LIST = [
   {
-    id: 'backendNodejs',
-    icon: 'mdi-nodejs',
-    title: 'Backend-NodeJS',
-    description: 'Backend-nodejs-services-url',
-    color: '#DC382D',
+    id: 'frontendPublicUrl',
+    icon: 'mdi:web-check',
+    title: 'Frontend Public DNS',
+    description: 'Publicly accessible frontend service DNS',
+    color: '#87CEEB',
   },
+  {
+    id: 'connectorPublicUrl',
+    icon: 'mdi:link-variant',
+    title: 'Connectors Public DNS',
+    description: 'Publicly accessible connector service DNS',
+    color: '#231F20',
+  },
+  // {
+  //   id: 'backendNodejs',
+  //   icon: 'mdi-nodejs',
+  //   title: 'Backend-NodeJS',
+  //   description: 'Backend-nodejs-services-url',
+  //   color: '#DC382D',
+  // },
 ];
 
 const InternalServicesSettings = () => {

@@ -116,7 +116,7 @@ const ConnectorSettings = () => {
       // After setting the status, check configurations to ensure they're up to date
     } catch (err) {
       console.error('Failed to fetch connectors:', err);
-      setErrorMessage('Failed to load connector settings');
+      setErrorMessage(`Failed to load connector settings ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -200,7 +200,8 @@ const ConnectorSettings = () => {
             window.location.href = googleAuthUrl;
           } catch (err) {
             console.error('Failed to update connector status:', err);
-            setErrorMessage('Failed to update connector status. Please try again.');
+            setErrorMessage(`Failed to update connector status. Please try again.
+               ${err.message} `);
           }
         } else {
           const response = await axios.post(`/api/v1/connectors/disable`, null, {
@@ -224,7 +225,7 @@ const ConnectorSettings = () => {
       connectorStatus[connectorId] = newStatus;
     } catch (err) {
       console.error('Failed to update connector status:', err);
-      setErrorMessage('Failed to update connector status. Please try again.');
+      setErrorMessage(`Failed to update connector status.  ${err.message} `);
     } finally {
       setIsLoading(false);
     }
@@ -311,8 +312,7 @@ const ConnectorSettings = () => {
           fetchConnectorStatuses();
         }
       } catch (err) {
-        console.error('Failed to exchange code for tokens', err);
-        setErrorMessage(`Failed to authenticate connector`);
+        setErrorMessage(`Failed to authenticate connector  ${err.message} `);
       } finally {
         setIsLoading(false);
       }

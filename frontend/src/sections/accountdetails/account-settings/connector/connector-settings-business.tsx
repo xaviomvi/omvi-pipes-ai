@@ -56,7 +56,6 @@ const ConnectorSettings = () => {
       const response = await axios.get(`/api/v1/connectors/credentials`, {
         params: {
           service: connectorId,
-          userType: 'business',
         },
       });
       return response.data;
@@ -141,7 +140,7 @@ const ConnectorSettings = () => {
       // After setting the status, check configurations to ensure they're up to date
     } catch (err) {
       console.error('Failed to fetch connectors:', err);
-      setErrorMessage('Failed to load connector settings');
+      setErrorMessage(`Failed to load connector settings  ${err.message} `);
     } finally {
       setIsLoading(false);
     }
@@ -228,7 +227,7 @@ const ConnectorSettings = () => {
       connectorStatus[connectorId] = newStatus;
     } catch (err) {
       console.error('Failed to update connector status:', err);
-      setErrorMessage('Failed to update connector status. Please try again.');
+      setErrorMessage(`Failed to update connector status. Please try again.  ${err.message} `);
     } finally {
       setIsLoading(false);
     }

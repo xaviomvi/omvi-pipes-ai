@@ -46,6 +46,7 @@ import {
   setRefreshTokenCredentials,
 } from '../services/connectors-config.service';
 import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
+import { verifyGoogleWorkspaceToken } from '../utils/verifyToken';
 
 const CONNECTORS = [{ key: 'googleWorkspace', name: 'Google Workspace' }];
 const logger = Logger.getInstance({
@@ -115,7 +116,10 @@ export function createConnectorRouter(container: Container) {
           );
         } else {
           if (response.data.client_id) {
-            res.status(200).json({ isConfigured: true });
+            res.status(200).json({
+              adminEmail: response?.data?.adminEmail,
+              isConfigured: true,
+            });
           } else {
             res.status(200).json({ isConfigured: false });
           }
@@ -149,10 +153,7 @@ export function createConnectorRouter(container: Container) {
           config.scopedJwtSecret,
         );
         if (response.statusCode !== 200) {
-          throw new InternalServerError(
-            'Error updating credentials',
-            response?.data,
-          );
+          throw new BadRequestError(response?.data?.error?.message);
         } else {
           res.status(200).json({ isConfigured: true });
         }
@@ -531,28 +532,8 @@ export function createConnectorRouter(container: Container) {
           throw new BadRequestError('Error getting code');
         }
         const data = googleResponse.data;
-        console.log(data);
 
-        // const userInfoResponse = await axios.get(
-        //   'https://www.googleapis.com/oauth2/v2/userinfo',
-        //   {
-        //     headers: { Authorization: `Bearer ${data.access_token}` },
-        //   },
-        // );
-        // console.log('ho');
-
-        // if (userInfoResponse.status !== 200) {
-        //   throw new BadRequestError('Error fetching user info');
-        // }
-
-        // const userInfo = userInfoResponse.data;
-        // logger.info('User Info:', userInfo);
-
-        // if (userInfo.email !== req.user.email) {
-        //   throw new BadRequestError(
-        //     'Account email is different from the consent giving mail',
-        //   );
-        // }
+        verifyGoogleWorkspaceToken(req, data?.id_token);
         const refreshTokenExpiryDate = data.refresh_token_expires_in
           ? data.refresh_token_expires_in * 1000 + Date.now()
           : undefined;
@@ -654,7 +635,6 @@ export function createConnectorRouter(container: Container) {
           });
         }
       } catch (err) {
-        console.log(err);
         next(err);
       }
       // Check if connector exists in MongoDB
@@ -663,7 +643,11 @@ export function createConnectorRouter(container: Container) {
   router.post(
     '/internal/refreshIndividualConnectorToken',
     authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
-    async (req: AuthenticatedServiceRequest, res: Response, next: NextFunction) => {
+    async (
+      req: AuthenticatedServiceRequest,
+      res: Response,
+      next: NextFunction,
+    ) => {
       const refreshTokenCommandResponse = await getRefreshTokenCredentials(
         req,
         config.cmUrl,

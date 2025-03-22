@@ -132,11 +132,11 @@ export class ConfigService {
   // SMTP Configuration
   public async getSmtpConfig(): Promise<SmtpConfig> {
     return this.getEncryptedConfig<SmtpConfig>(configPaths.smtp, {
-      host: process.env.SMTP_HOST!,
+      host: process.env.SMTP_HOST || 'smtp.example.com',
       port: parseInt(process.env.SMTP_PORT || '587', 10),
       username: process.env.SMTP_USERNAME,
       password: process.env.SMTP_PASSWORD,
-      fromEmail: process.env.SMTP_FROM_EMAIL!,
+      fromEmail: process.env.SMTP_FROM_EMAIL || 'default_from_email',
     });
   }
 
@@ -206,30 +206,34 @@ export class ConfigService {
   // Get Common Backend URL
   public async getCommonBackendUrl(): Promise<string> {
     let url = await this.keyValueStoreService.get<string>(
-      configPaths.url.privateEndpoint,
+      configPaths.url.nodeCommon.privateEndpoint,
     );
     if (url === null) {
-      url = process.env.NODE_COMMON_BACKEND ?? 'http://localhost:3000';
+      const port = process.env.PORT ?? 3000;
+      url = `http://localhost:${port}`;
       await this.keyValueStoreService.set<string>(
-        configPaths.url.privateEndpoint,
+        configPaths.url.nodeCommon.privateEndpoint,
         url,
       );
     }
     return url;
   }
+
   public async getFrontendUrl(): Promise<string> {
     let url = await this.keyValueStoreService.get<string>(
-      configPaths.url.publicEndpoint,
+      configPaths.url.frontend.publicEndpoint,
     );
     if (url === null) {
-      url = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+      const port = process.env.PORT ?? 3000;
+      url = process.env.FRONTEND_PUBLIC_URL ?? `http://localhost:${port}`;
       await this.keyValueStoreService.set<string>(
-        configPaths.url.publicEndpoint,
+        configPaths.url.frontend.publicEndpoint,
         url,
       );
     }
     return url;
   }
+
   public async getStorageConfig(): Promise<DefaultStorageConfig> {
     let endpoint = await this.keyValueStoreService.get<string>(
       configPaths.storageService.endpoint,
@@ -238,14 +242,15 @@ export class ConfigService {
       configPaths.storageService.storageType,
     );
     if (endpoint === null) {
-      endpoint = process.env.STORAGE_ENDPOINT ?? 'http://localhost:3000';
+      const port = process.env.PORT ?? 3000;
+      endpoint = `http://localhost:${port}`;
       await this.keyValueStoreService.set<string>(
         configPaths.storageService.endpoint,
         endpoint,
       );
     }
     if (storageType === null) {
-      storageType = process.env.STORAGE_TYPE ?? 'local';
+      storageType = 'local';
       await this.keyValueStoreService.set<string>(
         configPaths.storageService.storageType,
         storageType,
