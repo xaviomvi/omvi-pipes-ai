@@ -14,19 +14,24 @@ import {
   Typography,
   FormHelperText,
   CircularProgress,
+  Paper,
+  Divider,
+  Chip,
+  Card,
+  CardContent,
+  Stack,
+  InputAdornment,
+  Tooltip,
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-
 import { useAuthContext } from 'src/auth/hooks';
-
 import type { ConnectorFormValues } from './types';
 
-// Zod schema for business account (file upload)
+// Schemas remain unchanged
 const businessConnectorSchema = z.object({
   googleWorkspace: z.object({
     serviceCredentials: z.string().min(1, 'Service credentials are required'),
-    // Adding extracted fields from JSON that will be hidden in the UI
     clientId: z.string().optional(),
     clientEmail: z.string().optional(),
     privateKey: z.string().optional(),
@@ -34,7 +39,6 @@ const businessConnectorSchema = z.object({
   }),
 });
 
-// Zod schema for individual account (manual entry)
 const individualConnectorSchema = z.object({
   googleWorkspace: z.object({
     clientId: z.string().min(1, 'Client ID is required'),
@@ -43,11 +47,9 @@ const individualConnectorSchema = z.object({
   }),
 });
 
-// File size limit in bytes (5 MB)
+// Constants remain unchanged
 const FILE_SIZE_LIMIT = 5 * 1024 * 1024;
-// Allowed file types
 const ALLOWED_FILE_TYPES = ['application/json'];
-// Allowed file extensions
 const ALLOWED_FILE_EXTENSIONS = ['.json'];
 
 interface ConnectorConfigStepProps {
@@ -55,7 +57,7 @@ interface ConnectorConfigStepProps {
   onSkip: () => void;
   initialValues: ConnectorFormValues | null;
   initialFile: File | null;
-  setMessage : (message : string)=> void;
+  setMessage: (message: string) => void;
 }
 
 const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
@@ -63,11 +65,11 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   onSkip,
   initialValues,
   initialFile,
-  setMessage
+  setMessage,
 }) => {
   const theme = useTheme();
   const { user } = useAuthContext();
-  const accountType = user?.accountType || 'individual'; // Default to individual if not available
+  const accountType = user?.accountType || 'individual';
 
   const [serviceCredentialsFile, setServiceCredentialsFile] = useState<File | null>(null);
   const [parsedJsonData, setParsedJsonData] = useState<any>(null);
@@ -107,7 +109,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   const { handleSubmit, formState, control } =
     accountType === 'business' ? businessForm : individualForm;
 
-  const {isValid} = formState;
+  const { isValid } = formState;
 
   // Initialize form with initial values and file if available
   useEffect(() => {
@@ -124,77 +126,89 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   }, [initialValues, initialFile, accountType, businessForm, individualForm]);
 
   // Extract data from uploaded JSON for individual users
-// Extract data from uploaded JSON for individual users
-const extractIndividualDataFromJson = useCallback(
-  (jsonData: any) => {
-    try {
-      // Debug the incoming JSON data structure
-      console.log('Parsing individual JSON data:', jsonData);
-      
-      // Try different JSON structures that Google might provide
-      // Web application credentials format
-      if (jsonData.web) {
-        const clientId = jsonData.web.client_id;
-        const clientSecret = jsonData.web.client_secret;
-        const redirectUri = jsonData.web.redirect_uris && jsonData.web.redirect_uris[0];
-        
+  const extractIndividualDataFromJson = useCallback(
+    (jsonData: any) => {
+      try {
+        console.log('Parsing individual JSON data:', jsonData);
+
+        // Web application credentials format
+        if (jsonData.web) {
+          const clientId = jsonData.web.client_id;
+          const clientSecret = jsonData.web.client_secret;
+          const redirectUri = jsonData.web.redirect_uris && jsonData.web.redirect_uris[0];
+
+          if (clientId && clientSecret) {
+            individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
+            individualForm.setValue('googleWorkspace.clientSecret', clientSecret, {
+              shouldValidate: true,
+            });
+
+            if (redirectUri) {
+              individualForm.setValue('googleWorkspace.redirectUri', redirectUri, {
+                shouldValidate: true,
+              });
+            }
+            return true;
+          }
+        }
+
+        // Try installed application format
+        if (jsonData.installed) {
+          const clientId = jsonData.installed.client_id;
+          const clientSecret = jsonData.installed.client_secret;
+          const redirectUri =
+            jsonData.installed.redirect_uris && jsonData.installed.redirect_uris[0];
+
+          if (clientId && clientSecret) {
+            individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
+            individualForm.setValue('googleWorkspace.clientSecret', clientSecret, {
+              shouldValidate: true,
+            });
+
+            if (redirectUri) {
+              individualForm.setValue('googleWorkspace.redirectUri', redirectUri, {
+                shouldValidate: true,
+              });
+            }
+            return true;
+          }
+        }
+
+        // Try direct properties (less common but possible)
+        const clientId = jsonData.clientId || jsonData.client_id;
+        const clientSecret = jsonData.clientSecret || jsonData.client_secret;
+        const redirectUri =
+          jsonData.redirectUri ||
+          jsonData.redirect_uri ||
+          (jsonData.redirect_uris && jsonData.redirect_uris[0]);
+
         if (clientId && clientSecret) {
           individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
-          individualForm.setValue('googleWorkspace.clientSecret', clientSecret, { shouldValidate: true });
-          
+          individualForm.setValue('googleWorkspace.clientSecret', clientSecret, {
+            shouldValidate: true,
+          });
+
           if (redirectUri) {
-            individualForm.setValue('googleWorkspace.redirectUri', redirectUri, { shouldValidate: true });
+            individualForm.setValue('googleWorkspace.redirectUri', redirectUri, {
+              shouldValidate: true,
+            });
           }
           return true;
         }
-      }
-      
-      // Try installed application format
-      if (jsonData.installed) {
-        const clientId = jsonData.installed.client_id;
-        const clientSecret = jsonData.installed.client_secret;
-        const redirectUri = jsonData.installed.redirect_uris && jsonData.installed.redirect_uris[0];
-        
-        if (clientId && clientSecret) {
-          individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
-          individualForm.setValue('googleWorkspace.clientSecret', clientSecret, { shouldValidate: true });
-          
-          if (redirectUri) {
-            individualForm.setValue('googleWorkspace.redirectUri', redirectUri, { shouldValidate: true });
-          }
-          return true;
-        }
-      }
-      
-      // Try direct properties (less common but possible)
-      const clientId = jsonData.clientId || jsonData.client_id;
-      const clientSecret = jsonData.clientSecret || jsonData.client_secret;
-      const redirectUri = jsonData.redirectUri || jsonData.redirect_uri || 
-                         (jsonData.redirect_uris && jsonData.redirect_uris[0]);
 
-      if (clientId && clientSecret) {
-        individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
-        individualForm.setValue('googleWorkspace.clientSecret', clientSecret, { shouldValidate: true });
-
-        if (redirectUri) {
-          individualForm.setValue('googleWorkspace.redirectUri', redirectUri, { shouldValidate: true });
-        }
-        return true;
+        setMessage('Could not find client ID and client secret in the JSON file');
+        return false;
+      } catch (error) {
+        console.error('Error parsing JSON file:', error);
+        setMessage('Failed to extract data from JSON file');
+        return false;
       }
-      
-      setMessage('Could not find client ID and client secret in the JSON file');
-      return false;
-    } catch (error) {
-      console.error('Error parsing JSON file:', error);
-      setMessage('Failed to extract data from JSON file');
-      return false;
-    }
-  },
-  [individualForm, setMessage]
-);
+    },
+    [individualForm, setMessage]
+  );
 
   // Extract data from uploaded JSON for business users
-  const extractBusinessDataFromJson = useCallback( 
+  const extractBusinessDataFromJson = useCallback(
     (jsonData: any) => {
       try {
         // Store the full parsed JSON for later use
@@ -268,8 +282,6 @@ const extractIndividualDataFromJson = useCallback(
 
     return isValidExtension && (isValidMimeType || isJsonFile);
   }, []);
-
-
 
   // Process the selected file
   const processFile = useCallback(
@@ -350,18 +362,20 @@ const extractIndividualDataFromJson = useCallback(
     ]
   );
 
-    // Handle file selection from input
-    const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>): void => {
+  // Handle file selection from input
+  const handleFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>): void => {
       setCredentialsError('');
-      const {files} = event.target;
-  
-      // Reset the file input to ensure onChange fires even if the same file is selected again
-      event.target.value = '';
-  
+      const { files } = event.target;
+
       if (files && files[0]) {
         processFile(files[0]);
       }
-    }, [processFile]); 
+      // Reset the file input to ensure onChange fires even if the same file is selected again
+      event.target.value = '';
+    },
+    [processFile]
+  );
 
   const handleFormSubmit = useCallback(
     (data: any) => {
@@ -404,7 +418,7 @@ const extractIndividualDataFromJson = useCallback(
       e.stopPropagation();
       setIsDragging(false);
 
-      const {files} = e.dataTransfer;
+      const { files } = e.dataTransfer;
       if (files.length > 1) {
         setCredentialsError('Please drop only one file.');
         return;
@@ -436,39 +450,44 @@ const extractIndividualDataFromJson = useCallback(
     [accountType, businessForm]
   );
 
-  // Memoized upload area styles - reduced height to avoid scrolling
+  // Memoized upload area styles - enhanced modern design
   const uploadAreaStyles = useMemo(
     () => ({
-      border: `1px dashed ${
+      border: `2px dashed ${
         isDragging
           ? theme.palette.primary.main
           : serviceCredentialsFile
             ? theme.palette.success.main
-            : theme.palette.divider
+            : alpha(theme.palette.text.primary, 0.15)
       }`,
-      borderRadius: 1,
-      height: accountType === 'business' ? 160 : 100, // Reduced height
+      borderRadius: '12px',
+      height: accountType === 'business' ? 220 : 120,
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
       textAlign: 'center',
       bgcolor: isDragging
-        ? alpha(theme.palette.primary.main, 0.05)
+        ? alpha(theme.palette.primary.main, 0.04)
         : serviceCredentialsFile
-          ? alpha(theme.palette.success.main, 0.05)
-          : theme.palette.background.paper,
+          ? alpha(theme.palette.success.main, 0.04)
+          : alpha(theme.palette.background.default, 0.6),
       cursor: isProcessing ? 'wait' : 'pointer',
-      transition: theme.transitions.create(['border-color', 'background-color'], {
-        duration: theme.transitions.duration.shorter,
-      }),
+      transition: theme.transitions.create(
+        ['border-color', 'background-color', 'box-shadow', 'transform'],
+        { duration: theme.transitions.duration.shorter }
+      ),
       '&:hover': {
         borderColor: !isProcessing ? theme.palette.primary.main : undefined,
-        bgcolor: !isProcessing ? alpha(theme.palette.primary.main, 0.05) : undefined,
+        bgcolor: !isProcessing ? alpha(theme.palette.primary.main, 0.04) : undefined,
+        boxShadow: !isProcessing
+          ? `0 4px 12px ${alpha(theme.palette.primary.main, 0.08)}`
+          : undefined,
+        transform: !isProcessing ? 'translateY(-2px)' : undefined,
       },
       position: 'relative',
-      overflow: 'hidden',
       px: 2,
+      py: 3,
     }),
     [theme, isDragging, serviceCredentialsFile, isProcessing, accountType]
   );
@@ -479,33 +498,62 @@ const extractIndividualDataFromJson = useCallback(
   };
 
   return (
-    <Box
+    <Paper
       component="form"
       id="connector-config-form"
       onSubmit={handleSubmit(onFormSubmit)}
       noValidate
+      elevation={0}
       sx={{
         height: '100%',
-        maxHeight: '400px', // Constrain max height to fit in dialog
+        maxHeight: '500px',
         display: 'flex',
         flexDirection: 'column',
+        backdropFilter: 'blur(8px)',
+        borderRadius: 3,
+        overflow: 'hidden',
       }}
     >
-      <Box sx={{ mb: 1 }}>
-        <Typography variant="subtitle1" gutterBottom sx={{ mb: 0.5 }}>
-          Google Workspace
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-          {accountType === 'business'
-            ? 'Upload your Google Workspace service account credentials file.'
-            : 'Configure your Google Workspace OAuth credentials.'}
-        </Typography>
-      </Box>
+      <Box
+        sx={{ p: { xs: 2.5, sm: 3.5 }, pb: { xs: 2.5, sm: 3.5 }, height: '100%', overflow: 'auto' }}
+      >
+        {/* Header with logo */}
+        <Stack direction="row" spacing={2.5} alignItems="center" sx={{ mb: 3.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 46,
+              height: 46,
+              borderRadius: '10px',
+              overflow: 'hidden',
+              boxShadow: `0 3px 10px ${alpha('#4285F4', 0.25)}`,
+              flexShrink: 0,
+            }}
+          >
+            <Iconify
+              icon="simple-icons:google"
+              width={28}
+              height={28}
+              color={theme.palette.primary.main}
+            />
+          </Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600, letterSpacing: '-0.01em' }}>
+              Google Workspace
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, opacity: 0.85 }}>
+              {accountType === 'business'
+                ? 'Upload your service account credentials'
+                : 'Configure your OAuth credentials'}
+            </Typography>
+          </Box>
+        </Stack>
 
-      {/* Individual account form fields - more compact spacing */}
-      {accountType === 'individual' && (
-        <Grid container spacing={1.5} sx={{ mb: 2 }}>
-          <Grid item xs={12}>
+        {/* Individual account form fields - improved styling */}
+        {accountType === 'individual' && (
+          <Stack spacing={2.5} sx={{ mb: 4 }}>
             <Controller
               name="googleWorkspace.clientId"
               control={control}
@@ -516,15 +564,37 @@ const extractIndividualDataFromJson = useCallback(
                   placeholder="e.g., 969340771549-75fn6kuu6p4oapk45ibrc5acpps.com"
                   fullWidth
                   size="small"
-                  margin="dense"
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify
+                          icon="ri:user-settings-line"
+                          width={20}
+                          height={20}
+                          sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
+                        />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.background.paper, 0.6),
+                      transition: theme.transitions.create(['box-shadow', 'background-color']),
+                      '&:hover': {
+                        bgcolor: theme.palette.background.paper,
+                      },
+                      '&.Mui-focused': {
+                        boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                      },
+                    },
+                  }}
                 />
               )}
             />
-          </Grid>
 
-          <Grid item xs={12}>
             <Controller
               name="googleWorkspace.clientSecret"
               control={control}
@@ -535,15 +605,38 @@ const extractIndividualDataFromJson = useCallback(
                   placeholder="e.g., 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"
                   fullWidth
                   size="small"
-                  margin="dense"
+                  type="password"
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify
+                          icon="ri:key-2-line"
+                          width={20}
+                          height={20}
+                          sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
+                        />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.background.paper, 0.6),
+                      transition: theme.transitions.create(['box-shadow', 'background-color']),
+                      '&:hover': {
+                        bgcolor: theme.palette.background.paper,
+                      },
+                      '&.Mui-focused': {
+                        boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                      },
+                    },
+                  }}
                 />
               )}
             />
-          </Grid>
 
-          <Grid item xs={12}>
             <Controller
               name="googleWorkspace.redirectUri"
               control={control}
@@ -553,171 +646,331 @@ const extractIndividualDataFromJson = useCallback(
                   label="Redirect URI"
                   fullWidth
                   size="small"
-                  margin="dense"
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify
+                          icon="ri:links-line"
+                          width={20}
+                          height={20}
+                          sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
+                        />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.background.paper, 0.6),
+                      transition: theme.transitions.create(['box-shadow', 'background-color']),
+                      '&:hover': {
+                        bgcolor: theme.palette.background.paper,
+                      },
+                      '&.Mui-focused': {
+                        boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                      },
+                    },
+                  }}
                 />
               )}
             />
-          </Grid>
-        </Grid>
-      )}
-
-      {/* File Upload UI - Business accounts get file only, individual accounts get it as an option */}
-      <Box sx={{ mt: 0, mb: 1, flexGrow: 1 }}>
-        {accountType === 'individual' && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.8rem' }}>
-            Alternatively, upload a credentials file to populate the form:
-          </Typography>
+          </Stack>
         )}
 
-        <Box
-          sx={uploadAreaStyles}
-          component="div"
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          role="button"
-          tabIndex={0}
-          onClick={() => !isProcessing && document.getElementById('file-upload-input')?.click()}
-          onKeyDown={(e) => {
-            if (!isProcessing && (e.key === 'Enter' || e.key === ' ')) {
-              document.getElementById('file-upload-input')?.click();
-            }
-          }}
-          aria-disabled={isProcessing}
-        >
-          {isProcessing ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <CircularProgress size={24} sx={{ mb: 1 }} />
-              <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>
-                Processing file...
-              </Typography>
-            </Box>
-          ) : !serviceCredentialsFile ? (
-            <>
-              <Iconify
-                icon={isDragging ? 'mdi:file-download-outline' : 'mdi:cloud-upload'}
-                width={24}
-                height={24}
+        {/* File Upload UI - Business accounts get file only, individual accounts get it as an option */}
+        <Box sx={{ mt: 0, mb: 2, flexGrow: 1 }}>
+          {accountType === 'individual' && (
+            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3.5 }}>
+              <Divider sx={{ flexGrow: 1 }} />
+              <Chip
+                label="OR UPLOAD CREDENTIALS"
+                size="small"
+                variant="outlined"
                 sx={{
-                  color: isDragging ? theme.palette.primary.main : theme.palette.text.secondary,
-                  mb: 1,
-                  transition: theme.transitions.create('color', {
-                    duration: theme.transitions.duration.shorter,
-                  }),
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: '8px',
+                  fontSize: '0.675rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.05em',
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+                  color: theme.palette.primary.main,
                 }}
               />
-              <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.9rem' }}>
-                {isDragging
-                  ? 'Drop file here'
-                  : accountType === 'business'
-                    ? 'Drop service_credentials.json'
-                    : 'Drop OAuth credentials.json'}
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 0.5, fontSize: '0.75rem' }}
-              >
-                or click to browse files
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 0.5, fontSize: '0.7rem' }}
-              >
-                Only .json files supported (max 5MB)
-              </Typography>
-            </>
-          ) : (
-            <Fade in={!!serviceCredentialsFile}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  width: '100%',
-                }}
-              >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    bgcolor: alpha(theme.palette.success.main, 0.1),
-                    mb: 1,
-                  }}
-                >
-                  <Iconify
-                    icon="mdi:check-circle"
-                    width={20}
-                    height={20}
-                    sx={{ color: theme.palette.success.main }}
-                  />
-                </Box>
-                <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.9rem' }}>
-                  {serviceCredentialsFile.name}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ mb: 1, fontSize: '0.75rem' }}
-                >
-                  {(serviceCredentialsFile.size / 1024).toFixed(1)} KB
-                </Typography>
-                <Button
-                  size="small"
-                  color="error"
-                  variant="outlined"
-                  sx={{
-                    minWidth: 80,
-                    borderRadius: 5,
-                    px: 1.5,
-                    py: 0.25,
-                    fontSize: '0.75rem',
-                  }}
-                  onClick={handleRemoveFile}
-                >
-                  Remove
-                </Button>
-              </Box>
-            </Fade>
+              <Divider sx={{ flexGrow: 1 }} />
+            </Stack>
           )}
+
+          <Tooltip
+            title={
+              isProcessing
+                ? 'Processing file...'
+                : 'Drag and drop your credentials file or click to browse'
+            }
+            placement="top"
+            arrow
+          >
+            <Box
+              component="div"
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              role="button"
+              tabIndex={0}
+              onClick={() => !isProcessing && document.getElementById('file-upload-input')?.click()}
+              onKeyDown={(e) => {
+                if (!isProcessing && (e.key === 'Enter' || e.key === ' ')) {
+                  document.getElementById('file-upload-input')?.click();
+                }
+              }}
+              aria-disabled={isProcessing}
+              sx={{
+                ...uploadAreaStyles,
+                mx: { xs: 0, sm: 1 },
+                mt: 1,
+                mb: { xs: 2.5, sm: 3 },
+              }}
+            >
+              {isProcessing ? (
+                <Stack spacing={1.5} alignItems="center">
+                  <CircularProgress
+                    size={32}
+                    thickness={4}
+                    sx={{
+                      color: theme.palette.primary.main,
+                    }}
+                  />
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    Processing file...
+                  </Typography>
+                </Stack>
+              ) : !serviceCredentialsFile ? (
+                <>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 60,
+                      height: 60,
+                      borderRadius: '50%',
+                      background: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.12)}, ${alpha(theme.palette.primary.main, 0.15)})`,
+                      mb: 2.5,
+                      transition: theme.transitions.create(['transform', 'background-color'], {
+                        duration: theme.transitions.duration.shorter,
+                      }),
+                      ...(isDragging && {
+                        transform: 'scale(1.1)',
+                        bgcolor: alpha(theme.palette.primary.main, 0.12),
+                      }),
+                    }}
+                  >
+                    <Iconify
+                      icon={isDragging ? 'ri:file-upload-fill' : 'ri:upload-cloud-2-line'}
+                      width={32}
+                      height={32}
+                      sx={{
+                        color: theme.palette.primary.main,
+                        transition: theme.transitions.create('transform', {
+                          duration: theme.transitions.duration.shortest,
+                        }),
+                        ...(isDragging && {
+                          transform: 'scale(1.1)',
+                        }),
+                      }}
+                    />
+                  </Box>
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      fontWeight: 600,
+                      color: isDragging ? theme.palette.primary.main : 'text.primary',
+                    }}
+                  >
+                    {isDragging
+                      ? 'Drop file here'
+                      : accountType === 'business'
+                        ? 'Upload service credentials'
+                        : 'Upload JSON credentials'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                    or click to browse files
+                  </Typography>
+                  <Box
+                    sx={{
+                      mt: 1,
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: '6px',
+                      bgcolor: alpha(theme.palette.info.main, 0.08),
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Iconify
+                      icon="mdi:information-outline"
+                      width={14}
+                      height={14}
+                      sx={{ color: theme.palette.info.main, mr: 0.5 }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: 500, color: theme.palette.info.main, fontSize: '0.65rem' }}
+                    >
+                      Only .json files supported (max 5MB)
+                    </Typography>
+                  </Box>
+                </>
+              ) : (
+                <Fade in={!!serviceCredentialsFile}>
+                  <Stack spacing={1.5} alignItems="center" width="100%">
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 52,
+                        height: 52,
+                        borderRadius: '50%',
+                        background: `linear-gradient(135deg, ${alpha(theme.palette.success.light, 0.2)}, ${alpha(
+                          theme.palette.success.main,
+                          0.2
+                        )})`,
+                        boxShadow: `0 4px 12px ${alpha(theme.palette.success.main, 0.15)}`,
+                        mb: 1,
+                      }}
+                    >
+                      <Iconify
+                        icon="mdi:check-circle-outline"
+                        width={28}
+                        height={28}
+                        sx={{ color: theme.palette.success.main }}
+                      />
+                    </Box>
+
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 0.75,
+                        borderRadius: '8px',
+                        bgcolor: alpha(theme.palette.background.paper, 0.5),
+                        border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+                        boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.04)}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        width: 'auto',
+                        maxWidth: '100%',
+                      }}
+                    >
+                      <Iconify
+                        icon="ri:file-text-line"
+                        width={20}
+                        height={20}
+                        sx={{ color: theme.palette.primary.main, flexShrink: 0, mr: 1 }}
+                      />
+                      <Typography
+                        variant="body2"
+                        fontWeight={500}
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {serviceCredentialsFile.name}
+                      </Typography>
+                    </Box>
+
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontSize: '0.7rem' }}
+                    >
+                      {(serviceCredentialsFile.size / 1024).toFixed(1)} KB
+                    </Typography>
+
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      startIcon={<Iconify icon="ri:delete-bin-line" width={18} height={18} />}
+                      sx={{
+                        borderRadius: '10px',
+                        textTransform: 'none',
+                        px: 2,
+                        py: 0.75,
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        boxShadow: `0 2px 8px ${alpha(theme.palette.error.main, 0.15)}`,
+                        background: `linear-gradient(135deg, ${alpha(theme.palette.error.light, 0.2)}, ${alpha(
+                          theme.palette.error.main,
+                          0.2
+                        )})`,
+                        '&:hover': {
+                          background: `linear-gradient(135deg, ${alpha(theme.palette.error.light, 0.3)}, ${alpha(
+                            theme.palette.error.main,
+                            0.3
+                          )})`,
+                        },
+                      }}
+                      onClick={handleRemoveFile}
+                    >
+                      Remove
+                    </Button>
+                  </Stack>
+                </Fade>
+              )}
+            </Box>
+          </Tooltip>
         </Box>
+
+        {credentialsError && (
+          <Box
+            sx={{
+              mb: 2,
+              p: 2,
+              borderRadius: '10px',
+              background: `linear-gradient(135deg, ${alpha(theme.palette.error.light, 0.08)}, ${alpha(
+                theme.palette.error.main,
+                0.08
+              )})`,
+              borderLeft: `4px solid ${theme.palette.error.main}`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              boxShadow: `0 2px 8px ${alpha(theme.palette.error.main, 0.1)}`,
+            }}
+          >
+            <Iconify
+              icon="ri:error-warning-fill"
+              width={22}
+              height={22}
+              sx={{ color: theme.palette.error.main, mt: 0.25, mr: 1.5, flexShrink: 0 }}
+            />
+            <Typography variant="body2" color="error.main" sx={{ fontWeight: 500 }}>
+              {credentialsError}
+            </Typography>
+          </Box>
+        )}
+
+        {/* Hidden file input */}
+        <input
+          id="file-upload-input"
+          type="file"
+          accept=".json,application/json"
+          hidden
+          onChange={handleFileChange}
+          disabled={isProcessing}
+        />
+
+        {/* Hidden submit button for programmatic submission */}
+        <Button type="submit" style={{ display: 'none' }} id="connector-form-submit-button">
+          Submit
+        </Button>
       </Box>
-
-      {credentialsError && (
-        <FormHelperText error sx={{ mt: 0.5, mx: 0, textAlign: 'center', fontSize: '0.7rem' }}>
-          <Iconify
-            icon="mdi:alert-circle"
-            width={12}
-            height={12}
-            sx={{ verticalAlign: 'text-bottom', mr: 0.5 }}
-          />
-          {credentialsError}
-        </FormHelperText>
-      )}
-
-      {/* Hidden file input */}
-      <input
-        id="file-upload-input"
-        type="file"
-        accept=".json,application/json"
-        hidden
-        onChange={handleFileChange}
-        disabled={isProcessing}
-      />
-
-      {/* Hidden submit button for programmatic submission */}
-      <Button type="submit" style={{ display: 'none' }} id="connector-form-submit-button">
-        Submit
-      </Button>
-    </Box>
+    </Paper>
   );
 };
 

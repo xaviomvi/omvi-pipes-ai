@@ -179,12 +179,12 @@ export default function CompanyProfile() {
     if (!file) return;
 
     const formData = new FormData();
-    formData.append('logo', file);
+    formData.append('files', file);
 
     try {
       setUploading(true);
       const orgId = await getOrgIdFromToken();
-      await uploadOrgLogo(orgId, formData);
+      await uploadOrgLogo(formData);
       setSnackbar({ open: true, message: 'Logo updated successfully!', severity: 'success' });
       setUploading(false);
       setLogo(URL.createObjectURL(file));
