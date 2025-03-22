@@ -1,11 +1,12 @@
 import { useSearchParams } from 'react-router-dom';
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
 // MUI Components
 import {
   Box,
   Grid,
+  Link,
   Alert,
   Paper,
   Switch,
@@ -22,8 +23,8 @@ import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
 
-import ConfigureConnectorDialog from './components/configure-connector-individual-dialog';
-import { CONNECTORS_LIST, GOOGLE_WORKSPACE_SCOPE } from './components/connectors-list';
+import { CONNECTORS_LIST } from './components/connectors-list';
+import ConfigureConnectorDialog from './components/configure-connector-company-dialog';
 
 import type { ConnectorConfig } from './components/connectors-list';
 
@@ -35,7 +36,7 @@ export interface ConfigStatus {
   googleWorkspace: boolean;
 }
 
-const ConnectorSettings = () => {
+const GoogleWorkspaceBusinessPage = () => {
   const theme = useTheme();
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
@@ -49,12 +50,11 @@ const ConnectorSettings = () => {
   const [lastConfigured, setLastConfigured] = useState<string | null>(null);
   const [connectorStatus, setConnectorStatus] = useState<ConnectorStatusMap>({});
   const [configuredStatus, setConfiguredStatus] = useState<ConnectorStatusMap>({});
-  const processedCodeRef = useRef<string | null>(null);
 
   // Fetch connector config
   const fetchConnectorConfig = useCallback(async (connectorId: string) => {
     try {
-      const response = await axios.get(`/api/v1/connectors/config`, {
+      const response = await axios.get(`/api/v1/connectors/credentials`, {
         params: {
           service: connectorId,
         },
@@ -65,6 +65,36 @@ const ConnectorSettings = () => {
       return null;
     }
   }, []);
+  const handleFileRemoved = async (connectorId: string) => {
+    // Update the configuredStatus state to show not configured
+    setConfiguredStatus((prev) => ({
+      ...prev,
+      [connectorId]: false,
+    }));
+
+    // If the connector was enabled, disable it
+    if (connectorStatus[connectorId]) {
+      const response = await axios.post(`/api/v1/connectors/disable`, null, {
+        params: {
+          service: connectorId,
+        },
+      });
+      setConnectorStatus((prev) => ({
+        ...prev,
+        [connectorId]: false,
+      }));
+
+      // Show success message
+      setSuccessMessage(`${getConnectorTitle(connectorId)} ${'disabled'} successfully`);
+    }
+
+    // Refresh connector statuses to get latest from server
+    fetchConnectorStatuses();
+
+    // Show success message for removal
+    setSuccessMessage(`${getConnectorTitle(connectorId)} configuration has been removed`);
+    setSuccess(true);
+  };
 
   // Check configurations separately
   const checkConnectorConfigurations = useCallback(async () => {
@@ -75,16 +105,11 @@ const ConnectorSettings = () => {
 
       // Check if each configuration has required fields
       // Ensure property names match what's returned by the API
-      const googleConfigured =
-        results[0].status === 'fulfilled' &&
-        results[0].value &&
-        !!results[0].value.googleClientId &&
-        !!results[0].value.googleRedirectUri;
+      const googleConfigured = results[0].status === 'fulfilled' && results[0].value.isConfigured;
 
       const newConfigStatus = {
         googleWorkspace: googleConfigured,
       };
-
       setConfiguredStatus(newConfigStatus);
     } catch (err) {
       console.error('Error checking connector configurations:', err);
@@ -116,7 +141,7 @@ const ConnectorSettings = () => {
       // After setting the status, check configurations to ensure they're up to date
     } catch (err) {
       console.error('Failed to fetch connectors:', err);
-      setErrorMessage(`Failed to load connector settings ${err.message}`);
+      setErrorMessage(`Failed to load connector settings  ${err.message} `);
     } finally {
       setIsLoading(false);
     }
@@ -143,12 +168,7 @@ const ConnectorSettings = () => {
         // Check all configurations in parallel
         const results = await Promise.allSettled([fetchConnectorConfig('googleWorkspace')]);
 
-        // Check if the Google Workspace configuration is valid
-        const googleConfigured =
-          results[0].status === 'fulfilled' &&
-          results[0].value &&
-          !!results[0].value.googleClientId &&
-          !!results[0].value.googleRedirectUri;
+        const googleConfigured = results[0].status === 'fulfilled' && results[0].value.isConfigured;
 
         const newConfigStatus = {
           googleWorkspace: googleConfigured,
@@ -181,28 +201,11 @@ const ConnectorSettings = () => {
     try {
       if (connectorId === 'googleWorkspace') {
         if (newStatus) {
-          try {
-            const data = await fetchConnectorConfig('googleWorkspace');
-            if (!data) {
-              throw new Error('Failed to fetch Google Workspace Config');
-            }
-
-            const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams(
-              {
-                client_id: data.googleClientId,
-                redirect_uri: data.googleRedirectUri,
-                response_type: 'code',
-                scope: GOOGLE_WORKSPACE_SCOPE,
-                access_type: 'offline',
-                prompt: 'consent',
-              }
-            ).toString()}`;
-            window.location.href = googleAuthUrl;
-          } catch (err) {
-            console.error('Failed to update connector status:', err);
-            setErrorMessage(`Failed to update connector status. Please try again.
-               ${err.message} `);
-          }
+          const response = await axios.post(`/api/v1/connectors/enable`, null, {
+            params: {
+              service: connectorId,
+            },
+          });
         } else {
           const response = await axios.post(`/api/v1/connectors/disable`, null, {
             params: {
@@ -225,7 +228,7 @@ const ConnectorSettings = () => {
       connectorStatus[connectorId] = newStatus;
     } catch (err) {
       console.error('Failed to update connector status:', err);
-      setErrorMessage(`Failed to update connector status.  ${err.message} `);
+      setErrorMessage(`Failed to update connector status. Please try again.  ${err.message} `);
     } finally {
       setIsLoading(false);
     }
@@ -273,55 +276,6 @@ const ConnectorSettings = () => {
   const handleCloseSuccess = () => {
     setSuccess(false);
   };
-  // Process OAuth response code from the URL
-  useEffect(() => {
-    const exchangeToken = async () => {
-      const code = searchParams.get('code');
-      if (!code) return;
-
-      // Use a ref or state to track if we've already processed this code
-      if (processedCodeRef.current === code) return;
-      processedCodeRef.current = code;
-
-      const connectorId = 'googleWorkspace';
-      setIsLoading(true);
-
-      try {
-        const response = await axios.post(`/api/v1/connectors/getTokenFromCode`, {
-          tempCode: code,
-        });
-
-        if (response.status === 200 || response.status === 201) {
-          // Clean URL parameters
-          const newSearchParams = new URLSearchParams(searchParams);
-          newSearchParams.delete('code');
-          window.history.replaceState(null, '', `${window.location.pathname}?${newSearchParams}`);
-
-          // Update connector status
-          setConnectorStatus((prev) => ({
-            ...prev,
-            [connectorId]: true,
-          }));
-
-          // Set a specific success message for authentication
-          const connectorTitle = getConnectorTitle(connectorId);
-          setSuccessMessage(`${connectorTitle} authentication successful`);
-          setSuccess(true);
-
-          // Refresh connector statuses to ensure UI is updated
-          fetchConnectorStatuses();
-        }
-      } catch (err) {
-        setErrorMessage(`Failed to authenticate connector  ${err.message} `);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (searchParams.has('code')) {
-      exchangeToken();
-    }
-  }, [searchParams, fetchConnectorStatuses]); // Add fetchConnectorStatuses to dependencies
 
   return (
     <Container maxWidth="lg">
@@ -356,35 +310,6 @@ const ConnectorSettings = () => {
           </Box>
         )}
 
-        {/* Header section */}
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            justifyContent: 'space-between',
-            alignItems: { xs: 'flex-start', sm: 'center' },
-            mb: 4,
-            gap: 2,
-          }}
-        >
-          <Box>
-            <Typography
-              variant="h5"
-              component="h1"
-              sx={{
-                fontWeight: 600,
-                mb: 1,
-                color: theme.palette.text.primary,
-              }}
-            >
-              Connectors
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 500 }}>
-              Connect and manage integrations with external services and platforms
-            </Typography>
-          </Box>
-        </Box>
-
         {/* Error message */}
         {errorMessage && (
           <Alert
@@ -410,6 +335,13 @@ const ConnectorSettings = () => {
             const isEnabled = connectorStatus[connector.id] || false;
             const isConfigured = configuredStatus[connector.id] || false;
             const isDisabled = !isConfigured && !isEnabled;
+            const getTooltipMessage = () => {
+              if (isDisabled) {
+                return `${connector.title} needs to be configured before it can be enabled`;
+              }
+              return '';
+            };
+
             // Determine status color and text
             const getStatusColor = () => {
               if (isEnabled) return connector.color;
@@ -421,12 +353,6 @@ const ConnectorSettings = () => {
               if (isEnabled) return 'Active';
               if (isConfigured) return 'Configured';
               return 'Not Configured';
-            };
-            const getTooltipMessage = () => {
-              if (isDisabled) {
-                return `${connector.title} needs to be configured before it can be enabled`;
-              }
-              return '';
             };
 
             return (
@@ -578,12 +504,25 @@ const ConnectorSettings = () => {
           </Box>
           <Box>
             <Typography variant="subtitle2" color="text.primary" sx={{ mb: 0.5, fontWeight: 500 }}>
-              Connector Configuration
+              Google Workspace Configuration
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Connectors must be properly configured before they can be enabled. Click the settings
               icon to set up the necessary credentials and authentication for each service. Once
               configured, you can enable or disable the connector as needed.
+            </Typography>
+            <Typography variant="body2" color="primary.main" sx={{ mt: 1, fontWeight: 500 }}>
+              Important: To configure Google Workspace integration, you need to upload your OAuth
+              2.0 credentials JSON file from the{' '}
+              <Link
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noopener"
+                sx={{ fontWeight: 500 }}
+              >
+                Google Cloud Console
+              </Link>
+              .
             </Typography>
           </Box>
         </Box>
@@ -594,6 +533,7 @@ const ConnectorSettings = () => {
         open={configDialogOpen}
         onClose={() => setConfigDialogOpen(false)}
         onSave={handleSaveConfiguration}
+        onFileRemoved={handleFileRemoved}
         connectorType={currentConnector}
       />
 
@@ -621,4 +561,4 @@ const ConnectorSettings = () => {
   );
 };
 
-export default ConnectorSettings;
+export default GoogleWorkspaceBusinessPage;

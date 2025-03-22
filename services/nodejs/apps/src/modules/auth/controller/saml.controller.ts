@@ -24,6 +24,7 @@ import { HttpMethod } from '../../../libs/enums/http-methods.enum';
 import { generateAuthToken } from '../utils/generateAuthToken';
 import { iamJwtGenerator } from '../../../libs/utils/createJwt';
 import { AppConfig } from '../../tokens_manager/config/config';
+import { samlSsoCallbackUrl } from '../constants/constants';
 const orgIdToSamlEmailKey: Record<string, string> = {};
 passport.serializeUser((user, done) => {
   done(null, user);
@@ -66,10 +67,10 @@ export class SamlController {
     passport.use(
       new SamlStrategy(
         {
-          entryPoint: samlEntryPoint, // Don't modify the entry point directly
-          callbackUrl: `${this.config.authUrl}/api/v1/samlSignIn/signIn/callback`,
+          entryPoint: samlEntryPoint,
+          callbackUrl: `${this.config.authUrl}/${samlSsoCallbackUrl}`,
           cert: samlCertificate,
-          passReqToCallback: true, // Allows req access in callback
+          passReqToCallback: true,
         },
         function (
           req: AuthSessionRequest,
@@ -105,6 +106,7 @@ export class SamlController {
       if (!email) {
         throw new BadRequestError('Email is required');
       }
+
       this.logger.debug(email);
       const authToken = iamJwtGenerator(email, this.config.scopedJwtSecret);
       let result = await this.iamService.getUserByEmail(email, authToken);
@@ -124,7 +126,7 @@ export class SamlController {
       }
       let configurationManagerCommandOptions: ConfigurationManagerCommandOptions =
         {
-          uri: `${this.config.cmUrl}/api/v1/configurationManager/internal/authConfig/sso`,
+          uri: `${this.config.cmUrl}/${samlSsoCallbackUrl}`,
           method: HttpMethod.GET,
           headers: {
             Authorization: `Bearer ${await generateAuthToken(user, this.config.scopedJwtSecret)}`,
@@ -139,7 +141,7 @@ export class SamlController {
       if (response.statusCode !== 200) {
         throw new InternalServerError(
           'Error getting saml credentials',
-          response?.data,
+          response?.data?.error?.message,
         );
       }
       const credentialsData = response.data;
@@ -165,10 +167,10 @@ export class SamlController {
         JSON.stringify(relayStateObj),
       ).toString('base64');
       req.query.RelayState = relayStateEncoded;
+
       passport.authenticate('saml', {
         failureRedirect: '/',
-        successRedirect: '/', // You can modify this if needed
-        // Pass RelayState using `state`
+        successRedirect: '/',
       })(req, res, next);
     } catch (error) {
       next(error);

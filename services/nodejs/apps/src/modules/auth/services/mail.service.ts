@@ -56,13 +56,6 @@ export class MailService {
         data.sendCcTo = ccEmails;
       }
       let mailUrl = `${this.authConfig.communicationBackend}/api/v1/mail/emails/sendEmail`;
-      if (
-        emailTemplateType === 'resetPassword' ||
-        emailTemplateType === 'loginWithOTP'
-      ) {
-        mailUrl = `${this.authConfig.communicationBackend}/api/v1/mail/emails/sendUnprotectedEmail`;
-      }
-
       const config = {
         method: 'post' as const,
         url: mailUrl,

@@ -29,6 +29,13 @@ export interface GoogleWorkspaceConfigFormRef {
   handleSave: () => Promise<boolean>;
 }
 
+const getCleanRedirectUri = () => {
+  const url = new URL(window.location.href);
+  // Remove hash and search parameters
+  url.hash = '';
+  url.search = '';
+  return url.toString();
+};
 // Define Zod schema for form validation
 const googleWorkspaceConfigSchema = z.object({
   clientId: z.string().min(1, { message: 'Client ID is required' }),
@@ -47,7 +54,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
   const [formData, setFormData] = useState<GoogleWorkspaceConfigFormData>({
     clientId: '',
     clientSecret: '',
-    redirectUri: '',
+    redirectUri: getCleanRedirectUri(), // Set default to current URL
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -58,6 +65,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
   const [isConfigured, setIsConfigured] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Expose the handleSave method to the parent component
   useImperativeHandle(ref, () => ({
@@ -89,6 +97,9 @@ const GoogleWorkspaceConfigForm = forwardRef<
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
+    // Don't update redirectUri when user tries to change it
+    if (name === 'redirectUri') return;
+
     setFormData({
       ...formData,
       [name]: value,
@@ -117,7 +128,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
           setFormData({
             clientId: response.data.googleClientId || '',
             clientSecret: response.data.googleClientSecret || '',
-            redirectUri: response.data.googleRedirectUri || '',
+            redirectUri: response.data.googleRedirectUri || getCleanRedirectUri(),
           });
 
           setIsConfigured(true);
@@ -132,6 +143,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
 
     fetchConfig();
   }, []);
+
   // Handle file selection
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -147,31 +159,34 @@ const GoogleWorkspaceConfigForm = forwardRef<
         if (event.target?.result) {
           const jsonContent = JSON.parse(event.target.result as string);
 
+          // Get the current redirectUri
+          const currentRedirectUri = formData.redirectUri;
+
           // Check if the JSON has the required fields
           if (jsonContent.web) {
             // Google OAuth credentials format
-            const { client_id, client_secret, redirect_uris } = jsonContent.web;
+            const { client_id, client_secret } = jsonContent.web;
 
             setFormData({
               clientId: client_id || '',
               clientSecret: client_secret || '',
-              redirectUri: redirect_uris?.[0] || '',
+              redirectUri: currentRedirectUri, // Keep the current redirectUri
             });
           } else if (jsonContent.installed) {
             // Service account credentials format
-            const { client_id, client_secret, redirect_uris } = jsonContent.installed;
+            const { client_id, client_secret } = jsonContent.installed;
 
             setFormData({
               clientId: client_id || '',
               clientSecret: client_secret || '',
-              redirectUri: redirect_uris?.[0] || '',
+              redirectUri: currentRedirectUri, // Keep the current redirectUri
             });
           } else if (jsonContent.clientId) {
             // Direct format
             setFormData({
               clientId: jsonContent.clientId || '',
               clientSecret: jsonContent.clientSecret || '',
-              redirectUri: jsonContent.redirectUri || '',
+              redirectUri: currentRedirectUri, // Keep the current redirectUri
             });
           } else {
             setFileUploadError('Invalid JSON format. Could not find client credentials.');
@@ -195,6 +210,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
   const handleSave = async (): Promise<boolean> => {
     setIsSaving(true);
     setSaveError(null);
+    setSaveSuccess(false);
 
     try {
       // Validate the form data with Zod before saving
@@ -209,6 +225,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
 
       // Update the configured state
       setIsConfigured(true);
+      setSaveSuccess(true);
 
       if (onSaveSuccess) {
         onSaveSuccess();
@@ -249,13 +266,26 @@ const GoogleWorkspaceConfigForm = forwardRef<
         <>
           {saveError && (
             <Alert
-              severity={saveError.includes('successful') ? 'success' : 'error'}
+              severity="error"
               sx={{
                 mb: 3,
                 borderRadius: 1,
               }}
             >
               {saveError}
+            </Alert>
+          )}
+
+          {saveSuccess && (
+            <Alert
+              severity="success"
+              sx={{
+                mb: 3,
+                borderRadius: 1,
+              }}
+            >
+              Configuration saved successfully! Remember to configure this redirect URI in your
+              Google Cloud Console.
             </Alert>
           )}
 
@@ -291,6 +321,10 @@ const GoogleWorkspaceConfigForm = forwardRef<
                   Google Cloud Console
                 </Link>
                 . You can either upload your JSON credentials file or enter the details manually.
+              </Typography>
+              <Typography variant="body2" color="primary.main" sx={{ mt: 1, fontWeight: 500 }}>
+                Important: You must set the redirect URI in your Google Cloud Console to exactly
+                match: {getCleanRedirectUri()}
               </Typography>
             </Box>
           </Box>
@@ -466,23 +500,32 @@ const GoogleWorkspaceConfigForm = forwardRef<
                 onChange={handleChange}
                 placeholder="https://your-app.com/api/google/oauth/callback"
                 error={Boolean(getFieldError('redirectUri'))}
-                helperText={
-                  getFieldError('redirectUri') ||
-                  'The authorized redirect URI configured in your Google OAuth client'
-                }
+                helperText="This URI must be added to your Google OAuth client's authorized redirect URIs"
                 required
                 size="small"
+                disabled
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
                       <Iconify icon="eva:link-outline" width={18} height={18} />
                     </InputAdornment>
                   ),
+                  readOnly: true,
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': {
                       borderColor: alpha(theme.palette.text.primary, 0.15),
+                    },
+                    '&.Mui-disabled': {
+                      '& fieldset': {
+                        borderColor: alpha(theme.palette.primary.main, 0.3),
+                      },
+                      '& input': {
+                        color: theme.palette.text.primary,
+                        WebkitTextFillColor: theme.palette.text.primary,
+                        opacity: 0.8,
+                      },
                     },
                   },
                 }}

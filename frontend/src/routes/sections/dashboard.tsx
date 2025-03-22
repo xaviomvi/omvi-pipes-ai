@@ -23,12 +23,18 @@ const ServiceSettings = lazy(() => import('src/pages/dashboard/account/services-
 const AuthenticationSettings = lazy(
   () => import('src/pages/dashboard/account/authentication-settings')
 );
-const ConnectorSettingsIndividual = lazy(
-  () => import('src/pages/dashboard/account/connector-settings-individual')
+const ConnectorSettings = lazy(
+  () => import('src/pages/dashboard/account/connectors/connector-settings')
 );
-const ConnectorSettingsCompany = lazy(
-  () => import('src/pages/dashboard/account/connector-settings-business')
+
+const GoogleWorkspaceBusinessPage = lazy(
+  () => import('src/pages/dashboard/account/connectors/googleWorkspace-business-config')
 );
+
+const GoogleWorkspaceIndividualPage = lazy(
+  () => import('src/pages/dashboard/account/connectors/googleWorkspace-individual-config')
+);
+
 const SamlSsoConfigPage = lazy(() => import('src/pages/dashboard/account/saml-sso-config'));
 
 // knowledge-base
@@ -51,13 +57,7 @@ const layoutContent = (
 export const dashboardRoutes = [
   {
     path: '/',
-    element: CONFIG.auth.skip ? (
-      <>{layoutContent}</>
-    ) : (
-      <AuthGuard>
-        {layoutContent}
-      </AuthGuard>
-    ),
+    element: CONFIG.auth.skip ? <>{layoutContent}</> : <AuthGuard>{layoutContent}</AuthGuard>,
     children: [
       { element: <ChatBotPage />, index: true },
       { path: ':conversationId', element: <ChatBotPage /> },
@@ -84,7 +84,14 @@ export const dashboardRoutes = [
                       { path: 'saml', element: <SamlSsoConfigPage /> },
                     ],
                   },
-                  { path: 'connector', element: <ConnectorSettingsCompany /> },
+                  {
+                    path: 'connector',
+                    children: [
+                      { element: <ConnectorSettings />, index: true },
+                      { path: 'googleWorkspace', element: <GoogleWorkspaceBusinessPage /> },
+                    ],
+                  },
+
                   { path: 'services', element: <ServiceSettings /> },
                 ],
               },
@@ -104,7 +111,13 @@ export const dashboardRoutes = [
                       { path: 'config-saml', element: <SamlSsoConfigPage /> },
                     ],
                   },
-                  { path: 'connector', element: <ConnectorSettingsIndividual /> },
+                  {
+                    path: 'connector',
+                    children: [
+                      { element: <ConnectorSettings />, index: true },
+                      { path: 'googleWorkspace', element: <GoogleWorkspaceIndividualPage /> },
+                    ],
+                  },
                   { path: 'services', element: <ServiceSettings /> },
                 ],
               },

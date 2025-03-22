@@ -296,6 +296,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
         .then(() => {
           setHasExistingFile(false);
           setFileName(null);
+          setAdminEmail('');
           validateForm(false, adminEmail);
           if (onFileRemoved) {
             onFileRemoved();

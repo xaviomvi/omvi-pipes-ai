@@ -5,11 +5,11 @@ import { Box } from '@mui/material';
 import { CONFIG } from 'src/config-global';
 
 import Sidebar from 'src/sections/accountdetails/Sidebar';
-import ConnectorSettings from 'src/sections/accountdetails/account-settings/connector/connector-settings-individual';
+import ConnectorSettings from 'src/sections/accountdetails/account-settings/connector/connector-settings';
 
 // ----------------------------------------------------------------------
 
-const metadata = { title: `Connector Settings  - ${CONFIG.appName}` };
+const metadata = { title: `ConnectorConfig  - ${CONFIG.appName}` };
 
 export default function Page() {
   return (

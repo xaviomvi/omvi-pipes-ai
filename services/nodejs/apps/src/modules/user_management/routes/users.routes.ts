@@ -8,7 +8,7 @@ import { userAdminCheck } from '../middlewares/userAdminCheck';
 import { userAdminOrSelfCheck } from '../middlewares/userAdminOrSelfCheck';
 // import { attachContainerMiddleware } from '../../auth/middlewares/attachContainer.middleware';
 import { accountTypeCheck } from '../middlewares/accountTypeCheck';
-import { smtpConfigCheck } from '../../../libs/middlewares/smtpConfigCheck';
+import { smtpConfigCheck } from '../middlewares/smtpConfigCheck';
 import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
 import { UserController } from '../controller/users.controller';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
@@ -16,6 +16,7 @@ import { PrometheusService } from '../../../libs/services/prometheus/prometheus.
 import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
 import { FileProcessorFactory } from '../../../libs/middlewares/file_processor/fp.factory';
 import { FileProcessingType } from '../../../libs/middlewares/file_processor/fp.constant';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 const UserIdUrlParams = z.object({
   id: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid UserId'),
@@ -151,7 +152,7 @@ export function createUserRouter(container: Container) {
   const userController = container.get<UserController>('UserController');
   const authMiddleware = container.get<AuthMiddleware>('AuthMiddleware');
   const prometheusService = container.get<PrometheusService>(PrometheusService);
-
+  const config = container.get<AppConfig>('AppConfig');
   // Todo: Apply Rate Limiter Middleware
   // Todo: Apply Validation Middleware
   // Routes
@@ -502,7 +503,7 @@ export function createUserRouter(container: Container) {
     '/bulk/invite',
     authMiddleware.authenticate,
     metricsMiddleware(container),
-    smtpConfigCheck,
+    smtpConfigCheck(config.cmUrl),
     userAdminCheck,
     accountTypeCheck,
     // attachContainerMiddleware(container),
@@ -523,7 +524,7 @@ export function createUserRouter(container: Container) {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(UserIdValidationSchema),
-    smtpConfigCheck,
+    smtpConfigCheck(config.cmUrl),
     userAdminCheck,
     accountTypeCheck,
     // attachContainerMiddleware(container),

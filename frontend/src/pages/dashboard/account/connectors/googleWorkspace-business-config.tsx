@@ -5,11 +5,11 @@ import { Box } from '@mui/material';
 import { CONFIG } from 'src/config-global';
 
 import Sidebar from 'src/sections/accountdetails/Sidebar';
-import ConnectorSettings from 'src/sections/accountdetails/account-settings/connector/connector-settings-business';
+import GoogleWorkspaceBusinessPage from 'src/sections/accountdetails/account-settings/connector/googleWorkspace-business-config';
 
 // ----------------------------------------------------------------------
 
-const metadata = { title: `Connector Settings  - ${CONFIG.appName}` };
+const metadata = { title: `Connector Config - ${CONFIG.appName}` };
 
 export default function Page() {
   return (
@@ -19,7 +19,7 @@ export default function Page() {
       </Helmet>
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', zIndex: 0 }}>
         <Sidebar />
-        <ConnectorSettings />
+        <GoogleWorkspaceBusinessPage />
       </Box>
     </>
   );

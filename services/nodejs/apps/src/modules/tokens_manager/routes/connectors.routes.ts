@@ -47,6 +47,8 @@ import {
 } from '../services/connectors-config.service';
 import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
 import { verifyGoogleWorkspaceToken } from '../utils/verifyToken';
+import { Org } from '../../user_management/schema/org.schema';
+import { googleWorkspaceTypes } from '../../configuration_manager/constants/constants';
 
 const CONNECTORS = [{ key: 'googleWorkspace', name: 'Google Workspace' }];
 const logger = Logger.getInstance({
@@ -268,31 +270,80 @@ export function createConnectorRouter(container: Container) {
       next: NextFunction,
     ) => {
       try {
-        let response = await getGoogleWorkspaceConfig(
-          req,
-          config.cmUrl,
-          config.scopedJwtSecret,
-        );
+        if (!req.user) {
+          throw new NotFoundError('User not found');
+        }
+        const orgId = req.user.orgId;
+        const org = await Org.findOne({ orgId, isDeleted: false });
+        if (!org) {
+          throw new BadRequestError('Organisaton not found');
+        }
+        const userType = org.accountType;
 
-        if (response.statusCode !== 200) {
-          throw new InternalServerError('Error getting config', response?.data);
-        }
-        const configData = response.data;
-        if (!configData.clientId) {
-          throw new NotFoundError('Client Id is missing');
-        }
-        if (!configData.redirectUri) {
-          throw new NotFoundError('Redirect Uri is missing');
-        }
-        if (!configData.clientSecret) {
-          throw new NotFoundError('Client Secret is missing');
-        }
+        let response;
+        switch (userType.toLowerCase()) {
+          case googleWorkspaceTypes.INDIVIDUAL.toLowerCase():
+            response = await getGoogleWorkspaceConfig(
+              req,
+              config.cmUrl,
+              config.scopedJwtSecret,
+            );
+            if (response.statusCode !== 200) {
+              throw new InternalServerError(
+                'Error getting config',
+                response?.data,
+              );
+            }
+            const configData = response.data;
+            if (!configData.clientId) {
+              throw new NotFoundError('Client Id is missing');
+            }
+            if (!configData.redirectUri) {
+              throw new NotFoundError('Redirect Uri is missing');
+            }
+            if (!configData.clientSecret) {
+              throw new NotFoundError('Client Secret is missing');
+            }
 
-        res.status(200).json({
-          googleClientId: configData.clientId,
-          googleRedirectUri: configData.redirectUri,
-          googleClientSecret: configData.clientSecret,
-        });
+            res.status(200).json({
+              googleClientId: configData.clientId,
+              googleRedirectUri: configData.redirectUri,
+              googleClientSecret: configData.clientSecret,
+            });
+
+            break;
+
+          case googleWorkspaceTypes.BUSINESS.toLowerCase():
+            response = await getGoogleWorkspaceBusinessCredentials(
+              req,
+              config.cmUrl,
+              config.scopedJwtSecret,
+            );
+            if (response.statusCode !== 200) {
+              throw new InternalServerError(
+                'Error getting credentials',
+                response?.data,
+              );
+            } else {
+              if (response.data.client_id) {
+                res.status(200).json({
+                  adminEmail: response?.data?.adminEmail,
+                  isConfigured: true,
+                });
+              } else {
+                throw new InternalServerError(
+                  'Error getting config',
+                  response?.data,
+                );
+              }
+            }
+            break;
+
+          default:
+            throw new BadRequestError(
+              `Unsupported google workspace type: ${userType}`,
+            );
+        }
       } catch (error) {
         next(error);
       }

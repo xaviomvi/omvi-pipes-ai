@@ -52,7 +52,7 @@ export class Application {
 
   constructor() {
     this.app = express();
-    this.port = parseInt(process.env.PORT || '3001', 10);
+    this.port = parseInt(process.env.PORT || '3000', 10);
   }
 
   async initialize(): Promise<void> {
@@ -170,7 +170,7 @@ export class Application {
       cors({
         origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
         credentials: true,
-        exposedHeaders: ['x-session-token','content-disposition'],
+        exposedHeaders: ['x-session-token', 'content-disposition'],
       }),
     );
 

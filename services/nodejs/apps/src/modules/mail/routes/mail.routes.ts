@@ -13,7 +13,6 @@ import {
 } from '../../../libs/middlewares/types';
 import { smtpConfigChecker } from '../middlewares/checkSmtpConfig';
 import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
-import { jwtValidator } from '../middlewares/userAuthentication';
 import { AppConfig, loadAppConfig } from '../../tokens_manager/config/config';
 
 export const smtpConfigSchema = z.object({
@@ -33,21 +32,12 @@ export function createMailServiceRouter(container: Container) {
   router.post(
     '/emails/sendEmail',
     smtpConfigChecker,
-    jwtValidator,
-    async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
-      try {
-        await mailController.sendMail(req, res, next);
-      } catch (error) {
-        next(error);
-      }
-    },
-  );
-
-  router.post(
-    '/emails/sendUnprotectedEmail',
-    smtpConfigChecker,
     authMiddleware.scopedTokenValidator(TokenScopes.SEND_MAIL),
-    async (req: AuthenticatedServiceRequest, res: Response, next: NextFunction) => {
+    async (
+      req: AuthenticatedServiceRequest,
+      res: Response,
+      next: NextFunction,
+    ) => {
       try {
         await mailController.sendMail(req, res, next);
       } catch (error) {
