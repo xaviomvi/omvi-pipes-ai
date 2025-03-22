@@ -23,6 +23,7 @@ import {
   InputAdornment,
   Tooltip,
 } from '@mui/material';
+import scrollableContainerStyle from 'src/sections/qna/chatbot/utils/styles/scrollbar';
 
 import { Iconify } from 'src/components/iconify';
 import { useAuthContext } from 'src/auth/hooks';
@@ -461,7 +462,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
             : alpha(theme.palette.text.primary, 0.15)
       }`,
       borderRadius: '12px',
-      height: accountType === 'business' ? 220 : 120,
+      height: accountType === 'business' ? 220 : 200,
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -512,10 +513,11 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         backdropFilter: 'blur(8px)',
         borderRadius: 3,
         overflow: 'hidden',
+        ...scrollableContainerStyle
       }}
     >
       <Box
-        sx={{ p: { xs: 2.5, sm: 3.5 }, pb: { xs: 2.5, sm: 3.5 }, height: '100%', overflow: 'auto' }}
+        sx={{ p: { xs: 2.5, sm: 3.5, ...scrollableContainerStyle }, pb: { xs: 2.5, sm: 3.5 }, height: '100%', overflow: 'auto' }}
       >
         {/* Header with logo */}
         <Stack direction="row" spacing={2.5} alignItems="center" sx={{ mb: 3.5 }}>
