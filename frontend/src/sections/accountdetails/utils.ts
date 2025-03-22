@@ -145,9 +145,9 @@ export const updateUser = async (userId: string, userData: any) => {
   }
 };
 
-export const uploadOrgLogo = async (orgId: string, formData: any) => {
+export const uploadOrgLogo = async ( formData: any) => {
   try {
-    const response = await axios.put(`${CONFIG.iamUrl}/api/v1/orgs/${orgId}/logo`, formData, {
+    const response = await axios.put(`${CONFIG.backendUrl}/api/v1/org/logo`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

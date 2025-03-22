@@ -779,6 +779,9 @@ export default function KnowledgeBaseDetails({
                 onRowClick={handleRowClick}
                 getRowId={(row) => row.id}
                 rowHeight={56}
+                localeText={{
+                  noRowsLabel: 'No records uploaded for knowledge base',
+                }}
                 sx={{
                   border: 'none',
                   height: '100%',

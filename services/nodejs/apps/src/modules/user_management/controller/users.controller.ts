@@ -233,9 +233,37 @@ export class UserController {
       if (!req.user) {
         throw new UnauthorizedError('Unauthorized to update the user');
       }
+      const { id } = req.params;
+      const user = await Users.findOne({
+        orgId: req.user.orgId,
+        _id: id,
+        isDeleted: false,
+      });
 
-      // Update only the provided fields
-      Object.assign(req.user, updateFields);
+      if(!user){
+        throw new NotFoundError('User not found')
+      }
+
+      if(updateFields.firstName){
+        user.firstName = updateFields.firstName;
+      }
+      if(updateFields.lastName){
+        user.lastName = updateFields.lastName;
+      }
+      if(updateFields.fullName){
+        user.fullName = updateFields.fullName;
+      }
+      if(updateFields.middleName){
+        user.middleName = updateFields.middleName;
+      }
+      if(updateFields.email){
+        user.email = updateFields.email;
+      }
+      if(updateFields.designation){
+        user.designation = updateFields.designation;
+      }
+
+      await user.save();
 
       await this.eventService.start();
 
