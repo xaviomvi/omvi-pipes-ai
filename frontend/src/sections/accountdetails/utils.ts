@@ -32,7 +32,7 @@ interface createGroupProps {
 
 export const getOrgById = async (orgId: string): Promise<OrganizationData> => {
   try {
-    const response = await axios.get<OrganizationData>(`${CONFIG.iamUrl}/api/v1/org`);
+    const response = await axios.get<OrganizationData>(`${CONFIG.backendUrl}/api/v1/org`);
     return response.data;
   } catch (error) {
     throw new Error('Error fetching organization');
@@ -42,7 +42,7 @@ export const getOrgById = async (orgId: string): Promise<OrganizationData> => {
 export const getUserById = async (userId: string | null): Promise<UserData> => {
   try {
     if (!userId) throw new Error('User ID is required');
-    const response = await axios.get<UserData>(`${CONFIG.iamUrl}/api/v1/users/${userId}`);
+    const response = await axios.get<UserData>(`${CONFIG.backendUrl}/api/v1/users/${userId}`);
 
     return response.data;
   } catch (error) {
@@ -52,7 +52,7 @@ export const getUserById = async (userId: string | null): Promise<UserData> => {
 
 export const getOrgLogo = async (orgId: string): Promise<string | null> => {
   try {
-    const response = await axios.get(`${CONFIG.iamUrl}/api/v1/orgs/${orgId}/logo`, {
+    const response = await axios.get(`${CONFIG.backendUrl}/api/v1/org/logo`, {
       responseType: 'arraybuffer',
     });
 
@@ -80,7 +80,7 @@ export const getOrgLogo = async (orgId: string): Promise<string | null> => {
 
 export const getUserLogo = async (userId: string): Promise<string | null> => {
   try {
-    const response = await axios.get(`${CONFIG.iamUrl}/api/v1/users/${userId}/dp`, {
+    const response = await axios.get(`${CONFIG.backendUrl}/api/v1/users/${userId}/dp`, {
       responseType: 'arraybuffer',
     });
 
@@ -108,7 +108,7 @@ export const getUserLogo = async (userId: string): Promise<string | null> => {
 
 export const updateOrg = async (orgId: string, orgData: any) => {
   try {
-    const response = await axios.put(`${CONFIG.iamUrl}/api/v1/orgs/${orgId}`, orgData);
+    const response = await axios.put(`${CONFIG.backendUrl}/api/v1/org/`, orgData);
     return response.data.message;
   } catch (error) {
     throw new Error('Error updating org');
@@ -138,7 +138,7 @@ export const changePassword = async ({ currentPassword, newPassword }: PasswordC
 
 export const updateUser = async (userId: string, userData: any) => {
   try {
-    const response = await axios.put(`${CONFIG.iamUrl}/api/v1/users/${userId}`, userData);
+    const response = await axios.put(`${CONFIG.backendUrl}/api/v1/users/${userId}`, userData);
     return response.data.message;
   } catch (error) {
     throw new Error('Error updating user');
@@ -160,7 +160,7 @@ export const uploadOrgLogo = async ( formData: any) => {
 
 export const uploadUserLogo = async (userId: string, formData: any) => {
   try {
-    const response = await axios.put(`${CONFIG.iamUrl}/api/v1/users/${userId}/dp`, formData, {
+    const response = await axios.put(`${CONFIG.backendUrl}/api/v1/users/${userId}/dp`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -173,7 +173,7 @@ export const uploadUserLogo = async (userId: string, formData: any) => {
 
 export const deleteOrgLogo = async (orgId: string) => {
   try {
-    const response = await axios.delete(`${CONFIG.iamUrl}/api/v1/orgs/${orgId}/logo`);
+    const response = await axios.delete(`${CONFIG.backendUrl}/api/v1/org/logo`);
     return response.data;
   } catch (error) {
     throw new Error('Error deleting logo');
@@ -182,7 +182,7 @@ export const deleteOrgLogo = async (orgId: string) => {
 
 export const deleteUserLogo = async (userId: string) => {
   try {
-    const response = await axios.delete(`${CONFIG.iamUrl}/api/v1/users/${userId}/dp`);
+    const response = await axios.delete(`${CONFIG.backendUrl}/api/v1/users/${userId}/dp`);
     return response.data;
   } catch (error) {
     throw new Error('Error deleting User logo');

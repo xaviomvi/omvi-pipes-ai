@@ -7,15 +7,20 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Grid,
-  Card,
   Alert,
   Tooltip,
   Snackbar,
   MenuItem,
-  CardMedia,
   Typography,
-  CardContent,
   CircularProgress,
+  Paper,
+  Container,
+  useTheme,
+  alpha,
+  Avatar,
+  IconButton,
+  Divider,
+  CardMedia,
 } from '@mui/material';
 
 import { countries } from 'src/assets/data';
@@ -60,16 +65,17 @@ const ProfileSchema = zod.object({
 type ProfileFormData = zod.infer<typeof ProfileSchema>;
 
 export default function CompanyProfile() {
+  const theme = useTheme();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [logo, setLogo] = useState<string | null>(null);
   const [uploading, setUploading] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [saveChanges, setSaveChanges] = useState<boolean>(false);
-  const [snackbar, setSnackbar] = useState<SnackbarState>({ 
-    open: false, 
-    message: '', 
-    severity: undefined 
+  const [snackbar, setSnackbar] = useState<SnackbarState>({
+    open: false,
+    message: '',
+    severity: undefined,
   });
 
   const { isAdmin } = useAdmin();
@@ -90,7 +96,7 @@ export default function CompanyProfile() {
   };
 
   useEffect(() => {
-    const fetchOrgData = async () : Promise<void> => {
+    const fetchOrgData = async (): Promise<void> => {
       try {
         setLoading(true);
         const orgId = await getOrgIdFromToken();
@@ -141,7 +147,7 @@ export default function CompanyProfile() {
     fetchLogo();
   }, []);
 
-  const onSubmit = async (data : ProfileFormData) : Promise<void> => {
+  const onSubmit = async (data: ProfileFormData): Promise<void> => {
     try {
       setSaveChanges(true);
       const orgId = await getOrgIdFromToken();
@@ -159,7 +165,7 @@ export default function CompanyProfile() {
     }
   };
 
-  const handleDelete = async () : Promise<void>  => {
+  const handleDelete = async (): Promise<void> => {
     try {
       setDeleting(true);
       const orgId = await getOrgIdFromToken();
@@ -174,12 +180,12 @@ export default function CompanyProfile() {
     }
   };
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) : Promise<void> => {
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const formData = new FormData();
-    formData.append('files', file);
+    formData.append('file', file);
 
     try {
       setUploading(true);
@@ -202,204 +208,336 @@ export default function CompanyProfile() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: '100vh',
-          width: '100%',
+          height: '80vh',
         }}
       >
-        <CircularProgress />
+        <CircularProgress size={36} />
       </Box>
     );
   }
 
   return (
-    <Box component="main" sx={{ flexGrow: 1, pl: 3, overflow: 'auto' }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 2 }}>
-        Company Profile
-      </Typography>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <Form methods={methods} onSubmit={handleSubmit(onSubmit)}  {...({ noValidate: true } as any)}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Tooltip
-                  title="The legal name the company was incorporated under"
-                  arrow
-                  placement="top-start"
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Paper
+        elevation={1}
+        sx={{
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <Box
+          sx={{
+            py: 2.5,
+            px: { xs: 3, md: 4 },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            bgcolor: alpha(theme.palette.primary.main, 0.02),
+          }}
+        >
+          <Typography variant="h6" fontWeight={500} fontSize="1.25rem">
+            Company Profile
+          </Typography>
+        </Box>
+
+        {/* Content */}
+        <Box sx={{ p: { xs: 3, md: 4 } }}>
+          <Grid container spacing={{ xs: 3, md: 5 }}>
+            {/* Form Section - Now on the LEFT */}
+            <Grid item xs={12} md={8}>
+              <Form methods={methods} onSubmit={handleSubmit(onSubmit)} {...({ noValidate: true } as any)}>
+                <Paper
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    borderRadius: 2,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                    mb: 3
+                  }}
                 >
-                  <Field.Text
-                    name="registeredName"
-                    label={
-                      <>
-                        Registered Name{' '}
-                        <Typography
-                          component="span"
-                          color="error"
-                          fontSize="1.5rem"
-                          sx={{ verticalAlign: 'middle' }}
-                        >
-                          *
-                        </Typography>
-                      </>
-                    }
-                    fullWidth
-                    disabled={!isAdmin}
+                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                    Basic Information
+                  </Typography>
+                  
+                  <Grid container spacing={2.5}>
+                    <Grid item xs={12}>
+                      <Tooltip
+                        title="The legal name the company was incorporated under"
+                        arrow
+                        placement="top-start"
+                      >
+                        <Box>
+                          <Field.Text
+                            name="registeredName"
+                            label="Registered Name"
+                            fullWidth
+                            required
+                            disabled={!isAdmin}
+                            variant="outlined"
+                            placeholder="Enter your company's registered name"
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': {
+                                height: 45
+                              },
+                              '& .MuiInputBase-input.Mui-disabled': {
+                                cursor: 'not-allowed',
+                              },
+                            }}
+                          />
+                        </Box>
+                      </Tooltip>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Tooltip
+                        title="The name of the company to display within Pipeshub"
+                        arrow
+                        placement="top-start"
+                      >
+                        <Box>
+                          <Field.Text
+                            name="shortName"
+                            label="Display Name"
+                            fullWidth
+                            disabled={!isAdmin}
+                            variant="outlined"
+                            placeholder="Short name for display"
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': {
+                                height: 45
+                              },
+                              '& .MuiInputBase-input.Mui-disabled': {
+                                cursor: 'not-allowed',
+                              },
+                            }}
+                          />
+                        </Box>
+                      </Tooltip>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Field.Text
+                        disabled={!isAdmin}
+                        name="contactEmail"
+                        label="Contact Email"
+                        fullWidth
+                        required
+                        variant="outlined"
+                        placeholder="company@example.com"
+                        sx={{ 
+                          '& .MuiOutlinedInput-root': {
+                            height: 45
+                          },
+                          '& .MuiInputBase-input.Mui-disabled': {
+                            cursor: 'not-allowed',
+                          },
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+                
+                <Paper
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    borderRadius: 2,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                    mb: 3
+                  }}
+                >
+                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                    Address Information
+                  </Typography>
+                  
+                  <Grid container spacing={2.5}>
+                    <Grid item xs={12}>
+                      <Field.Text
+                        disabled={!isAdmin}
+                        name="permanentAddress.addressLine1"
+                        label="Street Address"
+                        fullWidth
+                        variant="outlined"
+                        placeholder="Enter street address"
+                        sx={{ 
+                          '& .MuiOutlinedInput-root': {
+                            height: 45
+                          },
+                          '& .MuiInputBase-input.Mui-disabled': {
+                            cursor: 'not-allowed',
+                          },
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Field.Text
+                        disabled={!isAdmin}
+                        name="permanentAddress.city"
+                        label="City"
+                        fullWidth
+                        variant="outlined"
+                        placeholder="Enter city"
+                        sx={{ 
+                          '& .MuiOutlinedInput-root': {
+                            height: 45
+                          },
+                          '& .MuiInputBase-input.Mui-disabled': {
+                            cursor: 'not-allowed',
+                          },
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Field.Text
+                        disabled={!isAdmin}
+                        name="permanentAddress.state"
+                        label="State/Province"
+                        fullWidth
+                        variant="outlined"
+                        placeholder="Enter state or province"
+                        sx={{ 
+                          '& .MuiOutlinedInput-root': {
+                            height: 45
+                          },
+                          '& .MuiInputBase-input.Mui-disabled': {
+                            cursor: 'not-allowed',
+                          },
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Field.Text
+                        name="permanentAddress.postCode"
+                        label="Zip/Postal Code"
+                        fullWidth
+                        disabled={!isAdmin}
+                        variant="outlined"
+                        placeholder="Enter postal code"
+                        sx={{ 
+                          '& .MuiOutlinedInput-root': {
+                            height: 45
+                          },
+                          '& .MuiInputBase-input.Mui-disabled': {
+                            cursor: 'not-allowed',
+                          },
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Field.Select
+                        disabled={!isAdmin}
+                        name="permanentAddress.country"
+                        label="Country"
+                        fullWidth
+                        variant="outlined"
+                        sx={{ 
+                          '& .MuiOutlinedInput-root': {
+                            height: 45
+                          },
+                          '& .MuiInputBase-input.Mui-disabled': {
+                            cursor: 'not-allowed',
+                          },
+                        }}
+                      >
+                        {countries.map((country) => (
+                          <MenuItem key={country.code} value={country.code}>
+                            {country.label}
+                          </MenuItem>
+                        ))}
+                      </Field.Select>
+                    </Grid>
+                  </Grid>
+                </Paper>
+                  
+                <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+                  <LoadingButton
+                    color="primary"
+                    type="submit"
+                    variant="contained"
+                    loading={saveChanges}
+                    loadingIndicator="Saving..."
+                    startIcon={<Iconify icon="solar:diskette-bold" width={18} height={18} />}
+                    disabled={!isValid || !isDirty || !isAdmin}
                     sx={{
-                      '& .MuiInputBase-input.Mui-disabled': {
+                      height: 42,
+                      px: 3,
+                      borderRadius: 1,
+                      textTransform: 'none', 
+                      fontWeight: 500,
+                      fontSize: '0.9rem',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      '&:hover': {
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                      },
+                      '&.Mui-disabled': {
                         cursor: 'not-allowed',
+                        pointerEvents: 'auto',
                       },
                     }}
-                  />
-                </Tooltip>
-              </Grid>
-              <Grid item xs={12}>
-                <Tooltip
-                  title="The name of the company to display within Pipeshub"
-                  arrow
-                  placement="top-start"
-                >
-                  <Field.Text
-                    name="shortName"
-                    label="Displayed name"
-                    fullWidth
-                    disabled={!isAdmin}
-                    sx={{
-                      '& .MuiInputBase-input.Mui-disabled': {
-                        cursor: 'not-allowed',
-                      },
-                    }}
-                  />
-                </Tooltip>
-              </Grid>
-              <Grid item xs={12}>
-                <Field.Text
-                  disabled={!isAdmin}
-                  sx={{
-                    '& .MuiInputBase-input.Mui-disabled': {
-                      cursor: 'not-allowed',
-                    },
-                  }}
-                  name="permanentAddress.addressLine1"
-                  label="Street address"
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <Field.Text
-                  disabled={!isAdmin}
-                  sx={{
-                    '& .MuiInputBase-input.Mui-disabled': {
-                      cursor: 'not-allowed',
-                    },
-                  }}
-                  name="permanentAddress.city"
-                  label="City"
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <Field.Text
-                  disabled={!isAdmin}
-                  sx={{
-                    '& .MuiInputBase-input.Mui-disabled': {
-                      cursor: 'not-allowed',
-                    },
-                  }}
-                  name="permanentAddress.state"
-                  label="State"
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <Field.Text
-                  name="permanentAddress.postCode"
-                  label="Zip code/ Post code"
-                  fullWidth
-                  disabled={!isAdmin}
-                  sx={{
-                    '& .MuiInputBase-input.Mui-disabled': {
-                      cursor: 'not-allowed',
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <Field.Select
-                  disabled={!isAdmin}
-                  sx={{
-                    '& .MuiInputBase-input.Mui-disabled': {
-                      cursor: 'not-allowed',
-                    },
-                  }}
-                  name="permanentAddress.country"
-                  label="Country"
-                  fullWidth
-                >
-                  {countries.map((country) => (
-                    <MenuItem key={country.code} value={country.code}>
-                      {country.label}
-                    </MenuItem>
-                  ))}
-                </Field.Select>
-              </Grid>
-              <Grid item xs={12}>
-                <Field.Text
-                  disabled={!isAdmin}
-                  sx={{
-                    '& .MuiInputBase-input.Mui-disabled': {
-                      cursor: 'not-allowed',
-                    },
-                  }}
-                  name="contactEmail"
-                  label={
-                    <>
-                      Contact Email{' '}
-                      <span style={{ color: 'red', fontSize: '1.5rem', verticalAlign: 'middle' }}>
-                        *
-                      </span>
-                    </>
-                  }
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <LoadingButton
-                  color="primary"
-                  size="large"
-                  type="submit"
-                  variant="contained"
-                  loading={saveChanges}
-                  loadingIndicator="Saving ..."
-                  disabled={!isValid || !isDirty || !isAdmin}
-                  sx={{
-                    mt: -1,
-                    width: '150px',
-                    '&.Mui-disabled': {
-                      cursor: 'not-allowed',
-                      pointerEvents: 'auto',
-                    },
-                  }}
-                >
-                  Save
-                </LoadingButton>
-              </Grid>
+                  >
+                    Save changes
+                  </LoadingButton>
+                </Box>
+              </Form>
             </Grid>
-          </Form>
-        </Grid>
-        <Grid item xs={12} md={4}> 
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', mb: 2 }}>
-                {isAdmin && (
-                  <>
-                    <LoadingButton
-                      variant="contained"
-                      component="label"
-                      startIcon={<Iconify icon="ep:upload-filled" width="24" height="24" />}
-                      sx={{ mb: 2 }}
-                      loadingIndicator="Uploading..."
-                      loading={uploading}
+            
+            {/* Logo Section - Now on the RIGHT */}
+            <Grid item xs={12} md={4}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: { xs: 1, md: 2 } }}>
+                <Box sx={{ position: 'relative', mb: 3 }}>
+                  {logo ? (
+                    <Box 
+                      sx={{ 
+                        width: 150, 
+                        height: 150, 
+                        borderRadius: 2,
+                        overflow: 'hidden',
+                        border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                        boxShadow: theme.shadows[2],
+                        position: 'relative',
+                        margin: '0 auto'
+                      }}
                     >
-                      Upload
+                      <img
+                        src={logo}
+                        alt="Company Logo"
+                        style={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          objectFit: 'cover'
+                        }}
+                      />
+                    </Box>
+                  ) : (
+                    <Box 
+                      sx={{
+                        width: 150,
+                        height: 150,
+                        borderRadius: 2,
+                        bgcolor: alpha(theme.palette.primary.main, 0.08),
+                        boxShadow: `0 0 0 1px ${alpha(theme.palette.divider, 0.2)}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto'
+                      }}
+                    >
+                      <Iconify 
+                        icon="mdi:office-building" 
+                        width={70} 
+                        height={70} 
+                        color={alpha(theme.palette.primary.main, 0.7)} 
+                      />
+                    </Box>
+                  )}
+                  
+                  {isAdmin && (
+                    <Box sx={{ 
+                      display: 'flex',
+                      justifyContent: 'center',
+                      gap: 2,
+                      mt: 2
+                    }}>
                       <input
                         style={{ display: 'none' }}
                         id="file-upload"
@@ -407,65 +545,123 @@ export default function CompanyProfile() {
                         accept="image/*"
                         onChange={handleUpload}
                       />
-                    </LoadingButton>
-                    {logo && (
-                      <LoadingButton
-                        startIcon={<Iconify icon="ic:baseline-delete" width="24" height="24" />}
-                        variant="contained"
-                        sx={{ mb: 2, ml: 2 }}
-                        onClick={handleDelete}
-                        loadingIndicator="Removing..."
-                        loading={deleting}
-                      >
-                        Remove
-                      </LoadingButton>
-                    )}
-                  </>
-                )}
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                {logo ? (
-                  <CardMedia
-                    component="img"
-                    sx={{ width: 120, height: 120, borderRadius: 1, flexShrink: 0 }}
-                    image={logo}
-                    alt="Company Logo"
-                  />
-                ) : (
-                  <>
-                    <Box
-                      sx={{
-                        width: 100,
-                        height: 100,
-                        bgcolor: 'grey.200',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 1,
-                        mr: 2,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Iconify icon="mdi:office-building" width={48} height={48} color="#9e9e9e" />
+                      
+                      <Tooltip title={logo ? "Update logo" : "Upload logo"}>
+                        <label htmlFor="file-upload">
+                          <LoadingButton
+                            component="span"
+                            variant="outlined"
+                            color="primary"
+                            size="small"
+                            startIcon={<Iconify icon="solar:gallery-add-bold" width={18} height={18} />}
+                            loading={uploading}
+                            loadingPosition="start"
+                            sx={{
+                              borderRadius: 1,
+                              fontSize: '0.8rem',
+                              px: 2,
+                              py: 0.7,
+                              textTransform: 'none',
+                              fontWeight: 500,
+                              boxShadow: 'none',
+                              '&:hover': {
+                                boxShadow: theme.shadows[1]
+                              }
+                            }}
+                          >
+                            {logo ? 'Change' : 'Upload'}
+                          </LoadingButton>
+                        </label>
+                      </Tooltip>
+                      
+                      {logo && (
+                        <Tooltip title="Remove logo">
+                          <LoadingButton
+                            variant="outlined"
+                            color="error"
+                            size="small" 
+                            startIcon={<Iconify icon="solar:trash-bin-trash-bold" width={18} height={18} />}
+                            onClick={handleDelete}
+                            loading={deleting}
+                            loadingPosition="start"
+                            sx={{
+                              borderRadius: 1,
+                              fontSize: '0.8rem',
+                              px: 2,
+                              py: 0.7,
+                              textTransform: 'none',
+                              fontWeight: 500,
+                              boxShadow: 'none',
+                              '&:hover': {
+                                boxShadow: theme.shadows[1]
+                              }
+                            }}
+                          >
+                            Remove
+                          </LoadingButton>
+                        </Tooltip>
+                      )}
                     </Box>
-                    {isAdmin && (
-                      <Typography variant="body2" color="text.secondary">
-                        Upload a logo to customize your Pipeshub account and email notifications.
-                      </Typography>
-                    )}
-                  </>
+                  )}
+                </Box>
+                
+                {!logo && isAdmin && (
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary" 
+                    align="center"
+                    sx={{ mt: 0.5, display: 'block' }}
+                  >
+                    Add your company logo
+                  </Typography>
                 )}
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+              
+              <Paper
+                elevation={0}
+                sx={{ 
+                  p: 2.5, 
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.background.default, 0.5),
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  mt: 1
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>
+                  Company Logo
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+                  Your logo will appear on your account dashboard, emails, and documents generated from Pipeshub.
+                </Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Box>
+      </Paper>
 
-      <Snackbar open={snackbar.open} autoHideDuration={5000} onClose={handleCloseSnackbar}>
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={4000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{mt:6}}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ 
+            width: '100%',
+            borderRadius: 0.75,
+            boxShadow: theme.shadows[3],
+            '& .MuiAlert-icon': {
+              fontSize: '1.2rem'
+            }
+          }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </Container>
   );
 }
