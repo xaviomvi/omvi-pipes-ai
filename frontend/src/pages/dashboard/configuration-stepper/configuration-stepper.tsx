@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
+import scrollableContainerStyle from 'src/sections/qna/chatbot/utils/styles/scrollbar';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -39,7 +40,7 @@ import type {
 const steps: string[] = ['LLM', 'Storage', 'Connector', 'SMTP'];
 
 // API base URLs
-const API_BASE_URL = '/api/v1/configurationManager/connectors';
+const API_BASE_URL = '/api/v1/configurationManager';
 const ORG_API_BASE_URL = '/api/v1/org';
 
 interface ConfigurationStepperProps {
@@ -421,7 +422,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
                 };
 
                 // Only include clientId if it has a value
-                const {clientId} = (llmValues as OpenAILlmFormValues);
+                const { clientId } = llmValues as OpenAILlmFormValues;
                 if (clientId && clientId.trim() !== '') {
                   config.clientId = clientId;
                 }
@@ -569,7 +570,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             }
 
             apiCalls.push(
-              axios.post(`${API_BASE_URL}/googleWorkspaceConfig`, formData, {
+              axios.post(`${API_BASE_URL}/connectors/googleWorkspaceConfig`, formData, {
                 headers: {
                   'Content-Type': 'multipart/form-data',
                 },
@@ -941,7 +942,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         <Typography variant="h6">System Configuration</Typography>
       </DialogTitle>
 
-      <DialogContent sx={{ px: 3, pt: 2, pb: 1 }}>
+      <DialogContent sx={{ px: 3, pt: 2, pb: 1, ...scrollableContainerStyle }}>
         <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
           {steps.map((label, index) => (
             <Step key={label} completed={getStepStatus(index) === 'completed'}>
