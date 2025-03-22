@@ -87,6 +87,7 @@ class RetrievalService:
     async def search(
         self,
         query: str,
+        org_id: str,
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None,
         retrieval_mode: RetrievalMode = RetrievalMode.HYBRID,
@@ -117,7 +118,7 @@ class RetrievalService:
             results = self.vector_store.similarity_search_with_score(
                 query=processed_query,
                 k=top_k,
-                filter=qdrant_filter,
+                filter=qdrant_filter
             )
 
             print(results, "results")

@@ -5,7 +5,7 @@ from app.utils.logger import logger
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from app.setup import AppContainer, initialize_container
-from app.routes import router
+from app.api.search.routes import router
 
 container = AppContainer()
 container_lock = asyncio.Lock()

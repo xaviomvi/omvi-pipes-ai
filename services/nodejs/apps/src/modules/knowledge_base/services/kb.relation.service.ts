@@ -399,7 +399,6 @@ export class RecordRelationService {
         const recordResult = await trx.step(() =>
           this.recordCollection.save(record, { returnNew: true }),
         );
-        console.log(record, 'record...');
 
         insertedRecords.push(recordResult.new as IRecordDocument);
       }
@@ -411,7 +410,6 @@ export class RecordRelationService {
           ...fileRecords[i],
           _key: insertedRecords[i]?._key,
         } as IFileRecordDocument;
-        console.log(fileRecord, 'fileRecord...');
 
         const fileRecordResult = await trx.step(() =>
           this.fileRecordCollection.save(fileRecord, { returnNew: true }),

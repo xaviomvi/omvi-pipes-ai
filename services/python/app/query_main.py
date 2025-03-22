@@ -1,11 +1,15 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request, HTTPException, status
+from fastapi.responses import JSONResponse 
 from dependency_injector import containers, providers
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from app.routes import router
+from app.api.search.routes import router as search_router
+from app.api.chatbot.routes import router as chatbot_router
+
 from app.config.configuration_service import ConfigurationService, config_node_constants
 from arango import ArangoClient
+from app.middlewares.auth import authMiddleware
 import uvicorn
 
 
@@ -144,6 +148,33 @@ app = FastAPI(
     dependencies=[Depends(get_initialized_container)]
 )
 
+EXCLUDE_PATHS = []
+
+@app.middleware("http")
+async def authenticate_requests(request: Request, call_next):
+    # Check if path should be excluded from authentication
+    if any(request.url.path.startswith(path) for path in EXCLUDE_PATHS):
+        return await call_next(request)
+    
+    try:
+        # Apply authentication
+        authenticated_request = await authMiddleware(request)
+        # Continue with the request
+        response = await call_next(authenticated_request)
+        return response
+        
+    except HTTPException as exc:
+        # Handle authentication errors
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+    except Exception as exc:
+        # Handle unexpected errors
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal server error"}
+        )
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -154,7 +185,8 @@ app.add_middleware(
 )
 
 # Include routes from routes.py
-app.include_router(router)
+app.include_router(search_router, prefix="/api/v1/search")
+app.include_router(chatbot_router, prefix="/api/v1/chatbot")
 
 def run(host: str = "0.0.0.0", port: int = 8000, reload: bool = True):
     """Run the application"""
