@@ -5,7 +5,10 @@ import passport from 'passport';
 import session from 'express-session';
 import { attachContainerMiddleware } from '../middlewares/attachContainer.middleware';
 import { AuthSessionRequest } from '../middlewares/types';
-import { refreshTokenJwtGenerator } from '../../../libs/utils/createJwt';
+import {
+  iamJwtGenerator,
+  refreshTokenJwtGenerator,
+} from '../../../libs/utils/createJwt';
 import { IamService } from '../services/iam.service';
 import {
   BadRequestError,
@@ -103,11 +106,14 @@ export function createSamlRouter(container: Container) {
 
           logger.info('SAML callback email', req.user.email);
         }
-
+        const authToken = iamJwtGenerator(
+          req.user.email,
+          config.scopedJwtSecret,
+        );
         let userFindResult = await iamService.getUserByEmail(
           req.user.email,
-          ' ',
-        ); //handle this
+          authToken,
+        );
         if (!userFindResult) {
           throw new NotFoundError('User not found');
         }

@@ -1,8 +1,6 @@
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
 import { BadRequestError } from '../../../libs/errors/http.errors';
-// Adjust the import based on your project structure
-// Ensure you have this error class
 
 export const verifyGoogleWorkspaceToken = (
   req: AuthenticatedUserRequest,
