@@ -20,14 +20,21 @@ import KafkaConfigForm from './components/kafka-config-form';
 import QdrantConfigForm from './components/qdrant-config-form';
 import MongoDBConfigForm from './components/mongodb-config-form';
 import ArangoDBConfigForm from './components/arangodb-config-form';
-import BackendNodejsConfigForm from './components/backend-nodejs-config-form';
+// import BackendNodejsConfigForm from './components/backend-nodejs-config-form';
 
 import type { RedisConfigFormRef } from './components/redis-config-form';
 import type { KafkaConfigFormRef } from './components/kafka-config-form';
 import type { QdrantConfigFormRef } from './components/qdrant-config-form';
 import type { MongoDBConfigFormRef } from './components/mongodb-config-form';
 import type { ArangoDBConfigFormRef } from './components/arangodb-config-form';
-import type { BackendNodejsConfigFormRef } from './components/backend-nodejs-config-form';
+// import type { BackendNodejsConfigFormRef } from './components/backend-nodejs-config-form';
+
+import FrontendUrlConfigForm, {
+  FrontendUrlConfigFormRef,
+} from './components/frontend-url-config-form';
+import ConnectorUrlConfigForm, {
+  ConnectorUrlConfigFormRef,
+} from './components/connector-url-config-form';
 
 // Method configurations
 interface ServiceConfigType {
@@ -64,10 +71,16 @@ const SERVICE_CONFIG: ServiceConfigType = {
     title: 'Qdrant',
     color: '#FF9800',
   },
-  backendNodejs: {
-    icon: 'mdi:nodejs',
-    title: 'NodeJs Url',
-    color: '#FF9800',
+
+  frontendPublicUrl: {
+    icon: 'mdi:web-check',
+    title: 'Frontend Public Url',
+    color: '#87CEEB',
+  },
+  connectorPublicUrl: {
+    icon: 'mdi:link-variant',
+    title: 'Connectors Public Url',
+    color: '#231F20',
   },
 };
 
@@ -106,7 +119,9 @@ const ConfigureServiceDialog = ({
   const mongoDBConfigFormRef = useRef<MongoDBConfigFormRef>(null);
   const arangoDBConfigFormRef = useRef<ArangoDBConfigFormRef>(null);
   const qdrantConfigFormRef = useRef<QdrantConfigFormRef>(null);
-  const backendNodejsConfigFormRef = useRef<BackendNodejsConfigFormRef>(null);
+
+  const frontendUrlConfigFormRef = useRef<FrontendUrlConfigFormRef>(null);
+  const connectorUrlConfigFormRef = useRef<ConnectorUrlConfigFormRef>(null);
 
   // Get connector config if available
   const serviceConfig = serviceType ? SERVICE_CONFIG[serviceType] : null;
@@ -145,9 +160,13 @@ const ConfigureServiceDialog = ({
       case 'qdrant':
         currentRef = qdrantConfigFormRef;
         break;
-      case 'backendNodejs':
-        currentRef = backendNodejsConfigFormRef;
+      case 'frontendPublicUrl':
+        currentRef = frontendUrlConfigFormRef;
         break;
+      case 'connectorPublicUrl':
+        currentRef = connectorUrlConfigFormRef;
+        break;
+
       default:
         currentRef = null;
     }
@@ -182,7 +201,7 @@ const ConfigureServiceDialog = ({
       }
     } catch (error) {
       console.error('Error saving configuration:', error);
-      setDialogError('An unexpected error occurred');
+      setDialogError(`An unexpected error occurred :  ${error.message} `);
 
       // Also pass the error to parent for snackbar display
       onSave({
@@ -309,10 +328,16 @@ const ConfigureServiceDialog = ({
                   ref={qdrantConfigFormRef}
                 />
               )}
-              {serviceType === 'backendNodejs' && (
-                <BackendNodejsConfigForm
+              {serviceType === 'connectorPublicUrl' && (
+                <ConnectorUrlConfigForm
                   onValidationChange={handleValidationChange}
-                  ref={backendNodejsConfigFormRef}
+                  ref={connectorUrlConfigFormRef}
+                />
+              )}
+              {serviceType === 'frontendPublicUrl' && (
+                <FrontendUrlConfigForm
+                  onValidationChange={handleValidationChange}
+                  ref={frontendUrlConfigFormRef}
                 />
               )}
             </Box>

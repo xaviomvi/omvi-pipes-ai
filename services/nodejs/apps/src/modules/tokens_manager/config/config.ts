@@ -78,16 +78,19 @@ export const loadAppConfig = async (): Promise<AppConfig> => {
       algorithm: 'aes-256-gcm',
     },
     frontendUrl: await configService.getFrontendUrl(),
+
     communicationBackend: commonBackendUrl,
     iamBackend: commonBackendUrl,
     authUrl: commonBackendUrl,
     cmUrl: commonBackendUrl,
+
     kafka: await configService.getKafkaConfig(),
     redis: await configService.getRedisConfig(),
     arango: await configService.getArangoConfig(),
     qdrant: await configService.getQdrantConfig(),
     mongo: await configService.getMongoConfig(),
     smtp: await configService.getSmtpConfig(),
+
     etcd: {
       host: process.env.ETCD_HOST!,
       port: parseInt(process.env.ETCD_PORT!, 10),

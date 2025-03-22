@@ -74,7 +74,25 @@ export const configPaths = {
   },
 
   url: {
-    publicEndpoint: '/services/nodejs/common/public-endpoint',
-    privateEndpoint: '/services/nodejs/common/endpoint',
+    nodeCommon: {
+      publicEndpoint: '/services/nodejs/common/public-endpoint',
+      privateEndpoint: '/services/nodejs/common/endpoint',
+    },
+    frontend: {
+      publicEndpoint: '/services/frontend/public-endpoint',
+      privateEndpoint: '/services/frontend/endpoint',
+    },
+    indexing: {
+      publicEndpoint: '/services/indexing/public-endpoint',
+      privateEndpoint: '/services/indexing/endpoint',
+    },
+    connector: {
+      publicEndpoint: '/services/connector/public-endpoint',
+      privateEndpoint: '/services/connector/endpoint',
+    },
+    query: {
+      publicEndpoint: '/services/query/public-endpoint',
+      privateEndpoint: '/services/query/endpoint',
+    },
   },
 };

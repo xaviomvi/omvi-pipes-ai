@@ -110,12 +110,22 @@ export const getQdrantConfig = async (): Promise<QdrantConfig> => {
   }
 };
 
-export const getBackendNodejsConfig = async (): Promise<any> => {
+export const getFrontendPublicUrl = async (): Promise<any> => {
   try {
     const response = await axios.get(`${API_BASE_URL}/qdrantConfig`);
     return response.data;
   } catch (error) {
-    console.error('Failed to fetch Qdrant configuration:', error);
+    console.error('Failed to fetch Frontend DNS', error);
+    throw error;
+  }
+};
+
+export const getConnectorPublicUrl = async (): Promise<any> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/qdrantConfig`);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch Connector DNS', error);
     throw error;
   }
 };
@@ -190,12 +200,22 @@ export const updateQdrantConfig = async (qdrantConfig: QdrantConfig): Promise<an
     throw error;
   }
 };
-export const updateBackendNodejsConfig = async (url: string): Promise<any> => {
+export const updateFrontendPublicUrl = async (url: string): Promise<any> => {
   try {
     const response = await axios.post(`${API_BASE_URL}/kafkaConfig`, url);
     return response;
   } catch (error) {
     console.error('Failed to update Kafka configuration:', error);
+    throw error;
+  }
+};
+
+export const updateConnectorPublicUrl = async (url: string): Promise<any> => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/kafkaConfig`, url);
+    return response;
+  } catch (error) {
+    console.error('Failed to update connector DNS', error);
     throw error;
   }
 };
@@ -206,11 +226,13 @@ export default {
   getArangoDBConfig,
   getKafkaConfig,
   getQdrantConfig,
-  getBackendNodejsConfig,
+  getFrontendPublicUrl,
+  getConnectorPublicUrl,
   updateRedisConfig,
   updateMongoDBConfig,
   updateArangoDBConfig,
   updateKafkaConfig,
   updateQdrantConfig,
-  updateBackendNodejsConfig,
+  updateFrontendPublicUrl,
+  updateConnectorPublicUrl,
 };

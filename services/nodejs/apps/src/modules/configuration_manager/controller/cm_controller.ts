@@ -708,12 +708,27 @@ export const createGoogleWorkspaceCredentials =
         case googleWorkspaceTypes.BUSINESS.toLowerCase(): {
           // validate config schema
           configData = req.body.fileContent;
+          if (!req.body.adminEmail) {
+            throw new BadRequestError(
+              'Google Workspace Admin Email is required',
+            );
+          }
+          const adminEmail = req.body.adminEmail;
+
           logger.debug('configData:', configData);
           const validationResult =
             googleWorkspaceBusinessCredentialsSchema.safeParse(configData);
 
           if (!validationResult.success) {
-            throw new BadRequestError(validationResult.error.message);
+            const formattedErrors = validationResult.error.errors
+              .map((err) => {
+                const fieldName = err.path[0] || 'Unknown field';
+                return `  • ${fieldName}: ${err.message}  `;
+              })
+              .join('');
+
+            const errorMessage = `Google Workspace validation failed:\n${formattedErrors}`;
+            throw new BadRequestError(errorMessage);
           }
           const {
             type,
@@ -745,6 +760,7 @@ export const createGoogleWorkspaceCredentials =
               auth_provider_x509_cert_url,
               client_x509_cert_url,
               universe_domain,
+              adminEmail,
             }),
           );
           await keyValueStoreService.set<string>(
