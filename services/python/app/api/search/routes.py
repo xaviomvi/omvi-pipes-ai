@@ -43,7 +43,10 @@ async def search(request: Request, body: SearchQuery, retrieval_service=Depends(
             filters=body.filters,
             retrieval_mode=mode
         )
-        return results
+        formatted_results = retrieval_service.format_results(results)
+        
+        return formatted_results
+    
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -71,7 +71,7 @@ class RetrievalService:
         # Same as in indexing pipeline
         return f"Represent this document for retrieval: {query.strip()}"
 
-    def _format_results(self, results: List[tuple]) -> List[Dict[str, Any]]:
+    def format_results(self, results: List[tuple]) -> List[Dict[str, Any]]:
         """Format search results into a consistent structure with flattened metadata."""
         formatted_results = []
         for doc, score in results:
@@ -79,6 +79,17 @@ class RetrievalService:
                 "content": doc.page_content,
                 "score": float(score),
                 **doc.metadata  # Unpack metadata keys at the top level
+            }
+            formatted_results.append(formatted_result)
+        return formatted_results
+
+    def format_results_with_metadata(self, results: List[tuple]) -> List[Dict[str, Any]]:
+        """Format search results into a consistent structure with flattened metadata."""
+        formatted_results = []
+        for doc, score in results:
+            formatted_result = {
+                "content": doc.page_content,
+                "metadata": doc.metadata
             }
             formatted_results.append(formatted_result)
         return formatted_results
@@ -123,7 +134,7 @@ class RetrievalService:
 
             print(results, "results")
 
-            return self._format_results(results)
+            return results
         except Exception as e:
             raise ValueError(f"Search failed: {str(e)}")
 
