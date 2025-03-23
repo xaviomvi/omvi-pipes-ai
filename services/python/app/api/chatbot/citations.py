@@ -6,7 +6,7 @@ from dataclasses import dataclass
 class ChatDocCitation:
     content: str
     metadata: Dict[str, Any]
-    docindex: int
+    recordindex: int
 
 def process_citations(llm_response, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -22,35 +22,28 @@ def process_citations(llm_response, documents: List[Dict[str, Any]]) -> Dict[str
     try:
         # Parse the LLM response
         response_data = json.loads(llm_response.content)
-        print(response_data, "response_data")
-        print(documents, "documents")
         # Extract document indexes (1-based indexing from template)
         doc_indexes = [int(idx) - 1 for idx in response_data.get("recordIndexes", [])]
-        print(doc_indexes, "doc_indexes")
         # Get citations from referenced documents
         citations = []
         for idx in doc_indexes:
-            print("=====")
-            print(idx, "idx = ", len(documents))
-            print("=====")
             if 0 <= idx < len(documents):
                 doc = documents[idx]
                 print(doc, "doc")
                 citation = ChatDocCitation(
                     content=doc['content'],
                     metadata=doc['metadata'],
-                    docindex=idx+1
+                    recordindex=idx+1
                 )
                 citations.append(citation)
-        print(citations, "citations")
 
         # Add citations to response
         response_data["citations"] = [
             {
                 "content": cit.content,
-                "docindex": cit.docindex,
+                "recordIndex": cit.recordindex,
                 "metadata": cit.metadata,
-                "citation_type": "vectordb|document"
+                "citationType": "vectordb|document"
             }
             for cit in citations
         ]

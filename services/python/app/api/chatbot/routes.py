@@ -4,7 +4,7 @@ from app.setup import AppContainer
 from app.utils.logger import logger
 from langchain_qdrant import RetrievalMode
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from app.modules.retrieval.retrieval_service import RetrievalService
 from jinja2 import Template 
 from app.modules.qna.prompt_templates import qna_prompt
@@ -12,13 +12,18 @@ from app.core.llm_service import LLMFactory
 from app.core.llm_service import AzureLLMConfig
 import os
 from app.api.chatbot.citations import process_citations
+from langchain.retrievers import RePhraseQueryRetriever
+from langchain.chains import LLMChain
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
 router = APIRouter()
 
 # Pydantic models
 class ChatQuery(BaseModel):
     query: str
-    top_k: Optional[int] = 5
+    top_k: Optional[int] = 20
+    previousConversations: List[Dict] = []
     filters: Optional[Dict[str, Any]] = None
     retrieval_mode: Optional[str] = "HYBRID"
 
@@ -29,23 +34,51 @@ async def get_retrieval_service(request: Request) -> RetrievalService:
     retrieval_service = await container.retrieval_service()
     return retrieval_service
 
+def setup_query_transformation(llm):
+    """Setup query rewriting and expansion"""
+    
+    # Query rewriting prompt
+    query_rewrite_prompt = ChatPromptTemplate.from_template(
+        """You are an expert at reformulating search queries to make them more effective.
+        Given the original query below, rewrite it to make it more specific and detailed:
+        
+        Original Query: {query}
+        
+        Rewritten Query:"""
+    )
+    
+    # Query expansion prompt
+    query_expansion_prompt = ChatPromptTemplate.from_template(
+        """Generate 2 additional search queries that capture different aspects or perspectives of the original query.
+        These should help in retrieving a diverse set of relevant documents.
+        
+        Original Query: {query}
+        
+        Return only the list of queries, one per line:"""
+    )
+    
+    # Create the query transformation chains
+    rewrite_chain = query_rewrite_prompt | llm | StrOutputParser()
+    expansion_chain = query_expansion_prompt | llm | StrOutputParser()
+    
+    return rewrite_chain, expansion_chain
+
+
 @router.post("/")
 @inject
 async def askAI(request: Request, query_info: ChatQuery, retrieval_service=Depends(get_retrieval_service)):
     """Perform semantic search across documents"""
     try:
-        mode = RetrievalMode[query_info.retrieval_mode.upper()]
         results = await retrieval_service.search(
             query=query_info.query,
             org_id=request.state.user.get('orgId'),
             top_k=query_info.top_k,
             filters=query_info.filters,
-            retrieval_mode=mode
         )
-        formatted_results = retrieval_service.format_results_with_metadata(results)
-        print(formatted_results, "formatted_results")
+        previous_conversations = query_info.previousConversations
+        print(results, "formatted_results")
         template = Template(qna_prompt) 
-        rendered_form = template.render(query=query_info.query, records = formatted_results) 
+        rendered_form = template.render(query=query_info.query, records = results) 
 
         llm_config = AzureLLMConfig(
             provider = "azure",
@@ -58,14 +91,27 @@ async def askAI(request: Request, query_info: ChatQuery, retrieval_service=Depen
         )
 
         llm = LLMFactory.create_llm(llm_config)
+      
+
+        rewrite_chain, expansion_chain = setup_query_transformation(llm)
+        
+        print(rewrite_chain, expansion_chain, "rewrite")
+
         messages = [
-            {"role": "system", "content": "You are a enterprise questions answering expert"},
-            {"role": "user", "content": rendered_form}
+            {"role": "system", "content": "You are a enterprise questions answering expert"}
         ]
+
+        for conversation in previous_conversations:
+            if conversation.get('role') == 'user_query':
+                messages.append({"role": "user", "content": conversation.get('content')})
+            elif conversation.get('role') == 'bot_response':
+                messages.append({"role": "assistant", "content": conversation.get('content')})
+        
+        messages.append({"role": "user", "content": rendered_form})
         
         response = llm.invoke(messages)
         
-        return process_citations(response, formatted_results)
+        return process_citations(response, results)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
