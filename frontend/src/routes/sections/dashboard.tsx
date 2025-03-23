@@ -23,6 +23,7 @@ const ServiceSettings = lazy(() => import('src/pages/dashboard/account/services-
 const AuthenticationSettings = lazy(
   () => import('src/pages/dashboard/account/authentication-settings')
 );
+const AiModelsSettings = lazy(() => import('src/pages/dashboard/account/ai-models-settings'));
 const ConnectorSettings = lazy(
   () => import('src/pages/dashboard/account/connectors/connector-settings')
 );
@@ -93,6 +94,7 @@ export const dashboardRoutes = [
                   },
 
                   { path: 'services', element: <ServiceSettings /> },
+                  { path: 'ai-models', element: <AiModelsSettings /> },
                 ],
               },
             ],
@@ -119,6 +121,7 @@ export const dashboardRoutes = [
                     ],
                   },
                   { path: 'services', element: <ServiceSettings /> },
+                  { path: 'ai-models', element: <AiModelsSettings /> },
                 ],
               },
             ],

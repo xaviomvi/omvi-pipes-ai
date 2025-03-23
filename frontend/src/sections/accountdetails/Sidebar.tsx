@@ -60,6 +60,11 @@ export default function Sidebar() {
       icon: 'mdi:account-service-outline',
       path: `${baseUrl}/settings/services`,
     },
+    {
+      name: 'Ai-Models',
+      icon: 'mdi:robot',
+      path: `${baseUrl}/settings/ai-models`
+    }
   ];
 
   // Business-specific settings options
