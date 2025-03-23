@@ -118,7 +118,8 @@ async def get_initialized_container() -> AppContainer:
         logger.debug("🔧 First-time container initialization")
         await initialize_container(container)
         container.wire(modules=[
-            "app.routes",
+            "app.api.search.routes",
+            "app.api.chatbot.routes",
             "app.modules.retrieval.retrieval_service"
         ])
         get_initialized_container.initialized = True
@@ -186,7 +187,7 @@ app.add_middleware(
 
 # Include routes from routes.py
 app.include_router(search_router, prefix="/api/v1/search")
-app.include_router(chatbot_router, prefix="/api/v1/chatbot")
+app.include_router(chatbot_router, prefix="/api/v1/chat")
 
 def run(host: str = "0.0.0.0", port: int = 8000, reload: bool = True):
     """Run the application"""
