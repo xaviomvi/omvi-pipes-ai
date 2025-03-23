@@ -4,7 +4,7 @@ from app.setup import AppContainer
 from app.utils.logger import logger
 from langchain_qdrant import RetrievalMode
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from app.modules.retrieval.retrieval_service import RetrievalService
 from jinja2 import Template 
 from app.modules.qna.prompt_templates import qna_prompt
@@ -18,7 +18,8 @@ router = APIRouter()
 # Pydantic models
 class ChatQuery(BaseModel):
     query: str
-    top_k: Optional[int] = 5
+    top_k: Optional[int] = 20
+    previousConversations: List[Dict] = []
     filters: Optional[Dict[str, Any]] = None
     retrieval_mode: Optional[str] = "HYBRID"
 
@@ -42,6 +43,7 @@ async def askAI(request: Request, query_info: ChatQuery, retrieval_service=Depen
             filters=query_info.filters,
             retrieval_mode=mode
         )
+        previous_conversations = query_info.previousConversations
         formatted_results = retrieval_service.format_results_with_metadata(results)
         print(formatted_results, "formatted_results")
         template = Template(qna_prompt) 
@@ -58,10 +60,18 @@ async def askAI(request: Request, query_info: ChatQuery, retrieval_service=Depen
         )
 
         llm = LLMFactory.create_llm(llm_config)
+
         messages = [
-            {"role": "system", "content": "You are a enterprise questions answering expert"},
-            {"role": "user", "content": rendered_form}
+            {"role": "system", "content": "You are a enterprise questions answering expert"}
         ]
+
+        for conversation in previous_conversations:
+            if conversation.get('role') == 'user_query':
+                messages.append({"role": "user", "content": conversation.get('content')})
+            elif conversation.get('role') == 'bot_response':
+                messages.append({"role": "assistant", "content": conversation.get('content')})
+        
+        messages.append({"role": "user", "content": rendered_form})
         
         response = llm.invoke(messages)
         
