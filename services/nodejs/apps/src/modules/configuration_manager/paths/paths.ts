@@ -75,12 +75,10 @@ export const configPaths = {
 
   url: {
     nodeCommon: {
-      publicEndpoint: '/services/nodejs/common/public-endpoint',
       privateEndpoint: '/services/nodejs/common/endpoint',
     },
     frontend: {
       publicEndpoint: '/services/frontend/public-endpoint',
-      privateEndpoint: '/services/frontend/endpoint',
     },
     indexing: {
       publicEndpoint: '/services/indexing/public-endpoint',

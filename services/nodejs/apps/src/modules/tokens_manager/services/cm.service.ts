@@ -224,8 +224,8 @@ export class ConfigService {
       configPaths.url.frontend.publicEndpoint,
     );
     if (url === null) {
-      const port = process.env.PORT ?? 3000;
-      url = process.env.FRONTEND_PUBLIC_URL ?? `http://localhost:${port}`;
+      const port = process.env.PORT || 3000;
+      url = process.env.FRONTEND_PUBLIC_URL || `http://localhost:${port}`;
       await this.keyValueStoreService.set<string>(
         configPaths.url.frontend.publicEndpoint,
         url,
@@ -242,7 +242,7 @@ export class ConfigService {
       configPaths.storageService.storageType,
     );
     if (endpoint === null) {
-      const port = process.env.PORT ?? 3000;
+      const port = process.env.PORT || 3000;
       endpoint = `http://localhost:${port}`;
       await this.keyValueStoreService.set<string>(
         configPaths.storageService.endpoint,

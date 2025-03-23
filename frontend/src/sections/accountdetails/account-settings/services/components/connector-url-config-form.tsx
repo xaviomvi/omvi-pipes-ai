@@ -72,7 +72,6 @@ const ConnectorUrlConfigForm = forwardRef<ConnectorUrlConfigFormRef, ConnectorUr
         setIsLoading(true);
         try {
           const config = await getConnectorPublicUrl();
-
           const url = config?.url || '';
 
           // Set both current and original data

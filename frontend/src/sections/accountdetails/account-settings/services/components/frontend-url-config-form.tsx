@@ -72,7 +72,6 @@ const FrontendUrlConfigForm = forwardRef<FrontendUrlConfigFormRef, FrontendUrlFo
         setIsLoading(true);
         try {
           const config = await getFrontendPublicUrl();
-
           const url = config?.url || '';
 
           // Set both current and original data

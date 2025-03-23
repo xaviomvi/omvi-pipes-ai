@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -6,17 +6,13 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
   Grid,
-  Link,
   Alert,
   Paper,
-  Switch,
-  Snackbar,
   Container,
   Typography,
   AlertTitle,
   IconButton,
   CircularProgress,
-  Tooltip,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -24,37 +20,35 @@ import axios from 'src/utils/axios';
 import { Iconify } from 'src/components/iconify';
 
 import { CONNECTORS_LIST } from './components/connectors-list';
-import ConfigureConnectorDialog from './components/configure-connector-company-dialog';
-
-import type { ConnectorConfig } from './components/connectors-list';
 
 // Define connector types and interfaces
 interface ConnectorStatusMap {
   [connectorId: string]: boolean;
 }
+
+interface ConnectorEnabledMap {
+  [connectorId: string]: boolean;
+}
+
 export interface ConfigStatus {
   googleWorkspace: boolean;
 }
 
-const GoogleWorkspaceBusinessPage = () => {
+const ConnectorSettings = () => {
   const theme = useTheme();
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('Connector settings updated successfully');
-  const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [currentConnector, setCurrentConnector] = useState<string | null>(null);
 
   const [checkingConfigs, setCheckingConfigs] = useState(true);
-  const [lastConfigured, setLastConfigured] = useState<string | null>(null);
-  const [connectorStatus, setConnectorStatus] = useState<ConnectorStatusMap>({});
   const [configuredStatus, setConfiguredStatus] = useState<ConnectorStatusMap>({});
+  const [enabledStatus, setEnabledStatus] = useState<ConnectorEnabledMap>({});
 
   // Fetch connector config
   const fetchConnectorConfig = useCallback(async (connectorId: string) => {
     try {
-      const response = await axios.get(`/api/v1/connectors/credentials`, {
+      const response = await axios.get(`/api/v1/connectors/config`, {
         params: {
           service: connectorId,
         },
@@ -65,36 +59,21 @@ const GoogleWorkspaceBusinessPage = () => {
       return null;
     }
   }, []);
-  const handleFileRemoved = async (connectorId: string) => {
-    // Update the configuredStatus state to show not configured
-    setConfiguredStatus((prev) => ({
-      ...prev,
-      [connectorId]: false,
-    }));
 
-    // If the connector was enabled, disable it
-    if (connectorStatus[connectorId]) {
-      const response = await axios.post(`/api/v1/connectors/disable`, null, {
+  // Fetch connector status (enabled/disabled)
+  const fetchConnectorStatus = useCallback(async (connectorId: string) => {
+    try {
+      const response = await axios.get(`/api/v1/connectors/status`, {
         params: {
           service: connectorId,
         },
       });
-      setConnectorStatus((prev) => ({
-        ...prev,
-        [connectorId]: false,
-      }));
-
-      // Show success message
-      setSuccessMessage(`${getConnectorTitle(connectorId)} ${'disabled'} successfully`);
+      return response.data?.enabled || false;
+    } catch (err) {
+      console.error(`Error fetching ${connectorId} status:`, err);
+      return false;
     }
-
-    // Refresh connector statuses to get latest from server
-    fetchConnectorStatuses();
-
-    // Show success message for removal
-    setSuccessMessage(`${getConnectorTitle(connectorId)} configuration has been removed`);
-    setSuccess(true);
-  };
+  }, []);
 
   // Check configurations separately
   const checkConnectorConfigurations = useCallback(async () => {
@@ -103,13 +82,14 @@ const GoogleWorkspaceBusinessPage = () => {
       // Check all configurations in parallel
       const results = await Promise.allSettled([fetchConnectorConfig('googleWorkspace')]);
 
-      // Check if each configuration has required fields
-      // Ensure property names match what's returned by the API
-      const googleConfigured = results[0].status === 'fulfilled' && results[0].value.isConfigured;
+      // Check if the configuration is valid
+      const googleConfigured =
+        results[0].status === 'fulfilled' && results[0].value && !!results[0].value.googleClientId;
 
       const newConfigStatus = {
         googleWorkspace: googleConfigured,
       };
+
       setConfiguredStatus(newConfigStatus);
     } catch (err) {
       console.error('Error checking connector configurations:', err);
@@ -123,12 +103,12 @@ const GoogleWorkspaceBusinessPage = () => {
     setIsLoading(true);
     try {
       // API call to get current connectors status
-      checkConnectorConfigurations();
       const response = await axios.get('/api/v1/connectors/status');
       const { data } = response;
 
       // Initialize status objects
-      const enabledMap: ConnectorStatusMap = {};
+      const enabledMap: ConnectorEnabledMap = {};
+
       // Process data from API
       if (data) {
         data.forEach((connector: any) => {
@@ -136,145 +116,43 @@ const GoogleWorkspaceBusinessPage = () => {
         });
       }
 
-      setConnectorStatus(enabledMap);
+      setEnabledStatus(enabledMap);
 
-      // After setting the status, check configurations to ensure they're up to date
+      // After setting the status, check configurations
+      await checkConnectorConfigurations();
     } catch (err) {
       console.error('Failed to fetch connectors:', err);
-      setErrorMessage(`Failed to load connector settings  ${err.message} `);
+      setErrorMessage(`Failed to load connector settings ${err.message}`);
     } finally {
       setIsLoading(false);
     }
   }, [checkConnectorConfigurations]);
 
+  // Initialize and fetch data when component mounts
   useEffect(() => {
     // Initialize connector statuses
     const initialStatus: ConnectorStatusMap = {};
     CONNECTORS_LIST.forEach((connector) => {
       initialStatus[connector.id] = false;
     });
-    setConnectorStatus(initialStatus);
     setConfiguredStatus(initialStatus);
+    setEnabledStatus(initialStatus);
 
-    // Fetch existing connector statuses from the backend
+    // Fetch existing connector statuses and configurations
     fetchConnectorStatuses();
   }, [fetchConnectorStatuses]);
 
-  // Check configurations when lastConfigured changes
-  useEffect(() => {
-    const checkConfigurations = async () => {
-      setCheckingConfigs(true);
-      try {
-        // Check all configurations in parallel
-        const results = await Promise.allSettled([fetchConnectorConfig('googleWorkspace')]);
-
-        const googleConfigured = results[0].status === 'fulfilled' && results[0].value.isConfigured;
-
-        const newConfigStatus = {
-          googleWorkspace: googleConfigured,
-        };
-
-        setConfiguredStatus(newConfigStatus);
-      } catch (err) {
-        console.error('Error checking connector configurations:', err);
-      } finally {
-        setCheckingConfigs(false);
-      }
-    };
-
-    // Call the function to check configurations
-    checkConfigurations();
-  }, [lastConfigured, fetchConnectorConfig]);
-
-  // Handle toggling connectors
-  const handleToggleConnector = async (connectorId: string) => {
-    // Don't allow enabling unconfigured connectors
-    if (!configuredStatus[connectorId] && !connectorStatus[connectorId]) {
-      setErrorMessage(
-        `${getConnectorTitle(connectorId)} needs to be configured before it can be enabled`
-      );
-      return;
-    }
-
-    const newStatus = !connectorStatus[connectorId];
-    setIsLoading(true);
-    try {
-      if (connectorId === 'googleWorkspace') {
-        if (newStatus) {
-          const response = await axios.post(`/api/v1/connectors/enable`, null, {
-            params: {
-              service: connectorId,
-            },
-          });
-        } else {
-          const response = await axios.post(`/api/v1/connectors/disable`, null, {
-            params: {
-              service: connectorId,
-            },
-          });
-        }
-        // Update local state
-        setConnectorStatus((prev) => ({
-          ...prev,
-          [connectorId]: newStatus,
-        }));
-
-        // Show success message
-        setSuccessMessage(
-          `${getConnectorTitle(connectorId)} ${newStatus ? 'enabled' : 'disabled'} successfully`
-        );
-      }
-      setSuccess(true);
-      connectorStatus[connectorId] = newStatus;
-    } catch (err) {
-      console.error('Failed to update connector status:', err);
-      setErrorMessage(`Failed to update connector status. Please try again.  ${err.message} `);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle opening the configure dialog
   const handleConfigureConnector = (connectorId: string) => {
     setCurrentConnector(connectorId);
-    setLastConfigured(connectorId); // Track which connector is being configured
-    setConfigDialogOpen(true);
-  };
-
-  // Handle save in configure dialog
-  const handleSaveConfiguration = () => {
-    // Display appropriate success message
-    const connectorTitle = currentConnector ? getConnectorTitle(currentConnector) : 'Connector';
-    setSuccessMessage(`${connectorTitle} configured successfully`);
-    setConfigDialogOpen(false);
-    setCurrentConnector(null);
-    setSuccess(true);
-
-    // Update configured status
-    if (currentConnector) {
-      setConfiguredStatus((prev) => ({
-        ...prev,
-        [currentConnector]: true,
-      }));
-    }
-
-    // Refresh connector statuses to get latest from server
-    fetchConnectorStatuses();
+    const currentPath = window.location.pathname;
+    const basePath = currentPath.endsWith('/') ? currentPath : `${currentPath}/`;
+    navigate(`${basePath}${connectorId}`);
   };
 
   // Helper to get connector title from ID
   const getConnectorTitle = (connectorId: string): string => {
     const connector = CONNECTORS_LIST.find((c) => c.id === connectorId);
     return connector?.title || 'Connector';
-  };
-
-  // Helper to get connector info from ID
-  const getConnectorInfo = (connectorId: string): ConnectorConfig | undefined =>
-    CONNECTORS_LIST.find((c) => c.id === connectorId);
-
-  // Handle close for success message
-  const handleCloseSuccess = () => {
-    setSuccess(false);
   };
 
   return (
@@ -310,6 +188,35 @@ const GoogleWorkspaceBusinessPage = () => {
           </Box>
         )}
 
+        {/* Header section */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            mb: 4,
+            gap: 2,
+          }}
+        >
+          <Box>
+            <Typography
+              variant="h5"
+              component="h1"
+              sx={{
+                fontWeight: 600,
+                mb: 1,
+                color: theme.palette.text.primary,
+              }}
+            >
+              Connectors
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 500 }}>
+              Connect and manage integrations with external services and platforms
+            </Typography>
+          </Box>
+        </Box>
+
         {/* Error message */}
         {errorMessage && (
           <Alert
@@ -332,28 +239,8 @@ const GoogleWorkspaceBusinessPage = () => {
         {/* Connectors Grid */}
         <Grid container spacing={2}>
           {CONNECTORS_LIST.map((connector) => {
-            const isEnabled = connectorStatus[connector.id] || false;
+            const isEnabled = enabledStatus[connector.id] || false;
             const isConfigured = configuredStatus[connector.id] || false;
-            const isDisabled = !isConfigured && !isEnabled;
-            const getTooltipMessage = () => {
-              if (isDisabled) {
-                return `${connector.title} needs to be configured before it can be enabled`;
-              }
-              return '';
-            };
-
-            // Determine status color and text
-            const getStatusColor = () => {
-              if (isEnabled) return connector.color;
-              if (isConfigured) return theme.palette.warning.main;
-              return theme.palette.text.disabled;
-            };
-
-            const getStatusText = () => {
-              if (isEnabled) return 'Active';
-              if (isConfigured) return 'Configured';
-              return 'Not Configured';
-            };
 
             return (
               <Grid item xs={12} key={connector.id}>
@@ -403,83 +290,101 @@ const GoogleWorkspaceBusinessPage = () => {
                     </Box>
                   </Box>
 
-                  {/* Status badge */}
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      mr: 2,
-                      px: 1,
-                      py: 0.5,
-                      borderRadius: 1,
-                      bgcolor: alpha(getStatusColor(), 0.08),
-                      color: getStatusColor(),
-                    }}
-                  >
+                  {/* Status badges */}
+                  <Box sx={{ display: 'flex', mr: 2, gap: 1 }}>
+                    {/* Configuration Status badge */}
                     <Box
                       sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        bgcolor: 'currentColor',
-                        mr: 0.5,
-                      }}
-                    />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 1,
+                        bgcolor: alpha(
+                          isConfigured ? theme.palette.warning.main : theme.palette.text.disabled,
+                          0.08
+                        ),
+                        color: isConfigured
+                          ? theme.palette.warning.main
+                          : theme.palette.text.disabled,
                       }}
                     >
-                      {getStatusText()}
-                    </Typography>
-                  </Box>
-
-                  {/* Configure button */}
-                  <IconButton
-                    size="small"
-                    onClick={() => handleConfigureConnector(connector.id)}
-                    sx={{
-                      mr: 1,
-                      color: theme.palette.text.secondary,
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.primary.main, 0.08),
-                        color: theme.palette.primary.main,
-                      },
-                    }}
-                    aria-label={`Configure ${connector.title}`}
-                  >
-                    <Iconify icon="eva:settings-2-outline" width={20} height={20} />
-                  </IconButton>
-
-                  <Tooltip
-                    title={getTooltipMessage()}
-                    placement="top"
-                    arrow
-                    disableHoverListener={!isDisabled}
-                  >
-                    <div>
-                      {' '}
-                      {/* Wrapper div needed for disabled elements */}
-                      <Switch
-                        checked={isEnabled}
-                        onChange={() => handleToggleConnector(connector.id)}
-                        disabled={isDisabled}
-                        color="primary"
+                      <Box
                         sx={{
-                          '& .MuiSwitch-switchBase.Mui-checked': {
-                            color: connector.color,
-                            '&:hover': {
-                              backgroundColor: alpha(connector.color, 0.1),
-                            },
-                          },
-                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                            backgroundColor: connector.color,
-                          },
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          bgcolor: 'currentColor',
+                          mr: 0.5,
                         }}
                       />
-                    </div>
-                  </Tooltip>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 600,
+                        }}
+                      >
+                        {isConfigured ? 'Configured' : 'Not Configured'}
+                      </Typography>
+                    </Box>
+
+                    {/* Enabled Status badge - only show if configured */}
+                    {isConfigured && (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          bgcolor: alpha(
+                            isEnabled ? connector.color : theme.palette.error.main,
+                            0.08
+                          ),
+                          color: isEnabled ? connector.color : theme.palette.error.main,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            bgcolor: 'currentColor',
+                            mr: 0.5,
+                          }}
+                        />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontWeight: 600,
+                          }}
+                        >
+                          {isEnabled ? 'Active' : 'Inactive'}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+
+                  {/* Configure Button */}
+                  <Box
+                    onClick={() => handleConfigureConnector(connector.id)}
+                    sx={{
+                      px: 2,
+                      py: 0.75,
+                      borderRadius: 1,
+                      cursor: 'pointer',
+                      bgcolor: alpha(theme.palette.primary.main, 0.1),
+                      color: theme.palette.primary.main,
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.primary.main, 0.2),
+                      },
+                    }}
+                  >
+                    Click to View
+                  </Box>
                 </Paper>
               </Grid>
             );
@@ -504,61 +409,17 @@ const GoogleWorkspaceBusinessPage = () => {
           </Box>
           <Box>
             <Typography variant="subtitle2" color="text.primary" sx={{ mb: 0.5, fontWeight: 500 }}>
-              Google Workspace Configuration
+              Connector Configuration
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Connectors must be properly configured before they can be enabled. Click the settings
-              icon to set up the necessary credentials and authentication for each service. Once
-              configured, you can enable or disable the connector as needed.
-            </Typography>
-            <Typography variant="body2" color="primary.main" sx={{ mt: 1, fontWeight: 500 }}>
-              Important: To configure Google Workspace integration, you need to upload your OAuth
-              2.0 credentials JSON file from the{' '}
-              <Link
-                href="https://console.cloud.google.com/apis/credentials"
-                target="_blank"
-                rel="noopener"
-                sx={{ fontWeight: 500 }}
-              >
-                Google Cloud Console
-              </Link>
-              .
+              Connectors must be properly configured before they can be enabled. Click &quot;Click
+              to View&quot; to set up the necessary credentials and authentication for each service.
+              Configured connectors will display their status as Active when enabled.
             </Typography>
           </Box>
         </Box>
       </Paper>
-
-      {/* Configure Connector Dialog */}
-      <ConfigureConnectorDialog
-        open={configDialogOpen}
-        onClose={() => setConfigDialogOpen(false)}
-        onSave={handleSaveConfiguration}
-        onFileRemoved={handleFileRemoved}
-        connectorType={currentConnector}
-      />
-
-      {/* Success snackbar */}
-      <Snackbar
-        open={success}
-        autoHideDuration={5000}
-        onClose={handleCloseSuccess}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        sx={{ mt: 6 }}
-      >
-        <Alert
-          onClose={handleCloseSuccess}
-          severity="success"
-          variant="filled"
-          sx={{
-            width: '100%',
-            boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
-          }}
-        >
-          {successMessage}
-        </Alert>
-      </Snackbar>
     </Container>
   );
 };
-
-export default GoogleWorkspaceBusinessPage;
+export default ConnectorSettings;
