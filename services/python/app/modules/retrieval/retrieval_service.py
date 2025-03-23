@@ -71,29 +71,18 @@ class RetrievalService:
         # Same as in indexing pipeline
         return f"Represent this document for retrieval: {query.strip()}"
 
-    def format_results(self, results: List[tuple]) -> List[Dict[str, Any]]:
+    def _format_results(self, results: List[tuple]) -> List[Dict[str, Any]]:
         """Format search results into a consistent structure with flattened metadata."""
         formatted_results = []
         for doc, score in results:
             formatted_result = {
                 "content": doc.page_content,
                 "score": float(score),
-                **doc.metadata  # Unpack metadata keys at the top level
-            }
-            formatted_results.append(formatted_result)
-        return formatted_results
-
-    def format_results_with_metadata(self, results: List[tuple]) -> List[Dict[str, Any]]:
-        """Format search results into a consistent structure with flattened metadata."""
-        formatted_results = []
-        for doc, score in results:
-            formatted_result = {
-                "content": doc.page_content,
+                "citationType": "vectordb|document",
                 "metadata": doc.metadata
             }
             formatted_results.append(formatted_result)
         return formatted_results
-
 
     async def search(
         self,
@@ -101,7 +90,6 @@ class RetrievalService:
         org_id: str,
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None,
-        retrieval_mode: RetrievalMode = RetrievalMode.HYBRID,
     ) -> List[Dict[str, Any]]:
         """
         Perform semantic search using the vector store.
@@ -116,15 +104,10 @@ class RetrievalService:
             List of search results with scores and metadata
         """
         try:
-            print(query, "query")
             processed_query = self._preprocess_query(query)
 
             # Convert filters to Qdrant format if provided
             qdrant_filter = Filter(**filters) if filters else None
-
-            # Set vector store retrieval mode
-            self.vector_store.retrieval_mode = retrieval_mode
-
             # Perform search using the same vector store as indexing
             results = self.vector_store.similarity_search_with_score(
                 query=processed_query,
@@ -132,9 +115,7 @@ class RetrievalService:
                 filter=qdrant_filter
             )
 
-            print(results, "results")
-
-            return results
+            return self._format_results(results)
         except Exception as e:
             raise ValueError(f"Search failed: {str(e)}")
 

@@ -34,18 +34,15 @@ async def get_retrieval_service(request: Request) -> RetrievalService:
 async def search(request: Request, body: SearchQuery, retrieval_service=Depends(get_retrieval_service)):
     """Perform semantic search across documents"""
     try:
-        mode = RetrievalMode[body.retrieval_mode.upper()]
         print("orgId is ", request.state.user.get('orgId'))
         results = await retrieval_service.search(
             query=body.query,
             org_id=request.state.user.get('orgId'),
             top_k=body.top_k,
             filters=body.filters,
-            retrieval_mode=mode
         )
-        formatted_results = retrieval_service.format_results(results)
         
-        return formatted_results
+        return results
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
