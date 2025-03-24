@@ -6,10 +6,12 @@ import {
   archiveConversation,
   createConversation,
   deleteConversationById,
+  enterpriseSemanticSearch,
   getAllConversations,
   getConversationById,
   listAllArchivesConversation,
   regenerateAnswers,
+  searchHistory,
   shareConversationById,
   unarchiveConversation,
   unshareConversationById,
@@ -24,12 +26,16 @@ import {
   enterpriseSearchDeleteSchema,
   enterpriseSearchGetSchema,
   enterpriseSearchUpdateSchema,
+  enterpriseSearchSearchSchema,
+  enterpriseSearchSearchHistorySchema,
 } from '../validators/es_validators';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
+import { AppConfig } from '../../tokens_manager/config/config';
 
 export function createConversationalRouter(container: Container): Router {
   const router = Router();
   const authMiddleware = container.get<AuthMiddleware>('AuthMiddleware');
+  const appConfig = container.get<AppConfig>('AppConfig');
   /**
    * @route POST /api/v1/conversations
    * @desc Create a new conversation with initial query
@@ -43,7 +49,7 @@ export function createConversationalRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(enterpriseSearchCreateSchema),
-    createConversation,
+    createConversation(appConfig),
   );
 
   /**
@@ -61,7 +67,7 @@ export function createConversationalRouter(container: Container): Router {
     metricsMiddleware(container),
     ValidationMiddleware.validate(conversationIdParamsSchema),
     ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
-    addMessage,
+    addMessage(appConfig),
   );
 
   /**
@@ -119,7 +125,7 @@ export function createConversationalRouter(container: Container): Router {
     metricsMiddleware(container),
     ValidationMiddleware.validate(conversationIdParamsSchema),
     ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
-    shareConversationById,
+    shareConversationById(appConfig),
   );
 
   /**
@@ -153,7 +159,7 @@ export function createConversationalRouter(container: Container): Router {
     metricsMiddleware(container),
     ValidationMiddleware.validate(conversationParamsSchema),
     ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
-    regenerateAnswers,
+    regenerateAnswers(appConfig),
   );
 
   /**
@@ -228,6 +234,30 @@ export function createConversationalRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     listAllArchivesConversation,
+  );
+
+  return router;
+}
+
+export function createSemanticSearchRouter(container: Container): Router {
+  const router = Router();
+  const authMiddleware = container.get<AuthMiddleware>('AuthMiddleware');
+  const appConfig = container.get<AppConfig>('AppConfig');
+
+  router.post(
+    '/',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(enterpriseSearchSearchSchema),
+    enterpriseSemanticSearch(appConfig),
+  );
+
+  router.get(
+    '/',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(enterpriseSearchSearchHistorySchema),
+    searchHistory,
   );
 
   return router;

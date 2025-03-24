@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema, Model } from 'mongoose';
 
 interface IBoundingBox {
   x: number;
@@ -41,6 +41,10 @@ export interface ICitation extends Document {
   updatedAt: Date;
 }
 
+interface ICitationModel extends Model<ICitation> {
+  createFromAIResponse(aiCitation: any, orgId: string): Promise<ICitation>;
+}
+
 const boundingBoxSchema = new Schema<IBoundingBox>({
   x: { type: Number, required: true },
   y: { type: Number, required: true },
@@ -72,7 +76,7 @@ const citationMetadataSchema = new Schema<ICitationMetadata>({
   _collection_name: { type: String },
 });
 
-const citationSchema = new Schema<ICitation>(
+const citationSchema = new Schema<ICitation, ICitationModel>(
   {
     content: { type: String, required: true },
     recordIndex: { type: Number, required: true },
@@ -84,19 +88,6 @@ const citationSchema = new Schema<ICitation>(
   },
 );
 
-citationSchema.statics.createFromAIResponse = async function (
-  aiCitation,
-  orgId,
-) {
-  return new this({
-    orgId,
-    content: aiCitation.content,
-    documentIndex: aiCitation.docIndex,
-    citationType: aiCitation.citationType,
-    citationMetaData: aiCitation.metadata,
-  });
-};
-
 // Create text index on citation content
 citationSchema.index({ content: 'text' });
 
@@ -104,6 +95,18 @@ citationSchema.index({ content: 'text' });
 citationSchema.index({ 'metadata.recordId': 1 });
 citationSchema.index({ 'metadata.recordName': 1 });
 
+citationSchema.statics.createFromAIResponse = async function (
+  aiCitation,
+  orgId,
+) {
+  return new this({
+    orgId,
+    content: aiCitation.content,
+    recordIndex: aiCitation.metadata.recordIndex,
+    citationType: aiCitation.citationType,
+    metadata: aiCitation.metadata,
+  });
+};
 const Citation = mongoose.model<ICitation>('citation', citationSchema);
 
 export default Citation;

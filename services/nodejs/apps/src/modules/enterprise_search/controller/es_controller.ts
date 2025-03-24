@@ -13,7 +13,6 @@ import {
   AIServiceCommand,
 } from '../../../libs/commands/ai_service/ai.service.command';
 import { HttpMethod } from '../../../libs/enums/http-methods.enum';
-import { CitationModel } from '../citations/citations.schema';
 import {
   AIServiceResponse,
   IAIResponse,
@@ -23,7 +22,7 @@ import {
   IMessageDocument,
 } from '../types/es_interfaces';
 import { IConversation } from '../types/es_interfaces';
-import { EnterpriseSearchConversation } from '../schema/es_schema';
+import { EnterpriseSearchConversation } from '../schema/chat.schema';
 import { HTTP_STATUS } from '../../../libs/enums/http-status.enum';
 import {
   addComputedFields,
@@ -40,264 +39,48 @@ import {
   getPaginationParams,
   sortMessages,
 } from '../utils/utils';
-import {
-  ICitationDocument,
-} from '../citations/citations.interface';
 import { CONVERSATION_SOURCE } from '../constants/constants';
 import { IAMServiceCommand } from '../../../libs/commands/iam/iam.service.command';
+import EnterpriseSemanticSearch from '../schema/search.schema';
+import { AppConfig } from '../../tokens_manager/config/config';
+import Citation, { ICitation } from '../schema/citation.schema';
 
 const logger = Logger.getInstance({ service: 'Enterprise Search Service' });
 const rsAvailable = process.env.REPLICA_SET_AVAILABLE === 'true';
-// Extract common operations into a helper function
-export const createConversation = async (
-  req: AuthenticatedUserRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  const requestId = req.context?.requestId;
-  const startTime = Date.now();
-  const userId = req.user?.userId;
-  const orgId = req.user?.orgId;
 
-  let session: ClientSession | null = null;
-  let responseData: any;
-
-  // Helper function that contains the common conversation operations.
-  async function createConversationUtil(
-    session?: ClientSession | null,
-  ): Promise<any> {
-    const aiCommandOptions: AICommandOptions = {
-      uri: `${process.env.AI_BACKEND_URL}/api/v1/chatbot`,
-      method: HttpMethod.POST,
-      headers: req.headers as Record<string, string>,
-      body: {
-        query: req.body.query,
-        // conversationSource: req.body.conversationSource,
-        // conversationSourceRecordId: req.body.conversationSourceRecordId,
-        previousConversations: req.body.previousConversations || [],
-        recordIds: req.body.recordIds || [],
-      },
-    };
-
-    logger.debug('Sending query to AI service', {
-      requestId,
-      query: req.body.query,
-    });
-    const aiServiceCommand = new AIServiceCommand(aiCommandOptions);
-    const aiResponseData =
-      (await aiServiceCommand.execute()) as AIServiceResponse<IAIResponse>;
-    if (!aiResponseData?.data || aiResponseData.statusCode !== 200) {
-      throw new InternalServerError(
-        'Failed to get AI response',
-        aiResponseData?.data,
-      );
-    }
-
-    const citations = await Promise.all(
-      aiResponseData.data?.citations?.map(async (citation: any) => {
-        const newCitation = await CitationModel.createFromAIResponse(
-          citation,
-          orgId,
-        );
-        // Save with session if provided, otherwise save normally.
-        return session ? newCitation.save({ session }) : newCitation.save();
-      }) || [],
-    );
-
-    const messages = [
-      buildUserQueryMessage(req.body.query),
-      buildAIResponseMessage(
-        aiResponseData,
-        citations.map((citation: ICitationDocument) => ({
-          citationId: (citation as mongoose.Document).id.toString(),
-        })),
-      ),
-    ];
-
-    const conversationData: Partial<IConversation> = {
-      orgId,
-      userId,
-      initiator: userId,
-      title: req.body.query.slice(0, 100),
-      messages: messages as IMessageDocument[],
-      lastActivityAt: new Date(),
-      conversationSource: req.body.conversationSource,
-    };
-
-    if (req.body.conversationSourceRecordId) {
-      conversationData.conversationSourceRecordId =
-        req.body.conversationSourceRecordId;
-    }
-
-    const conversation = new EnterpriseSearchConversation(conversationData);
-    // Save conversation, using the session if available.
-    const savedConversation = session
-      ? await conversation.save({ session })
-      : await conversation.save();
-    if (!savedConversation) {
-      throw new InternalServerError('Failed to create conversation');
-    }
-    const plainConversation: IConversation = savedConversation.toObject();
-    return {
-      conversation: {
-        _id: savedConversation._id,
-        ...plainConversation,
-        messages: plainConversation.messages.map((message) => ({
-          ...message,
-          citations: message.citations?.map((citation) => ({
-            ...citation,
-            citationData: citations.find(
-              (c: ICitationDocument) =>
-                (c as mongoose.Document).id.toString() ===
-                citation.citationId?.toString(),
-            ),
-          })),
-        })),
-      },
-    };
-  }
-
-  try {
-    logger.debug('Creating new conversation', {
-      requestId,
-      userId,
-      query: req.body.query,
-      conversationSource: req.body.conversationSource,
-      conversationSourceRecordId: req.body.conversationSourceRecordId,
-      filters: {
-        recordIds: req.body.recordIds,
-        modules: req.body.modules,
-        departments: req.body.departments,
-        searchTags: req.body.searchTags,
-        appSpecificRecordType: req.body.appSpecificRecordType,
-      },
-      timestamp: new Date().toISOString(),
-    });
-
-    if (rsAvailable) {
-      // Start a session and run the operations inside a transaction.
-      session = await mongoose.startSession();
-      responseData = await session.withTransaction(() =>
-        createConversationUtil(session),
-      );
-    } else {
-      // Execute without session/transaction.
-      responseData = await createConversationUtil();
-    }
-
-    logger.debug('Conversation created successfully', {
-      requestId,
-      conversationId: responseData.conversation._id,
-      conversationSource: req.body.conversationSource,
-      conversationSourceRecordId: req.body.conversationSourceRecordId,
-      duration: Date.now() - startTime,
-    });
-
-    res.status(HTTP_STATUS.CREATED).json({
-      ...responseData,
-      meta: {
-        requestId,
-        timestamp: new Date().toISOString(),
-        duration: Date.now() - startTime,
-        conversationSource: req.body.conversationSource,
-        conversationSourceRecordId: req.body.conversationSourceRecordId,
-      },
-    });
-  } catch (error: any) {
-    logger.error('Error creating conversation', {
-      requestId,
-      message: 'Error creating conversation',
-      error: error.message,
-      stack: error.stack,
-      conversationSource: req.body.conversationSource,
-      conversationSourceRecordId: req.body.conversationSourceRecordId,
-      duration: Date.now() - startTime,
-    });
-
-    if (session?.inTransaction()) {
-      await session.abortTransaction();
-    }
-    next(error);
-  } finally {
-    if (session) {
-      session.endSession();
-    }
-  }
-};
-
-export const addMessage = async (
-  req: AuthenticatedUserRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  const requestId = req.context?.requestId;
-  const startTime = Date.now();
-  let session: ClientSession | null = null;
-
-  try {
+export const createConversation =
+  (appConfig: AppConfig) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    const requestId = req.context?.requestId;
+    const startTime = Date.now();
     const userId = req.user?.userId;
     const orgId = req.user?.orgId;
 
-    logger.debug('Adding message to conversation', {
-      requestId,
-      message: 'Adding message to conversation',
-      conversationId: req.params.conversationId,
-      query: req.body.query,
-      filters: {
-        recordIds: req.body.recordIds,
-        modules: req.body.modules,
-        departments: req.body.departments,
-        searchTags: req.body.searchTags,
-        appSpecificRecordType: req.body.appSpecificRecordType,
-      },
-      timestamp: new Date().toISOString(),
-    });
+    let session: ClientSession | null = null;
+    let responseData: any;
 
-    // Extract common operations into a helper function.
-    async function performAddMessage(session?: ClientSession | null) {
-      // Get existing conversation
-      const conversation = await EnterpriseSearchConversation.findOne({
-        _id: req.params.conversationId,
-        orgId,
-        userId,
-        isDeleted: false,
-      });
-
-      if (!conversation) {
-        throw new NotFoundError('Conversation not found');
-      }
-
-      // Format previous conversations for context
-      const previousConversations = formatPreviousConversations(
-        conversation.messages,
-      );
-      logger.debug('Previous conversations', {
-        previousConversations,
-      });
-
-      logger.debug('Sending query to AI service', {
-        requestId,
-        payload: {
-          query: req.body.query,
-          previousConversations,
-        },
-      });
-
+    // Helper function that contains the common conversation operations.
+    async function createConversationUtil(
+      session?: ClientSession | null,
+    ): Promise<any> {
       const aiCommandOptions: AICommandOptions = {
-        uri: `${process.env.AI_BACKEND_URL}/api/v1/chatbot`,
+        uri: `${appConfig.aiBackend}/api/v1/query`,
         method: HttpMethod.POST,
         headers: req.headers as Record<string, string>,
         body: {
           query: req.body.query,
-          previousConversations: previousConversations,
+          previousConversations: req.body.previousConversations || [],
           recordIds: req.body.recordIds || [],
         },
       };
 
+      logger.debug('Sending query to AI service', {
+        requestId,
+        query: req.body.query,
+      });
       const aiServiceCommand = new AIServiceCommand(aiCommandOptions);
       const aiResponseData =
         (await aiServiceCommand.execute()) as AIServiceResponse<IAIResponse>;
-
       if (!aiResponseData?.data || aiResponseData.statusCode !== 200) {
         throw new InternalServerError(
           'Failed to get AI response',
@@ -305,113 +88,320 @@ export const addMessage = async (
         );
       }
 
-      const citations: ICitationDocument[] = await Promise.all(
+      const citations = await Promise.all(
         aiResponseData.data?.citations?.map(async (citation: any) => {
-          const newCitation = await CitationModel.createFromAIResponse(
-            citation,
-            orgId,
-          );
-          return session ? newCitation.save({ session }) : newCitation.save();
+          const newCitation = new Citation({
+            content: citation.content,
+            recordIndex: citation.metadata.recordIndex,
+            citationType: citation.citationType,
+            metadata: {
+              ...citation.metadata,
+              orgId,
+            },
+          });
+          return newCitation.save();
         }) || [],
       );
 
       const messages = [
         buildUserQueryMessage(req.body.query),
-        buildAIResponseMessage(
-          aiResponseData,
-          citations.map((citation) => ({
-            citationId: (citation as mongoose.Document).id.toString(),
-          })),
-        ),
+        buildAIResponseMessage(aiResponseData, citations),
       ];
 
-      // Update conversation: push new messages and update lastActivityAt
-      const updatedConversation =
-        await EnterpriseSearchConversation.findByIdAndUpdate(
-          req.params.conversationId,
-          {
-            $push: { messages: { $each: messages } },
-            $set: { lastActivityAt: new Date() },
-          },
-          {
-            new: true,
-            session,
-            runValidators: true,
-          },
-        );
+      const conversationData: Partial<IConversation> = {
+        orgId,
+        userId,
+        initiator: userId,
+        title: req.body.query.slice(0, 100),
+        messages: messages as IMessageDocument[],
+        lastActivityAt: new Date(),
+        conversationSource: req.body.conversationSource,
+      };
 
-      if (!updatedConversation) {
-        throw new InternalServerError('Failed to update conversation');
+      if (req.body.conversationSourceRecordId) {
+        conversationData.conversationSourceRecordId =
+          req.body.conversationSourceRecordId;
       }
 
-      // Return the updated conversation with new messages.
-      const plainConversation = updatedConversation.toObject();
+      const conversation = new EnterpriseSearchConversation(conversationData);
+      // Save conversation, using the session if available.
+      const savedConversation = session
+        ? await conversation.save({ session })
+        : await conversation.save();
+      if (!savedConversation) {
+        throw new InternalServerError('Failed to create conversation');
+      }
+      const plainConversation: IConversation = savedConversation.toObject();
       return {
         conversation: {
+          _id: savedConversation._id,
           ...plainConversation,
-          messages: messages.map((message) => ({
+          messages: plainConversation.messages.map((message) => ({
             ...message,
-            citations:
-              message.citations?.map((citation) => ({
-                ...citation,
-                citationData: citations.find(
-                  (c) =>
-                    (c as mongoose.Document).id.toString() ===
-                    citation.citationId?.toString(),
-                ),
-              })) || [],
+            citations: message.citations?.map((citation) => ({
+              ...citation,
+              citationData: citations.find(
+                (c: ICitation) => c._id === citation.citationId,
+              ),
+            })),
           })),
         },
-        recordsUsed: citations.length, // or validated record count if needed
       };
     }
 
-    let responseData;
-    if (rsAvailable) {
-      session = await mongoose.startSession();
-      responseData = await session.withTransaction(() =>
-        performAddMessage(session),
-      );
-    } else {
-      responseData = await performAddMessage();
-    }
-
-    logger.debug('Message added successfully', {
-      requestId,
-      message: 'Message added successfully',
-      conversationId: req.params.conversationId,
-      duration: Date.now() - startTime,
-    });
-
-    res.status(HTTP_STATUS.OK).json({
-      ...responseData,
-      meta: {
+    try {
+      logger.debug('Creating new conversation', {
         requestId,
+        userId,
+        query: req.body.query,
+        conversationSource: req.body.conversationSource,
+        conversationSourceRecordId: req.body.conversationSourceRecordId,
+        filters: {
+          recordIds: req.body.recordIds,
+          modules: req.body.modules,
+          departments: req.body.departments,
+          searchTags: req.body.searchTags,
+          appSpecificRecordType: req.body.appSpecificRecordType,
+        },
         timestamp: new Date().toISOString(),
-        duration: Date.now() - startTime,
-        recordsUsed: responseData.recordsUsed,
-      },
-    });
-  } catch (error: any) {
-    logger.error('Error adding message', {
-      requestId,
-      message: 'Error adding message',
-      conversationId: req.params.conversationId,
-      error: error.message,
-      stack: error.stack,
-      duration: Date.now() - startTime,
-    });
+      });
 
-    if (session?.inTransaction()) {
-      await session.abortTransaction();
+      if (rsAvailable) {
+        // Start a session and run the operations inside a transaction.
+        session = await mongoose.startSession();
+        responseData = await session.withTransaction(() =>
+          createConversationUtil(session),
+        );
+      } else {
+        // Execute without session/transaction.
+        responseData = await createConversationUtil();
+      }
+
+      logger.debug('Conversation created successfully', {
+        requestId,
+        conversationId: responseData.conversation._id,
+        conversationSource: req.body.conversationSource,
+        conversationSourceRecordId: req.body.conversationSourceRecordId,
+        duration: Date.now() - startTime,
+      });
+
+      res.status(HTTP_STATUS.CREATED).json({
+        ...responseData,
+        meta: {
+          requestId,
+          timestamp: new Date().toISOString(),
+          duration: Date.now() - startTime,
+          conversationSource: req.body.conversationSource,
+          conversationSourceRecordId: req.body.conversationSourceRecordId,
+        },
+      });
+    } catch (error: any) {
+      logger.error('Error creating conversation', {
+        requestId,
+        message: 'Error creating conversation',
+        error: error.message,
+        stack: error.stack,
+        conversationSource: req.body.conversationSource,
+        conversationSourceRecordId: req.body.conversationSourceRecordId,
+        duration: Date.now() - startTime,
+      });
+
+      if (session?.inTransaction()) {
+        await session.abortTransaction();
+      }
+      next(error);
+    } finally {
+      if (session) {
+        session.endSession();
+      }
     }
-    return next(error);
-  } finally {
-    if (session) {
-      session.endSession();
+  };
+
+export const addMessage =
+  (appConfig: AppConfig) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    const requestId = req.context?.requestId;
+    const startTime = Date.now();
+    let session: ClientSession | null = null;
+
+    try {
+      const userId = req.user?.userId;
+      const orgId = req.user?.orgId;
+
+      logger.debug('Adding message to conversation', {
+        requestId,
+        message: 'Adding message to conversation',
+        conversationId: req.params.conversationId,
+        query: req.body.query,
+        filters: {
+          recordIds: req.body.recordIds,
+          modules: req.body.modules,
+          departments: req.body.departments,
+          searchTags: req.body.searchTags,
+          appSpecificRecordType: req.body.appSpecificRecordType,
+        },
+        timestamp: new Date().toISOString(),
+      });
+
+      // Extract common operations into a helper function.
+      async function performAddMessage(session?: ClientSession | null) {
+        // Get existing conversation
+        const conversation = await EnterpriseSearchConversation.findOne({
+          _id: req.params.conversationId,
+          orgId,
+          userId,
+          isDeleted: false,
+        });
+
+        if (!conversation) {
+          throw new NotFoundError('Conversation not found');
+        }
+
+        // Format previous conversations for context
+        const previousConversations = formatPreviousConversations(
+          conversation.messages,
+        );
+        logger.debug('Previous conversations', {
+          previousConversations,
+        });
+
+        logger.debug('Sending query to AI service', {
+          requestId,
+          payload: {
+            query: req.body.query,
+            previousConversations,
+          },
+        });
+
+        const aiCommandOptions: AICommandOptions = {
+          uri: `${appConfig.aiBackend}/api/v1/chatbot`,
+          method: HttpMethod.POST,
+          headers: req.headers as Record<string, string>,
+          body: {
+            query: req.body.query,
+            previousConversations: previousConversations,
+            recordIds: req.body.recordIds || [],
+          },
+        };
+
+        const aiServiceCommand = new AIServiceCommand(aiCommandOptions);
+        const aiResponseData =
+          (await aiServiceCommand.execute()) as AIServiceResponse<IAIResponse>;
+
+        if (!aiResponseData?.data || aiResponseData.statusCode !== 200) {
+          throw new InternalServerError(
+            'Failed to get AI response',
+            aiResponseData?.data,
+          );
+        }
+
+        const savedCitations: ICitation[] = await Promise.all(
+          aiResponseData.data?.citations?.map(async (citation: any) => {
+            const newCitation = new Citation({
+              content: citation.content,
+              recordIndex: citation.metadata.recordIndex,
+              citationType: citation.citationType,
+              metadata: {
+                ...citation.metadata,
+                orgId,
+              },
+            });
+            return newCitation.save();
+          }) || [],
+        );
+
+        const messages = [
+          buildUserQueryMessage(req.body.query),
+          buildAIResponseMessage(aiResponseData, savedCitations),
+        ];
+
+        // Update conversation: push new messages and update lastActivityAt
+        const updatedConversation =
+          await EnterpriseSearchConversation.findByIdAndUpdate(
+            req.params.conversationId,
+            {
+              $push: { messages: { $each: messages } },
+              $set: { lastActivityAt: new Date() },
+            },
+            {
+              new: true,
+              session,
+              runValidators: true,
+            },
+          );
+
+        if (!updatedConversation) {
+          throw new InternalServerError('Failed to update conversation');
+        }
+
+        // Return the updated conversation with new messages.
+        const plainConversation = updatedConversation.toObject();
+        return {
+          conversation: {
+            ...plainConversation,
+            messages: messages.map((message) => ({
+              ...message,
+              citations:
+                message.citations?.map((citation) => ({
+                  ...citation,
+                  citationData: savedCitations.find(
+                    (c) =>
+                      (c as mongoose.Document).id.toString() ===
+                      citation.citationId?.toString(),
+                  ),
+                })) || [],
+            })),
+          },
+          recordsUsed: savedCitations.length, // or validated record count if needed
+        };
+      }
+
+      let responseData;
+      if (rsAvailable) {
+        session = await mongoose.startSession();
+        responseData = await session.withTransaction(() =>
+          performAddMessage(session),
+        );
+      } else {
+        responseData = await performAddMessage();
+      }
+
+      logger.debug('Message added successfully', {
+        requestId,
+        message: 'Message added successfully',
+        conversationId: req.params.conversationId,
+        duration: Date.now() - startTime,
+      });
+
+      res.status(HTTP_STATUS.OK).json({
+        ...responseData,
+        meta: {
+          requestId,
+          timestamp: new Date().toISOString(),
+          duration: Date.now() - startTime,
+          recordsUsed: responseData.recordsUsed,
+        },
+      });
+    } catch (error: any) {
+      logger.error('Error adding message', {
+        requestId,
+        message: 'Error adding message',
+        conversationId: req.params.conversationId,
+        error: error.message,
+        stack: error.stack,
+        duration: Date.now() - startTime,
+      });
+
+      if (session?.inTransaction()) {
+        await session.abortTransaction();
+      }
+      return next(error);
+    } finally {
+      if (session) {
+        session.endSession();
+      }
     }
-  }
-};
+  };
 
 export const getAllConversations = async (
   req: AuthenticatedUserRequest,
@@ -744,7 +734,7 @@ export const deleteConversationById = async (
 
       // Update all associated citations if any exist
       if (citationIds.length > 0) {
-        await CitationModel.updateMany(
+        await Citation.updateMany(
           {
             _id: { $in: citationIds },
             orgId,
@@ -817,198 +807,198 @@ export const deleteConversationById = async (
   }
 };
 
-export const shareConversationById = async (
-  req: AuthenticatedUserRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  const requestId = req.context?.requestId;
-  const startTime = Date.now();
-  let session: ClientSession | null = null;
-  const { conversationId } = req.params;
-  let { userIds, accessLevel } = req.body;
-  try {
-    const userId = req.user?.userId;
-    const orgId = req.user?.orgId;
+export const shareConversationById =
+  (appConfig: AppConfig) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    const requestId = req.context?.requestId;
+    const startTime = Date.now();
+    let session: ClientSession | null = null;
+    const { conversationId } = req.params;
+    let { userIds, accessLevel } = req.body;
+    try {
+      const userId = req.user?.userId;
+      const orgId = req.user?.orgId;
 
-    logger.debug('Attempting to share conversation', {
-      requestId,
-      conversationId,
-      userIds,
-      accessLevel,
-      timestamp: new Date().toISOString(),
-    });
+      logger.debug('Attempting to share conversation', {
+        requestId,
+        conversationId,
+        userIds,
+        accessLevel,
+        timestamp: new Date().toISOString(),
+      });
 
-    async function performShareConversation(session?: ClientSession | null) {
-      // Validate request body
-      if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-        throw new BadRequestError('userIds is required and must be an array');
-      }
+      async function performShareConversation(session?: ClientSession | null) {
+        // Validate request body
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+          throw new BadRequestError('userIds is required and must be an array');
+        }
 
-      if (accessLevel && !['read', 'write'].includes(accessLevel)) {
-        throw new BadRequestError(
-          "Invalid access level. Must be 'read' or 'write'",
-        );
-      }
+        if (accessLevel && !['read', 'write'].includes(accessLevel)) {
+          throw new BadRequestError(
+            "Invalid access level. Must be 'read' or 'write'",
+          );
+        }
 
-      // Start transaction
-      session = await mongoose.startSession();
-      session.startTransaction();
+        // Start transaction
+        session = await mongoose.startSession();
+        session.startTransaction();
 
-      // Get conversation with access control
-      const conversation: IConversation | null =
-        await EnterpriseSearchConversation.findOne({
-          _id: conversationId,
-          orgId,
-          userId,
-          isDeleted: false,
-          initiator: userId, // Only initiator can share
-        });
+        // Get conversation with access control
+        const conversation: IConversation | null =
+          await EnterpriseSearchConversation.findOne({
+            _id: conversationId,
+            orgId,
+            userId,
+            isDeleted: false,
+            initiator: userId, // Only initiator can share
+          });
 
-      if (!conversation) {
-        throw new NotFoundError('Conversation not found or unauthorized');
-      }
+        if (!conversation) {
+          throw new NotFoundError('Conversation not found or unauthorized');
+        }
 
-      // Update object for conversation
-      const updateObject: Partial<IConversation> = {
-        isShared: true,
-      };
+        // Update object for conversation
+        const updateObject: Partial<IConversation> = {
+          isShared: true,
+        };
 
-      // Set shareLink based on conversation source
-      if (
-        conversation.conversationSource ===
-        CONVERSATION_SOURCE.ENTERPRISE_SEARCH
-      ) {
-        updateObject.shareLink = `${process.env.FRONTEND_URL}/enterprise-search/${conversationId}`;
-      } else if (
-        conversation.conversationSource === CONVERSATION_SOURCE.RECORDS
-      ) {
-        updateObject.shareLink = `${process.env.FRONTEND_URL}/knowledge-base/records/${conversation.conversationSourceRecordId}`;
-      }
+        // Set shareLink based on conversation source
+        if (
+          conversation.conversationSource ===
+          CONVERSATION_SOURCE.ENTERPRISE_SEARCH
+        ) {
+          updateObject.shareLink = `${appConfig.frontendUrl}/enterprise-search/${conversationId}`;
+        } else if (
+          conversation.conversationSource === CONVERSATION_SOURCE.RECORDS
+        ) {
+          updateObject.shareLink = `${appConfig.frontendUrl}/knowledge-base/records/${conversation.conversationSourceRecordId}`;
+        }
 
-      // Handle user-specific sharing
-      // Validate all user IDs
-      const validUsers = await Promise.all(
-        userIds.map(async (id) => {
-          if (!mongoose.Types.ObjectId.isValid(id)) {
-            throw new BadRequestError(`Invalid user ID format: ${id}`);
-          }
-          try {
-            const iamCommand = new IAMServiceCommand({
-              uri: `${process.env.IAM_SERVICE_URL}/api/v1/users/${id}`,
-              method: HttpMethod.GET,
-              headers: req.headers as Record<string, string>,
-            });
-            const userResponse = await iamCommand.execute();
-            if (userResponse && userResponse.statusCode !== 200) {
+        // Handle user-specific sharing
+        // Validate all user IDs
+        const validUsers = await Promise.all(
+          userIds.map(async (id) => {
+            if (!mongoose.Types.ObjectId.isValid(id)) {
+              throw new BadRequestError(`Invalid user ID format: ${id}`);
+            }
+            try {
+              const iamCommand = new IAMServiceCommand({
+                uri: `${appConfig.iamBackend}/api/v1/users/${id}`,
+                method: HttpMethod.GET,
+                headers: req.headers as Record<string, string>,
+              });
+              const userResponse = await iamCommand.execute();
+              if (userResponse && userResponse.statusCode !== 200) {
+                throw new BadRequestError(`User not found: ${id}`);
+              }
+            } catch (exception) {
+              logger.debug(`User does not exist: ${id}`, {
+                requestId,
+              });
               throw new BadRequestError(`User not found: ${id}`);
             }
-          } catch (exception) {
-            logger.debug(`User does not exist: ${id}`, {
-              requestId,
-            });
-            throw new BadRequestError(`User not found: ${id}`);
-          }
-          return {
-            userId: id,
-            accessLevel: accessLevel || 'read',
-          };
-        }),
-      );
-
-      // Get existing shared users
-      const existingSharedWith = conversation.sharedWith || [];
-
-      // Create a map of existing users for quick lookup
-      const existingUserMap = new Map(
-        existingSharedWith.map((share) => [share.userId.toString(), share]),
-      );
-
-      // Merge existing and new users, updating access levels for existing users if they're in the new list
-      const mergedSharedWith = [...existingSharedWith];
-
-      for (const newUser of validUsers) {
-        const existingUser = existingUserMap.get(newUser.userId.toString());
-        if (existingUser) {
-          // Update access level if user already exists
-          existingUser.accessLevel = newUser.accessLevel;
-        } else {
-          // Add new user if they don't exist
-          mergedSharedWith.push(newUser);
-        }
-      }
-
-      // Update sharedWith array with merged users
-      updateObject.sharedWith = mergedSharedWith;
-
-      // Update the conversation
-      const updatedConversation =
-        await EnterpriseSearchConversation.findByIdAndUpdate(
-          conversationId,
-          updateObject,
-          {
-            new: true,
-            session,
-            runValidators: true,
-          },
+            return {
+              userId: id,
+              accessLevel: accessLevel || 'read',
+            };
+          }),
         );
 
-      if (!updatedConversation) {
-        throw new InternalServerError('Failed to update conversation sharing settings');
+        // Get existing shared users
+        const existingSharedWith = conversation.sharedWith || [];
+
+        // Create a map of existing users for quick lookup
+        const existingUserMap = new Map(
+          existingSharedWith.map((share) => [share.userId.toString(), share]),
+        );
+
+        // Merge existing and new users, updating access levels for existing users if they're in the new list
+        const mergedSharedWith = [...existingSharedWith];
+
+        for (const newUser of validUsers) {
+          const existingUser = existingUserMap.get(newUser.userId.toString());
+          if (existingUser) {
+            // Update access level if user already exists
+            existingUser.accessLevel = newUser.accessLevel;
+          } else {
+            // Add new user if they don't exist
+            mergedSharedWith.push(newUser);
+          }
+        }
+
+        // Update sharedWith array with merged users
+        updateObject.sharedWith = mergedSharedWith;
+
+        // Update the conversation
+        const updatedConversation =
+          await EnterpriseSearchConversation.findByIdAndUpdate(
+            conversationId,
+            updateObject,
+            {
+              new: true,
+              session,
+              runValidators: true,
+            },
+          );
+
+        if (!updatedConversation) {
+          throw new InternalServerError(
+            'Failed to update conversation sharing settings',
+          );
+        }
+        return updatedConversation;
       }
-      return updatedConversation;
-    }
 
-    let updatedConversation: IConversationDocument | null = null;
-    if (rsAvailable) {
-      session = await mongoose.startSession();
-      session.startTransaction();
-      updatedConversation = await performShareConversation(session);
-      await session.commitTransaction();
-    } else {
-      updatedConversation = await performShareConversation();
-    }
+      let updatedConversation: IConversationDocument | null = null;
+      if (rsAvailable) {
+        session = await mongoose.startSession();
+        session.startTransaction();
+        updatedConversation = await performShareConversation(session);
+        await session.commitTransaction();
+      } else {
+        updatedConversation = await performShareConversation();
+      }
 
-    logger.debug('Conversation shared successfully', {
-      requestId,
-      conversationId,
-      duration: Date.now() - startTime,
-    });
-
-    // Prepare response
-    const response = {
-      id: updatedConversation._id,
-      isShared: updatedConversation.isShared,
-      shareLink: updatedConversation.shareLink,
-      sharedWith: updatedConversation.sharedWith,
-      meta: {
+      logger.debug('Conversation shared successfully', {
         requestId,
-        timestamp: new Date().toISOString(),
+        conversationId,
         duration: Date.now() - startTime,
-      },
-    };
+      });
 
-    res.status(200).json(response);
-  } catch (error: any) {
-    logger.error('Error sharing conversation', {
-      requestId,
-      message: 'Error sharing conversation',
-      conversationId,
-      error: error.message,
-      stack: error.stack,
-      duration: Date.now() - startTime,
-    });
+      // Prepare response
+      const response = {
+        id: updatedConversation._id,
+        isShared: updatedConversation.isShared,
+        shareLink: updatedConversation.shareLink,
+        sharedWith: updatedConversation.sharedWith,
+        meta: {
+          requestId,
+          timestamp: new Date().toISOString(),
+          duration: Date.now() - startTime,
+        },
+      };
 
-    if (session?.inTransaction()) {
-      await session.abortTransaction();
+      res.status(200).json(response);
+    } catch (error: any) {
+      logger.error('Error sharing conversation', {
+        requestId,
+        message: 'Error sharing conversation',
+        conversationId,
+        error: error.message,
+        stack: error.stack,
+        duration: Date.now() - startTime,
+      });
+
+      if (session?.inTransaction()) {
+        await session.abortTransaction();
+      }
+      next(error);
+    } finally {
+      if (session) {
+        session.endSession();
+      }
     }
-    next(error);
-  } finally {
-    if (session) {
-      session.endSession();
-    }
-  }
-};
+  };
 
 export const unshareConversationById = async (
   req: AuthenticatedUserRequest,
@@ -1088,7 +1078,9 @@ export const unshareConversationById = async (
         );
 
       if (!updatedConversation) {
-        throw new InternalServerError('Failed to update conversation sharing settings');
+        throw new InternalServerError(
+          'Failed to update conversation sharing settings',
+        );
       }
       return updatedConversation;
     }
@@ -1144,213 +1136,218 @@ export const unshareConversationById = async (
   }
 };
 
-export const regenerateAnswers = async (
-  req: AuthenticatedUserRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  const rsAvailable = process.env.REPLICA_SET_AVAILABLE === 'true';
-  const requestId = req.context?.requestId;
-  const startTime = Date.now();
-  let session: ClientSession | null = null;
-  const { conversationId, messageId } = req.params;
-  try {
-    const userId = req.user?.userId;
-    const orgId = req.user?.orgId;
+export const regenerateAnswers =
+  (appConfig: AppConfig) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    const requestId = req.context?.requestId;
+    const startTime = Date.now();
+    let session: ClientSession | null = null;
+    const { conversationId, messageId } = req.params;
+    try {
+      const userId = req.user?.userId;
+      const orgId = req.user?.orgId;
 
-    logger.debug('Attempting to regenerate answers', {
-      requestId,
-      conversationId,
-      messageId,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Common helper that performs all operations needed to regenerate the answer.
-    async function performRegenerateAnswers(session?: ClientSession | null) {
-      // Get conversation with access control
-      const conversation = await EnterpriseSearchConversation.findOne({
-        _id: conversationId,
-        orgId,
-        userId,
-        isDeleted: false,
-        $or: [
-          { initiator: userId },
-          { 'sharedWith.userId': userId },
-          { isShared: true },
-        ],
-      });
-
-      if (!conversation) {
-        throw new NotFoundError('Conversation not found or unauthorized');
-      }
-
-      // Ensure there are messages
-      if (!conversation.messages || conversation.messages.length === 0) {
-        throw new BadRequestError('No messages found in conversation');
-      }
-
-      // Get the last message and validate it
-      const lastMessage: IMessageDocument =
-        conversation.messages[conversation.messages.length - 1] as IMessageDocument;
-      if (lastMessage._id?.toString() === messageId) {
-        throw new BadRequestError(
-          'Can only regenerate the last message in the conversation',
-        );
-      }
-      if (lastMessage.messageType !== 'bot_response') {
-        throw new BadRequestError('Can only regenerate bot response messages');
-      }
-
-      // Get user query from the previous message
-      if (conversation.messages.length < 2) {
-        throw new BadRequestError('No user query found to regenerate response');
-      }
-      const userQuery = conversation.messages[conversation.messages.length - 2] as IMessageDocument;
-      if (userQuery.messageType !== 'user_query') {
-        throw new BadRequestError('Previous message must be a user query');
-      }
-
-      // Format previous conversations up to this message
-      const previousConversations = formatPreviousConversations(
-        conversation.messages.slice(0, -2), // Exclude last bot response and user query
-      );
-
-      let recordIds = [];
-      if (conversation.conversationSource === CONVERSATION_SOURCE.RECORDS) {
-        recordIds.push(conversation.conversationSourceRecordId?.toString());
-      }
-
-      // Get new AI response
-      const aiCommand = new AIServiceCommand({
-        uri: `${process.env.AI_BACKEND_URL}/api/v1/chatbot`,
-        method: HttpMethod.POST,
-        headers: req.headers as Record<string, string>,
-        body: {
-          query: userQuery.content,
-          previousConversations: previousConversations || [],
-          recordIds: recordIds || [],
-        },
-      });
-      const aiResponse =
-        (await aiCommand.execute()) as AIServiceResponse<IAIResponse>;
-      if (!aiResponse || aiResponse.statusCode !== 200) {
-        throw new InternalServerError(
-          'Failed to get response from AI service',
-          aiResponse?.data,
-        );
-      }
-
-      // Create and save citations
-      const citations: ICitationDocument[] = await Promise.all(
-        aiResponse.data?.citations?.map(async (citation: any) => {
-          const newCitation = await CitationModel.createFromAIResponse(
-            citation,
-            orgId,
-          );
-          return newCitation.save({ session });
-        }) || [],
-      );
-
-      // Build new AI message (preserving the same message _id)
-      const newMessage = {
-        _id: lastMessage._id,
-        ...buildAIResponseMessage(
-          aiResponse,
-          citations.map((citation) => ({
-            citationId: (citation as mongoose.Document).id.toString(),
-          })),
-        ),
-      };
-
-      // Update conversation with the new message
-      const updatedConversation =
-        await EnterpriseSearchConversation.findOneAndUpdate(
-          { _id: conversationId },
-          {
-            $set: {
-              [`messages.${conversation.messages.length - 1}`]: newMessage,
-              lastActivityAt: new Date(),
-            },
-          },
-          {
-            new: true,
-            session,
-            runValidators: true,
-          },
-        );
-      if (!updatedConversation) {
-        throw new InternalServerError('Failed to update conversation');
-      }
-
-      return {
-        conversation: {
-          id: updatedConversation._id,
-          messages: [
-            {
-              ...newMessage,
-              citations:
-                newMessage.citations?.map((citation) => ({
-                  citationId: citation.citationId,
-                  citationData: citations.find(
-                    (c) =>
-                      (c as mongoose.Document).id.toString() ===
-                      citation.citationId?.toString(),
-                  ),
-                })) || [],
-            },
-          ],
-        },
-      };
-    }
-
-    let responseData;
-    if (rsAvailable) {
-      session = await mongoose.startSession();
-      responseData = await session.withTransaction(() =>
-        performRegenerateAnswers(session),
-      );
-    } else {
-      responseData = await performRegenerateAnswers();
-    }
-
-    if (session && rsAvailable) {
-      await session.commitTransaction();
-    }
-
-    logger.debug('Answer regenerated successfully', {
-      requestId,
-      conversationId,
-      messageId,
-      duration: Date.now() - startTime,
-    });
-
-    res.status(200).json({
-      ...responseData,
-      meta: {
+      logger.debug('Attempting to regenerate answers', {
         requestId,
+        conversationId,
+        messageId,
         timestamp: new Date().toISOString(),
+      });
+
+      // Common helper that performs all operations needed to regenerate the answer.
+      async function performRegenerateAnswers(session?: ClientSession | null) {
+        // Get conversation with access control
+        const conversation = await EnterpriseSearchConversation.findOne({
+          _id: conversationId,
+          orgId,
+          userId,
+          isDeleted: false,
+          $or: [
+            { initiator: userId },
+            { 'sharedWith.userId': userId },
+            { isShared: true },
+          ],
+        });
+
+        if (!conversation) {
+          throw new NotFoundError('Conversation not found or unauthorized');
+        }
+
+        // Ensure there are messages
+        if (!conversation.messages || conversation.messages.length === 0) {
+          throw new BadRequestError('No messages found in conversation');
+        }
+
+        // Get the last message and validate it
+        const lastMessage: IMessageDocument = conversation.messages[
+          conversation.messages.length - 1
+        ] as IMessageDocument;
+        if (lastMessage._id?.toString() === messageId) {
+          throw new BadRequestError(
+            'Can only regenerate the last message in the conversation',
+          );
+        }
+        if (lastMessage.messageType !== 'bot_response') {
+          throw new BadRequestError(
+            'Can only regenerate bot response messages',
+          );
+        }
+
+        // Get user query from the previous message
+        if (conversation.messages.length < 2) {
+          throw new BadRequestError(
+            'No user query found to regenerate response',
+          );
+        }
+        const userQuery = conversation.messages[
+          conversation.messages.length - 2
+        ] as IMessageDocument;
+        if (userQuery.messageType !== 'user_query') {
+          throw new BadRequestError('Previous message must be a user query');
+        }
+
+        // Format previous conversations up to this message
+        const previousConversations = formatPreviousConversations(
+          conversation.messages.slice(0, -2), // Exclude last bot response and user query
+        );
+
+        let recordIds = [];
+        if (conversation.conversationSource === CONVERSATION_SOURCE.RECORDS) {
+          recordIds.push(conversation.conversationSourceRecordId?.toString());
+        }
+
+        // Get new AI response
+        const aiCommand = new AIServiceCommand({
+          uri: `${appConfig.aiBackend}/api/v1/chatbot`,
+          method: HttpMethod.POST,
+          headers: req.headers as Record<string, string>,
+          body: {
+            query: userQuery.content,
+            previousConversations: previousConversations || [],
+            recordIds: recordIds || [],
+          },
+        });
+        const aiResponse =
+          (await aiCommand.execute()) as AIServiceResponse<IAIResponse>;
+        if (!aiResponse || aiResponse.statusCode !== 200 || !aiResponse.data) {
+          throw new InternalServerError(
+            'Failed to get response from AI service',
+            aiResponse?.data,
+          );
+        }
+
+        // Create and save citations
+        const savedCitations = await Promise.all(
+          aiResponse.data.citations.map(async (citation: ICitation) => {
+            const newCitation = new Citation({
+              content: citation.content,
+              recordIndex: citation.metadata.recordIndex ?? 0,
+              citationType: citation.citationType,
+              metadata: {
+                ...citation.metadata,
+                orgId,
+              },
+            });
+            return newCitation.save();
+          }),
+        );
+
+        // Build new AI message while preserving the original message's _id
+        const newMessage = buildAIResponseMessage(
+          aiResponse,
+          savedCitations,
+        ) as IMessageDocument;
+        newMessage._id = lastMessage._id;
+
+        // Update conversation with the new message
+        const updatedConversation =
+          await EnterpriseSearchConversation.findOneAndUpdate(
+            { _id: conversationId },
+            {
+              $set: {
+                [`messages.${conversation.messages.length - 1}`]: newMessage,
+                lastActivityAt: new Date(),
+              },
+            },
+            {
+              new: true,
+              session,
+              runValidators: true,
+            },
+          );
+        if (!updatedConversation) {
+          throw new InternalServerError('Failed to update conversation');
+        }
+
+        return {
+          conversation: {
+            id: updatedConversation._id,
+            messages: [
+              {
+                ...newMessage,
+                citations:
+                  newMessage.citations?.map((citation) => ({
+                    citationId: citation.citationId,
+                    citationData: savedCitations.find(
+                      (c) =>
+                        (c as mongoose.Document).id.toString() ===
+                        citation.citationId?.toString(),
+                    ),
+                  })) || [],
+              },
+            ],
+          },
+        };
+      }
+
+      let responseData;
+      if (rsAvailable) {
+        session = await mongoose.startSession();
+        responseData = await session.withTransaction(() =>
+          performRegenerateAnswers(session),
+        );
+      } else {
+        responseData = await performRegenerateAnswers();
+      }
+
+      if (session && rsAvailable) {
+        await session.commitTransaction();
+      }
+
+      logger.debug('Answer regenerated successfully', {
+        requestId,
+        conversationId,
+        messageId,
         duration: Date.now() - startTime,
-      },
-    });
-  } catch (error: any) {
-    logger.error('Error regenerating answer', {
-      requestId,
-      conversationId,
-      messageId,
-      error: error.message,
-      stack: error.stack,
-      duration: Date.now() - startTime,
-    });
-    if (session?.inTransaction()) {
-      await session.abortTransaction();
+      });
+
+      res.status(200).json({
+        ...responseData,
+        meta: {
+          requestId,
+          timestamp: new Date().toISOString(),
+          duration: Date.now() - startTime,
+        },
+      });
+    } catch (error: any) {
+      logger.error('Error regenerating answer', {
+        requestId,
+        conversationId,
+        messageId,
+        error: error.message,
+        stack: error.stack,
+        duration: Date.now() - startTime,
+      });
+      if (session?.inTransaction()) {
+        await session.abortTransaction();
+      }
+      next(error);
+    } finally {
+      if (session) {
+        session.endSession();
+      }
     }
-    next(error);
-  } finally {
-    if (session) {
-      session.endSession();
-    }
-  }
-};
+  };
 
 export const updateTitle = async (
   req: AuthenticatedUserRequest,
@@ -1737,7 +1734,7 @@ export const unarchiveConversation = async (
       updatedConversation = await performUnarchiveConversation(session);
       await session.commitTransaction();
     } else {
-      await performUnarchiveConversation();
+      updatedConversation = await performUnarchiveConversation();
     }
 
     // Prepare response
@@ -1873,6 +1870,102 @@ export const listAllArchivesConversation = async (
     logger.error('Error fetching archived conversations', {
       requestId,
       message: 'Error fetching archived conversations',
+      error: error.message,
+    });
+    next(error);
+  }
+};
+
+export const enterpriseSemanticSearch =
+  (appConfig: AppConfig) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    const requestId = req.context?.requestId;
+    const aiBackendUrl = appConfig.aiBackend;
+    const orgId = req.user?.orgId;
+    const userId = req.user?.userId;
+    try {
+      const { query, limit } = req.body;
+
+      const aiCommand = new AIServiceCommand({
+        uri: `${aiBackendUrl}/api/v1/search`,
+        method: HttpMethod.POST,
+        headers: req.headers as Record<string, string>,
+        body: { query, limit },
+      });
+
+      const aiResponse = (await aiCommand.execute()) as AIServiceResponse<
+        ICitation[]
+      >;
+
+      if (!aiResponse || aiResponse.statusCode !== 200 || !aiResponse.data) {
+        throw new InternalServerError(
+          'Failed to get response from AI service',
+          aiResponse?.data,
+        );
+      }
+
+      const results = aiResponse.data;
+      // save the citations to the citations collection
+      const citationIds = await Promise.all(
+        results.map(async (result: ICitation) => {
+          const citationDoc = new Citation({
+            content: result.content,
+            recordIndex: result.metadata.recordIndex ?? 0, // fallback to 0 if not present
+            citationType: result.citationType,
+            metadata: result.metadata,
+          });
+
+          const savedCitation = await citationDoc.save();
+          return savedCitation._id;
+        }),
+      );
+
+      // Save the entire search operation as a single document
+      const searchRecord = await new EnterpriseSemanticSearch({
+        query,
+        limit,
+        orgId,
+        userId,
+        citationIds,
+      }).save();
+
+      logger.debug('Saved search operation', {
+        requestId,
+        searchId: searchRecord._id,
+        resultCount: Array.isArray(aiResponse.data)
+          ? aiResponse.data.length
+          : 1,
+      });
+
+      // Return the response
+      res.status(HTTP_STATUS.OK).json(aiResponse.data);
+    } catch (error: any) {
+      logger.error('Error searching query', {
+        requestId,
+        message: 'Error searching query',
+        error: error.message,
+      });
+      next(error);
+    }
+  };
+
+export const searchHistory = async (
+  req: AuthenticatedUserRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  const requestId = req.context?.requestId;
+  //const startTime = Date.now();
+  // TODO: Implement search history
+  try {
+    //const { limit } = req.params;
+    res
+      .status(HTTP_STATUS.OK)
+      .json({ message: 'Search history fetched successfully' });
+  } catch (error: any) {
+    logger.error('Error searching history', {
+      requestId,
+      message: 'Error searching history',
       error: error.message,
     });
     next(error);

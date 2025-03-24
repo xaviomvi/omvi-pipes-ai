@@ -1,5 +1,4 @@
 import { Document, Types, Model } from 'mongoose';
-import { ICitationData, ICitationDocument } from '../citations/citations.interface';
 import { ConfidenceLevel } from '../constants/constants';
 import mongoose from 'mongoose';
 

@@ -14,6 +14,7 @@ export interface AppConfig {
   iamBackend: string;
   authUrl: string;
   cmUrl: string;
+  aiBackend: string;
   kafka: {
     brokers: string[];
     sasl?: {
@@ -83,7 +84,7 @@ export const loadAppConfig = async (): Promise<AppConfig> => {
     iamBackend: commonBackendUrl,
     authUrl: commonBackendUrl,
     cmUrl: commonBackendUrl,
-
+    aiBackend: await configService.getAiBackendUrl(),
     kafka: await configService.getKafkaConfig(),
     redis: await configService.getRedisConfig(),
     arango: await configService.getArangoConfig(),

@@ -1,6 +1,5 @@
 import {
   AIServiceResponse,
-  IAIResponse,
 } from '../../../modules/enterprise_search/types/es_interfaces';
 import { HttpMethod } from '../../enums/http-methods.enum';
 import { Logger } from '../../services/logger.service';
@@ -18,8 +17,8 @@ const logger = Logger.getInstance({
   service: 'AIServiceCommand',
 });
 
-export class AIServiceCommand extends BaseCommand<
-  AIServiceResponse<IAIResponse>
+export class AIServiceCommand<T> extends BaseCommand<
+  AIServiceResponse<T>
 > {
   private method: HttpMethod;
   private body?: any;
@@ -31,7 +30,7 @@ export class AIServiceCommand extends BaseCommand<
     this.headers = this.sanitizeHeaders(options.headers!);
   }
   // Execute the HTTP request based on the provided options.
-  public async execute(): Promise<AIServiceResponse<IAIResponse>> {
+  public async execute(): Promise<AIServiceResponse<T>> {
     const url = this.buildUrl();
     const sanitizedHeaders = this.sanitizeHeaders(this.headers);
     const requestOptions: RequestInit = {
