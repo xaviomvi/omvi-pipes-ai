@@ -172,6 +172,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
     }
   };
 
+  // Update the handleNext function in ConfigurationStepper.tsx
   const handleNext = async (): Promise<void> => {
     // For LLM step, verify we have values before continuing
     if (activeStep === 0) {
@@ -196,14 +197,18 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         return;
       }
 
+      // If we already have storage values, just go to the next step
+      if (storageValues) {
+        setActiveStep(2);
+        return;
+      }
+
       // Otherwise, try to submit the form or skip
-      if (!storageValues) {
-        const storageFormSubmitted = await submitStorageForm();
-        if (!storageFormSubmitted) {
-          // Storage is not required, so skip if invalid
-          handleSkipStep('storage');
-          return;
-        }
+      const storageFormSubmitted = await submitStorageForm();
+      if (!storageFormSubmitted) {
+        // Storage is not required, so skip if invalid
+        handleSkipStep('storage');
+        return;
       }
       setActiveStep(2);
       return;
@@ -217,13 +222,17 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         return;
       }
 
+      // If we already have connector values, just go to the next step
+      if (connectorValues) {
+        setActiveStep(3);
+        return;
+      }
+
       // Otherwise, try to submit the form or skip
-      if (!connectorValues) {
-        const connectorFormSubmitted = await submitConnectorForm();
-        if (!connectorFormSubmitted) {
-          handleSkipStep('connector');
-          return;
-        }
+      const connectorFormSubmitted = await submitConnectorForm();
+      if (!connectorFormSubmitted) {
+        handleSkipStep('connector');
+        return;
       }
       setActiveStep(3);
     }
@@ -750,33 +759,20 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
 
     return (
       <>
-        {/* Show "Skip Configuration" on the last step, and Cancel only in steps after LLM config */}
-        {activeStep === 3 ? (
-          <Button
-            onClick={handleSkipConfiguration}
-            disabled={isSubmitting}
-            sx={{ mr: 1 }}
-            color="inherit"
-          >
-            Skip Configuration
+        {/* Cancel button - only show after first step */}
+        {activeStep > 0 && (
+          <Button onClick={handleCloseWithStatus} disabled={isSubmitting} sx={{ mr: 1 }}>
+            Cancel
           </Button>
-        ) : (
-          // Only show Cancel button after the first step (LLM configuration)
-          activeStep > 0 && (
-            <Button onClick={handleCloseWithStatus} disabled={isSubmitting} sx={{ mr: 1 }}>
-              Cancel
-            </Button>
-          )
         )}
-
+        {/* Back button - only show if not on first step */}
         {activeStep > 0 && (
           <Button onClick={handleBack} disabled={isSubmitting} sx={{ mr: 1 }}>
             Back
           </Button>
         )}
-
-        {/* Show Skip button for all steps except LLM */}
-        {activeStep > 0 && activeStep < steps.length && (
+        {/* Skip button - only show for intermediate steps (not first, not last) */}
+        {activeStep > 0 && activeStep < steps.length - 1 && (
           <Button
             color="inherit"
             onClick={() => {
@@ -786,9 +782,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
                   break;
                 case 2:
                   handleSkipStep('connector');
-                  break;
-                case 3:
-                  handleSkipStep('smtp');
                   break;
                 default:
                   break;
@@ -800,7 +793,17 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             Skip
           </Button>
         )}
-
+        {/* Skip button for last step - changed to "Skip SMTP" for clarity */}
+        {activeStep === steps.length - 1 && (
+          <Button
+            color="inherit"
+            onClick={() => handleSkipStep('smtp')}
+            disabled={isSubmitting}
+            sx={{ mr: 1 }}
+          >
+            Skip SMTP
+          </Button>
+        )}
         {/* Primary action button */}
         <Button
           variant="contained"
@@ -808,7 +811,12 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           onClick={async () => {
             switch (activeStep) {
               case 0: {
-                // LLM
+                // If we already have LLM values, just move to the next step
+                if (llmValues) {
+                  setActiveStep(1);
+                  return;
+                }
+                // Otherwise, try to submit the LLM form
                 const llmSuccess = await submitLlmForm();
                 if (!llmSuccess) {
                   setSubmissionError('LLM configuration is required.');
@@ -816,7 +824,12 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
                 break;
               }
               case 1: {
-                // Storage
+                // If we already have storage values or it's marked as skipped, just move to the next step
+                if (storageValues || skipSteps.storage) {
+                  setActiveStep(2);
+                  return;
+                }
+                // Otherwise, try to submit the storage form
                 const storageSuccess = await submitStorageForm();
                 if (!storageSuccess) {
                   // If form validation fails, skip this step
@@ -825,7 +838,12 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
                 break;
               }
               case 2: {
-                // Connector
+                // If we already have connector values or it's marked as skipped, just move to the next step
+                if (connectorValues || skipSteps.connector) {
+                  setActiveStep(3);
+                  return;
+                }
+                // Otherwise, try to submit the connector form
                 const connectorSuccess = await submitConnectorForm();
                 if (!connectorSuccess) {
                   // If form validation fails, skip this step
@@ -834,7 +852,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
                 break;
               }
               case 3: {
-                // SMTP
+                // SMTP form - final step
                 handleManualSubmit();
                 break;
               }
@@ -890,23 +908,28 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       if (!skipSteps.smtp) {
         try {
           if (typeof (window as any).submitSmtpForm === 'function') {
-            const isValid = (window as any).submitSmtpForm();
+            // IMPORTANT: The submitSmtpForm function is async but was being called without await
+            // This was causing the promise to be treated as truthy even when it would eventually resolve to false
+            const isValid = await Promise.resolve((window as any).submitSmtpForm());
 
-            // If form is invalid, skip this step since LLM is already configured
-            if (!isValid) {
-              // Mark SMTP as skipped since we can't validate it
+            if (isValid === false) {
+              // If form is invalid, skip this step since LLM is already configured
               setSkipSteps((prev) => ({ ...prev, smtp: true }));
               // Submit all configurations without SMTP
               await submitAllConfigurations();
             } else {
-              // If SMTP form is valid, it already called onSubmit which will call submitAllConfigurations
+              // If SMTP form is valid or empty (returned true),
+              // the submit handler sets smtpValues, so we just need to submit all configs
+              await submitAllConfigurations();
             }
           } else {
             // Fallback: No submitSmtpForm method, but we can proceed with LLM
+            console.warn('submitSmtpForm method not found, skipping SMTP config');
             setSkipSteps((prev) => ({ ...prev, smtp: true }));
             await submitAllConfigurations();
           }
         } catch (error) {
+          console.error('Error in SMTP validation:', error);
           // We can proceed without SMTP since LLM is configured
           setSkipSteps((prev) => ({ ...prev, smtp: true }));
           await submitAllConfigurations();
@@ -918,7 +941,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       await submitAllConfigurations();
     }
   };
-
   return (
     <Dialog
       open={open}

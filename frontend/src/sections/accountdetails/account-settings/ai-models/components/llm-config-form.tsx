@@ -78,7 +78,10 @@ const openaiSchema = z.object({
 // Zod schema for Azure OpenAI validation
 const azureSchema = z.object({
   modelType: z.literal('azure'),
-  endpoint: z.string().min(1, 'Endpoint is required').startsWith('https://', 'Endpoint must start with https://'),
+  endpoint: z
+    .string()
+    .min(1, 'Endpoint is required')
+    .startsWith('https://', 'Endpoint must start with https://'),
   apiKey: z.string().min(1, 'API Key is required'),
   deploymentName: z.string().min(1, 'Deployment Name is required'),
   model: z.string().min(1, 'Model is required'),
@@ -92,13 +95,13 @@ const getLlmConfig = async (): Promise<LlmFormValues | null> => {
   try {
     const response = await axios.get('/api/v1/configurationManager/aiModelsConfig');
     const { data } = response;
-    
+
     // Check if LLM configuration exists
     if (data.llm && data.llm.length > 0) {
       const config = data.llm[0].configuration;
       return config;
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error fetching LLM configuration:', error);
@@ -111,20 +114,23 @@ const updateLlmConfig = async (config: LlmFormValues, provider = 'OpenAI'): Prom
     // First get the current configuration
     const response = await axios.get('/api/v1/configurationManager/aiModelsConfig');
     const currentConfig = response.data;
-    
+
     // Create the updated config object
     const updatedConfig = {
       ...currentConfig,
       llm: [
         {
           name: provider,
-          configuration: config
-        }
-      ]
+          configuration: config,
+        },
+      ],
     };
-    
+
     // Update the configuration
-    const updateResponse = await axios.post('/api/v1/configurationManager/aiModelsConfig', updatedConfig);
+    const updateResponse = await axios.post(
+      '/api/v1/configurationManager/aiModelsConfig',
+      updatedConfig
+    );
     return updateResponse;
   } catch (error) {
     console.error('Error updating LLM configuration:', error);
@@ -142,7 +148,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
     const [isEditing, setIsEditing] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [formSubmitSuccess, setFormSubmitSuccess] = useState(false);
-    
+
     const [modelType, setModelType] = useState<'openai' | 'azure'>(
       provider === 'Azure OpenAI' ? 'azure' : 'openai'
     );
@@ -207,7 +213,8 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
         setIsEditing(false);
         setFormSubmitSuccess(true);
       } catch (error) {
-        const errorMessage = error.response?.data?.message || 'Failed to save Azure OpenAI configuration';
+        const errorMessage =
+          error.response?.data?.message || 'Failed to save Azure OpenAI configuration';
         setSaveError(errorMessage);
         console.error('Error saving Azure OpenAI configuration:', error);
         setFormSubmitSuccess(false);
@@ -221,7 +228,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
           setIsSaving(true);
           setSaveError(null);
           setFormSubmitSuccess(false);
-          
+
           if (modelType === 'openai') {
             // This executes the form submission
             handleOpenAISubmit(onOpenAISubmit)();
@@ -229,29 +236,28 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
             // This executes the form submission
             handleAzureSubmit(onAzureSubmit)();
           }
-          
+
           // Wait for a short time to allow the form submission to complete
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
           // Check if there was an error during submission
           if (saveError) {
             setIsSaving(false);
-            return { 
-              success: false, 
-              error: saveError 
+            return {
+              success: false,
+              error: saveError,
             };
           }
-          
+
           // If we got here, the submission was successful
           setIsSaving(false);
           return { success: true };
-          
         } catch (error) {
           setIsSaving(false);
           console.error('Error in handleSave:', error);
           return {
             success: false,
-            error: 'Unexpected error occurred during save operation'
+            error: 'Unexpected error occurred during save operation',
           };
         }
       },
@@ -263,25 +269,29 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
         setIsLoading(true);
         try {
           const config = await getLlmConfig();
-          
+
           if (config) {
             // Set the model type based on the configuration
-            setModelType(config.modelType || 'openai');
-            
+            if (config.modelType) {
+              setModelType(config.modelType);
+            }
+
             // Reset the appropriate form based on the model type
-            if (config.modelType === 'openai') {
-              resetOpenAI({
-                modelType: 'openai',
-                clientId: config.clientId || '',
-                apiKey: config.apiKey || '',
-                model: config.model || '',
-              });
-            } else if (config.modelType === 'azure') {
+            if (config.modelType === 'azure') {
+              // For Azure configuration
               resetAzure({
                 modelType: 'azure',
                 endpoint: config.endpoint || '',
                 apiKey: config.apiKey || '',
                 deploymentName: config.deploymentName || '',
+                model: config.model || '',
+              });
+            } else {
+              // Default to OpenAI configuration
+              resetOpenAI({
+                modelType: 'openai',
+                clientId: config.clientId || '',
+                apiKey: config.apiKey || '',
                 model: config.model || '',
               });
             }
@@ -303,9 +313,11 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
         const timer = setTimeout(() => {
           setSaveError(null);
         }, 5000);
-        
         return () => clearTimeout(timer);
       }
+
+      // Add an explicit return for when saveError is falsy
+      return undefined; // or return () => {}; for an empty cleanup function
     }, [saveError]);
 
     // Notify parent of validation status
@@ -326,22 +338,25 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
         // Cancel edit - reload current data
         getLlmConfig().then((config) => {
           if (config) {
-            setModelType(config.modelType || 'openai');
-            
-            // Reset the appropriate form
-            if (config.modelType === 'openai') {
-              resetOpenAI({
-                modelType: 'openai',
-                clientId: config.clientId || '',
-                apiKey: config.apiKey || '',
-                model: config.model || '',
-              });
-            } else if (config.modelType === 'azure') {
+            // Make sure to set the model type correctly based on configuration
+            if (config.modelType) {
+              setModelType(config.modelType);
+            }
+
+            // Reset the appropriate form based on the model type
+            if (config.modelType === 'azure') {
               resetAzure({
                 modelType: 'azure',
                 endpoint: config.endpoint || '',
                 apiKey: config.apiKey || '',
                 deploymentName: config.deploymentName || '',
+                model: config.model || '',
+              });
+            } else {
+              resetOpenAI({
+                modelType: 'openai',
+                clientId: config.clientId || '',
+                apiKey: config.apiKey || '',
                 model: config.model || '',
               });
             }
@@ -399,7 +414,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
           <Box>
             <Typography variant="body2" color="text.secondary">
               Configure your LLM provider to enable AI capabilities in your application.
-              {modelType === 'azure' 
+              {modelType === 'azure'
                 ? ' You need an active Azure subscription with Azure OpenAI Service enabled.'
                 : ' Enter your OpenAI API credentials to get started.'}
             </Typography>
@@ -436,7 +451,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
               </Select>
             </FormControl>
           </Grid>
-          
+
           {/* OpenAI Form */}
           {modelType === 'openai' && (
             <>
@@ -472,7 +487,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                   )}
                 />
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <Controller
                   name="apiKey"
@@ -522,7 +537,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                   )}
                 />
               </Grid>
-              
+
               <Grid item xs={12}>
                 <Controller
                   name="model"
@@ -534,7 +549,9 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       fullWidth
                       size="small"
                       error={!!fieldState.error}
-                      helperText={fieldState.error?.message || 'e.g., gpt-4o, gpt-4-turbo, gpt-3.5-turbo'}
+                      helperText={
+                        fieldState.error?.message || 'e.g., gpt-4o, gpt-4-turbo, gpt-3.5-turbo'
+                      }
                       required
                       disabled={!isEditing}
                       InputProps={{
@@ -557,7 +574,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
               </Grid>
             </>
           )}
-          
+
           {/* Azure OpenAI Form */}
           {modelType === 'azure' && (
             <>
@@ -572,7 +589,9 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       fullWidth
                       size="small"
                       error={!!fieldState.error}
-                      helperText={fieldState.error?.message || 'e.g., https://your-resource.openai.azure.com/'}
+                      helperText={
+                        fieldState.error?.message || 'e.g., https://your-resource.openai.azure.com/'
+                      }
                       required
                       disabled={!isEditing}
                       InputProps={{
@@ -593,7 +612,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                   )}
                 />
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <Controller
                   name="deploymentName"
@@ -626,7 +645,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                   )}
                 />
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <Controller
                   name="apiKey"
@@ -676,7 +695,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                   )}
                 />
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <Controller
                   name="model"

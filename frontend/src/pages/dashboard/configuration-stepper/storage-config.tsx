@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -21,21 +21,21 @@ import {
 import { Iconify } from 'src/components/iconify';
 
 // Storage types enum
-const storageTypes = {
+export const storageTypes = {
   LOCAL: 'local',
   S3: 's3',
   AZURE_BLOB: 'azureBlob',
 } as const;
 
 // Type for storage type values
-type StorageType = typeof storageTypes[keyof typeof storageTypes];
+type StorageType = (typeof storageTypes)[keyof typeof storageTypes];
 
 // Base schema for all storage types
 const baseStorageSchema = z.object({
   storageType: z.enum([storageTypes.LOCAL, storageTypes.S3, storageTypes.AZURE_BLOB]),
 });
 
-// S3 specific schema
+// S3 specific schema - all fields required
 const s3ConfigSchema = baseStorageSchema.extend({
   storageType: z.literal(storageTypes.S3),
   s3AccessKeyId: z.string().min(1, { message: 'S3 access key ID is required' }),
@@ -44,21 +44,24 @@ const s3ConfigSchema = baseStorageSchema.extend({
   s3BucketName: z.string().min(1, { message: 'S3 bucket name is required' }),
 });
 
-// Azure Blob specific schema
+// Azure Blob specific schema - all required except endpointSuffix
 const azureBlobConfigSchema = baseStorageSchema.extend({
   storageType: z.literal(storageTypes.AZURE_BLOB),
-  endpointProtocol: z.enum(['http', 'https']).optional().default('https'),
+  endpointProtocol: z.enum(['http', 'https']).default('https'),
   accountName: z.string().min(1, { message: 'Azure account name is required' }),
   accountKey: z.string().min(1, { message: 'Azure account key is required' }),
-  endpointSuffix: z.string().min(1, { message: 'Azure endpoint suffix is required' }).optional().default('core.windows.net'),
+  endpointSuffix: z.string().optional().default('core.windows.net'),
   containerName: z.string().min(1, { message: 'Azure container name is required' }),
 });
 
-// Local storage specific schema
+// Local storage specific schema - all fields optional
 const localConfigSchema = baseStorageSchema.extend({
   storageType: z.literal(storageTypes.LOCAL),
   mountName: z.string().optional(),
-  baseUrl: z.string().url().optional(),
+  // Allow empty string (optional) or valid URL
+  baseUrl: z
+    .union([z.string().url({ message: 'Must be a valid URL' }), z.string().max(0)])
+    .optional(),
 });
 
 // Combined schema using discriminated union based on storageType
@@ -90,7 +93,9 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
   initialValues,
 }) => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  
+  const [showValidationWarning, setShowValidationWarning] = useState<boolean>(false);
+  const [validationAttempted, setValidationAttempted] = useState<boolean>(false);
+
   // Get the default values based on the storage type
   const getDefaultValues = (): StorageFormValues => {
     if (!initialValues) {
@@ -101,8 +106,8 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
         baseUrl: '',
       } as LocalConfig;
     }
-    
-    // If initialValues are provided, use them directly since they should already be typed correctly
+
+    // If initialValues are provided, use them directly
     return initialValues;
   };
 
@@ -112,25 +117,83 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
     reset,
     watch,
     getValues,
-    formState: { errors, isValid },
+    formState: { errors, isValid, dirtyFields, isDirty },
+    trigger,
+    setValue,
   } = useForm<StorageFormValues>({
     resolver: zodResolver(storageSchema),
-    mode: 'onChange',
+    mode: 'onChange', // We'll control when to show errors
     defaultValues: getDefaultValues(),
   });
 
   // Watch the storageType to conditionally render fields
   const storageType = watch('storageType');
+  const formValues = watch();
+
+  // Check if the form has any values filled - wrapped in useCallback
+  const hasAnyFieldFilled = useCallback((): boolean => {
+    if (storageType === storageTypes.S3) {
+      const values = formValues as S3Config;
+      return !!(
+        (values.s3AccessKeyId && values.s3AccessKeyId.trim()) ||
+        (values.s3SecretAccessKey && values.s3SecretAccessKey.trim()) ||
+        (values.s3Region && values.s3Region.trim()) ||
+        (values.s3BucketName && values.s3BucketName.trim())
+      );
+    }
+
+    if (storageType === storageTypes.AZURE_BLOB) {
+      const values = formValues as AzureBlobConfig;
+      return !!(
+        (values.accountName && values.accountName.trim()) ||
+        (values.accountKey && values.accountKey.trim()) ||
+        (values.containerName && values.containerName.trim()) ||
+        (values.endpointSuffix && values.endpointSuffix !== 'core.windows.net')
+      );
+    }
+
+    return false;
+  }, [storageType, formValues]);
+
+  // Check if the form has all required fields filled - wrapped in useCallback
+  const hasAllRequiredFieldsFilled = useCallback(async (): Promise<boolean> => {
+    // Local storage is always valid
+    if (storageType === storageTypes.LOCAL) {
+      return true;
+    }
+
+    // For S3 and Azure, check if all required fields are filled
+    const isFormValid = await trigger();
+    return isFormValid;
+  }, [storageType, trigger]);
+
+  // Determine if the form is partially filled
+  const isPartiallyFilled = (): boolean => {
+    // If the form is not dirty or no validation attempted, it's not partially filled
+    if (!isDirty || !validationAttempted) {
+      return false;
+    }
+
+    // Local storage is always valid
+    if (storageType === storageTypes.LOCAL) {
+      return false;
+    }
+
+    // Form is partially filled if it has any fields filled but isn't valid
+    return hasAnyFieldFilled() && !isValid;
+  };
 
   // Reset form with proper default values when storage type changes
   useEffect(() => {
     const subscription = watch((value, { name }) => {
       if (name === 'storageType' && value.storageType) {
         const type = value.storageType;
-        
+        setValidationAttempted(false);
+        setShowValidationWarning(false);
+
         // Create a new form state based on the selected storage type
         let newValues: StorageFormValues;
-        
+
         switch (type) {
           case storageTypes.S3:
             newValues = {
@@ -141,7 +204,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
               s3BucketName: '',
             } as S3Config;
             break;
-            
+
           case storageTypes.AZURE_BLOB:
             newValues = {
               storageType: storageTypes.AZURE_BLOB,
@@ -152,7 +215,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
               containerName: '',
             } as AzureBlobConfig;
             break;
-            
+
           default:
             newValues = {
               storageType: storageTypes.LOCAL,
@@ -161,11 +224,11 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
             } as LocalConfig;
             break;
         }
-        
+
         reset(newValues);
       }
     });
-    
+
     return () => subscription.unsubscribe();
   }, [watch, reset]);
 
@@ -178,12 +241,34 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
 
   // Expose submit method to parent component
   useEffect(() => {
-    (window as any).submitStorageForm = () => {
-      if (isValid) {
+    (window as any).submitStorageForm = async () => {
+      setValidationAttempted(true);
+
+      // For LOCAL storage, always allow (it's valid even when empty)
+      if (storageType === storageTypes.LOCAL) {
         handleSubmit(onSubmit)();
         return true;
       }
-      return false;
+
+      // Check if any fields are filled
+      const hasFilledFields = hasAnyFieldFilled();
+
+      if (hasFilledFields) {
+        // If any fields are filled, all required fields must be filled
+        const allFieldsFilled = await hasAllRequiredFieldsFilled();
+
+        if (!allFieldsFilled) {
+          setShowValidationWarning(true);
+          return false;
+        }
+
+        // All required fields are filled, submit the form
+        handleSubmit(onSubmit)();
+        return true;
+      }
+      // No fields are filled, can skip (return valid)
+      handleSubmit(onSubmit)();
+      return true;
     };
 
     // Also expose a method to get the current values
@@ -193,7 +278,14 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
       delete (window as any).submitStorageForm;
       delete (window as any).getStorageFormValues;
     };
-  }, [isValid, handleSubmit, onSubmit, getValues]);
+  }, [
+    handleSubmit,
+    onSubmit,
+    getValues,
+    storageType,
+    hasAnyFieldFilled,
+    hasAllRequiredFieldsFilled,
+  ]);
 
   return (
     <Box component="form" id="storage-config-form" onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -211,21 +303,34 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
             name="storageType"
             control={control}
             render={({ field, fieldState }) => (
-              <FormControl fullWidth size="small" error={!!fieldState.error}>
+              <FormControl fullWidth size="small" error={validationAttempted && !!fieldState.error}>
                 <InputLabel>Storage Type</InputLabel>
-                <Select
-                  {...field}
-                  label="Storage Type"
-                >
+                <Select {...field} label="Storage Type">
                   <MenuItem value={storageTypes.LOCAL}>Local Storage</MenuItem>
                   <MenuItem value={storageTypes.S3}>Amazon S3</MenuItem>
                   <MenuItem value={storageTypes.AZURE_BLOB}>Azure Blob Storage</MenuItem>
                 </Select>
-                {fieldState.error && <FormHelperText>{fieldState.error.message}</FormHelperText>}
+                {validationAttempted && fieldState.error && (
+                  <FormHelperText>{fieldState.error.message}</FormHelperText>
+                )}
               </FormControl>
             )}
           />
         </Grid>
+
+        {/* Warning for partially filled forms */}
+        {showValidationWarning && isPartiallyFilled() && (
+          <Grid item xs={12}>
+            <Alert
+              severity="warning"
+              sx={{ mb: 1 }}
+              onClose={() => setShowValidationWarning(false)}
+            >
+              Please complete all required fields or skip this step. Partial configuration is not
+              allowed.
+            </Alert>
+          </Grid>
+        )}
 
         {/* S3 specific fields */}
         {storageType === storageTypes.S3 && (
@@ -240,8 +345,9 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     label="Access Key ID"
                     fullWidth
                     size="small"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
+                    required
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={validationAttempted && fieldState.error?.message}
                   />
                 )}
               />
@@ -256,9 +362,10 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     label="Secret Access Key"
                     fullWidth
                     size="small"
+                    required
                     type={showPassword ? 'text' : 'password'}
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={validationAttempted && fieldState.error?.message}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -290,8 +397,9 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     label="Region"
                     fullWidth
                     size="small"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
+                    required
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={validationAttempted && fieldState.error?.message}
                   />
                 )}
               />
@@ -306,8 +414,9 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     label="Bucket Name"
                     fullWidth
                     size="small"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
+                    required
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={validationAttempted && fieldState.error?.message}
                   />
                 )}
               />
@@ -328,8 +437,9 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     label="Account Name"
                     fullWidth
                     size="small"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
+                    required
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={validationAttempted && fieldState.error?.message}
                   />
                 )}
               />
@@ -344,8 +454,9 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     label="Container Name"
                     fullWidth
                     size="small"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
+                    required
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={validationAttempted && fieldState.error?.message}
                   />
                 )}
               />
@@ -360,9 +471,10 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     label="Account Key"
                     fullWidth
                     size="small"
+                    required
                     type={showPassword ? 'text' : 'password'}
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={validationAttempted && fieldState.error?.message}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -389,16 +501,19 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                 name="endpointProtocol"
                 control={control}
                 render={({ field, fieldState }) => (
-                  <FormControl fullWidth size="small" error={!!fieldState.error}>
+                  <FormControl
+                    fullWidth
+                    size="small"
+                    error={validationAttempted && !!fieldState.error}
+                  >
                     <InputLabel>Protocol</InputLabel>
-                    <Select
-                      {...field}
-                      label="Protocol"
-                    >
+                    <Select {...field} label="Protocol">
                       <MenuItem value="https">HTTPS</MenuItem>
                       <MenuItem value="http">HTTP</MenuItem>
                     </Select>
-                    {fieldState.error && <FormHelperText>{fieldState.error.message}</FormHelperText>}
+                    {validationAttempted && fieldState.error && (
+                      <FormHelperText>{fieldState.error.message}</FormHelperText>
+                    )}
                   </FormControl>
                 )}
               />
@@ -410,11 +525,13 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                 render={({ field, fieldState }) => (
                   <TextField
                     {...field}
-                    label="Endpoint Suffix"
+                    label="Endpoint Suffix (Optional)"
                     fullWidth
                     size="small"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message || 'e.g., core.windows.net'}
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={
+                      (validationAttempted && fieldState.error?.message) || 'e.g., core.windows.net'
+                    }
                   />
                 )}
               />
@@ -440,8 +557,8 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     label="Mount Name (Optional)"
                     fullWidth
                     size="small"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={validationAttempted && fieldState.error?.message}
                   />
                 )}
               />
@@ -456,8 +573,19 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     label="Base URL (Optional)"
                     fullWidth
                     size="small"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message || 'e.g., http://localhost:3000/files'}
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={
+                      (validationAttempted && fieldState.error?.message) ||
+                      'e.g., http://localhost:3000/files'
+                    }
+                    onChange={(e) => {
+                      // Handle empty string specially for optional URL
+                      if (e.target.value.trim() === '') {
+                        setValue('baseUrl', '', { shouldValidate: true });
+                      } else {
+                        field.onChange(e);
+                      }
+                    }}
                   />
                 )}
               />

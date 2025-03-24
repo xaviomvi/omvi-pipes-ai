@@ -124,7 +124,7 @@ const AiModelsSettings = () => {
           `${currentModel ? getModelTitle(currentModel) : 'AI model'} configuration updated successfully`
         );
         setSuccess(true);
-        
+
         // Refresh models after successful configuration
         fetchAiModelsConfig();
       }
@@ -134,7 +134,7 @@ const AiModelsSettings = () => {
         `${currentModel ? getModelTitle(currentModel) : 'AI model'} configuration updated successfully`
       );
       setSuccess(true);
-      
+
       // Refresh models after successful configuration
       fetchAiModelsConfig();
     }
@@ -144,21 +144,20 @@ const AiModelsSettings = () => {
   };
 
   // Helper to get model title for success message
-  const getModelTitle = (modelType: string): string => {
-    return MODEL_TYPE_NAMES[modelType] || modelType.toUpperCase();
-  };
+  const getModelTitle = (modelType: string): string =>
+    MODEL_TYPE_NAMES[modelType] || modelType.toUpperCase();
 
   // Get appropriate color for model type
   const getModelColor = (modelType: string): string => {
     const colors: Record<string, string> = {
-      llm: '#4CAF50',     // Green
-      ocr: '#2196F3',     // Blue
+      llm: '#4CAF50', // Green
+      ocr: '#2196F3', // Blue
       embedding: '#9C27B0', // Purple
-      slm: '#FF9800',     // Orange
+      slm: '#FF9800', // Orange
       reasoning: '#E91E63', // Pink
-      multiModal: '#673AB7' // Deep Purple
+      multiModal: '#673AB7', // Deep Purple
     };
-    
+
     return colors[modelType] || theme.palette.primary.main;
   };
 
@@ -173,7 +172,7 @@ const AiModelsSettings = () => {
           boxShadow: (themeShadow) => `0 2px 20px ${alpha(themeShadow.palette.grey[500], 0.15)}`,
           border: '1px solid',
           borderColor: 'divider',
-          mt:4,
+          mt: 4,
         }}
       >
         {/* Header section */}
@@ -209,7 +208,8 @@ const AiModelsSettings = () => {
         <Grid container spacing={2} mb={4}>
           {aiModels.map((model) => {
             const displayName = MODEL_TYPE_NAMES[model.type] || model.type.toUpperCase();
-            const description = MODEL_TYPE_DESCRIPTIONS[model.type] || 'AI model for advanced capabilities';
+            const description =
+              MODEL_TYPE_DESCRIPTIONS[model.type] || 'AI model for advanced capabilities';
             const icon = MODEL_TYPE_ICONS[model.type] || 'mdi:robot';
             const color = getModelColor(model.type);
             const configCount = model.configurations.length;
@@ -245,7 +245,7 @@ const AiModelsSettings = () => {
                         justifyContent: 'center',
                         mr: 2,
                         bgcolor: alpha(color, 0.1),
-                        color: color,
+                        color,
                         borderRadius: 1.5,
                       }}
                     >
