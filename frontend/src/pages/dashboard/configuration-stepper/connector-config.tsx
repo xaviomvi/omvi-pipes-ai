@@ -29,7 +29,7 @@ import { Iconify } from 'src/components/iconify';
 import { useAuthContext } from 'src/auth/hooks';
 import type { ConnectorFormValues } from './types';
 
-// Schemas remain unchanged
+// Updated schema for business accounts to include admin email field
 const businessConnectorSchema = z.object({
   googleWorkspace: z.object({
     serviceCredentials: z.string().min(1, 'Service credentials are required'),
@@ -37,6 +37,7 @@ const businessConnectorSchema = z.object({
     clientEmail: z.string().optional(),
     privateKey: z.string().optional(),
     projectId: z.string().optional(),
+    adminEmail: z.string().email('Invalid email address').min(1, 'Admin email is required'),
   }),
 });
 
@@ -77,6 +78,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   const [credentialsError, setCredentialsError] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [formPartiallyFilled, setFormPartiallyFilled] = useState<boolean>(false);
 
   // Form for business accounts (file upload with extracted fields)
   const businessForm = useForm<any>({
@@ -89,6 +91,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         clientEmail: '',
         privateKey: '',
         projectId: '',
+        adminEmail: '',
       },
     },
   });
@@ -107,10 +110,35 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   });
 
   // Determine which form to use based on account type
-  const { handleSubmit, formState, control } =
+  const { handleSubmit, formState, control, watch } =
     accountType === 'business' ? businessForm : individualForm;
 
-  const { isValid } = formState;
+  const { isValid, errors } = formState;
+
+  // Watch form fields to determine if partially filled
+  const formValues = watch();
+
+  // Check if the form is partially filled but not completely valid
+  useEffect(() => {
+    if (accountType === 'business') {
+      const values = formValues.googleWorkspace;
+      // Check if any field has a value but the form isn't valid
+      const hasAnyValue =
+        (values.adminEmail && values.adminEmail.trim() !== '') || serviceCredentialsFile !== null;
+
+      setFormPartiallyFilled(hasAnyValue && !isValid);
+    } else {
+      const values = formValues.googleWorkspace;
+      // Check if any field has a value but the form isn't valid
+      const hasAnyValue =
+        (values.clientId && values.clientId.trim() !== '') ||
+        (values.clientSecret && values.clientSecret.trim() !== '') ||
+        (values.redirectUri &&
+          values.redirectUri !== 'http://localhost:3001/account/individual/settings/connector');
+
+      setFormPartiallyFilled(hasAnyValue && !isValid);
+    }
+  }, [formValues, isValid, accountType, serviceCredentialsFile]);
 
   // Initialize form with initial values and file if available
   useEffect(() => {
@@ -242,8 +270,14 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   // Expose submit method to parent component
   useEffect(() => {
     (window as any).submitConnectorForm = () => {
+      if (formPartiallyFilled) {
+        // Don't allow submission if the form is partially filled but not valid
+        setMessage('Please complete all required fields or skip this step');
+        return false;
+      }
+
       if (accountType === 'business') {
-        // Business accounts require file upload
+        // Business accounts require file upload and admin email
         if (isValid && serviceCredentialsFile && parsedJsonData) {
           handleSubmit((data) => {
             onSubmit(data, serviceCredentialsFile);
@@ -253,7 +287,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         return false;
       }
 
-      // Individual accounts can now submit even without a file
+      // Individual accounts can now submit only if fully valid
       if (isValid) {
         handleSubmit((data) => {
           onSubmit(data, serviceCredentialsFile);
@@ -266,7 +300,16 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     return () => {
       delete (window as any).submitConnectorForm;
     };
-  }, [accountType, isValid, serviceCredentialsFile, handleSubmit, onSubmit, parsedJsonData]);
+  }, [
+    accountType,
+    isValid,
+    serviceCredentialsFile,
+    handleSubmit,
+    onSubmit,
+    parsedJsonData,
+    formPartiallyFilled,
+    setMessage,
+  ]);
 
   // Validate file type using both extension and MIME type
   const validateFileType = useCallback((file: File): boolean => {
@@ -380,6 +423,11 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
 
   const handleFormSubmit = useCallback(
     (data: any) => {
+      if (formPartiallyFilled) {
+        setMessage('Please complete all required fields or skip this step');
+        return;
+      }
+
       if (accountType === 'business') {
         if (serviceCredentialsFile && parsedJsonData) {
           onSubmit(data, serviceCredentialsFile);
@@ -389,7 +437,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         onSubmit(data, serviceCredentialsFile);
       }
     },
-    [accountType, onSubmit, serviceCredentialsFile, parsedJsonData]
+    [accountType, onSubmit, serviceCredentialsFile, parsedJsonData, formPartiallyFilled, setMessage]
   );
 
   // Drag and drop handlers
@@ -513,11 +561,17 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         backdropFilter: 'blur(8px)',
         borderRadius: 3,
         overflow: 'hidden',
-        ...scrollableContainerStyle
+        ...scrollableContainerStyle,
       }}
     >
       <Box
-        sx={{ p: { xs: 2.5, sm: 3.5, ...scrollableContainerStyle }, pb: { xs: 2.5, sm: 3.5 }, height: '100%', overflow: 'auto' }}
+        sx={{
+          p: { xs: 2.5, sm: 3.5 },
+          pb: { xs: 2.5, sm: 3.5 },
+          height: '100%',
+          overflow: 'auto',
+          ...scrollableContainerStyle,
+        }}
       >
         {/* Header with logo */}
         <Stack direction="row" spacing={2.5} alignItems="center" sx={{ mb: 3.5 }}>
@@ -547,13 +601,59 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, opacity: 0.85 }}>
               {accountType === 'business'
-                ? 'Upload your service account credentials'
+                ? 'Upload your service account credentials and set admin email'
                 : 'Configure your OAuth credentials'}
             </Typography>
           </Box>
         </Stack>
 
-        {/* Individual account form fields - improved styling */}
+        {/* Business account admin email field */}
+        {accountType === 'business' && (
+          <Stack spacing={2.5} sx={{ mb: 3 }}>
+            <Controller
+              name="googleWorkspace.adminEmail"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Admin Email Address"
+                  placeholder="e.g., admin@yourdomain.com"
+                  fullWidth
+                  size="small"
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Iconify
+                          icon="ri:mail-line"
+                          width={20}
+                          height={20}
+                          sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
+                        />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.background.paper, 0.6),
+                      transition: theme.transitions.create(['box-shadow', 'background-color']),
+                      '&:hover': {
+                        bgcolor: theme.palette.background.paper,
+                      },
+                      '&.Mui-focused': {
+                        boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                      },
+                    },
+                  }}
+                />
+              )}
+            />
+          </Stack>
+        )}
+
+        {/* Individual account form fields */}
         {accountType === 'individual' && (
           <Stack spacing={2.5} sx={{ mb: 4 }}>
             <Controller
@@ -681,7 +781,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
           </Stack>
         )}
 
-        {/* File Upload UI - Business accounts get file only, individual accounts get it as an option */}
+        {/* File Upload UI */}
         <Box sx={{ mt: 0, mb: 2, flexGrow: 1 }}>
           {accountType === 'individual' && (
             <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3.5 }}>
@@ -929,6 +1029,36 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
           </Tooltip>
         </Box>
 
+        {/* Warning for partially filled forms */}
+        {formPartiallyFilled && (
+          <Box
+            sx={{
+              mb: 2,
+              p: 2,
+              borderRadius: '10px',
+              background: `linear-gradient(135deg, ${alpha(theme.palette.warning.light, 0.08)}, ${alpha(
+                theme.palette.warning.main,
+                0.08
+              )})`,
+              borderLeft: `4px solid ${theme.palette.warning.main}`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              boxShadow: `0 2px 8px ${alpha(theme.palette.warning.main, 0.1)}`,
+            }}
+          >
+            <Iconify
+              icon="ri:alert-line"
+              width={22}
+              height={22}
+              sx={{ color: theme.palette.warning.main, mt: 0.25, mr: 1.5, flexShrink: 0 }}
+            />
+            <Typography variant="body2" color="warning.main" sx={{ fontWeight: 500 }}>
+              Please complete all required fields or use the Skip button. Partial configuration is
+              not allowed.
+            </Typography>
+          </Box>
+        )}
+
         {credentialsError && (
           <Box
             sx={{
@@ -975,5 +1105,4 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     </Paper>
   );
 };
-
 export default ConnectorConfigStep;
