@@ -3,59 +3,55 @@ import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import {
-  Box,
-  Grid,
-  Alert,
-  TextField,
-  Typography,
-  IconButton,
-  InputAdornment,
-} from '@mui/material';
+import { Box, Grid, Alert, TextField, Typography, IconButton, InputAdornment } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
 
 import type { SmtpFormValues } from './types';
 
 // Very simple schema - all fields are optional by default
-const smtpSchema = z.object({
-  host: z.string().optional(),
-  port: z.number().optional().default(587),
-  username: z.string().optional(),
-  password: z.string().optional(),
-  fromEmail: z.string().optional(),
-}).superRefine((data, ctx) => {
-  // Only validate if any field has a value
-  const hasValues = data.host || (data.fromEmail && data.fromEmail.trim() !== '') || 
-                    (data.username && data.username.trim() !== '') || 
-                    (data.password && data.password.trim() !== '');
-  
-  if (hasValues) {
-    // Check host
-    if (!data.host || data.host.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "SMTP Host is required when configuring SMTP",
-        path: ["host"]
-      });
+const smtpSchema = z
+  .object({
+    host: z.string().optional(),
+    port: z.number().optional().default(587),
+    username: z.string().optional(),
+    password: z.string().optional(),
+    fromEmail: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    // Only validate if any field has a value
+    const hasValues =
+      data.host ||
+      (data.fromEmail && data.fromEmail.trim() !== '') ||
+      (data.username && data.username.trim() !== '') ||
+      (data.password && data.password.trim() !== '');
+
+    if (hasValues) {
+      // Check host
+      if (!data.host || data.host.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'SMTP Host is required when configuring SMTP',
+          path: ['host'],
+        });
+      }
+
+      // Check fromEmail
+      if (!data.fromEmail || data.fromEmail.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'From Email is required when configuring SMTP',
+          path: ['fromEmail'],
+        });
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.fromEmail)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Must be a valid email address',
+          path: ['fromEmail'],
+        });
+      }
     }
-    
-    // Check fromEmail
-    if (!data.fromEmail || data.fromEmail.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "From Email is required when configuring SMTP",
-        path: ["fromEmail"]
-      });
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.fromEmail)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Must be a valid email address",
-        path: ["fromEmail"]
-      });
-    }
-  }
-});
+  });
 
 interface SmtpConfigStepProps {
   onSubmit: (data: SmtpFormValues) => void;
@@ -73,7 +69,7 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showValidationWarning, setShowValidationWarning] = useState<boolean>(false);
   const [displayPort, setDisplayPort] = useState<string>(''); // For UI display
-  
+
   // Default values - with port as a number to match the type
   const defaultValues = {
     host: '',
@@ -112,41 +108,40 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
     }
   }, [initialValues, reset]);
 
-  // Simple check if the user has entered any data
-  const hasUserInput = (): boolean => {
-    return !!(
-      (formValues.host && formValues.host.trim()) ||
-      (formValues.username && formValues.username.trim()) ||
-      (formValues.password && formValues.password.trim()) ||
-      (formValues.fromEmail && formValues.fromEmail.trim()) ||
-      displayPort !== '' // Check if port has been changed
-    );
-  };
-
   // Expose the submit function with a clear signature that returns a promise
   useEffect(() => {
+    const hasUserInput = (): boolean =>
+      !!(
+        (
+          (formValues.host && formValues.host.trim()) ||
+          (formValues.username && formValues.username.trim()) ||
+          (formValues.password && formValues.password.trim()) ||
+          (formValues.fromEmail && formValues.fromEmail.trim()) ||
+          displayPort !== ''
+        ) // Check if port has been changed
+      );
     // This function will be called from the parent component
     (window as any).submitSmtpForm = async () => {
       // If there's no user input, allow skipping without validation
       if (!hasUserInput()) {
         return true;
       }
-      
+
       // If there is user input, validate the form
       const isFormValid = await trigger();
-      
+
       if (!isFormValid) {
         // Show validation warning for partially filled forms
         setShowValidationWarning(true);
         return false;
       }
-      
+
       // Form has input and is valid, submit it
       handleSubmit((data) => {
         // Use the actual port value in the form data
         onSubmit(data);
       })();
-      
+
       return true;
     };
 
@@ -158,7 +153,7 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
       delete (window as any).submitSmtpForm;
       delete (window as any).getSmtpFormValues;
     };
-  }, [handleSubmit, onSubmit, getValues, trigger, hasUserInput]);
+  }, [handleSubmit, onSubmit, getValues, trigger, formValues, displayPort]);
 
   return (
     <Box component="form" id="smtp-config-form" onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -167,16 +162,13 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
       </Typography>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Configure SMTP settings for email notifications. You can leave all fields empty to skip this configuration.
+        Configure SMTP settings for email notifications. You can leave all fields empty to skip this
+        configuration.
       </Typography>
 
       {/* Validation warning */}
       {showValidationWarning && Object.keys(errors).length > 0 && (
-        <Alert 
-          severity="warning" 
-          sx={{ mb: 2 }}
-          onClose={() => setShowValidationWarning(false)}
-        >
+        <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setShowValidationWarning(false)}>
           Please complete all required fields or leave all fields empty to skip this step.
         </Alert>
       )}
@@ -210,7 +202,7 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
                 onChange={(e) => {
                   const inputValue = e.target.value;
                   setDisplayPort(inputValue);
-                  
+
                   // Update the actual form value (empty string defaults to 587)
                   if (inputValue === '') {
                     field.onChange(587);

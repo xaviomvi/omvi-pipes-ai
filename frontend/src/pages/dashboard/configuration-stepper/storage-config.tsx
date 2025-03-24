@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -28,7 +28,7 @@ export const storageTypes = {
 } as const;
 
 // Type for storage type values
-type StorageType = typeof storageTypes[keyof typeof storageTypes];
+type StorageType = (typeof storageTypes)[keyof typeof storageTypes];
 
 // Base schema for all storage types
 const baseStorageSchema = z.object({
@@ -59,10 +59,9 @@ const localConfigSchema = baseStorageSchema.extend({
   storageType: z.literal(storageTypes.LOCAL),
   mountName: z.string().optional(),
   // Allow empty string (optional) or valid URL
-  baseUrl: z.union([
-    z.string().url({ message: 'Must be a valid URL' }),
-    z.string().max(0)
-  ]).optional(),
+  baseUrl: z
+    .union([z.string().url({ message: 'Must be a valid URL' }), z.string().max(0)])
+    .optional(),
 });
 
 // Combined schema using discriminated union based on storageType
@@ -96,7 +95,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showValidationWarning, setShowValidationWarning] = useState<boolean>(false);
   const [validationAttempted, setValidationAttempted] = useState<boolean>(false);
-  
+
   // Get the default values based on the storage type
   const getDefaultValues = (): StorageFormValues => {
     if (!initialValues) {
@@ -107,7 +106,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
         baseUrl: '',
       } as LocalConfig;
     }
-    
+
     // If initialValues are provided, use them directly
     return initialValues;
   };
@@ -131,8 +130,8 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
   const storageType = watch('storageType');
   const formValues = watch();
 
-  // Check if the form has any values filled
-  const hasAnyFieldFilled = (): boolean => {
+  // Check if the form has any values filled - wrapped in useCallback
+  const hasAnyFieldFilled = useCallback((): boolean => {
     if (storageType === storageTypes.S3) {
       const values = formValues as S3Config;
       return !!(
@@ -154,10 +153,10 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
     }
 
     return false;
-  };
+  }, [storageType, formValues]);
 
-  // Check if the form has all required fields filled
-  const hasAllRequiredFieldsFilled = async (): Promise<boolean> => {
+  // Check if the form has all required fields filled - wrapped in useCallback
+  const hasAllRequiredFieldsFilled = useCallback(async (): Promise<boolean> => {
     // Local storage is always valid
     if (storageType === storageTypes.LOCAL) {
       return true;
@@ -166,7 +165,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
     // For S3 and Azure, check if all required fields are filled
     const isFormValid = await trigger();
     return isFormValid;
-  };
+  }, [storageType, trigger]);
 
   // Determine if the form is partially filled
   const isPartiallyFilled = (): boolean => {
@@ -191,10 +190,10 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
         const type = value.storageType;
         setValidationAttempted(false);
         setShowValidationWarning(false);
-        
+
         // Create a new form state based on the selected storage type
         let newValues: StorageFormValues;
-        
+
         switch (type) {
           case storageTypes.S3:
             newValues = {
@@ -205,7 +204,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
               s3BucketName: '',
             } as S3Config;
             break;
-            
+
           case storageTypes.AZURE_BLOB:
             newValues = {
               storageType: storageTypes.AZURE_BLOB,
@@ -216,7 +215,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
               containerName: '',
             } as AzureBlobConfig;
             break;
-            
+
           default:
             newValues = {
               storageType: storageTypes.LOCAL,
@@ -225,11 +224,11 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
             } as LocalConfig;
             break;
         }
-        
+
         reset(newValues);
       }
     });
-    
+
     return () => subscription.unsubscribe();
   }, [watch, reset]);
 
@@ -244,33 +243,32 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
   useEffect(() => {
     (window as any).submitStorageForm = async () => {
       setValidationAttempted(true);
-      
+
       // For LOCAL storage, always allow (it's valid even when empty)
       if (storageType === storageTypes.LOCAL) {
         handleSubmit(onSubmit)();
         return true;
       }
-      
+
       // Check if any fields are filled
       const hasFilledFields = hasAnyFieldFilled();
-      
+
       if (hasFilledFields) {
         // If any fields are filled, all required fields must be filled
         const allFieldsFilled = await hasAllRequiredFieldsFilled();
-        
+
         if (!allFieldsFilled) {
           setShowValidationWarning(true);
           return false;
         }
-        
+
         // All required fields are filled, submit the form
         handleSubmit(onSubmit)();
         return true;
-      } else {
-        // No fields are filled, can skip (return valid)
-        handleSubmit(onSubmit)();
-        return true;
       }
+      // No fields are filled, can skip (return valid)
+      handleSubmit(onSubmit)();
+      return true;
     };
 
     // Also expose a method to get the current values
@@ -280,8 +278,14 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
       delete (window as any).submitStorageForm;
       delete (window as any).getStorageFormValues;
     };
-  }, [handleSubmit, onSubmit, getValues, storageType, hasAnyFieldFilled, hasAllRequiredFieldsFilled]);
-
+  }, [
+    handleSubmit,
+    onSubmit,
+    getValues,
+    storageType,
+    hasAnyFieldFilled,
+    hasAllRequiredFieldsFilled,
+  ]);
 
   return (
     <Box component="form" id="storage-config-form" onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -301,10 +305,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
             render={({ field, fieldState }) => (
               <FormControl fullWidth size="small" error={validationAttempted && !!fieldState.error}>
                 <InputLabel>Storage Type</InputLabel>
-                <Select
-                  {...field}
-                  label="Storage Type"
-                >
+                <Select {...field} label="Storage Type">
                   <MenuItem value={storageTypes.LOCAL}>Local Storage</MenuItem>
                   <MenuItem value={storageTypes.S3}>Amazon S3</MenuItem>
                   <MenuItem value={storageTypes.AZURE_BLOB}>Azure Blob Storage</MenuItem>
@@ -320,12 +321,13 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
         {/* Warning for partially filled forms */}
         {showValidationWarning && isPartiallyFilled() && (
           <Grid item xs={12}>
-            <Alert 
-              severity="warning" 
+            <Alert
+              severity="warning"
               sx={{ mb: 1 }}
               onClose={() => setShowValidationWarning(false)}
             >
-              Please complete all required fields or skip this step. Partial configuration is not allowed.
+              Please complete all required fields or skip this step. Partial configuration is not
+              allowed.
             </Alert>
           </Grid>
         )}
@@ -499,12 +501,13 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                 name="endpointProtocol"
                 control={control}
                 render={({ field, fieldState }) => (
-                  <FormControl fullWidth size="small" error={validationAttempted && !!fieldState.error}>
+                  <FormControl
+                    fullWidth
+                    size="small"
+                    error={validationAttempted && !!fieldState.error}
+                  >
                     <InputLabel>Protocol</InputLabel>
-                    <Select
-                      {...field}
-                      label="Protocol"
-                    >
+                    <Select {...field} label="Protocol">
                       <MenuItem value="https">HTTPS</MenuItem>
                       <MenuItem value="http">HTTP</MenuItem>
                     </Select>
@@ -527,8 +530,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     size="small"
                     error={validationAttempted && !!fieldState.error}
                     helperText={
-                      (validationAttempted && fieldState.error?.message) || 
-                      'e.g., core.windows.net'
+                      (validationAttempted && fieldState.error?.message) || 'e.g., core.windows.net'
                     }
                   />
                 )}
@@ -573,7 +575,7 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                     size="small"
                     error={validationAttempted && !!fieldState.error}
                     helperText={
-                      (validationAttempted && fieldState.error?.message) || 
+                      (validationAttempted && fieldState.error?.message) ||
                       'e.g., http://localhost:3000/files'
                     }
                     onChange={(e) => {
