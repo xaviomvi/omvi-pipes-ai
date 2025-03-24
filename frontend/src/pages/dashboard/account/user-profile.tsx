@@ -4,8 +4,8 @@ import { Box } from '@mui/material';
 
 import { CONFIG } from 'src/config-global';
 
-import UserProfile from 'src/sections/accountdetails/user-profile';
 import Sidebar from 'src/sections/accountdetails/Sidebar';
+import UserProfile from 'src/sections/accountdetails/user-profile';
 
 // ----------------------------------------------------------------------
 

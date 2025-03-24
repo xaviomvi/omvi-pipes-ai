@@ -9,21 +9,21 @@ import {
   Alert,
   Paper,
   Switch,
+  Tooltip,
   Snackbar,
   Container,
   Typography,
   AlertTitle,
   IconButton,
   CircularProgress,
-  Tooltip,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
 
-import ConfigureConnectorDialog from './components/configure-connector-individual-dialog';
 import { CONNECTORS_LIST, GOOGLE_WORKSPACE_SCOPE } from './components/connectors-list';
+import ConfigureConnectorDialog from './components/configure-connector-individual-dialog';
 
 import type { ConnectorConfig } from './components/connectors-list';
 

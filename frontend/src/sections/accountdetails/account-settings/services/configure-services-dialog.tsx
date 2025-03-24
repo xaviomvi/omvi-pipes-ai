@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import {
   Box,
   alpha,
+  Alert,
   Dialog,
   Button,
   useTheme,
@@ -10,7 +11,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert,
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
@@ -29,10 +29,13 @@ import type { MongoDBConfigFormRef } from './components/mongodb-config-form';
 import type { ArangoDBConfigFormRef } from './components/arangodb-config-form';
 // import type { BackendNodejsConfigFormRef } from './components/backend-nodejs-config-form';
 
-import FrontendUrlConfigForm, {
+import FrontendUrlConfigForm from './components/frontend-url-config-form';
+import ConnectorUrlConfigForm from './components/connector-url-config-form';
+
+import type {
   FrontendUrlConfigFormRef,
 } from './components/frontend-url-config-form';
-import ConnectorUrlConfigForm, {
+import type {
   ConnectorUrlConfigFormRef,
 } from './components/connector-url-config-form';
 

@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import {
   Box,
   alpha,
+  Alert,
   Dialog,
   Button,
   useTheme,
@@ -10,13 +11,14 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert,
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify'; 
 
+import LlmConfigForm from './llm-config-form';
 import { MODEL_TYPE_NAMES, MODEL_TYPE_ICONS } from '../utils/types';
-import LlmConfigForm, { LlmConfigFormRef } from './llm-config-form';
+
+import type { LlmConfigFormRef } from './llm-config-form';
 // import OcrConfigForm, { OcrConfigFormRef } from './model-forms/ocr-config-form';
 // import EmbeddingConfigForm, { EmbeddingConfigFormRef } from './model-forms/embedding-config-form';
 // import SlmConfigForm, { SlmConfigFormRef } from './model-forms/slm-config-form';
