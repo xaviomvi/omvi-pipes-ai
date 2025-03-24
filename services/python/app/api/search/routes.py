@@ -12,13 +12,13 @@ router = APIRouter()
 # Pydantic models
 class SearchQuery(BaseModel):
     query: str
-    top_k: Optional[int] = 5
+    limit: Optional[int] = 5
     filters: Optional[Dict[str, Any]] = None
     retrieval_mode: Optional[str] = "HYBRID"
 
 class SimilarDocumentQuery(BaseModel):
     document_id: str
-    top_k: Optional[int] = 5
+    limit: Optional[int] = 5
     filters: Optional[Dict[str, Any]] = None
 
 
@@ -29,7 +29,7 @@ async def get_retrieval_service(request: Request) -> RetrievalService:
     retrieval_service = await container.retrieval_service()
     return retrieval_service
 
-@router.post("/")
+@router.post("/search")
 @inject
 async def search(request: Request, body: SearchQuery, retrieval_service=Depends(get_retrieval_service)):
     """Perform semantic search across documents"""
@@ -38,7 +38,7 @@ async def search(request: Request, body: SearchQuery, retrieval_service=Depends(
         results = await retrieval_service.search(
             query=body.query,
             org_id=request.state.user.get('orgId'),
-            top_k=body.top_k,
+            limit=body.limit,
             filters=body.filters,
         )
         
@@ -55,7 +55,7 @@ async def find_similar_documents(query: SimilarDocumentQuery, retrieval_service=
     try:
         results = await retrieval_service.similar_documents(
             document_id=query.document_id,
-            top_k=query.top_k,
+            limit=query.limit,
             filters=query.filters
         )
         return results

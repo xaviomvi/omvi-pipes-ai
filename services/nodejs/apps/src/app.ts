@@ -3,6 +3,7 @@ import path from 'path';
 import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
+import http from 'http';
 import { Container } from 'inversify';
 import { TokenManagerContainer } from './modules/tokens_manager/container/token-manager.container';
 import { Logger } from './libs/services/logger.service';
@@ -11,7 +12,7 @@ import { ErrorMiddleware } from './libs/middlewares/error.middleware';
 import { createUserRouter } from './modules/user_management/routes/users.routes';
 import { createUserGroupRouter } from './modules/user_management/routes/userGroups.routes';
 import { createOrgRouter } from './modules/user_management/routes/org.routes';
-import { createConversationalRouter } from './modules/enterprise_search/routes/es.routes';
+import { createConversationalRouter, createSemanticSearchRouter } from './modules/enterprise_search/routes/es.routes';
 import { EnterpriseSearchAgentContainer } from './modules/enterprise_search/container/es.container';
 import { requestContextMiddleware } from './libs/middlewares/request.context';
 
@@ -31,14 +32,16 @@ import { createMailServiceRouter } from './modules/mail/routes/mail.routes';
 import { createConnectorRouter } from './modules/tokens_manager/routes/connectors.routes';
 import { PrometheusService } from './libs/services/prometheus/prometheus.service';
 import { StorageContainer } from './modules/storage/container/storage.container';
+import { NotificationContainer } from './modules/notification/container/notification.container';
 import { loadAppConfig } from './modules/tokens_manager/config/config';
-
+import { NotificationService } from './modules/notification/service/notification.service';
 const loggerConfig = {
   service: 'Application',
 };
 
 export class Application {
   private app: Express;
+  private server: http.Server;
   private tokenManagerContainer!: Container;
   private storageServiceContainer!: Container;
   private esAgentContainer!: Container;
@@ -48,11 +51,13 @@ export class Application {
   private knowledgeBaseContainer!: Container;
   private configurationManagerContainer!: Container;
   private mailServiceContainer!: Container;
+  private notificationContainer!: Container;
   private port: number;
 
   constructor() {
     this.app = express();
     this.port = parseInt(process.env.PORT || '3000', 10);
+    this.server = http.createServer(this.app);
   }
 
   async initialize(): Promise<void> {
@@ -62,7 +67,9 @@ export class Application {
       // Loads configuration
       const configurationManagerConfig = loadConfigurationManagerConfig();
       const appConfig = await loadAppConfig();
-      this.logger.debug('centralised config:', appConfig);
+
+      this.logger.debug('Centralised Config:', appConfig);
+
       this.tokenManagerContainer = await TokenManagerContainer.initialize(
         configurationManagerConfig,
       );
@@ -98,6 +105,8 @@ export class Application {
 
       this.mailServiceContainer =
         await MailServiceContainer.initialize(appConfig);
+
+      this.notificationContainer = await NotificationContainer.initialize(appConfig);
 
       // binding prometheus to all services routes
       this.logger.debug('Binding Prometheus Service with other services');
@@ -140,6 +149,8 @@ export class Application {
       this.configureMiddleware();
       this.configureRoutes();
       this.configureErrorHandling();
+
+      this.notificationContainer.get<NotificationService>(NotificationService).initialize(this.server);
 
       // Serve static frontend files\
       this.app.use(express.static(path.join(__dirname, 'public')));
@@ -230,7 +241,14 @@ export class Application {
       '/api/v1/conversations',
       createConversationalRouter(this.esAgentContainer),
     );
-    // enterprise search conversational routes
+
+    // enterprise semantic search routes
+    this.app.use(
+      '/api/v1/search',
+      createSemanticSearchRouter(this.esAgentContainer),
+    );
+
+    // enterprise search connectors routes
     this.app.use(
       '/api/v1/connectors',
       createConnectorRouter(this.tokenManagerContainer),
@@ -261,7 +279,7 @@ export class Application {
   async start(): Promise<void> {
     try {
       await new Promise<void>((resolve) => {
-        this.app.listen(this.port, () => {
+        this.server.listen(this.port, () => {
           this.logger.info(`Server started on port ${this.port}`);
           resolve();
         });
@@ -276,8 +294,15 @@ export class Application {
 
   async stop(): Promise<void> {
     try {
+      this.notificationContainer.get<NotificationService>(NotificationService).shutdown();
       await TokenManagerContainer.dispose();
-      // await StorageContainer.dispose();
+      await StorageContainer.dispose();
+      await EnterpriseSearchAgentContainer.dispose();
+      await KnowledgeBaseContainer.dispose();
+      await ConfigurationManagerContainer.dispose();
+      await AuthServiceContainer.dispose();
+      await UserManagerContainer.dispose();
+      await NotificationContainer.dispose();
       this.logger.info('Application stopped successfully');
     } catch (error) {
       this.logger.error('Error stopping application', {

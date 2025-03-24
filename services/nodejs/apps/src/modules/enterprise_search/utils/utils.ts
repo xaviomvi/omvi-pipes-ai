@@ -5,10 +5,10 @@ import {
   IMessage,
 } from '../types/es_interfaces';
 import { IAIResponse } from '../types/es_interfaces';
-import { ICitationData } from '../citations/citations.interface';
 import mongoose from 'mongoose';
 import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
 import { BadRequestError, InternalServerError } from '../../../libs/errors/http.errors';
+import { ICitation } from '../schema/citation.schema';
 
 export const buildUserQueryMessage = (query: string): IMessage => ({
   messageType: 'user_query',
@@ -18,7 +18,7 @@ export const buildUserQueryMessage = (query: string): IMessage => ({
 
 export const buildAIResponseMessage = (
   aiResponse: AIServiceResponse<IAIResponse>,
-  citations: ICitationData[] = [],
+  citations: ICitation[] = [],
 ): IMessage => {
   if (!aiResponse?.data?.answer) {
     throw new InternalServerError('AI response must include an answer');
@@ -29,7 +29,7 @@ export const buildAIResponseMessage = (
     content: aiResponse.data.answer,
     contentFormat: 'MARKDOWN',
     citations: citations.map((citation) => ({
-      citationId: new mongoose.Types.ObjectId(citation.citationId),
+      citationId: citation._id as mongoose.Types.ObjectId,
     })),
     confidence: aiResponse.data.confidence,
     followUpQuestions:

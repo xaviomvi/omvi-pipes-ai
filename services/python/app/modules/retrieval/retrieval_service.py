@@ -88,7 +88,7 @@ class RetrievalService:
         self,
         query: str,
         org_id: str,
-        top_k: int = 5,
+        limit: int = 5,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -96,7 +96,7 @@ class RetrievalService:
 
         Args:
             query: Search query text
-            top_k: Number of results to return
+            limit: Number of results to return
             filters: Optional metadata filters
             retrieval_mode: Search mode (DENSE, SPARSE, or HYBRID)
 
@@ -111,7 +111,7 @@ class RetrievalService:
             # Perform search using the same vector store as indexing
             results = self.vector_store.similarity_search_with_score(
                 query=processed_query,
-                k=top_k,
+                k=limit,
                 filter=qdrant_filter
             )
 
@@ -122,7 +122,7 @@ class RetrievalService:
     async def similar_documents(
         self,
         document_id: str,
-        top_k: int = 5,
+        limit: int = 5,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -130,7 +130,7 @@ class RetrievalService:
 
         Args:
             document_id: ID of the reference document
-            top_k: Number of similar documents to return
+            limit: Number of similar documents to return
             filters: Optional metadata filters
 
         Returns:
@@ -153,7 +153,7 @@ class RetrievalService:
             results = await self.qdrant_client.search(
                 collection_name=self.collection_name,
                 query_vector=reference_doc[0].vector,
-                limit=top_k + 1,  # Add 1 to account for the reference document
+                limit=limit + 1,  # Add 1 to account for the reference document
                 filter=qdrant_filter,
             )
 
@@ -167,6 +167,6 @@ class RetrievalService:
                         "metadata": result.payload,
                     })
 
-            return formatted_results[:top_k]
+            return formatted_results[:limit]
         except Exception as e:
             raise ValueError(f"Similar document search failed: {str(e)}")

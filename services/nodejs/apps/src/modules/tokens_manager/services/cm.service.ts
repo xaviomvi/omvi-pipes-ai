@@ -61,6 +61,7 @@ export interface DefaultStorageConfig {
   storageType: string;
   endpoint: string;
 }
+
 // Main Config Service
 export class ConfigService {
   private static instance: ConfigService;
@@ -228,6 +229,20 @@ export class ConfigService {
       url = process.env.FRONTEND_PUBLIC_URL || `http://localhost:${port}`;
       await this.keyValueStoreService.set<string>(
         configPaths.url.frontend.publicEndpoint,
+        url,
+      );
+    }
+    return url;
+  }
+
+  public async getAiBackendUrl(): Promise<string> {
+    let url = await this.keyValueStoreService.get<string>(
+      configPaths.aiBackend,
+    );
+    if (url === null) {
+      url = process.env.AI_BACKEND_URL ?? 'http://localhost:8000';
+      await this.keyValueStoreService.set<string>(
+        configPaths.aiBackend,
         url,
       );
     }

@@ -72,7 +72,7 @@ export const configPaths = {
   broker: {
     kafka: '/services/kafka',
   },
-
+  aiBackend: '/services/aiBackend',
   url: {
     nodeCommon: {
       privateEndpoint: '/services/nodejs/common/endpoint',

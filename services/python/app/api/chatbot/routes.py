@@ -22,7 +22,7 @@ router = APIRouter()
 # Pydantic models
 class ChatQuery(BaseModel):
     query: str
-    top_k: Optional[int] = 20
+    limit: Optional[int] = 20
     previousConversations: List[Dict] = []
     filters: Optional[Dict[str, Any]] = None
     retrieval_mode: Optional[str] = "HYBRID"
@@ -64,7 +64,7 @@ def setup_query_transformation(llm):
     return rewrite_chain, expansion_chain
 
 
-@router.post("/")
+@router.post("/chat")
 @inject
 async def askAI(request: Request, query_info: ChatQuery, retrieval_service=Depends(get_retrieval_service)):
     """Perform semantic search across documents"""
@@ -72,7 +72,7 @@ async def askAI(request: Request, query_info: ChatQuery, retrieval_service=Depen
         results = await retrieval_service.search(
             query=query_info.query,
             org_id=request.state.user.get('orgId'),
-            top_k=query_info.top_k,
+            limit=query_info.limit,
             filters=query_info.filters,
         )
         previous_conversations = query_info.previousConversations
