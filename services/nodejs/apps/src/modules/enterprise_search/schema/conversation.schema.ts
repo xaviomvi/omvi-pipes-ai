@@ -5,8 +5,8 @@ import {
   IFeedback,
   IMessageCitation,
   IFollowUpQuestion,
-} from '../types/es_interfaces';
-import { CONFIDENCE_LEVELS, CONVERSATION_SOURCE } from '../constants/constants';
+} from '../types/conversation.interfaces';
+import { CONFIDENCE_LEVELS } from '../constants/constants';
 
 const followUpQuestionSchema = new Schema<IFollowUpQuestion>(
   {
@@ -134,27 +134,13 @@ const conversationSchema = new Schema<IConversation>(
         userId: { type: Schema.Types.ObjectId },
         accessLevel: { type: String, enum: ['read', 'write'], default: 'read' },
       },
+      { _id: false },
     ],
     isDeleted: { type: Boolean, default: false },
     deletedBy: { type: Schema.Types.ObjectId },
     isArchived: { type: Boolean, default: false },
     archivedBy: { type: Schema.Types.ObjectId },
     lastActivityAt: { type: Date, default: Date.now },
-    tags: [{ type: Schema.Types.ObjectId, ref: 'tags' }],
-    conversationSource: {
-      type: String,
-      enum: [
-        CONVERSATION_SOURCE.ENTERPRISE_SEARCH,
-        CONVERSATION_SOURCE.RECORDS,
-        CONVERSATION_SOURCE.CONNECTORS,
-        CONVERSATION_SOURCE.INTERNET_SEARCH,
-        CONVERSATION_SOURCE.PERSONAL_KB_SEARCH,
-      ],
-      required: true,
-    },
-    conversationSourceRecordId: { type: Schema.Types.ObjectId },
-    conversationSourceConnectorIds: [{ type: Schema.Types.ObjectId }],
-    conversationSourceRecordType: { type: String },
   },
   { timestamps: true },
 );
@@ -165,5 +151,5 @@ conversationSchema.index({ isShared: 1 });
 conversationSchema.index({ 'messages.content': 'text' });
 
 // Export the model
-export const EnterpriseSearchConversation: Model<IConversation> =
-  mongoose.model<IConversation>('chat', conversationSchema);
+export const Conversation: Model<IConversation> =
+  mongoose.model<IConversation>('conversations', conversationSchema);

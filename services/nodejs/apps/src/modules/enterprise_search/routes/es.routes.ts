@@ -8,12 +8,12 @@ import {
   deleteConversationById,
   deleteSearchById,
   deleteSearchHistory,
-  enterpriseSemanticSearch,
   getAllConversations,
   getConversationById,
   getSearchById,
   listAllArchivesConversation,
   regenerateAnswers,
+  search,
   searchHistory,
   shareConversationById,
   unarchiveConversation,
@@ -23,15 +23,16 @@ import {
 } from '../controller/es_controller';
 import { ValidationMiddleware } from '../../../libs/middlewares/validation.middleware';
 import {
-  conversationParamsSchema,
   conversationIdParamsSchema,
   enterpriseSearchCreateSchema,
-  enterpriseSearchDeleteSchema,
-  enterpriseSearchGetSchema,
-  enterpriseSearchUpdateSchema,
   enterpriseSearchSearchSchema,
   enterpriseSearchSearchHistorySchema,
   searchIdParamsSchema,
+  addMessageParamsSchema,
+  conversationShareParamsSchema,
+  conversationTitleParamsSchema,
+  regenerateAnswersParamsSchema,
+  updateFeedbackParamsSchema,
 } from '../validators/es_validators';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
 import { AppConfig } from '../../tokens_manager/config/config';
@@ -69,8 +70,7 @@ export function createConversationalRouter(container: Container): Router {
     '/:conversationId/messages',
     authMiddleware.authenticate,
     metricsMiddleware(container),
-    ValidationMiddleware.validate(conversationIdParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
+    ValidationMiddleware.validate(addMessageParamsSchema),
     addMessage(appConfig),
   );
 
@@ -98,7 +98,6 @@ export function createConversationalRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(conversationIdParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchGetSchema),
     getConversationById,
   );
 
@@ -113,7 +112,6 @@ export function createConversationalRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(conversationIdParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchDeleteSchema),
     deleteConversationById,
   );
 
@@ -127,8 +125,7 @@ export function createConversationalRouter(container: Container): Router {
     '/:conversationId/share',
     authMiddleware.authenticate,
     metricsMiddleware(container),
-    ValidationMiddleware.validate(conversationIdParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
+    ValidationMiddleware.validate(conversationShareParamsSchema),
     shareConversationById(appConfig),
   );
 
@@ -145,8 +142,7 @@ export function createConversationalRouter(container: Container): Router {
     '/:conversationId/unshare',
     authMiddleware.authenticate,
     metricsMiddleware(container),
-    ValidationMiddleware.validate(conversationIdParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
+    ValidationMiddleware.validate(conversationShareParamsSchema),
     unshareConversationById,
   );
 
@@ -161,8 +157,7 @@ export function createConversationalRouter(container: Container): Router {
     '/:conversationId/message/:messageId/regenerate',
     authMiddleware.authenticate,
     metricsMiddleware(container),
-    ValidationMiddleware.validate(conversationParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
+    ValidationMiddleware.validate(regenerateAnswersParamsSchema),
     regenerateAnswers(appConfig),
   );
 
@@ -176,8 +171,7 @@ export function createConversationalRouter(container: Container): Router {
     '/:conversationId/title',
     authMiddleware.authenticate,
     metricsMiddleware(container),
-    ValidationMiddleware.validate(conversationIdParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
+    ValidationMiddleware.validate(conversationTitleParamsSchema),
     updateTitle,
   );
 
@@ -192,8 +186,7 @@ export function createConversationalRouter(container: Container): Router {
     '/:conversationId/message/:messageId/feedback',
     authMiddleware.authenticate,
     metricsMiddleware(container),
-    ValidationMiddleware.validate(conversationParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
+    ValidationMiddleware.validate(updateFeedbackParamsSchema),
     updateFeedback,
   );
 
@@ -208,7 +201,6 @@ export function createConversationalRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(conversationIdParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
     archiveConversation,
   );
 
@@ -223,7 +215,6 @@ export function createConversationalRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(conversationIdParamsSchema),
-    ValidationMiddleware.validate(enterpriseSearchUpdateSchema),
     unarchiveConversation,
   );
 
@@ -253,7 +244,7 @@ export function createSemanticSearchRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(enterpriseSearchSearchSchema),
-    enterpriseSemanticSearch(appConfig),
+    search(appConfig),
   );
 
   router.get(

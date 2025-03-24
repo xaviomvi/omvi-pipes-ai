@@ -1,4 +1,6 @@
-import { buildMessageSortOptions, buildSemanticSearchFilter } from './../utils/utils';
+import {
+  buildMessageSortOptions,
+} from './../utils/utils';
 import { Response, NextFunction } from 'express';
 import mongoose, { ClientSession } from 'mongoose';
 import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
@@ -20,9 +22,9 @@ import {
   IMessage,
   IMessageCitation,
   IMessageDocument,
-} from '../types/es_interfaces';
-import { IConversation } from '../types/es_interfaces';
-import { EnterpriseSearchConversation } from '../schema/chat.schema';
+} from '../types/conversation.interfaces';
+import { IConversation } from '../types/conversation.interfaces';
+import { Conversation } from '../schema/Conversation.schema';
 import { HTTP_STATUS } from '../../../libs/enums/http-status.enum';
 import {
   addComputedFields,
@@ -39,7 +41,6 @@ import {
   getPaginationParams,
   sortMessages,
 } from '../utils/utils';
-import { CONVERSATION_SOURCE } from '../constants/constants';
 import { IAMServiceCommand } from '../../../libs/commands/iam/iam.service.command';
 import EnterpriseSemanticSearch from '../schema/search.schema';
 import { AppConfig } from '../../tokens_manager/config/config';
@@ -64,7 +65,7 @@ export const createConversation =
       session?: ClientSession | null,
     ): Promise<any> {
       const aiCommandOptions: AICommandOptions = {
-        uri: `${appConfig.aiBackend}/api/v1/query`,
+        uri: `${appConfig.aiBackend}/api/v1/chat`,
         method: HttpMethod.POST,
         headers: req.headers as Record<string, string>,
         body: {
@@ -78,6 +79,7 @@ export const createConversation =
         requestId,
         query: req.body.query,
       });
+
       const aiServiceCommand = new AIServiceCommand(aiCommandOptions);
       const aiResponseData =
         (await aiServiceCommand.execute()) as AIServiceResponse<IAIResponse>;
@@ -92,7 +94,7 @@ export const createConversation =
         aiResponseData.data?.citations?.map(async (citation: any) => {
           const newCitation = new Citation({
             content: citation.content,
-            recordIndex: citation.metadata.recordIndex,
+            recordIndex: citation.recordIndex,
             citationType: citation.citationType,
             metadata: {
               ...citation.metadata,
@@ -115,15 +117,9 @@ export const createConversation =
         title: req.body.query.slice(0, 100),
         messages: messages as IMessageDocument[],
         lastActivityAt: new Date(),
-        conversationSource: req.body.conversationSource,
       };
 
-      if (req.body.conversationSourceRecordId) {
-        conversationData.conversationSourceRecordId =
-          req.body.conversationSourceRecordId;
-      }
-
-      const conversation = new EnterpriseSearchConversation(conversationData);
+      const conversation = new Conversation(conversationData);
       // Save conversation, using the session if available.
       const savedConversation = session
         ? await conversation.save({ session })
@@ -136,9 +132,9 @@ export const createConversation =
         conversation: {
           _id: savedConversation._id,
           ...plainConversation,
-          messages: plainConversation.messages.map((message) => ({
+          messages: plainConversation.messages.map((message: IMessage) => ({
             ...message,
-            citations: message.citations?.map((citation) => ({
+            citations: message.citations?.map((citation: IMessageCitation) => ({
               ...citation,
               citationData: citations.find(
                 (c: ICitation) => c._id === citation.citationId,
@@ -154,14 +150,9 @@ export const createConversation =
         requestId,
         userId,
         query: req.body.query,
-        conversationSource: req.body.conversationSource,
-        conversationSourceRecordId: req.body.conversationSourceRecordId,
         filters: {
           recordIds: req.body.recordIds,
-          modules: req.body.modules,
           departments: req.body.departments,
-          searchTags: req.body.searchTags,
-          appSpecificRecordType: req.body.appSpecificRecordType,
         },
         timestamp: new Date().toISOString(),
       });
@@ -180,8 +171,6 @@ export const createConversation =
       logger.debug('Conversation created successfully', {
         requestId,
         conversationId: responseData.conversation._id,
-        conversationSource: req.body.conversationSource,
-        conversationSourceRecordId: req.body.conversationSourceRecordId,
         duration: Date.now() - startTime,
       });
 
@@ -191,8 +180,6 @@ export const createConversation =
           requestId,
           timestamp: new Date().toISOString(),
           duration: Date.now() - startTime,
-          conversationSource: req.body.conversationSource,
-          conversationSourceRecordId: req.body.conversationSourceRecordId,
         },
       });
     } catch (error: any) {
@@ -201,8 +188,6 @@ export const createConversation =
         message: 'Error creating conversation',
         error: error.message,
         stack: error.stack,
-        conversationSource: req.body.conversationSource,
-        conversationSourceRecordId: req.body.conversationSourceRecordId,
         duration: Date.now() - startTime,
       });
 
@@ -235,10 +220,7 @@ export const addMessage =
         query: req.body.query,
         filters: {
           recordIds: req.body.recordIds,
-          modules: req.body.modules,
           departments: req.body.departments,
-          searchTags: req.body.searchTags,
-          appSpecificRecordType: req.body.appSpecificRecordType,
         },
         timestamp: new Date().toISOString(),
       });
@@ -246,7 +228,7 @@ export const addMessage =
       // Extract common operations into a helper function.
       async function performAddMessage(session?: ClientSession | null) {
         // Get existing conversation
-        const conversation = await EnterpriseSearchConversation.findOne({
+        const conversation = await Conversation.findOne({
           _id: req.params.conversationId,
           orgId,
           userId,
@@ -274,7 +256,7 @@ export const addMessage =
         });
 
         const aiCommandOptions: AICommandOptions = {
-          uri: `${appConfig.aiBackend}/api/v1/chatbot`,
+          uri: `${appConfig.aiBackend}/api/v1/chat`,
           method: HttpMethod.POST,
           headers: req.headers as Record<string, string>,
           body: {
@@ -299,7 +281,7 @@ export const addMessage =
           aiResponseData.data?.citations?.map(async (citation: any) => {
             const newCitation = new Citation({
               content: citation.content,
-              recordIndex: citation.metadata.recordIndex,
+              recordIndex: citation.recordIndex,
               citationType: citation.citationType,
               metadata: {
                 ...citation.metadata,
@@ -316,19 +298,18 @@ export const addMessage =
         ];
 
         // Update conversation: push new messages and update lastActivityAt
-        const updatedConversation =
-          await EnterpriseSearchConversation.findByIdAndUpdate(
-            req.params.conversationId,
-            {
-              $push: { messages: { $each: messages } },
-              $set: { lastActivityAt: new Date() },
-            },
-            {
-              new: true,
-              session,
-              runValidators: true,
-            },
-          );
+        const updatedConversation = await Conversation.findByIdAndUpdate(
+          req.params.conversationId,
+          {
+            $push: { messages: { $each: messages } },
+            $set: { lastActivityAt: new Date() },
+          },
+          {
+            new: true,
+            session,
+            runValidators: true,
+          },
+        );
 
         if (!updatedConversation) {
           throw new InternalServerError('Failed to update conversation');
@@ -342,7 +323,7 @@ export const addMessage =
             messages: messages.map((message) => ({
               ...message,
               citations:
-                message.citations?.map((citation) => ({
+                message.citations?.map((citation: IMessageCitation) => ({
                   ...citation,
                   citationData: savedCitations.find(
                     (c) =>
@@ -413,40 +394,17 @@ export const getAllConversations = async (
   try {
     const userId = req.user?.userId;
     const orgId = req.user?.orgId;
-    const {
-      conversationSource,
-      conversationSourceRecordId,
-      conversationId,
-      conversationSourceConnectorIds,
-      conversationSourceRecordType,
-      conversationSourceConnectorTypes,
-    } = req.query;
+    const { conversationId } = req.query;
     logger.debug('Fetching conversations', {
       requestId,
       message: 'Fetching conversations',
       userId,
-      conversationSource: req.query.conversationSource,
-      conversationSourceRecordId: req.query.conversationSourceRecordId,
       conversationId: req.query.conversationId,
-      conversationSourceConnectorIds: req.query.conversationSourceConnectorIds,
-      conversationSourceRecordType: req.query.conversationSourceRecordType,
-      conversationSourceConnectorTypes:
-        req.query.conversationSourceConnectorTypes,
       query: req.query,
     });
 
     const { skip, limit, page } = getPaginationParams(req);
-    const filter = buildFilter(
-      req,
-      orgId,
-      userId,
-      conversationId as string,
-      conversationSource as string,
-      conversationSourceRecordId as string,
-      conversationSourceConnectorIds as string[],
-      conversationSourceRecordType as string,
-      conversationSourceConnectorTypes as string[],
-    );
+    const filter = buildFilter(req, orgId, userId, conversationId as string);
     const sortOptions = buildSortOptions(req);
 
     // sharedWith Me Conversation
@@ -455,7 +413,7 @@ export const getAllConversations = async (
     // Execute query
     const [conversations, totalCount, sharedWithMeConversations] =
       await Promise.all([
-        EnterpriseSearchConversation.find(filter)
+        Conversation.find(filter)
           .sort(sortOptions as any)
           .skip(skip)
           .limit(limit)
@@ -463,8 +421,8 @@ export const getAllConversations = async (
           .select('-messages')
           .lean()
           .exec(),
-        EnterpriseSearchConversation.countDocuments(filter),
-        EnterpriseSearchConversation.find(sharedWithMeFilter)
+        Conversation.countDocuments(filter),
+        Conversation.find(sharedWithMeFilter)
           .sort(sortOptions as any)
           .skip(skip)
           .limit(limit)
@@ -485,7 +443,7 @@ export const getAllConversations = async (
       };
     });
     const processedSharedWithMeConversations = sharedWithMeConversations.map(
-      (sharedWithMeConversation) => {
+      (sharedWithMeConversation: any) => {
         const conversationWithComputedFields = addComputedFields(
           sharedWithMeConversation as IConversation,
           userId,
@@ -504,8 +462,6 @@ export const getAllConversations = async (
       filters: buildFiltersMetadata(filter, req.query),
       meta: {
         requestId,
-        conversationSource,
-        conversationSourceRecordId,
         timestamp: new Date().toISOString(),
         duration: Date.now() - startTime,
       },
@@ -515,8 +471,6 @@ export const getAllConversations = async (
       requestId,
       count: conversations.length,
       totalCount,
-      conversationSource: req.query.conversationSource,
-      conversationSourceRecordId: req.query.conversationSourceRecordId,
       duration: Date.now() - startTime,
     });
 
@@ -567,7 +521,7 @@ export const getConversationById = async (
       sortOrder as string,
     );
 
-    const countResult = await EnterpriseSearchConversation.aggregate([
+    const countResult = await Conversation.aggregate([
       { $match: baseFilter },
       { $project: { messageCount: { $size: '$messages' } } },
     ]);
@@ -583,8 +537,8 @@ export const getConversationById = async (
     const effectiveLimit = Math.min(limit, totalMessages - skip);
 
     // Get conversation with paginated messages
-    const conversationWithMessages: IConversationDocument | null =
-      await EnterpriseSearchConversation.findOne(baseFilter)
+    const conversationWithMessages =
+      await Conversation.findOne(baseFilter)
         .select({
           messages: { $slice: [skip, effectiveLimit] },
           title: 1,
@@ -595,9 +549,10 @@ export const getConversationById = async (
         })
         .populate({
           path: 'messages.citations.citationId',
-          model: 'citations',
+          model: 'citation',
           select: '-__v',
-        });
+        }).lean()
+        .exec();
 
     // Sort messages using existing helper
     const sortedMessages = sortMessages(
@@ -607,7 +562,7 @@ export const getConversationById = async (
 
     // Build conversation response using existing helper
     const conversationResponse = buildConversationResponse(
-      conversationWithMessages as IConversationDocument,
+      conversationWithMessages as unknown as IConversationDocument,
       userId,
       {
         page,
@@ -685,39 +640,37 @@ export const deleteConversationById = async (
     // Common helper that performs the delete operation.
     async function performDeleteConversation(session?: ClientSession | null) {
       // Get conversation with access control
-      const conversation: IConversation | null =
-        await EnterpriseSearchConversation.findOne({
-          _id: conversationId,
-          userId,
-          orgId,
-          isDeleted: false,
-          $or: [
-            { initiator: userId },
-            { 'sharedWith.userId': userId, 'sharedWith.accessLevel': 'write' },
-          ],
-        });
+      const conversation: IConversation | null = await Conversation.findOne({
+        _id: conversationId,
+        userId,
+        orgId,
+        isDeleted: false,
+        $or: [
+          { initiator: userId },
+          { 'sharedWith.userId': userId, 'sharedWith.accessLevel': 'write' },
+        ],
+      });
 
       if (!conversation) {
         throw new NotFoundError('Conversation not found');
       }
 
       // Perform soft delete on the conversation
-      const updatedConversation =
-        await EnterpriseSearchConversation.findByIdAndUpdate(
-          conversationId,
-          {
-            $set: {
-              isDeleted: true,
-              deletedBy: userId,
-              lastActivityAt: new Date(),
-            },
+      const updatedConversation = await Conversation.findByIdAndUpdate(
+        conversationId,
+        {
+          $set: {
+            isDeleted: true,
+            deletedBy: userId,
+            lastActivityAt: new Date(),
           },
-          {
-            new: true,
-            session,
-            runValidators: true,
-          },
-        );
+        },
+        {
+          new: true,
+          session,
+          runValidators: true,
+        },
+      );
 
       if (!updatedConversation) {
         throw new InternalServerError('Failed to delete conversation');
@@ -839,19 +792,14 @@ export const shareConversationById =
           );
         }
 
-        // Start transaction
-        session = await mongoose.startSession();
-        session.startTransaction();
-
         // Get conversation with access control
-        const conversation: IConversation | null =
-          await EnterpriseSearchConversation.findOne({
-            _id: conversationId,
-            orgId,
-            userId,
-            isDeleted: false,
-            initiator: userId, // Only initiator can share
-          });
+        const conversation: IConversation | null = await Conversation.findOne({
+          _id: conversationId,
+          orgId,
+          userId,
+          isDeleted: false,
+          initiator: userId, // Only initiator can share
+        });
 
         if (!conversation) {
           throw new NotFoundError('Conversation not found or unauthorized');
@@ -861,18 +809,6 @@ export const shareConversationById =
         const updateObject: Partial<IConversation> = {
           isShared: true,
         };
-
-        // Set shareLink based on conversation source
-        if (
-          conversation.conversationSource ===
-          CONVERSATION_SOURCE.ENTERPRISE_SEARCH
-        ) {
-          updateObject.shareLink = `${appConfig.frontendUrl}/enterprise-search/${conversationId}`;
-        } else if (
-          conversation.conversationSource === CONVERSATION_SOURCE.RECORDS
-        ) {
-          updateObject.shareLink = `${appConfig.frontendUrl}/knowledge-base/records/${conversation.conversationSourceRecordId}`;
-        }
 
         // Handle user-specific sharing
         // Validate all user IDs
@@ -909,7 +845,10 @@ export const shareConversationById =
 
         // Create a map of existing users for quick lookup
         const existingUserMap = new Map(
-          existingSharedWith.map((share) => [share.userId.toString(), share]),
+          existingSharedWith.map((share: any) => [
+            share.userId.toString(),
+            share,
+          ]),
         );
 
         // Merge existing and new users, updating access levels for existing users if they're in the new list
@@ -930,16 +869,15 @@ export const shareConversationById =
         updateObject.sharedWith = mergedSharedWith;
 
         // Update the conversation
-        const updatedConversation =
-          await EnterpriseSearchConversation.findByIdAndUpdate(
-            conversationId,
-            updateObject,
-            {
-              new: true,
-              session,
-              runValidators: true,
-            },
-          );
+        const updatedConversation = await Conversation.findByIdAndUpdate(
+          conversationId,
+          updateObject,
+          {
+            new: true,
+            session,
+            runValidators: true,
+          },
+        );
 
         if (!updatedConversation) {
           throw new InternalServerError(
@@ -1035,7 +973,7 @@ export const unshareConversationById = async (
 
     async function performUnshareConversation(session?: ClientSession | null) {
       // Get conversation with access control
-      const conversation = await EnterpriseSearchConversation.findOne({
+      const conversation = await Conversation.findOne({
         _id: conversationId,
         orgId,
         isDeleted: false,
@@ -1066,16 +1004,15 @@ export const unshareConversationById = async (
       }
 
       // Update the conversation
-      const updatedConversation =
-        await EnterpriseSearchConversation.findByIdAndUpdate(
-          conversationId,
-          updateObject,
-          {
-            new: true,
-            session,
-            runValidators: true,
-          },
-        );
+      const updatedConversation = await Conversation.findByIdAndUpdate(
+        conversationId,
+        updateObject,
+        {
+          new: true,
+          session,
+          runValidators: true,
+        },
+      );
 
       if (!updatedConversation) {
         throw new InternalServerError(
@@ -1157,7 +1094,7 @@ export const regenerateAnswers =
       // Common helper that performs all operations needed to regenerate the answer.
       async function performRegenerateAnswers(session?: ClientSession | null) {
         // Get conversation with access control
-        const conversation = await EnterpriseSearchConversation.findOne({
+        const conversation = await Conversation.findOne({
           _id: conversationId,
           orgId,
           userId,
@@ -1211,20 +1148,14 @@ export const regenerateAnswers =
           conversation.messages.slice(0, -2), // Exclude last bot response and user query
         );
 
-        let recordIds = [];
-        if (conversation.conversationSource === CONVERSATION_SOURCE.RECORDS) {
-          recordIds.push(conversation.conversationSourceRecordId?.toString());
-        }
-
         // Get new AI response
         const aiCommand = new AIServiceCommand({
-          uri: `${appConfig.aiBackend}/api/v1/chatbot`,
+          uri: `${appConfig.aiBackend}/api/v1/chat`,
           method: HttpMethod.POST,
           headers: req.headers as Record<string, string>,
           body: {
             query: userQuery.content,
             previousConversations: previousConversations || [],
-            recordIds: recordIds || [],
           },
         });
         const aiResponse =
@@ -1241,7 +1172,7 @@ export const regenerateAnswers =
           aiResponse.data.citations.map(async (citation: ICitation) => {
             const newCitation = new Citation({
               content: citation.content,
-              recordIndex: citation.metadata.recordIndex ?? 0,
+              recordIndex: citation.recordIndex ?? 0,
               citationType: citation.citationType,
               metadata: {
                 ...citation.metadata,
@@ -1260,21 +1191,20 @@ export const regenerateAnswers =
         newMessage._id = lastMessage._id;
 
         // Update conversation with the new message
-        const updatedConversation =
-          await EnterpriseSearchConversation.findOneAndUpdate(
-            { _id: conversationId },
-            {
-              $set: {
-                [`messages.${conversation.messages.length - 1}`]: newMessage,
-                lastActivityAt: new Date(),
-              },
+        const updatedConversation = await Conversation.findOneAndUpdate(
+          { _id: conversationId },
+          {
+            $set: {
+              [`messages.${conversation.messages.length - 1}`]: newMessage,
+              lastActivityAt: new Date(),
             },
-            {
-              new: true,
-              session,
-              runValidators: true,
-            },
-          );
+          },
+          {
+            new: true,
+            session,
+            runValidators: true,
+          },
+        );
         if (!updatedConversation) {
           throw new InternalServerError('Failed to update conversation');
         }
@@ -1286,10 +1216,10 @@ export const regenerateAnswers =
               {
                 ...newMessage,
                 citations:
-                  newMessage.citations?.map((citation) => ({
+                  newMessage.citations?.map((citation: IMessageCitation) => ({
                     citationId: citation.citationId,
                     citationData: savedCitations.find(
-                      (c) =>
+                      (c: ICitation) =>
                         (c as mongoose.Document).id.toString() ===
                         citation.citationId?.toString(),
                     ),
@@ -1374,7 +1304,7 @@ export const updateTitle = async (
     session = await mongoose.startSession();
     session.startTransaction();
 
-    const conversation = await EnterpriseSearchConversation.findOne({
+    const conversation = await Conversation.findOne({
       _id: conversationId,
       orgId,
       userId,
@@ -1442,63 +1372,60 @@ export const updateFeedback = async (
       timestamp: new Date().toISOString(),
     });
 
-    session = await mongoose.startSession();
-    session.startTransaction();
-
-    const conversation = await EnterpriseSearchConversation.findOne({
-      _id: conversationId,
-      orgId,
-      userId,
-      isDeleted: false,
-      $or: [
-        { initiator: userId },
-        { 'sharedWith.userId': userId },
-        { isShared: true },
-      ],
-    });
-
-    if (!conversation) {
-      throw new NotFoundError('Conversation not found');
-    }
-
-    // Find the specific message
-    const messageIndex = conversation.messages.findIndex(
-      (msg) => msg._id?.toString() === messageId,
-    );
-
-    if (messageIndex === -1) {
-      throw new NotFoundError('Message not found');
-    }
-
-    // Check if message is a user query
-    if (conversation.messages[messageIndex]?.messageType === 'user_query') {
-      throw new BadRequestError('Feedback is not allowed for user queries');
-    }
-
-    // Update message feedback
-    // Prepare feedback entry
-    const feedbackEntry = {
-      ...req.body,
-      feedbackProvider: userId,
-      timestamp: new Date(),
-      metrics: {
-        timeToFeedback:
-          Date.now() - Number(conversation.messages[messageIndex]?.createdAt),
-        userInteractionTime: req.body.metrics?.userInteractionTime,
-        feedbackSessionId: req.body.metrics?.feedbackSessionId,
-        userAgent: req.headers['user-agent'],
-      },
-    };
-
-    // Update message feedback
-    const updatePath = `messages.${messageIndex}.feedback`;
-    const updateObject = {
-      $push: { [updatePath]: feedbackEntry },
-    };
-
-    // Update conversation
-    const updatedConversation =
-      await EnterpriseSearchConversation.findByIdAndUpdate(
+    async function performUpdateFeedback(session?: ClientSession | null) {
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        orgId,
+        userId,
+        isDeleted: false,
+        $or: [
+          { initiator: userId },
+          { 'sharedWith.userId': userId },
+          { isShared: true },
+        ],
+      });
+  
+      if (!conversation) {
+        throw new NotFoundError('Conversation not found');
+      }
+  
+      // Find the specific message
+      const messageIndex = conversation.messages.findIndex(
+        (msg: IMessageDocument) => msg._id?.toString() === messageId,
+      );
+  
+      if (messageIndex === -1) {
+        throw new NotFoundError('Message not found');
+      }
+  
+      // Check if message is a user query
+      if (conversation.messages[messageIndex]?.messageType === 'user_query') {
+        throw new BadRequestError('Feedback is not allowed for user queries');
+      }
+  
+      // Update message feedback
+      // Prepare feedback entry
+      const feedbackEntry = {
+        ...req.body,
+        feedbackProvider: userId,
+        timestamp: new Date(),
+        metrics: {
+          timeToFeedback:
+            Date.now() - Number(conversation.messages[messageIndex]?.createdAt),
+          userInteractionTime: req.body.metrics?.userInteractionTime,
+          feedbackSessionId: req.body.metrics?.feedbackSessionId,
+          userAgent: req.headers['user-agent'],
+        },
+      };
+  
+      // Update message feedback
+      const updatePath = `messages.${messageIndex}.feedback`;
+      const updateObject = {
+        $push: { [updatePath]: feedbackEntry },
+      };
+  
+      // Update conversation
+      const updatedConversation = await Conversation.findByIdAndUpdate(
         conversationId,
         updateObject,
         {
@@ -1507,12 +1434,21 @@ export const updateFeedback = async (
           runValidators: true,
         },
       );
-
-    if (!updatedConversation) {
-      throw new InternalServerError('Failed to update feedback');
+  
+      if (!updatedConversation) {
+        throw new InternalServerError('Failed to update feedback');
+      }
+      return { updatedConversation, feedbackEntry };
     }
-
-    await session.commitTransaction();
+    let updatedConversation, feedbackEntry;
+    if (rsAvailable) {
+      session = await mongoose.startSession();
+      ({ updatedConversation, feedbackEntry } = await session.withTransaction(() =>
+        performUpdateFeedback(session),
+      ));
+    } else {
+      ({ updatedConversation, feedbackEntry } = await performUpdateFeedback());
+    }
 
     logger.debug('Feedback updated successfully', {
       requestId,
@@ -1569,7 +1505,7 @@ export const archiveConversation = async (
 
     async function performArchiveConversation(session?: ClientSession | null) {
       // Get conversation with access control
-      const conversation = await EnterpriseSearchConversation.findOne({
+      const conversation = await Conversation.findOne({
         _id: conversationId,
         userId,
         orgId,
@@ -1592,7 +1528,7 @@ export const archiveConversation = async (
 
       // Perform soft delete
       const updatedConversation: IConversationDocument | null =
-        await EnterpriseSearchConversation.findByIdAndUpdate(
+        await Conversation.findByIdAndUpdate(
           conversationId,
           {
             $set: {
@@ -1682,7 +1618,7 @@ export const unarchiveConversation = async (
       session?: ClientSession | null,
     ) {
       // Get conversation with access control
-      const conversation = await EnterpriseSearchConversation.findOne({
+      const conversation = await Conversation.findOne({
         _id: conversationId,
         userId,
         orgId,
@@ -1705,7 +1641,7 @@ export const unarchiveConversation = async (
 
       // Perform soft delete
       const updatedConversation: IConversationDocument | null =
-        await EnterpriseSearchConversation.findByIdAndUpdate(
+        await Conversation.findByIdAndUpdate(
           conversationId,
           {
             $set: {
@@ -1777,35 +1713,16 @@ export const listAllArchivesConversation = async (
   try {
     const userId = req.user?.userId;
     const orgId = req.user?.orgId;
-    const {
-      conversationSource,
-      conversationSourceRecordId,
-      conversationId,
-      conversationSourceConnectorIds,
-      conversationSourceRecordType,
-      conversationSourceConnectorTypes,
-    } = req.query;
+    const { conversationId } = req.query;
 
     logger.debug('Fetching all archived conversations', {
       requestId,
       userId,
-      conversationSource,
-      conversationSourceRecordId,
     });
 
     const { skip, limit, page } = getPaginationParams(req);
     const filter = {
-      ...buildFilter(
-        req,
-        orgId,
-        userId,
-        conversationId as string,
-        conversationSource as string,
-        conversationSourceRecordId as string,
-        conversationSourceConnectorIds as string[],
-        conversationSourceRecordType as string,
-        conversationSourceConnectorTypes as string[],
-      ),
+      ...buildFilter(req, orgId, userId, conversationId as string),
       isArchived: true, // Add archived filter
       archivedBy: { $exists: true }, // Ensure it was properly archived
     };
@@ -1813,7 +1730,7 @@ export const listAllArchivesConversation = async (
 
     // Execute query
     const [conversations, totalCount] = await Promise.all([
-      EnterpriseSearchConversation.find(filter)
+      Conversation.find(filter)
         .sort(sortOptions as any)
         .skip(skip)
         .limit(limit)
@@ -1821,7 +1738,7 @@ export const listAllArchivesConversation = async (
         .select('-citations')
         .lean()
         .exec(),
-      EnterpriseSearchConversation.countDocuments(filter),
+      Conversation.countDocuments(filter),
     ]);
 
     // Process results with computed fields and restructured citations
@@ -1853,7 +1770,6 @@ export const listAllArchivesConversation = async (
         requestId,
         timestamp: new Date().toISOString(),
         duration: Date.now() - startTime,
-        conversationSource,
       },
     };
 
@@ -1861,7 +1777,6 @@ export const listAllArchivesConversation = async (
       requestId,
       count: conversations.length,
       totalCount,
-      conversationSource,
       duration: Date.now() - startTime,
     });
 
@@ -1876,7 +1791,7 @@ export const listAllArchivesConversation = async (
   }
 };
 
-export const enterpriseSemanticSearch =
+export const search =
   (appConfig: AppConfig) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     const requestId = req.context?.requestId;
@@ -1910,7 +1825,7 @@ export const enterpriseSemanticSearch =
         results.map(async (result: ICitation) => {
           const citationDoc = new Citation({
             content: result.content,
-            recordIndex: result.metadata.recordIndex ?? 0, // fallback to 0 if not present
+            recordIndex: result.recordIndex ?? 0, // fallback to 0 if not present
             citationType: result.citationType,
             metadata: result.metadata,
           });
@@ -1965,7 +1880,7 @@ export const searchHistory = async (
     const orgId = req.user?.orgId;
     const userId = req.user?.userId;
     const sortOptions = buildSortOptions(req);
-    const filter = buildSemanticSearchFilter(req, orgId, userId);
+    const filter = buildFilter(req, orgId, userId);
 
     const [searchHistory, totalCount] = await Promise.all([
       EnterpriseSemanticSearch.find(filter)
@@ -2010,7 +1925,7 @@ export const getSearchById = async (
   try {
     const orgId = req.user?.orgId;
     const userId = req.user?.userId;
-    const filter = buildSemanticSearchFilter(req, orgId, userId, searchId);
+    const filter = buildFilter(req, orgId, userId, searchId);
     const search = await EnterpriseSemanticSearch.findById(filter)
       .populate({
         path: 'citationIds',
@@ -2045,7 +1960,7 @@ export const deleteSearchById = async (
   try {
     const orgId = req.user?.orgId;
     const userId = req.user?.userId;
-    const filter = buildSemanticSearchFilter(req, orgId, userId, searchId);
+    const filter = buildFilter(req, orgId, userId, searchId);
     const search = await EnterpriseSemanticSearch.findByIdAndDelete(filter);
     if (!search) {
       throw new NotFoundError('Search Id not found');
@@ -2074,15 +1989,14 @@ export const deleteSearchHistory = async (
   try {
     const orgId = req.user?.orgId;
     const userId = req.user?.userId;
-    const filter = buildSemanticSearchFilter(req, orgId, userId);
+    const filter = buildFilter(req, orgId, userId);
     const searches = await EnterpriseSemanticSearch.find(filter).lean().exec();
 
     if (!searches.length) {
       throw new NotFoundError('Search history not found');
     }
 
-
-    const citationIds = searches.flatMap(search => search.citationIds);
+    const citationIds = searches.flatMap((search) => search.citationIds);
     await EnterpriseSemanticSearch.deleteMany(filter);
     await Citation.deleteMany({ _id: { $in: citationIds } });
 
