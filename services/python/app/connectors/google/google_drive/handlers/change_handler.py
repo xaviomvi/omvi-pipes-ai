@@ -11,34 +11,6 @@ class DriveChangeHandler:
         self.config_service = config_service
         self.arango_service = arango_service
 
-    # async def process_sync_period_changes(self, start_token: str, user_service) -> bool:
-    #     """Process all changes between start_token and current"""
-    #     try:
-    #         logger.info("🚀 Processing changes since initial sync")
-
-    #         # Get all changes between start_token and current_token
-    #         changes, new_token = await user_service.get_changes(start_token)
-
-    #         for change in changes:
-    #             logger.info("🚀 Processing change")
-    #             await self.process_change(change, user_service, org_id)
-
-    #         # Only store the new token if we successfully processed all changes
-    #         if new_token:
-    #             await self.arango_service.store_page_token(
-    #                 channel_id=start_token['channel_id'],
-    #                 resource_id=start_token['resource_id'],
-    #                 user_email=start_token['user_email'],
-    #                 token=new_token
-    #             )
-    #             logger.info("✅ New token stored successfully")
-
-    #         return True
-
-    #     except Exception as e:
-    #         logger.error(f"❌ Failed to process sync period changes: {str(e)}")
-    #         return False
-
     async def process_change(self, change: Dict, user_service, org_id, user_id):
         """Process a single change with revision checking"""
         txn = None
@@ -101,9 +73,9 @@ class DriveChangeHandler:
             """)
 
             txn = self.arango_service.db.begin_transaction(
-                read=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value,
+                read=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                       CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value, CollectionNames.BELONGS_TO.value],
-                write=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, 
+                write=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                        CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value, CollectionNames.BELONGS_TO.value]
             )
 
@@ -449,6 +421,12 @@ class DriveChangeHandler:
                     'isDirty': False,
                     'reason': None,
                 }
+                is_of_type_record = {
+                    '_from': f'records/{record["_key"]}',
+                    '_to': f'files/{file["_key"]}',
+                    "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                    "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                }
 
                 recordRelations = []
 
@@ -476,6 +454,13 @@ class DriveChangeHandler:
                 if record:
                     await self.arango_service.batch_upsert_nodes([record], CollectionNames.RECORDS.value, transaction=transaction)
 
+                if is_of_type_record:
+                    await self.arango_service.batch_create_edges(
+                        [is_of_type_record],
+                        collection=CollectionNames.IS_OF_TYPE.value,
+                        transaction=transaction
+                    )
+
                 if recordRelations:
                     await self.arango_service.batch_create_edges(
                         recordRelations,
@@ -484,7 +469,7 @@ class DriveChangeHandler:
                     )
 
                 if permissions:
-                    await self.arango_service.process_file_permissions(file['_key'], permissions, transaction=transaction)
+                    await self.arango_service.process_file_permissions(org_id, file['_key'], permissions, transaction=transaction)
 
                 logger.info(
                     "✅ Successfully handled insert of file %s", file['_key'])
@@ -552,17 +537,29 @@ class DriveChangeHandler:
                 'isDirty': False,
                 'reason': None,
             }
+            is_of_type_record = {
+                '_from': f'records/{record["_key"]}',
+                '_to': f'files/{file["_key"]}',
+                "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+            }
 
             # 5. Update file and record nodes
             await self.arango_service.batch_upsert_nodes([file], CollectionNames.FILES.value, transaction=transaction)
             await self.arango_service.batch_upsert_nodes([record], CollectionNames.RECORDS.value, transaction=transaction)
+            if is_of_type_record:
+                await self.arango_service.batch_create_edges(
+                    [is_of_type_record],
+                    collection=CollectionNames.IS_OF_TYPE.value,
+                    transaction=transaction
+                )
 
             # 6. Handle parent relationships
             await self.update_relationships(existing_file['_key'], updated_file, transaction)
 
             # 7. Process permissions if they exist
             if permissions:
-                await self.arango_service.process_file_permissions(existing_file['_key'], permissions, transaction=transaction)
+                await self.arango_service.process_file_permissions(org_id, existing_file['_key'], permissions, transaction=transaction)
 
             logger.info("✅ Successfully updated file %s",
                         existing_file['_key'])

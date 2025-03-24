@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from datetime import datetime, timezone
 from app.utils.logger import logger
 import uuid
 from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, OriginTypes
@@ -8,6 +8,7 @@ class GmailChangeHandler:
     def __init__(self, config_service, arango_service):
         self.config_service = config_service
         self.arango_service = arango_service
+        
 
     async def process_changes(self, user_service, changes, org_id, user_id) -> bool:
         """Process changes since last sync time"""
@@ -86,17 +87,26 @@ class GmailChangeHandler:
                             "reason": None
                         }
 
+                        is_of_type_record = {
+                            '_from': f'records/{record["_key"]}',
+                            '_to': f'messages/{message_record["_key"]}',
+                            "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                            "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                        }
+
 
                         # Start transaction
                         txn = self.arango_service.db.begin_transaction(
                             read=[CollectionNames.MAILS.value,
                                   CollectionNames.RECORDS.value, 
                                   CollectionNames.FILES.value,
-                                  CollectionNames.PERMISSIONS.value],
+                                  CollectionNames.PERMISSIONS.value,
+                                  CollectionNames.IS_OF_TYPE.value],
                             write=[CollectionNames.MAILS.value, 
                                    CollectionNames.RECORDS.value, 
                                    CollectionNames.FILES.value,
-                                   CollectionNames.PERMISSIONS.value]
+                                   CollectionNames.PERMISSIONS.value,
+                                   CollectionNames.IS_OF_TYPE.value]
                         )
 
                         try:
@@ -111,11 +121,17 @@ class GmailChangeHandler:
                                 collection=CollectionNames.RECORDS.value,
                                 transaction=txn
                             )
+                            await self.arango_service.batch_create_edges(
+                                [is_of_type_record],
+                                collection=CollectionNames.IS_OF_TYPE.value,
+                                transaction=txn
+                            )
 
                             # Store attachments if any
                             if attachments:
                                 attachment_records = []
                                 record_records = []
+                                is_of_type_records = []
                                 for attachment in attachments:
                                     attachment_record = {
                                         '_key': str(uuid.uuid4()),
@@ -151,9 +167,15 @@ class GmailChangeHandler:
                                         "isDirty": False,
                                         "reason": None
                                     }
+                                    is_of_type_record = {
+                                        '_from': f'records/{record["_key"]}',
+                                        '_to': f'files/{attachment_record["_key"]}',
+                                        "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                        "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                    }
 
                                     record_records.append(record)
-
+                                    is_of_type_records.append(is_of_type_record)
                                 await self.arango_service.batch_upsert_nodes(
                                     attachment_records,
                                     collection=CollectionNames.FILES.value,
@@ -163,6 +185,12 @@ class GmailChangeHandler:
                                 await self.arango_service.batch_upsert_nodes(
                                     record_records,
                                     collection=CollectionNames.RECORDS.value,
+                                    transaction=txn
+                                )
+                                
+                                await self.arango_service.batch_create_edges(
+                                    is_of_type_records,
+                                    collection=CollectionNames.IS_OF_TYPE.value,
                                     transaction=txn
                                 )
 
@@ -204,6 +232,50 @@ class GmailChangeHandler:
                             logger.error(
                                 f"❌ Error processing message addition: {str(e)}")
                             continue
+                        
+                        message_event = {
+                            "orgId": org_id,
+                            "recordId": message_record['_key'],
+                            "recordName": headers.get('Subject', 'No Subject'),
+                            "recordType": RecordTypes.MAIL.value,
+                            "recordVersion": 0,
+                            "eventType": "create",
+                            "body": message.get('body', ''),
+                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_record['_key']}/signedUrl",
+                            "metadataRoute": f"/api/v1/gmail/record/{message_record['_key']}/metadata",
+                            "connectorName": Connectors.GOOGLE_MAIL.value,
+                            "origin": OriginTypes.CONNECTOR.value,
+                            "mimeType": "text/gmail_content",
+                            "createdAtSourceTimestamp": int(message.get('internalDate', datetime.now(timezone.utc).timestamp())),
+                            "modifiedAtSourceTimestamp": int(message.get('internalDate', datetime.now(timezone.utc).timestamp()))
+                        }
+                            
+                        # SEND KAFKA EVENT FOR INDEXING
+                        await self.arango_service.kafka_service.send_event_to_kafka(
+                            message_event)
+                        logger.info("📨 Sent Kafka reindexing event for record %s", record["_key"])
+                        
+                        if attachments:
+                            for attachment in attachments:
+                                attachment_key = await self.arango_service.get_key_by_attachment_id(attachment['attachment_id'])
+                                attachment_event = {
+                                    "recordId": attachment_key,
+                                    "recordName": attachment.get('filename', 'Unnamed Attachment'),
+                                    "recordType": RecordTypes.ATTACHMENT.value,
+                                    "recordVersion": 0,
+                                    'eventType': "create",
+                                    "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
+                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
+                                    "connectorName": Connectors.GOOGLE_MAIL.value,
+                                    "origin": OriginTypes.CONNECTOR.value,
+                                    "mimeType": attachment.get('mimeType', 'application/octet-stream'),
+                                    "size": attachment.get('size', 0),
+                                    "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
+                                    "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
+                                }
+                                await self.kafka_service.send_event_to_kafka(attachment_event)
+                                logger.info(
+                                    "📨 Sent Kafka Indexing event for attachment %s", attachment_key)
 
                 # Handle message deletions
                 if 'messagesDeleted' in change:
@@ -230,13 +302,15 @@ class GmailChangeHandler:
                                       CollectionNames.PERMISSIONS.value,
                                       CollectionNames.FILES.value,
                                       CollectionNames.RECORDS.value,
+                                      CollectionNames.IS_OF_TYPE.value,
                                       CollectionNames.RECORD_RELATIONS.value
                                       ],
                                 write=[CollectionNames.MAILS.value, 
                                        CollectionNames.PERMISSIONS.value,
                                        CollectionNames.FILES.value,
                                        CollectionNames.RECORDS.value,
-                                       CollectionNames.RECORD_RELATIONS.value]
+                                       CollectionNames.RECORD_RELATIONS.value,
+                                       CollectionNames.IS_OF_TYPE.value]
                             )
 
                             try:

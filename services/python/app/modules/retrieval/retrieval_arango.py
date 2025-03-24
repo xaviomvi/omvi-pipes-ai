@@ -13,33 +13,6 @@ class ArangoService():
         self.client = arango_client
         self.db = None
 
-        # Collections
-        self._collections = {
-            CollectionNames.RECORDS.value: None,
-            CollectionNames.RECORD_RELATIONS.value: None,
-
-            CollectionNames.DRIVES.value: None,
-            CollectionNames.USER_DRIVE_RELATION.value: None,
-
-            CollectionNames.FILES.value: None,
-            CollectionNames.LINKS.value: None,
-            CollectionNames.MAILS.value: None,
-
-            CollectionNames.PEOPLE.value: None,
-            CollectionNames.USERS.value: None,
-            CollectionNames.GROUPS.value: None,
-            CollectionNames.ORGS.value: None,
-            CollectionNames.ANYONE.value: None,
-            CollectionNames.BELONGS_TO.value: None,
-
-            CollectionNames.DEPARTMENTS.value: None,
-            CollectionNames.BELONGS_TO_DEPARTMENT.value: None,
-
-            CollectionNames.PERMISSIONS.value: None,
-
-            CollectionNames.CHANNEL_HISTORY.value: None,
-            CollectionNames.PAGE_TOKENS.value: None,
-        }
 
     async def connect(self) -> bool:
         """Connect to ArangoDB and initialize collections"""
@@ -85,182 +58,11 @@ class ArangoService():
             )
             logger.debug("Our DB: %s", self.db)
 
-            # Initialize collections
-            try:
-                self._collections[CollectionNames.RECORDS.value] = (
-                    self.db.collection(CollectionNames.RECORDS.value)
-                    if self.db.has_collection(CollectionNames.RECORDS.value)
-                    else self.db.create_collection(CollectionNames.RECORDS.value)
-                )
-                self._collections[CollectionNames.RECORD_RELATIONS.value] = (
-                    self.db.collection(CollectionNames.RECORD_RELATIONS.value)
-                    if self.db.has_collection(CollectionNames.RECORD_RELATIONS.value)
-                    else self.db.create_collection(CollectionNames.RECORD_RELATIONS.value, edge=True)
-                )
-                self._collections[CollectionNames.FILES.value] = (
-                    self.db.collection(CollectionNames.FILES.value)
-                    if self.db.has_collection(CollectionNames.FILES.value)
-                    else self.db.create_collection(CollectionNames.FILES.value)
-                )
-                self._collections[CollectionNames.MAILS.value] = (
-                    self.db.collection(CollectionNames.MAILS.value)
-                    if self.db.has_collection(CollectionNames.MAILS.value)
-                    else self.db.create_collection(CollectionNames.MAILS.value)
-                )
-                self._collections[CollectionNames.DEPARTMENTS.value] = (
-                    self.db.collection(CollectionNames.DEPARTMENTS.value)
-                    if self.db.has_collection(CollectionNames.DEPARTMENTS.value)
-                    else self.db.create_collection(CollectionNames.DEPARTMENTS.value)
-                )
-                self._collections[CollectionNames.BELONGS_TO_DEPARTMENT.value] = (
-                    self.db.collection(CollectionNames.BELONGS_TO_DEPARTMENT.value)
-                    if self.db.has_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO_DEPARTMENT.value, edge=True)
-                )
-                self._collections[CollectionNames.CATEGORIES.value] = (
-                    self.db.collection(CollectionNames.CATEGORIES.value)
-                    if self.db.has_collection(CollectionNames.CATEGORIES.value)
-                    else self.db.create_collection(CollectionNames.CATEGORIES.value)
-                )
-                self._collections[CollectionNames.BELONGS_TO_CATEGORY.value] = (
-                    self.db.collection(CollectionNames.BELONGS_TO_CATEGORY.value)
-                    if self.db.has_collection(CollectionNames.BELONGS_TO_CATEGORY.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO_CATEGORY.value, edge=True)
-                )
-                self._collections[CollectionNames.SUBCATEGORIES1.value] = (
-                    self.db.collection(CollectionNames.SUBCATEGORIES1.value)
-                    if self.db.has_collection(CollectionNames.SUBCATEGORIES1.value)
-                    else self.db.create_collection(CollectionNames.SUBCATEGORIES1.value)
-                )
-                self._collections[CollectionNames.SUBCATEGORIES2.value] = (
-                    self.db.collection(CollectionNames.SUBCATEGORIES2.value)
-                    if self.db.has_collection(CollectionNames.SUBCATEGORIES2.value)
-                    else self.db.create_collection(CollectionNames.SUBCATEGORIES2.value)
-                )
-                self._collections[CollectionNames.SUBCATEGORIES3.value] = (
-                    self.db.collection(CollectionNames.SUBCATEGORIES3.value)
-                    if self.db.has_collection(CollectionNames.SUBCATEGORIES3.value)
-                    else self.db.create_collection(CollectionNames.SUBCATEGORIES3.value)
-                )
-                self._collections[CollectionNames.INTER_CATEGORY_RELATIONS.value] = (
-                    self.db.collection(CollectionNames.INTER_CATEGORY_RELATIONS.value)
-                    if self.db.has_collection(CollectionNames.INTER_CATEGORY_RELATIONS.value)
-                    else self.db.create_collection(CollectionNames.INTER_CATEGORY_RELATIONS.value, edge=True)
-                )
-                self._collections[CollectionNames.LANGUAGES.value] = (
-                    self.db.collection(CollectionNames.LANGUAGES.value)
-                    if self.db.has_collection(CollectionNames.LANGUAGES.value)
-                    else self.db.create_collection(CollectionNames.LANGUAGES.value)
-                )
-                self._collections[CollectionNames.BELONGS_TO_LANGUAGE.value] = (
-                    self.db.collection(CollectionNames.BELONGS_TO_LANGUAGE.value)
-                    if self.db.has_collection(CollectionNames.BELONGS_TO_LANGUAGE.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO_LANGUAGE.value, edge=True)
-                )
-                self._collections[CollectionNames.TOPICS.value] = (
-                    self.db.collection(CollectionNames.TOPICS.value)
-                    if self.db.has_collection(CollectionNames.TOPICS.value)
-                    else self.db.create_collection(CollectionNames.TOPICS.value)
-                )
-                self._collections[CollectionNames.BELONGS_TO_TOPIC.value] = (
-                    self.db.collection(CollectionNames.BELONGS_TO_TOPIC.value)
-                    if self.db.has_collection(CollectionNames.BELONGS_TO_TOPIC.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO_TOPIC.value, edge=True)
-                )
-                self._collections[CollectionNames.PEOPLE.value] = (
-                    self.db.collection(CollectionNames.PEOPLE.value)
-                    if self.db.has_collection(CollectionNames.PEOPLE.value)
-                    else self.db.create_collection(CollectionNames.PEOPLE.value)
-                )
-                self._collections[CollectionNames.USERS.value] = (
-                    self.db.collection(CollectionNames.USERS.value)
-                    if self.db.has_collection(CollectionNames.USERS.value)
-                    else self.db.create_collection(CollectionNames.USERS.value)
-                )
-                self._collections[CollectionNames.GROUPS.value] = (
-                    self.db.collection(CollectionNames.GROUPS.value)
-                    if self.db.has_collection(CollectionNames.GROUPS.value)
-                    else self.db.create_collection(CollectionNames.GROUPS.value)
-                )
-                self._collections[CollectionNames.ORGS.value] = (
-                    self.db.collection(CollectionNames.ORGS.value)
-                    if self.db.has_collection(CollectionNames.ORGS.value)
-                    else self.db.create_collection(CollectionNames.ORGS.value)
-                )
-                self._collections[CollectionNames.ANYONE.value] = (
-                    self.db.collection(CollectionNames.ANYONE.value)
-                    if self.db.has_collection(CollectionNames.ANYONE.value)
-                    else self.db.create_collection(CollectionNames.ANYONE.value)
-                )
-                self._collections[CollectionNames.BELONGS_TO.value] = (
-                    self.db.collection(CollectionNames.BELONGS_TO.value)
-                    if self.db.has_collection(CollectionNames.BELONGS_TO.value)
-                    else self.db.create_collection(CollectionNames.BELONGS_TO.value, edge=True)
-                )
-                self._collections[CollectionNames.PERMISSIONS.value] = (
-                    self.db.collection(CollectionNames.PERMISSIONS.value)
-                    if self.db.has_collection(CollectionNames.PERMISSIONS.value)
-                    else self.db.create_collection(CollectionNames.PERMISSIONS.value, edge=True)
-                )
-                self._collections[CollectionNames.CHANNEL_HISTORY.value] = (
-                    self.db.collection(CollectionNames.CHANNEL_HISTORY.value)
-                    if self.db.has_collection(CollectionNames.CHANNEL_HISTORY.value)
-                    else self.db.create_collection(CollectionNames.CHANNEL_HISTORY.value)
-                )
-                self._collections[CollectionNames.PAGE_TOKENS.value] = (
-                    self.db.collection(CollectionNames.PAGE_TOKENS.value)
-                    if self.db.has_collection(CollectionNames.PAGE_TOKENS.value)
-                    else self.db.create_collection(CollectionNames.PAGE_TOKENS.value)
-                )
-
-                # Create the permissions graph
-                if not self.db.has_graph(CollectionNames.FILE_ACCESS_GRAPH.value):
-                    logger.info("🚀 Creating file access graph...")
-                    graph = self.db.create_graph(CollectionNames.FILE_ACCESS_GRAPH.value)
-
-                    # Define edge definitions for permissions and group membership
-                    graph.create_edge_definition(
-                        edge_collection=CollectionNames.PERMISSIONS.value,
-                        from_vertex_collections=[CollectionNames.RECORDS.value],
-                        to_vertex_collections=[CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value]
-                    )
-
-                    graph.create_edge_definition(
-                        edge_collection=CollectionNames.BELONGS_TO.value,
-                        from_vertex_collections=[CollectionNames.USERS.value],
-                        to_vertex_collections=[CollectionNames.GROUPS.value, CollectionNames.ORGS.value]
-                    )
-
-                    # Define edge definitions for record classifications
-                    graph.create_edge_definition(
-                        edge_collection=CollectionNames.BELONGS_TO_DEPARTMENT.value,
-                        from_vertex_collections=[CollectionNames.RECORDS.value],
-                        to_vertex_collections=[CollectionNames.DEPARTMENTS.value]
-                    )
-
-                    graph.create_edge_definition(
-                        edge_collection=CollectionNames.BELONGS_TO_CATEGORY.value,
-                        from_vertex_collections=[CollectionNames.RECORDS.value],
-                        to_vertex_collections=[CollectionNames.CATEGORIES.value, CollectionNames.SUBCATEGORIES1.value, CollectionNames.SUBCATEGORIES2.value, CollectionNames.SUBCATEGORIES3.value]
-                    )
-
-                    logger.info("✅ File access graph created successfully")
-
-                logger.info("✅ Collections initialized successfully")
-                
-                return True
-
-            except Exception as e:
-                logger.error("❌ Error initializing collections: %s", str(e))
-                raise
-
+            return True
         except Exception as e:
             logger.error("❌ Failed to connect to ArangoDB: %s", str(e))
             self.client = None
             self.db = None
-            # Reset collections
-            for collection in self._collections:
-                self._collections[collection] = None
 
             return False
 
@@ -274,3 +76,155 @@ class ArangoService():
         except Exception as e:
             logger.error("❌ Failed to disconnect from ArangoDB: %s", str(e))
             return False
+
+    async def get_accessible_records(self, user_id: str, org_id: str, filters: dict = None) -> list:
+        """
+        Get all records accessible to a user based on their permissions and apply filters
+        
+        Args:
+            user_id (str): The userId field value in users collection
+            org_id (str): The org_id to filter anyone collection
+            filters (dict): Optional filters for departments, categories, languages, topics etc.
+                Format: {
+                    'departments': [dept_ids],
+                    'categories': [cat_ids],
+                    'subcategories1': [subcat1_ids],
+                    'subcategories2': [subcat2_ids],
+                    'subcategories3': [subcat3_ids],
+                    'languages': [language_ids],
+                    'topics': [topic_ids]
+                }
+        """
+        try:
+            query = """
+            // First get the user document using userId field
+            LET userDoc = FIRST(
+                FOR user IN @@users
+                FILTER user.userId == @userId
+                RETURN user
+            )
+
+            LET directAndGroupRecords = (
+                WITH @@users, @@records, @@permissions, @@belongsTo, @@organizations
+                FOR vertex, edge, path IN 1..3 ANY userDoc._id
+                GRAPH @@fileAccessGraph
+                FILTER IS_SAME_COLLECTION(@@records, vertex)
+                RETURN DISTINCT vertex
+            )
+            
+            LET kbRecords = (
+                WITH @@users, @@records, @@knowledgeBase, @@belongsToKnowledgeBase, @@permissionsToKnowledgeBase
+                FOR kb IN OUTBOUND userDoc._id GRAPH @@fileAccessGraph
+                FILTER IS_SAME_COLLECTION(@@knowledgeBase, kb)
+                    FOR record IN INBOUND kb._id GRAPH @@fileAccessGraph
+                    FILTER IS_SAME_COLLECTION(@@records, record)
+                    RETURN DISTINCT record
+            )
+            
+            LET anyoneRecords = (
+                FOR record IN @@anyone
+                FILTER record.organization == @orgId
+                RETURN record.file_key
+            )
+            
+            LET allAccessibleRecords = UNIQUE(
+                UNION(directAndGroupRecords, kbRecords, anyoneRecords)
+            )
+            """
+
+            # Add filter conditions if provided
+            filter_conditions = []
+            if filters:
+                if filters.get('departments'):
+                    filter_conditions.append("""
+                    LENGTH(
+                        FOR dept IN OUTBOUND record._id {CollectionNames.BELONGS_TO_DEPARTMENT.value}
+                        FILTER dept._id IN @departmentIds
+                        RETURN dept
+                    ) > 0
+                    """)
+
+                if filters.get('categories'):
+                    filter_conditions.append("""
+                    LENGTH(
+                        FOR cat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
+                        FILTER cat._id IN @categoryIds
+                        RETURN cat
+                    ) > 0
+                    """)
+
+                if filters.get('subcategories1'):
+                    filter_conditions.append("""
+                    LENGTH(
+                        FOR subcat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
+                        FILTER subcat._id IN @subcat1Ids
+                        RETURN subcat
+                    ) > 0
+                    """)
+
+                # Similar conditions for subcategories2 and subcategories3...
+
+                if filters.get('languages'):
+                    filter_conditions.append("""
+                    LENGTH(
+                        FOR lang IN OUTBOUND record._id {CollectionNames.BELONGS_TO_LANGUAGE.value}
+                        FILTER lang._id IN @languageIds
+                        RETURN lang
+                    ) > 0
+                    """)
+
+                if filters.get('topics'):
+                    filter_conditions.append("""
+                    LENGTH(
+                        FOR topic IN OUTBOUND record._id {CollectionNames.BELONGS_TO_TOPIC.value}
+                        FILTER topic._id IN @topicIds
+                        RETURN topic
+                    ) > 0
+                    """)
+
+            # Add filter conditions to main query
+            if filter_conditions:
+                query += """
+                FOR record IN allAccessibleRecords
+                FILTER """ + " AND ".join(filter_conditions) + """
+                RETURN DISTINCT record
+                """
+            else:
+                query += """
+                RETURN DISTINCT allAccessibleRecords
+                """
+
+            # Prepare bind variables
+            bind_vars = {
+                'userId': user_id,
+                'orgId': org_id,
+                '@users': CollectionNames.USERS.value,
+                '@records': CollectionNames.RECORDS.value,
+                '@knowledgeBase': CollectionNames.KNOWLEDGE_BASE.value,
+                '@belongsToKnowledgeBase': CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value,
+                '@permissionsToKnowledgeBase': CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value,
+                '@permissions': CollectionNames.PERMISSIONS.value,
+                '@belongsTo': CollectionNames.BELONGS_TO.value,
+                '@anyone': CollectionNames.ANYONE.value,
+                '@fileAccessGraph': CollectionNames.FILE_ACCESS_GRAPH.value
+            }
+
+            # Add filter bind variables
+            if filters:
+                if filters.get('departments'):
+                    bind_vars['departmentIds'] = [f"{CollectionNames.DEPARTMENTS.value}/{id}" for id in filters['departments']]
+                if filters.get('categories'):
+                    bind_vars['categoryIds'] = [f"{CollectionNames.CATEGORIES.value}/{id}" for id in filters['categories']]
+                if filters.get('subcategories1'):
+                    bind_vars['subcat1Ids'] = [f"{CollectionNames.SUBCATEGORIES1.value}/{id}" for id in filters['subcategories1']]
+                if filters.get('languages'):
+                    bind_vars['languageIds'] = [f"{CollectionNames.LANGUAGES.value}/{id}" for id in filters['languages']]
+                if filters.get('topics'):
+                    bind_vars['topicIds'] = [f"{CollectionNames.TOPICS.value}/{id}" for id in filters['topics']]
+
+            cursor = self.db.aql.execute(query, bind_vars=bind_vars)
+            return list(cursor)
+
+        except Exception as e:
+            logger.error(f"Failed to get accessible records: {str(e)}")
+            raise

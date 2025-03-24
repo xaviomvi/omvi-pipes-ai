@@ -626,17 +626,23 @@ class KafkaRouteConsumer:
         try:
             org_id = payload['orgId']
             apps = payload['apps']
-
+            
             # Stop sync for each app
             logger.info(f"📥 Processing app disabled event: {payload}")
 
             # Set apps as inactive
             app_updates = []
             for app_name in apps:
+                app_doc = await self.arango_service.get_document(f"{org_id}_{app_name}", CollectionNames.APPS.value)
                 app_data = {
                     '_key': f"{org_id}_{app_name}",  # Construct the app _key
+                    'name': app_doc['name'],
+                    'type': app_doc['type'],
+                    'appGroup': app_doc['appGroup'],
+                    'appGroupId': app_doc['appGroupId'],
                     'isActive': False,
-                    'updatedAtTimestamp':  get_epoch_timestamp_in_ms(),
+                    'createdAtTimestamp': app_doc['createdAtTimestamp'],
+                    'updatedAtTimestamp': get_epoch_timestamp_in_ms(),
                 }
                 app_updates.append(app_data)
 

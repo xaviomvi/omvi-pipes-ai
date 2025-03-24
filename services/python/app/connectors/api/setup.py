@@ -254,16 +254,6 @@ class AppContainer(containers.DeclarativeContainer):
     gmail_webhook_handler = providers.Dependency()
     sync_tasks = providers.Dependency()
 
-    # # Expose the initialization functions as callable providers
-    # initialize_individual_account_services = providers.Callable(
-    #     initialize_individual_account_services_fn,
-    #     container=providers.Self()
-    # )
-
-    # initialize_enterprise_account_services = providers.Callable(
-    #     initialize_enterprise_account_services_fn,
-    #     container=providers.Self()
-    # )
     # Wire everything up
     wiring_config = containers.WiringConfiguration(
         modules=[
