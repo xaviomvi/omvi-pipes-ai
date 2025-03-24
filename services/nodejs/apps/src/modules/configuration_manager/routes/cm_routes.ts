@@ -52,6 +52,7 @@ import {
   mongoDBConfigSchema,
   arangoDBConfigSchema,
   qdrantConfigSchema,
+  urlSchema,
 } from '../validator/validators';
 import { FileProcessorFactory } from '../../../libs/middlewares/file_processor/fp.factory';
 import { FileProcessingType } from '../../../libs/middlewares/file_processor/fp.constant';
@@ -561,6 +562,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
   router.post(
     '/frontendPublicUrl',
     authMiddleware.authenticate,
+    ValidationMiddleware.validate(urlSchema),
     metricsMiddleware(container),
     setFrontendUrl(keyValueStoreService),
   );
@@ -575,6 +577,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
   router.post(
     '/connectorPublicUrl',
     authMiddleware.authenticate,
+    ValidationMiddleware.validate(urlSchema),
     metricsMiddleware(container),
     setConnectorPublicUrl(keyValueStoreService),
   );

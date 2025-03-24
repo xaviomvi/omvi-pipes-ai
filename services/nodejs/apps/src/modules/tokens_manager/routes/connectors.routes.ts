@@ -27,7 +27,7 @@ import {
   AppEnabledEvent,
 } from '../../user_management/services/entity_events.service';
 import { GoogleWorkspaceApp } from '../types/connector.types';
-import { AppConfig } from '../config/config';
+import { AppConfig, loadAppConfig } from '../config/config';
 import {
   GOOGLE_WORKSPACE_BUSINESS_CREDENTIALS_PATH,
   GOOGLE_WORKSPACE_INDIVIDUAL_CREDENTIALS_PATH,
@@ -65,11 +65,6 @@ const oAuthConfigSchema = z.object({
     .string()
     .min(1, 'Client Secret cannot be empty')
     .max(255, 'Client Secret exceeds maximum length of 255 characters'),
-  redirectUri: z
-    .string()
-    .min(1, 'Redirect URI cannot be empty')
-    .max(2048, 'Redirect URI exceeds maximum length of 2048 characters')
-    .url('Redirect URI must be a valid URL'),
 });
 
 const oAuthValidationSchema = z.object({
@@ -298,16 +293,12 @@ export function createConnectorRouter(container: Container) {
             if (!configData.clientId) {
               throw new NotFoundError('Client Id is missing');
             }
-            if (!configData.redirectUri) {
-              throw new NotFoundError('Redirect Uri is missing');
-            }
             if (!configData.clientSecret) {
               throw new NotFoundError('Client Secret is missing');
             }
 
             res.status(200).json({
               googleClientId: configData.clientId,
-              googleRedirectUri: configData.redirectUri,
               googleClientSecret: configData.clientSecret,
             });
 
@@ -565,16 +556,18 @@ export function createConnectorRouter(container: Container) {
         if (!configData.clientSecret) {
           throw new NotFoundError('Client Secret is missing');
         }
-        if (!configData.redirectUri) {
-          throw new NotFoundError('Redirect Uri is missing');
-        }
+        const appConfig = loadAppConfig();
+        const frontendBaseUrl = (await appConfig).frontendUrl;
+        const redirectUri = frontendBaseUrl.endsWith('/')
+          ? `${frontendBaseUrl}account/individual/settings/connector/googleWorkspace`
+          : `${frontendBaseUrl}/account/individual/settings/connector/googleWorkspace`;
         let googleResponse = await axios.post(
           GOOGLE_WORKSPACE_TOKEN_EXCHANGE_PATH,
           {
             code: req.body.tempCode,
             client_id: configData.clientId,
             client_secret: configData.clientSecret,
-            redirect_uri: configData.redirectUri,
+            redirect_uri: redirectUri,
             grant_type: 'authorization_code',
           },
         );
@@ -721,9 +714,6 @@ export function createConnectorRouter(container: Container) {
         }
         if (!configData.clientSecret) {
           throw new NotFoundError('Client Secret is missing');
-        }
-        if (!configData.redirectUri) {
-          throw new NotFoundError('Redirect Uri is missing');
         }
 
         const { data } = await axios.post(

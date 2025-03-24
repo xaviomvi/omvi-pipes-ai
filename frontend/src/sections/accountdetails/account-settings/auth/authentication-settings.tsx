@@ -47,7 +47,7 @@ const AuthenticationSettings: React.FC = () => {
   useEffect(() => {
     fetchAuthMethods();
     checkSmtpConfiguration();
-    // eslint-disable-next-line 
+    // eslint-disable-next-line
   }, []);
 
   // Check if SMTP is configured for OTP validation
@@ -113,7 +113,9 @@ const AuthenticationSettings: React.FC = () => {
       // Validation: OTP requires SMTP configuration
       if (!validateOtpConfiguration(enabledMethods, smtpConfigured)) {
         setError('OTP authentication requires SMTP configuration. Please configure SMTP first.');
-        showErrorSnackbar('OTP authentication requires SMTP configuration. Please configure SMTP first.');
+        showErrorSnackbar(
+          'OTP authentication requires SMTP configuration. Please configure SMTP first.'
+        );
         setIsLoading(false);
         return;
       }

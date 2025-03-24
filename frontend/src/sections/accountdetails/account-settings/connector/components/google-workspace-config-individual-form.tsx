@@ -29,13 +29,37 @@ export interface GoogleWorkspaceConfigFormRef {
   handleSave: () => Promise<boolean>;
 }
 
-const getCleanRedirectUri = () => {
-  const url = new URL(window.location.href);
-  // Remove hash and search parameters
-  url.hash = '';
-  url.search = '';
-  return url.toString();
+const getRedirectUris = async () => {
+  // Get the current window URL without hash and search parameters
+  const currentUrl = new URL(window.location.href);
+  currentUrl.hash = '';
+  currentUrl.search = '';
+  const currentWindowLocation = currentUrl.toString();
+
+  // Get the frontend URL from the backend
+  try {
+    const response = await axios.get(`/api/v1/configurationManager/frontendPublicUrl`);
+    const frontendBaseUrl = response.data.url;
+    // Ensure the URL ends with a slash if needed
+    const frontendUrl = frontendBaseUrl.endsWith('/')
+      ? `${frontendBaseUrl}account/individual/settings/connector/googleWorkspace`
+      : `${frontendBaseUrl}/account/individual/settings/connector/googleWorkspace`;
+
+    return {
+      currentWindowLocation,
+      recommendedRedirectUri: frontendUrl,
+      urisMismatch: currentWindowLocation !== frontendUrl,
+    };
+  } catch (error) {
+    console.error('Error fetching frontend URL:', error);
+    return {
+      currentWindowLocation,
+      recommendedRedirectUri: currentWindowLocation,
+      urisMismatch: false,
+    };
+  }
 };
+
 // Define Zod schema for form validation
 const googleWorkspaceConfigSchema = z.object({
   clientId: z.string().min(1, { message: 'Client ID is required' }),
@@ -54,11 +78,11 @@ const GoogleWorkspaceConfigForm = forwardRef<
   const [formData, setFormData] = useState<GoogleWorkspaceConfigFormData>({
     clientId: '',
     clientSecret: '',
-    redirectUri: getCleanRedirectUri(), // Set default to current URL
+    redirectUri: '', // Will be set after fetching
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showClientSecret, setShowClientSecret] = useState(false);
@@ -66,6 +90,51 @@ const GoogleWorkspaceConfigForm = forwardRef<
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [redirectUris, setRedirectUris] = useState<{
+    currentWindowLocation: string;
+    recommendedRedirectUri: string;
+    urisMismatch: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const initializeForm = async () => {
+      setIsLoading(true);
+      // Get redirect URIs info
+      const uris = await getRedirectUris();
+      setRedirectUris(uris);
+
+      // Initialize form with recommended redirect URI
+      setFormData((prev) => ({
+        ...prev,
+        redirectUri: uris.recommendedRedirectUri,
+      }));
+
+      // Then fetch existing config
+      try {
+        const response = await axios.get('/api/v1/connectors/config', {
+          params: {
+            service: 'googleWorkspace',
+          },
+        });
+
+        if (response.data) {
+          setFormData({
+            clientId: response.data.googleClientId || '',
+            clientSecret: response.data.googleClientSecret || '',
+            redirectUri: uris.recommendedRedirectUri,
+          });
+          setIsConfigured(true);
+        }
+      } catch (error) {
+        console.error('Error fetching Google Workspace config:', error);
+        setSaveError('Failed to fetch configuration.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeForm();
+  }, []);
 
   // Expose the handleSave method to the parent component
   useImperativeHandle(ref, () => ({
@@ -113,37 +182,6 @@ const GoogleWorkspaceConfigForm = forwardRef<
     }
   };
 
-  useEffect(() => {
-    const fetchConfig = async () => {
-      setIsLoading(true);
-      setSaveError(null);
-
-      try {
-        const response = await axios.get('/api/v1/connectors/config', {
-          params: {
-            service: 'googleWorkspace',
-          },
-        });
-        if (response.data) {
-          setFormData({
-            clientId: response.data.googleClientId || '',
-            clientSecret: response.data.googleClientSecret || '',
-            redirectUri: response.data.googleRedirectUri || getCleanRedirectUri(),
-          });
-
-          setIsConfigured(true);
-        }
-      } catch (error) {
-        console.error('Error fetching Google Workspace config:', error);
-        setSaveError('Failed to fetch configuration.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchConfig();
-  }, []);
-
   // Handle file selection
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,7 +197,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
         if (event.target?.result) {
           const jsonContent = JSON.parse(event.target.result as string);
 
-          // Get the current redirectUri
+          // Keep the current redirectUri
           const currentRedirectUri = formData.redirectUri;
 
           // Check if the JSON has the required fields
@@ -289,6 +327,27 @@ const GoogleWorkspaceConfigForm = forwardRef<
             </Alert>
           )}
 
+          {redirectUris?.urisMismatch && (
+            <Alert
+              severity="warning"
+              sx={{
+                mb: 3,
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Redirect URI mismatch detected! Using the recommended URI from backend
+                configuration.
+              </Typography>
+              <Typography variant="caption" component="div">
+                Current window location: {redirectUris.currentWindowLocation}
+              </Typography>
+              <Typography variant="caption" component="div">
+                Recommended redirect URI: {redirectUris.recommendedRedirectUri}
+              </Typography>
+            </Alert>
+          )}
+
           <Box
             sx={{
               mb: 3,
@@ -324,7 +383,41 @@ const GoogleWorkspaceConfigForm = forwardRef<
               </Typography>
               <Typography variant="body2" color="primary.main" sx={{ mt: 1, fontWeight: 500 }}>
                 Important: You must set the redirect URI in your Google Cloud Console to exactly
-                match: {getCleanRedirectUri()}
+                match: {formData.redirectUri}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box
+            sx={{
+              mb: 3,
+              p: 2,
+              borderRadius: 1,
+              bgcolor: alpha(theme.palette.info.main, 0.04),
+              border: `1px solid ${alpha(theme.palette.info.main, 0.15)}`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 1,
+            }}
+          >
+            <Iconify
+              icon="eva:info-outline"
+              width={20}
+              height={20}
+              color={theme.palette.info.main}
+              style={{ marginTop: 2 }}
+            />
+            <Box>
+              <Typography variant="body2" color="text.secondary">
+                <Typography
+                  component="span"
+                  variant="body2"
+                  color="primary.main"
+                  sx={{ fontWeight: 500 }}
+                >
+                  Redirect URI:
+                </Typography>{' '}
+                {formData.redirectUri}
               </Typography>
             </Box>
           </Box>
@@ -485,47 +578,6 @@ const GoogleWorkspaceConfigForm = forwardRef<
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': {
                       borderColor: alpha(theme.palette.text.primary, 0.15),
-                    },
-                  },
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Redirect URI"
-                name="redirectUri"
-                value={formData.redirectUri}
-                onChange={handleChange}
-                placeholder="https://your-app.com/api/google/oauth/callback"
-                error={Boolean(getFieldError('redirectUri'))}
-                helperText="This URI must be added to your Google OAuth client's authorized redirect URIs"
-                required
-                size="small"
-                disabled
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Iconify icon="eva:link-outline" width={18} height={18} />
-                    </InputAdornment>
-                  ),
-                  readOnly: true,
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: alpha(theme.palette.text.primary, 0.15),
-                    },
-                    '&.Mui-disabled': {
-                      '& fieldset': {
-                        borderColor: alpha(theme.palette.primary.main, 0.3),
-                      },
-                      '& input': {
-                        color: theme.palette.text.primary,
-                        WebkitTextFillColor: theme.palette.text.primary,
-                        opacity: 0.8,
-                      },
                     },
                   },
                 }}

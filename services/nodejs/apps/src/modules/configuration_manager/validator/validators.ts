@@ -253,9 +253,6 @@ export const googleWorkspaceConfigSchema = z.object({
     clientSecret: z
       .string()
       .min(1, { message: 'Google client Secret is required' }),
-    redirectUri: z
-      .string()
-      .min(1, { message: 'Google redirect Uri is required' }),
   }),
 });
 
@@ -284,4 +281,10 @@ export const aiModelsConfigSchema = z.object({
         message: 'At least one AI model type must be configured',
       },
     ),
+});
+
+export const urlSchema = z.object({
+  body: z.object({
+    url: z.string().url(),
+  }),
 });

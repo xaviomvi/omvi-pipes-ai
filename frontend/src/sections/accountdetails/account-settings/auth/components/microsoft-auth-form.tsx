@@ -1,5 +1,5 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-
+import axios from 'src/utils/axios';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
@@ -14,7 +14,10 @@ import {
 
 import { Iconify } from 'src/components/iconify';
 
-import { getMicrosoftAuthConfig, updateMicrosoftAuthConfig } from '../utils/auth-configuration-service';
+import {
+  getMicrosoftAuthConfig,
+  updateMicrosoftAuthConfig,
+} from '../utils/auth-configuration-service';
 
 interface MicrosoftAuthFormProps {
   onValidationChange: (isValid: boolean) => void;
@@ -24,14 +27,48 @@ interface MicrosoftAuthFormProps {
 export interface MicrosoftAuthFormRef {
   handleSave: () => Promise<boolean>;
 }
+const getRedirectUris = async () => {
+  // Get the current window URL without hash and search parameters
+  const currentRedirectUri = `${window.location.origin}/auth/microsoft/callback`;
+
+  // Get the frontend URL from the backend
+  try {
+    const response = await axios.get(`/api/v1/configurationManager/frontendPublicUrl`);
+    const frontendBaseUrl = response.data.url;
+    // Ensure the URL ends with a slash if needed
+    const frontendUrl = frontendBaseUrl.endsWith('/')
+      ? `${frontendBaseUrl}auth/microsoft/callback`
+      : `${frontendBaseUrl}/auth/microsoft/callback`;
+
+    return {
+      currentRedirectUri,
+      recommendedRedirectUri: frontendUrl,
+      urisMismatch: currentRedirectUri !== frontendUrl,
+    };
+  } catch (error) {
+    console.error('Error fetching frontend URL:', error);
+    return {
+      currentRedirectUri,
+      recommendedRedirectUri: currentRedirectUri,
+      urisMismatch: false,
+    };
+  }
+};
 
 const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProps>(
   ({ onValidationChange, onSaveSuccess }, ref) => {
     const theme = useTheme();
+
+    const [redirectUris, setRedirectUris] = useState<{
+      currentRedirectUri: string;
+      recommendedRedirectUri: string;
+      urisMismatch: boolean;
+    } | null>(null);
     const [formData, setFormData] = useState({
       clientId: '',
       tenantId: 'common',
-      redirectUri: `${window.location.origin}/auth/microsoft/callback`,
+      redirectUri:
+        redirectUris?.recommendedRedirectUri || `${window.location.origin}/auth/microsoft/callback`,
     });
 
     const [errors, setErrors] = useState({
@@ -78,6 +115,18 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
       const fetchConfig = async () => {
         setIsLoading(true);
         try {
+          const uris = await getRedirectUris();
+          setRedirectUris(uris);
+
+          // Set default redirectUri from uris immediately (not from state)
+          const recommendedUri =
+            uris?.recommendedRedirectUri || `${window.location.origin}/auth/microsoft/callback`;
+
+          setFormData((prevFormData) => ({
+            ...prevFormData,
+            redirectUri: recommendedUri,
+          }));
+
           const config = await getMicrosoftAuthConfig();
 
           setFormData((prev) => ({
@@ -171,6 +220,26 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
           </Box>
         ) : (
           <>
+            {redirectUris?.urisMismatch && (
+              <Alert
+                severity="warning"
+                sx={{
+                  mb: 3,
+                  borderRadius: 1,
+                }}
+              >
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Redirect URI mismatch detected! Using the recommended URI from backend
+                  configuration.
+                </Typography>
+                <Typography variant="caption" component="div">
+                  Current redirect Uri: {redirectUris.currentRedirectUri}
+                </Typography>
+                <Typography variant="caption" component="div">
+                  Recommended redirect URI: {redirectUris.recommendedRedirectUri}
+                </Typography>
+              </Alert>
+            )}
             <Box
               sx={{
                 mb: 3,

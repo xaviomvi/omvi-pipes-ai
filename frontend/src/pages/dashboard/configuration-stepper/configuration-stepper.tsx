@@ -588,8 +588,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           }
         } else if (
           connectorValues.googleWorkspace?.clientId ||
-          connectorValues.googleWorkspace?.clientSecret ||
-          connectorValues.googleWorkspace?.redirectUri
+          connectorValues.googleWorkspace?.clientSecret
         ) {
           // Individual account with manual entry or file upload (that populated form fields)
           const payload: any = {};
@@ -602,10 +601,6 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
 
           if (gwValues.clientSecret && gwValues.clientSecret.trim() !== '') {
             payload.clientSecret = gwValues.clientSecret;
-          }
-
-          if (gwValues.redirectUri && gwValues.redirectUri.trim() !== '') {
-            payload.redirectUri = gwValues.redirectUri;
           }
 
           // Only make the API call if we have at least one field

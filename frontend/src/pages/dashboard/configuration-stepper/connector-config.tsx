@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import axios from 'src/utils/axios';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
@@ -22,12 +23,53 @@ import {
   Stack,
   InputAdornment,
   Tooltip,
+  Alert,
 } from '@mui/material';
 import scrollableContainerStyle from 'src/sections/qna/chatbot/utils/styles/scrollbar';
 
 import { Iconify } from 'src/components/iconify';
 import { useAuthContext } from 'src/auth/hooks';
 import type { ConnectorFormValues } from './types';
+
+const getCurrentRedirectUri = () => {
+  const currentUrl = new URL(window.location.href);
+  currentUrl.hash = '';
+  currentUrl.search = '';
+  const currentUri = currentUrl.toString();
+  const currentRedirectUri = currentUri.endsWith('/')
+    ? `${currentUri}account/individual/settings/connector/googleWorkspace`
+    : `${currentUri}/account/individual/settings/connector/googleWorkspace`;
+
+  return currentRedirectUri;
+};
+const getRedirectUris = async () => {
+  // Get the current window URL without hash and search parameters
+
+  const currentWindowLocation = getCurrentRedirectUri();
+
+  // Get the frontend URL from the backend
+  try {
+    const response = await axios.get(`/api/v1/configurationManager/frontendPublicUrl`);
+    const frontendBaseUrl = response.data.url;
+    // Ensure the URL ends with a slash if needed
+    const frontendUrl = frontendBaseUrl.endsWith('/')
+      ? `${frontendBaseUrl}account/individual/settings/connector/googleWorkspace`
+      : `${frontendBaseUrl}/account/individual/settings/connector/googleWorkspace`;
+
+    return {
+      currentWindowLocation,
+      recommendedRedirectUri: frontendUrl,
+      urisMismatch: currentWindowLocation !== frontendUrl,
+    };
+  } catch (error) {
+    console.error('Error fetching frontend URL:', error);
+    return {
+      currentWindowLocation,
+      recommendedRedirectUri: currentWindowLocation,
+      urisMismatch: false,
+    };
+  }
+};
 
 // Updated schema for business accounts to include admin email field
 const businessConnectorSchema = z.object({
@@ -45,7 +87,6 @@ const individualConnectorSchema = z.object({
   googleWorkspace: z.object({
     clientId: z.string().min(1, 'Client ID is required'),
     clientSecret: z.string().min(1, 'Client Secret is required'),
-    redirectUri: z.string().min(1, 'Redirect URI is required'),
   }),
 });
 
@@ -70,6 +111,11 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   setMessage,
 }) => {
   const theme = useTheme();
+  const [redirectUris, setRedirectUris] = useState<{
+    currentWindowLocation: string;
+    recommendedRedirectUri: string;
+    urisMismatch: boolean;
+  } | null>(null);
   const { user } = useAuthContext();
   const accountType = user?.accountType || 'individual';
 
@@ -104,10 +150,27 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
       googleWorkspace: {
         clientId: '',
         clientSecret: '',
-        redirectUri: 'http://localhost:3001/account/individual/settings/connector',
+        redirectUri: redirectUris?.recommendedRedirectUri || getCurrentRedirectUri(),
       },
     },
   });
+
+  // First useEffect to fetch redirect URIs and update form
+  useEffect(() => {
+    const initializeForm = async () => {
+      // Get redirect URIs info
+      const uris = await getRedirectUris();
+      setRedirectUris(uris);
+
+      // Update the existing individualForm with the new redirectUri
+      individualForm.setValue(
+        'googleWorkspace.redirectUri',
+        uris?.recommendedRedirectUri || getCurrentRedirectUri()
+      );
+    };
+
+    initializeForm();
+  }, [individualForm]);
 
   // Determine which form to use based on account type
   const { handleSubmit, formState, control, watch } =
@@ -140,7 +203,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     }
   }, [formValues, isValid, accountType, serviceCredentialsFile]);
 
-  // Initialize form with initial values and file if available
+  // Second useEffect to initialize form with initial values and file
   useEffect(() => {
     if (initialValues) {
       if (accountType === 'business') {
@@ -164,7 +227,6 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         if (jsonData.web) {
           const clientId = jsonData.web.client_id;
           const clientSecret = jsonData.web.client_secret;
-          const redirectUri = jsonData.web.redirect_uris && jsonData.web.redirect_uris[0];
 
           if (clientId && clientSecret) {
             individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
@@ -172,11 +234,6 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
               shouldValidate: true,
             });
 
-            if (redirectUri) {
-              individualForm.setValue('googleWorkspace.redirectUri', redirectUri, {
-                shouldValidate: true,
-              });
-            }
             return true;
           }
         }
@@ -185,8 +242,6 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         if (jsonData.installed) {
           const clientId = jsonData.installed.client_id;
           const clientSecret = jsonData.installed.client_secret;
-          const redirectUri =
-            jsonData.installed.redirect_uris && jsonData.installed.redirect_uris[0];
 
           if (clientId && clientSecret) {
             individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
@@ -194,11 +249,6 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
               shouldValidate: true,
             });
 
-            if (redirectUri) {
-              individualForm.setValue('googleWorkspace.redirectUri', redirectUri, {
-                shouldValidate: true,
-              });
-            }
             return true;
           }
         }
@@ -206,10 +256,6 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         // Try direct properties (less common but possible)
         const clientId = jsonData.clientId || jsonData.client_id;
         const clientSecret = jsonData.clientSecret || jsonData.client_secret;
-        const redirectUri =
-          jsonData.redirectUri ||
-          jsonData.redirect_uri ||
-          (jsonData.redirect_uris && jsonData.redirect_uris[0]);
 
         if (clientId && clientSecret) {
           individualForm.setValue('googleWorkspace.clientId', clientId, { shouldValidate: true });
@@ -217,11 +263,6 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
             shouldValidate: true,
           });
 
-          if (redirectUri) {
-            individualForm.setValue('googleWorkspace.redirectUri', redirectUri, {
-              shouldValidate: true,
-            });
-          }
           return true;
         }
 
@@ -562,6 +603,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         borderRadius: 3,
         overflow: 'hidden',
         ...scrollableContainerStyle,
+        ...scrollableContainerStyle,
       }}
     >
       <Box
@@ -654,92 +696,146 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         )}
 
         {/* Individual account form fields */}
+        {redirectUris?.urisMismatch && (
+          <Alert
+            severity="warning"
+            sx={{
+              mb: 3,
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Redirect URI mismatch detected! Using the recommended URI from backend configuration.
+            </Typography>
+            <Typography variant="caption" component="div">
+              Current window location: {redirectUris.currentWindowLocation}
+            </Typography>
+            <Typography variant="caption" component="div">
+              Recommended redirect URI: {redirectUris.recommendedRedirectUri}
+            </Typography>
+          </Alert>
+        )}
         {accountType === 'individual' && (
-          <Stack spacing={2.5} sx={{ mb: 4 }}>
-            <Controller
-              name="googleWorkspace.clientId"
-              control={control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  label="Client ID"
-                  placeholder="e.g., 969340771549-75fn6kuu6p4oapk45ibrc5acpps.com"
-                  fullWidth
-                  size="small"
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Iconify
-                          icon="ri:user-settings-line"
-                          width={20}
-                          height={20}
-                          sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
-                        />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      bgcolor: alpha(theme.palette.background.paper, 0.6),
-                      transition: theme.transitions.create(['box-shadow', 'background-color']),
-                      '&:hover': {
-                        bgcolor: theme.palette.background.paper,
-                      },
-                      '&.Mui-focused': {
-                        boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
-                      },
-                    },
-                  }}
-                />
-              )}
-            />
+          <>
+            <Box
+              sx={{
+                mb: 3,
+                p: 2,
+                borderRadius: 1,
+                bgcolor: alpha(theme.palette.info.main, 0.04),
+                border: `1px solid ${alpha(theme.palette.info.main, 0.15)}`,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 1,
+              }}
+            >
+              <Iconify
+                icon="eva:info-outline"
+                width={20}
+                height={20}
+                color={theme.palette.info.main}
+                style={{ marginTop: 2 }}
+              />
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  <Typography
+                    component="span"
+                    variant="body2"
+                    color="primary.main"
+                    sx={{ fontWeight: 500 }}
+                  >
+                    Redirect URI:
+                  </Typography>{' '}
+                  {redirectUris?.recommendedRedirectUri}
+                </Typography>
+              </Box>
+            </Box>
 
-            <Controller
-              name="googleWorkspace.clientSecret"
-              control={control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  label="Client Secret"
-                  placeholder="e.g., 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"
-                  fullWidth
-                  size="small"
-                  type="password"
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Iconify
-                          icon="ri:key-2-line"
-                          width={20}
-                          height={20}
-                          sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
-                        />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      bgcolor: alpha(theme.palette.background.paper, 0.6),
-                      transition: theme.transitions.create(['box-shadow', 'background-color']),
-                      '&:hover': {
-                        bgcolor: theme.palette.background.paper,
+            <Stack spacing={2.5} sx={{ mb: 4 }}>
+              <Controller
+                name="googleWorkspace.clientId"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <TextField
+                    {...field}
+                    label="Client ID"
+                    placeholder="e.g., 969340771549-75fn6kuu6p4oapk45ibrc5acpps.com"
+                    fullWidth
+                    size="small"
+                    error={!!fieldState.error}
+                    helperText={fieldState.error?.message}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Iconify
+                            icon="ri:user-settings-line"
+                            width={20}
+                            height={20}
+                            sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
+                          />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        bgcolor: alpha(theme.palette.background.paper, 0.6),
+                        transition: theme.transitions.create(['box-shadow', 'background-color']),
+                        '&:hover': {
+                          bgcolor: theme.palette.background.paper,
+                        },
+                        '&.Mui-focused': {
+                          boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                        },
                       },
-                      '&.Mui-focused': {
-                        boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
-                      },
-                    },
-                  }}
-                />
-              )}
-            />
+                    }}
+                  />
+                )}
+              />
 
-            <Controller
+              <Controller
+                name="googleWorkspace.clientSecret"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <TextField
+                    {...field}
+                    label="Client Secret"
+                    placeholder="e.g., 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"
+                    fullWidth
+                    size="small"
+                    type="password"
+                    error={!!fieldState.error}
+                    helperText={fieldState.error?.message}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Iconify
+                            icon="ri:key-2-line"
+                            width={20}
+                            height={20}
+                            sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
+                          />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        bgcolor: alpha(theme.palette.background.paper, 0.6),
+                        transition: theme.transitions.create(['box-shadow', 'background-color']),
+                        '&:hover': {
+                          bgcolor: theme.palette.background.paper,
+                        },
+                        '&.Mui-focused': {
+                          boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                        },
+                      },
+                    }}
+                  />
+                )}
+              />
+
+              {/* <Controller
               name="googleWorkspace.redirectUri"
               control={control}
               render={({ field, fieldState }) => (
@@ -777,8 +873,9 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                   }}
                 />
               )}
-            />
-          </Stack>
+            /> */}
+            </Stack>
+          </>
         )}
 
         {/* File Upload UI */}
