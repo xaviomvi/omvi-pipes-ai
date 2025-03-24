@@ -112,6 +112,24 @@ export const addComputedFields = (
   };
 };
 
+export const buildSemanticSearchFilter = (
+  _req: AuthenticatedUserRequest,
+  orgId: string,
+  userId: string,
+  searchId?: string,
+) => {
+  const filter: any = {
+    orgId: new mongoose.Types.ObjectId(`${orgId}`),
+    userId: new mongoose.Types.ObjectId(`${userId}`),
+  };
+
+  if (searchId) {
+    filter._id = new mongoose.Types.ObjectId(searchId);
+  }
+
+  return filter;
+};
+
 export const buildFilter = (
   req: AuthenticatedUserRequest,
   orgId: string,

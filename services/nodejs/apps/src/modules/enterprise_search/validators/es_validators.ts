@@ -228,12 +228,19 @@ export const enterpriseSearchQuerySchema = z.object({
 export const enterpriseSearchSearchSchema = z.object({
   body: z.object({
     query: z.string().min(1, { message: 'Search query is required' }),
-    limit: z.preprocess((arg) => Number(arg), z.number().min(1).max(100).default(10)),
+    limit: z.preprocess((arg) => Number(arg), z.number().min(1).max(100).default(10)).optional(),
   }),
 });
 
 export const enterpriseSearchSearchHistorySchema = z.object({
-  body: z.object({
-    limit: z.preprocess((arg) => Number(arg), z.number().min(1).max(100).default(10)),
+  params: z.object({
+    limit: z.preprocess((arg) => Number(arg), z.number().min(1).max(100).default(10)).optional(),
+    page: z.preprocess((arg) => Number(arg), z.number().min(1).default(1)).optional(),
+  }),
+});
+
+export const searchIdParamsSchema = z.object({
+  params: z.object({
+    searchId: z.string().regex(objectIdRegex, { message: 'Invalid search ID format' }),
   }),
 });

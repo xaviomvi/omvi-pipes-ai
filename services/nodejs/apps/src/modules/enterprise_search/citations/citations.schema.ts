@@ -104,6 +104,6 @@ citationSchema.index({ content: 'text' });
 citationSchema.index({ 'metadata.recordId': 1 });
 citationSchema.index({ 'metadata.recordName': 1 });
 
-const Citation = mongoose.model<ICitation>('citation', citationSchema);
+const Citation = mongoose.model<ICitation>('citations', citationSchema);
 
 export default Citation;

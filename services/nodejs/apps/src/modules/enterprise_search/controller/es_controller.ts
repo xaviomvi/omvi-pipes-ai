@@ -1,4 +1,4 @@
-import { buildMessageSortOptions } from './../utils/utils';
+import { buildMessageSortOptions, buildSemanticSearchFilter } from './../utils/utils';
 import { Response, NextFunction } from 'express';
 import mongoose, { ClientSession } from 'mongoose';
 import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
@@ -1938,7 +1938,10 @@ export const enterpriseSemanticSearch =
       });
 
       // Return the response
-      res.status(HTTP_STATUS.OK).json(aiResponse.data);
+      res.status(HTTP_STATUS.OK).json({
+        searchId: searchRecord._id,
+        searchResponse: aiResponse.data,
+      });
     } catch (error: any) {
       logger.error('Error searching query', {
         requestId,
@@ -1955,17 +1958,141 @@ export const searchHistory = async (
   next: NextFunction,
 ) => {
   const requestId = req.context?.requestId;
-  //const startTime = Date.now();
-  // TODO: Implement search history
+  const startTime = Date.now();
+
   try {
-    //const { limit } = req.params;
-    res
-      .status(HTTP_STATUS.OK)
-      .json({ message: 'Search history fetched successfully' });
+    const { page, limit, skip } = getPaginationParams(req);
+    const orgId = req.user?.orgId;
+    const userId = req.user?.userId;
+    const sortOptions = buildSortOptions(req);
+    const filter = buildSemanticSearchFilter(req, orgId, userId);
+
+    const [searchHistory, totalCount] = await Promise.all([
+      EnterpriseSemanticSearch.find(filter)
+        .sort(sortOptions as any)
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      EnterpriseSemanticSearch.countDocuments({
+        filter,
+      }),
+    ]);
+
+    const response = {
+      searchHistory: searchHistory,
+      pagination: buildPaginationMetadata(totalCount, page, limit),
+      filters: buildFiltersMetadata(filter, req.query),
+      meta: {
+        requestId,
+        timestamp: new Date().toISOString(),
+        duration: Date.now() - startTime,
+      },
+    };
+    res.status(HTTP_STATUS.OK).json(response);
   } catch (error: any) {
     logger.error('Error searching history', {
       requestId,
       message: 'Error searching history',
+      error: error.message,
+    });
+    next(error);
+  }
+};
+
+export const getSearchById = async (
+  req: AuthenticatedUserRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  const requestId = req.context?.requestId;
+  const searchId = req.params.searchId;
+
+  try {
+    const orgId = req.user?.orgId;
+    const userId = req.user?.userId;
+    const filter = buildSemanticSearchFilter(req, orgId, userId, searchId);
+    const search = await EnterpriseSemanticSearch.findById(filter)
+      .populate({
+        path: 'citationIds',
+        model: 'citations',
+        select: '-__v',
+      })
+      .lean()
+      .exec();
+    if (!search) {
+      throw new NotFoundError('Search Id not found');
+    }
+
+    res.status(HTTP_STATUS.OK).json(search);
+  } catch (error: any) {
+    logger.error('Error getting search by ID', {
+      requestId,
+      message: 'Error getting search by ID',
+      error: error.message,
+    });
+    next(error);
+  }
+};
+
+export const deleteSearchById = async (
+  req: AuthenticatedUserRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  const requestId = req.context?.requestId;
+  const searchId = req.params.searchId;
+
+  try {
+    const orgId = req.user?.orgId;
+    const userId = req.user?.userId;
+    const filter = buildSemanticSearchFilter(req, orgId, userId, searchId);
+    const search = await EnterpriseSemanticSearch.findByIdAndDelete(filter);
+    if (!search) {
+      throw new NotFoundError('Search Id not found');
+    }
+
+    // delete related citations
+    await Citation.deleteMany({ _id: { $in: search.citationIds } });
+
+    res.status(HTTP_STATUS.OK).json({ message: 'Search deleted successfully' });
+  } catch (error: any) {
+    logger.error('Error deleting search by ID', {
+      requestId,
+      message: 'Error deleting search by ID',
+      error: error.message,
+    });
+    next(error);
+  }
+};
+
+export const deleteSearchHistory = async (
+  req: AuthenticatedUserRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  const requestId = req.context?.requestId;
+  try {
+    const orgId = req.user?.orgId;
+    const userId = req.user?.userId;
+    const filter = buildSemanticSearchFilter(req, orgId, userId);
+    const searches = await EnterpriseSemanticSearch.find(filter).lean().exec();
+
+    if (!searches.length) {
+      throw new NotFoundError('Search history not found');
+    }
+
+
+    const citationIds = searches.flatMap(search => search.citationIds);
+    await EnterpriseSemanticSearch.deleteMany(filter);
+    await Citation.deleteMany({ _id: { $in: citationIds } });
+
+    res.status(HTTP_STATUS.OK).json({
+      message: 'Search history deleted successfully',
+    });
+  } catch (error: any) {
+    logger.error('Error deleting search history', {
+      requestId,
+      message: 'Error deleting search history',
       error: error.message,
     });
     next(error);
