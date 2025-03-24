@@ -6,9 +6,12 @@ import {
   archiveConversation,
   createConversation,
   deleteConversationById,
+  deleteSearchById,
+  deleteSearchHistory,
   enterpriseSemanticSearch,
   getAllConversations,
   getConversationById,
+  getSearchById,
   listAllArchivesConversation,
   regenerateAnswers,
   searchHistory,
@@ -28,6 +31,7 @@ import {
   enterpriseSearchUpdateSchema,
   enterpriseSearchSearchSchema,
   enterpriseSearchSearchHistorySchema,
+  searchIdParamsSchema,
 } from '../validators/es_validators';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
 import { AppConfig } from '../../tokens_manager/config/config';
@@ -258,6 +262,29 @@ export function createSemanticSearchRouter(container: Container): Router {
     metricsMiddleware(container),
     ValidationMiddleware.validate(enterpriseSearchSearchHistorySchema),
     searchHistory,
+  );
+
+  router.get(
+    '/:searchId',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(searchIdParamsSchema),
+    getSearchById,
+  );
+
+  router.delete(
+    '/:searchId',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(searchIdParamsSchema),
+    deleteSearchById,
+  );
+
+  router.delete(
+    '/',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    deleteSearchHistory,
   );
 
   return router;
