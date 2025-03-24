@@ -907,12 +907,12 @@ export const setGoogleWorkspaceOauthConfig =
   (keyValueStoreService: KeyValueStoreService) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
-      const { clientId, clientSecret, redirectUri } = req.body;
+      const { clientId, clientSecret } = req.body;
       const configManagerConfig = loadConfigurationManagerConfig();
       const encryptedGoogleWorkSpaceConfig = EncryptionService.getInstance(
         configManagerConfig.algorithm,
         configManagerConfig.secretKey,
-      ).encrypt(JSON.stringify({ clientId, clientSecret, redirectUri }));
+      ).encrypt(JSON.stringify({ clientId, clientSecret }));
       await keyValueStoreService.set<string>(
         configPaths.connectors.googleWorkspace.config,
         encryptedGoogleWorkSpaceConfig,

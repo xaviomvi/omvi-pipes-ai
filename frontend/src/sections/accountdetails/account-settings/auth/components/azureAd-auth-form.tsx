@@ -1,15 +1,15 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-
+import axios from 'src/utils/axios';
 import { alpha, useTheme } from '@mui/material/styles';
-import { 
-  Box, 
-  Grid, 
-  Alert, 
+import {
+  Box,
+  Grid,
+  Alert,
   Snackbar,
-  TextField, 
+  TextField,
   Typography,
   InputAdornment,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
@@ -25,20 +25,55 @@ export interface AzureAdAuthFormRef {
   handleSave: () => Promise<boolean>;
 }
 
+const getRedirectUris = async () => {
+  // Get the current window URL without hash and search parameters
+  const currentRedirectUri = `${window.location.origin}/auth/azure-ad/callback`;
+
+  // Get the frontend URL from the backend
+  try {
+    const response = await axios.get(`/api/v1/configurationManager/frontendPublicUrl`);
+    const frontendBaseUrl = response.data.url;
+    // Ensure the URL ends with a slash if needed
+    const frontendUrl = frontendBaseUrl.endsWith('/')
+      ? `${frontendBaseUrl}auth/azure-ad/callback`
+      : `${frontendBaseUrl}/auth/azure-ad/callback`;
+
+    return {
+      currentRedirectUri,
+      recommendedRedirectUri: frontendUrl,
+      urisMismatch: currentRedirectUri !== frontendUrl,
+    };
+  } catch (error) {
+    console.error('Error fetching frontend URL:', error);
+    return {
+      currentRedirectUri,
+      recommendedRedirectUri: currentRedirectUri,
+      urisMismatch: false,
+    };
+  }
+};
+
 const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
   ({ onValidationChange, onSaveSuccess }, ref) => {
     const theme = useTheme();
+    const [redirectUris, setRedirectUris] = useState<{
+      currentRedirectUri: string;
+      recommendedRedirectUri: string;
+      urisMismatch: boolean;
+    } | null>(null);
+
     const [formData, setFormData] = useState({
-      tenantId:  'common',
-      clientId: '' ,
-      redirectUri: `${window.location.origin}/auth/azure-ad/callback`
+      tenantId: 'common',
+      clientId: '',
+      redirectUri:
+        redirectUris?.recommendedRedirectUri || `${window.location.origin}/auth/azure-ad/callback`,
     });
-    
+
     const [errors, setErrors] = useState({
       tenantId: '',
       clientId: '',
     });
-    
+
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [snackbar, setSnackbar] = useState({
@@ -70,7 +105,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
-      handleSave
+      handleSave,
     }));
 
     // Load existing config on mount
@@ -78,12 +113,24 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
       const fetchConfig = async () => {
         setIsLoading(true);
         try {
+          const uris = await getRedirectUris();
+          setRedirectUris(uris);
+
+          // Set default redirectUri from uris immediately (not from state)
+          const recommendedUri =
+            uris?.recommendedRedirectUri || `${window.location.origin}/auth/azure-ad/callback`;
+
+          setFormData((prevFormData) => ({
+            ...prevFormData,
+            redirectUri: recommendedUri,
+          }));
+
           const config = await getAzureAuthConfig();
-          
-          setFormData(prev => ({
+
+          setFormData((prev) => ({
             ...prev,
             clientId: config.clientId || '',
-            tenantId: config.tenantId || ''
+            tenantId: config.tenantId || '',
           }));
         } catch (error) {
           console.error('Failed to load Azure AD auth config:', error);
@@ -91,39 +138,39 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
         } finally {
           setIsLoading(false);
         }
-      }; 
+      };
 
       fetchConfig();
     }, []);
 
     // Validate form and notify parent
     useEffect(() => {
-      const isValid = 
-        formData.clientId.trim() !== '' && 
+      const isValid =
+        formData.clientId.trim() !== '' &&
         formData.tenantId.trim() !== '' &&
         !errors.clientId &&
         !errors.tenantId;
-        
+
       onValidationChange(isValid);
     }, [formData, errors, onValidationChange]);
-    
+
     // Handle input change
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
-      
+
       setFormData({
         ...formData,
         [name]: value,
       });
-      
+
       // Validate
       validateField(name, value);
     };
-    
+
     // Field validation
     const validateField = (name: string, value: string) => {
       let error = '';
-      
+
       if (value.trim() === '') {
         error = 'This field is required';
       } else if (name === 'clientId' && value.length < 8) {
@@ -131,7 +178,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
       } else if (name === 'tenantId' && value.length < 4) {
         error = 'Tenant ID appears to be too short';
       }
-      
+
       setErrors({
         ...errors,
         [name]: error,
@@ -141,20 +188,20 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
     // Handle save
     const handleSave = async (): Promise<boolean> => {
       setIsSaving(true);
-      
+
       try {
         // Use the utility function to update Azure AD configuration
         await updateAzureAuthConfig({
           clientId: formData.clientId,
-          tenantId: formData.tenantId
+          tenantId: formData.tenantId,
         });
-        
+
         showSuccessSnackbar('Azure AD authentication configuration saved successfully');
-        
+
         if (onSaveSuccess) {
           onSaveSuccess();
         }
-        
+
         return true;
       } catch (error) {
         showErrorSnackbar('Failed to save Azure AD authentication configuration');
@@ -164,7 +211,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
         setIsSaving(false);
       }
     };
-    
+
     return (
       <>
         {isLoading ? (
@@ -173,10 +220,30 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
           </Box>
         ) : (
           <>
-            <Box 
-              sx={{ 
-                mb: 3, 
-                p: 2, 
+            {redirectUris?.urisMismatch && (
+              <Alert
+                severity="warning"
+                sx={{
+                  mb: 3,
+                  borderRadius: 1,
+                }}
+              >
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Redirect URI mismatch detected! Using the recommended URI from backend
+                  configuration.
+                </Typography>
+                <Typography variant="caption" component="div">
+                  Current redirect Uri: {redirectUris.currentRedirectUri}
+                </Typography>
+                <Typography variant="caption" component="div">
+                  Recommended redirect URI: {redirectUris.recommendedRedirectUri}
+                </Typography>
+              </Alert>
+            )}
+            <Box
+              sx={{
+                mb: 3,
+                p: 2,
                 borderRadius: 1,
                 bgcolor: alpha(theme.palette.info.main, 0.04),
                 border: `1px solid ${alpha(theme.palette.info.main, 0.15)}`,
@@ -185,27 +252,36 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
                 gap: 1,
               }}
             >
-              <Iconify icon="eva:info-outline" width={20} height={20} color={theme.palette.info.main} style={{ marginTop: 2 }} />
+              <Iconify
+                icon="eva:info-outline"
+                width={20}
+                height={20}
+                color={theme.palette.info.main}
+                style={{ marginTop: 2 }}
+              />
               <Box>
                 <Typography variant="body2" color="text.secondary">
                   Redirect URI (add to your Azure AD application registration):
-                  <Box component="code" sx={{ 
-                    display: 'block', 
-                    p: 1.5, 
-                    mt: 1, 
-                    bgcolor: alpha(theme.palette.background.default, 0.7),
-                    borderRadius: 1,
-                    fontSize: '0.8rem',
-                    fontFamily: 'monospace',
-                    wordBreak: 'break-all',
-                    border: `1px solid ${theme.palette.divider}`
-                  }}>
+                  <Box
+                    component="code"
+                    sx={{
+                      display: 'block',
+                      p: 1.5,
+                      mt: 1,
+                      bgcolor: alpha(theme.palette.background.default, 0.7),
+                      borderRadius: 1,
+                      fontSize: '0.8rem',
+                      fontFamily: 'monospace',
+                      wordBreak: 'break-all',
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
                     {formData.redirectUri}
                   </Box>
                 </Typography>
               </Box>
             </Box>
-            
+
             <Grid container spacing={2.5}>
               <Grid item xs={12}>
                 <TextField
@@ -216,7 +292,10 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
                   onChange={handleChange}
                   placeholder="Enter your Azure Application ID"
                   error={Boolean(errors.clientId)}
-                  helperText={errors.clientId || "The Application (client) ID from your Azure AD app registration"}
+                  helperText={
+                    errors.clientId ||
+                    'The Application (client) ID from your Azure AD app registration'
+                  }
                   required
                   size="small"
                   InputProps={{
@@ -235,7 +314,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
                   }}
                 />
               </Grid>
-              
+
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -245,7 +324,9 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
                   onChange={handleChange}
                   placeholder="Enter your Azure AD Tenant ID"
                   error={Boolean(errors.tenantId)}
-                  helperText={errors.tenantId || "The Directory (tenant) ID from your Azure Active Directory"}
+                  helperText={
+                    errors.tenantId || 'The Directory (tenant) ID from your Azure Active Directory'
+                  }
                   required
                   size="small"
                   InputProps={{
@@ -265,7 +346,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
                 />
               </Grid>
             </Grid>
-            
+
             {isSaving && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
                 <CircularProgress size={24} />

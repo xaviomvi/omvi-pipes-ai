@@ -42,7 +42,6 @@ const GoogleWorkspaceIndividualPage = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('Connector settings updated successfully');
-  const [reminder, setReminder] = useState<string | null>(null);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [currentConnector, setCurrentConnector] = useState<string | null>(null);
 
@@ -75,7 +74,6 @@ const GoogleWorkspaceIndividualPage = () => {
     return url.toString();
   };
 
-  const redirectUri = getCleanRedirectUri();
   // Check configurations separately
   const checkConnectorConfigurations = useCallback(async () => {
     setCheckingConfigs(true);
@@ -84,36 +82,36 @@ const GoogleWorkspaceIndividualPage = () => {
       const results = await Promise.allSettled([fetchConnectorConfig('googleWorkspace')]);
 
       // Check if each configuration has required fields
-      // Ensure property names match what's returned by the API
       const googleConfigured =
-        results[0].status === 'fulfilled' &&
-        results[0].value &&
-        !!results[0].value.googleClientId &&
-        !!results[0].value.googleRedirectUri;
+        results[0].status === 'fulfilled' && results[0].value && !!results[0].value.googleClientId;
+      // Update the configuredStatus while preserving lastConfigured state
+      setConfiguredStatus((prev) => {
+        // Get the current connector that was just configured (if any)
+        const justConfigured = lastConfigured;
 
-      const newConfigStatus = {
-        googleWorkspace: googleConfigured,
-      };
-
-      setConfiguredStatus(newConfigStatus);
+        return {
+          ...prev,
+          googleWorkspace: justConfigured === 'googleWorkspace' ? true : googleConfigured,
+        };
+      });
     } catch (err) {
       console.error('Error checking connector configurations:', err);
     } finally {
       setCheckingConfigs(false);
     }
-  }, [fetchConnectorConfig]);
+  }, [fetchConnectorConfig, lastConfigured]);
 
   // Fetch connectors from API
   const fetchConnectorStatuses = useCallback(async () => {
     setIsLoading(true);
     try {
-      // API call to get current connectors status
-      checkConnectorConfigurations();
+      // First get connector status from the API
       const response = await axios.get('/api/v1/connectors/status');
       const { data } = response;
 
       // Initialize status objects
       const enabledMap: ConnectorStatusMap = {};
+
       // Process data from API
       if (data) {
         data.forEach((connector: any) => {
@@ -123,7 +121,8 @@ const GoogleWorkspaceIndividualPage = () => {
 
       setConnectorStatus(enabledMap);
 
-      // After setting the status, check configurations to ensure they're up to date
+      // After setting the status, check configurations separately
+      await checkConnectorConfigurations();
     } catch (err) {
       console.error('Failed to fetch connectors:', err);
       setErrorMessage(`Failed to load connector settings ${err.message}`);
@@ -145,37 +144,6 @@ const GoogleWorkspaceIndividualPage = () => {
     fetchConnectorStatuses();
   }, [fetchConnectorStatuses]);
 
-  // Check configurations when lastConfigured changes
-  useEffect(() => {
-    const checkConfigurations = async () => {
-      setCheckingConfigs(true);
-      try {
-        // Check all configurations in parallel
-        const results = await Promise.allSettled([fetchConnectorConfig('googleWorkspace')]);
-
-        // Check if the Google Workspace configuration is valid
-        const googleConfigured =
-          results[0].status === 'fulfilled' &&
-          results[0].value &&
-          !!results[0].value.googleClientId &&
-          !!results[0].value.googleRedirectUri;
-
-        const newConfigStatus = {
-          googleWorkspace: googleConfigured,
-        };
-
-        setConfiguredStatus(newConfigStatus);
-      } catch (err) {
-        console.error('Error checking connector configurations:', err);
-      } finally {
-        setCheckingConfigs(false);
-      }
-    };
-
-    // Call the function to check configurations
-    checkConfigurations();
-  }, [lastConfigured, fetchConnectorConfig]);
-
   // Handle toggling connectors
   const handleToggleConnector = async (connectorId: string) => {
     // Don't allow enabling unconfigured connectors
@@ -196,11 +164,18 @@ const GoogleWorkspaceIndividualPage = () => {
             if (!data) {
               throw new Error('Failed to fetch Google Workspace Config');
             }
+            const response = await axios.get(`/api/v1/configurationManager/frontendPublicUrl`);
+            const frontendBaseUrl = response.data.url;
+            // Ensure the URL ends with a slash if needed
+            const frontendUrl = frontendBaseUrl.endsWith('/')
+              ? `${frontendBaseUrl}account/individual/settings/connector/googleWorkspace`
+              : `${frontendBaseUrl}/account/individual/settings/connector/googleWorkspace`;
 
+            const redirectUri = frontendUrl || getCleanRedirectUri();
             const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams(
               {
                 client_id: data.googleClientId,
-                redirect_uri: data.googleRedirectUri,
+                redirect_uri: redirectUri,
                 response_type: 'code',
                 scope: GOOGLE_WORKSPACE_SCOPE,
                 access_type: 'offline',
@@ -249,16 +224,16 @@ const GoogleWorkspaceIndividualPage = () => {
   };
 
   // Handle save in configure dialog
-  const handleSaveConfiguration = () => {
+  const handleSaveConfiguration = async () => {
     // Display appropriate success message
     const connectorTitle = currentConnector ? getConnectorTitle(currentConnector) : 'Connector';
-    setSuccessMessage(`${connectorTitle} configured successfully `);
-    setReminder('Remember to configure this redirect URI in your Google Cloud Console.');
-    setConfigDialogOpen(false);
-    setCurrentConnector(null);
-    setSuccess(true);
 
-    // Update configured status
+    // Important: Set lastConfigured first
+    if (currentConnector) {
+      setLastConfigured(currentConnector);
+    }
+
+    // Update configured status immediately for UI feedback
     if (currentConnector) {
       setConfiguredStatus((prev) => ({
         ...prev,
@@ -266,7 +241,15 @@ const GoogleWorkspaceIndividualPage = () => {
       }));
     }
 
-    // Refresh connector statuses to get latest from server
+    // Close dialog and clear current connector
+    setConfigDialogOpen(false);
+    setCurrentConnector(null);
+
+    // Show success message
+    setSuccessMessage(`${connectorTitle} configured successfully`);
+    setSuccess(true);
+
+    // Finally, refresh connector statuses
     fetchConnectorStatuses();
   };
 
@@ -284,6 +267,7 @@ const GoogleWorkspaceIndividualPage = () => {
   const handleCloseSuccess = () => {
     setSuccess(false);
   };
+
   // Process OAuth response code from the URL
   useEffect(() => {
     const exchangeToken = async () => {
@@ -329,7 +313,7 @@ const GoogleWorkspaceIndividualPage = () => {
     if (searchParams.has('code')) {
       exchangeToken();
     }
-  }, [searchParams, fetchConnectorStatuses]); // Add fetchConnectorStatuses to dependencies
+  }, [searchParams, fetchConnectorStatuses]);
 
   return (
     <Container maxWidth="lg">
@@ -564,10 +548,6 @@ const GoogleWorkspaceIndividualPage = () => {
               icon to set up the necessary credentials and authentication for each service. Once
               configured, you can enable or disable the connector as needed.
             </Typography>
-            <Typography variant="body2" color="primary.main" sx={{ mt: 1, fontWeight: 500 }}>
-              Important: You must set the redirect URI in your Google Cloud Console to exactly
-              match: {getCleanRedirectUri()}
-            </Typography>
           </Box>
         </Box>
       </Paper>
@@ -600,29 +580,6 @@ const GoogleWorkspaceIndividualPage = () => {
           {successMessage}
         </Alert>
       </Snackbar>
-
-      {reminder && (
-        <Snackbar
-          open={!!reminder}
-          autoHideDuration={5000}
-          onClose={() => setReminder(null)}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-          sx={{ mt: 14 }} // Position it below the success message
-        >
-          <Alert
-            onClose={() => setReminder(null)}
-            severity="success" // This gives an orange color
-            variant="filled"
-            sx={{
-              width: '100%',
-              boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
-              backgroundColor: '#FFA726', // Light orange color
-            }}
-          >
-            {reminder}
-          </Alert>
-        </Snackbar>
-      )}
     </Container>
   );
 };
