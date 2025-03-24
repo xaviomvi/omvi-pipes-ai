@@ -1115,3 +1115,76 @@ export const getQdrantConfig =
       next(error);
     }
   };
+export const getFrontendUrl =
+  (keyValueStoreService: KeyValueStoreService) =>
+  async (_req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    try {
+      const frontendPublicUrl = await keyValueStoreService.get<string>(
+        configPaths.url.frontend.publicEndpoint,
+      );
+      if (frontendPublicUrl) {
+        res.status(200).json({ url: frontendPublicUrl }).end();
+        return;
+      } else {
+        res.status(200).json({}).end();
+      }
+    } catch (error: any) {
+      logger.error('Error getting Frontend Public Url', { error });
+      next(error);
+    }
+  };
+
+export const setFrontendUrl =
+  (keyValueStoreService: KeyValueStoreService) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    try {
+      const { url } = req.body;
+      await keyValueStoreService.set<string>(
+        configPaths.url.frontend.publicEndpoint,
+        url,
+      );
+      res.status(200).json({
+        message: 'Frontend Url saved successfully',
+      });
+    } catch (error: any) {
+      logger.error('Error setting frontend url', { error });
+      next(error);
+    }
+  };
+
+export const getConnectorPublicUrl =
+  (keyValueStoreService: KeyValueStoreService) =>
+  async (_req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    try {
+      const connectorPublicUrl = await keyValueStoreService.get<string>(
+        configPaths.url.connector.publicEndpoint,
+      );
+      if (connectorPublicUrl) {
+        res.status(200).json({ url: connectorPublicUrl }).end();
+        return;
+      } else {
+        res.status(200).json({}).end();
+      }
+    } catch (error: any) {
+      logger.error('Error getting Connector Public Url', { error });
+      next(error);
+    }
+  };
+
+export const setConnectorPublicUrl =
+  (keyValueStoreService: KeyValueStoreService) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    try {
+      const { url } = req.body;
+      await keyValueStoreService.set<string>(
+        configPaths.url.connector.publicEndpoint,
+        url,
+      );
+      res.status(200).json({
+        message: 'Connector Url saved successfully',
+      });
+    } catch (error: any) {
+      logger.error('Error setting Connector url', { error });
+      next(error);
+    }
+  };

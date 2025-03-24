@@ -32,6 +32,10 @@ import {
   getGoogleWorkspaceBusinessCredentials,
   getQdrantConfig,
   createQdrantConfig,
+  getFrontendUrl,
+  setFrontendUrl,
+  getConnectorPublicUrl,
+  setConnectorPublicUrl,
 } from '../controller/cm_controller';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { ValidationMiddleware } from '../../../libs/middlewares/validation.middleware';
@@ -545,6 +549,34 @@ export function createConfigurationManagerRouter(container: Container): Router {
     authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
     metricsMiddleware(container),
     getAIModelsConfig(keyValueStoreService),
+  );
+
+  router.get(
+    '/frontendPublicUrl',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    getFrontendUrl(keyValueStoreService),
+  );
+
+  router.post(
+    '/frontendPublicUrl',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    setFrontendUrl(keyValueStoreService),
+  );
+
+  router.get(
+    '/connectorPublicUrl',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    getConnectorPublicUrl(keyValueStoreService),
+  );
+
+  router.post(
+    '/connectorPublicUrl',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    setConnectorPublicUrl(keyValueStoreService),
   );
 
   return router;
