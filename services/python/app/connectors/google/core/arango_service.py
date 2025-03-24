@@ -14,7 +14,6 @@ from app.config.arangodb_constants import CollectionNames
 
 logger = create_logger('google_connectors')
 
-
 class ArangoService(BaseArangoService):
     """ArangoDB service class for interacting with the database"""
 
@@ -359,42 +358,44 @@ class ArangoService(BaseArangoService):
 
             logger.info("🚀 Getting parents for record %s", file_key)
 
-            query = f"""
+            query = """
             LET relations = (
-                FOR rel IN {CollectionNames.RECORD_RELATIONS.value}
-                    FILTER rel._to == {CollectionNames.RECORDS.value}/@file_key
+                FOR rel IN @@recordRelations
+                    FILTER rel._to == CONCAT(@@records, '/', @file_key)
                     RETURN rel._from
             )
             
             LET parent_keys = (
                 FOR rel IN relations
                     LET key = PARSE_IDENTIFIER(rel).key
-                    RETURN {{
+                    RETURN {
                         original_id: rel,
                         parsed_key: key
-                    }}
+                    }
             )
             
             LET parent_files = (
                 FOR parent IN parent_keys
-                    FOR record IN {CollectionNames.RECORDS.value} 
+                    FOR record IN @@records 
                         FILTER record._key == parent.parsed_key
-                        RETURN {{
+                        RETURN {
                             key: record._key,
                             externalRecordId: record.externalRecordId
-                        }}
+                        }
             )
             
-            RETURN {{
+            RETURN {
                 input_file_key: @file_key,
                 found_relations: relations,
                 parsed_parent_keys: parent_keys,
                 found_parent_files: parent_files
-            }}
+            }
             """
 
             bind_vars = {
                 'file_key': file_key,
+                '@records': CollectionNames.RECORDS.value,
+                '@recordRelations': CollectionNames.RECORD_RELATIONS.value
             }
 
             db = transaction if transaction else self.db
@@ -633,6 +634,7 @@ class ArangoService(BaseArangoService):
 
     async def process_file_permissions(
         self,
+        org_id: str,
         file_key: str,
         permissions_data: List[Dict],
         transaction: Optional[TransactionDatabase] = None
@@ -652,9 +654,10 @@ class ArangoService(BaseArangoService):
             query = """
             FOR a IN anyone
                 FILTER a.file_key == @file_key
+                FILTER a.organization == @org_id
                 REMOVE a IN anyone
             """
-            db.aql.execute(query, bind_vars={'file_key': file_key})
+            db.aql.execute(query, bind_vars={'file_key': file_key, 'org_id': org_id})
             logger.info(
                 "🗑️ Removed 'anyone' permission for file %s", file_key)
 
@@ -749,7 +752,7 @@ class ArangoService(BaseArangoService):
                         permission_data = {
                             'type': 'anyone',
                             'file_key': file_key,
-                            'organization': await self.config.get_config('organization'),
+                            'organization': org_id,
                             'role': new_perm.get('role', 'reader'),
                             'externalPermissionId': new_perm.get('id'),
                             'lastUpdatedTimestampAtSource': timestamp,
@@ -1118,7 +1121,7 @@ class ArangoService(BaseArangoService):
                     }
                 }
             )
-            
+
             // Get files accessible through organization
             LET org_access = (
                 FOR v, e IN 1..1 OUTBOUND CONCAT('organizations/', user.domain) GRAPH 'fileAccessGraph'
@@ -1133,7 +1136,7 @@ class ArangoService(BaseArangoService):
                     }
                 }
             )
-            
+
             // Get files with anyone access
             LET anyone_access = (
                 FOR doc IN anyone
@@ -1147,7 +1150,7 @@ class ArangoService(BaseArangoService):
                         }
                     }
             )
-            
+
             // Combine all access paths and remove DUPLICATEs
             LET all_access = UNION_DISTINCT(
                 direct_access,
@@ -1155,7 +1158,7 @@ class ArangoService(BaseArangoService):
                 org_access,
                 anyone_access
             )
-            
+
             RETURN {
                 files: all_access,
                 counts: {
@@ -1541,7 +1544,7 @@ class ArangoService(BaseArangoService):
             
             query = """
             FOR drive IN drives
-                FILTER drive.externalDriveId == @drive_id
+                FILTER drive._key == @drive_id
                 RETURN drive.sync_state
             """
             
@@ -1554,7 +1557,7 @@ class ArangoService(BaseArangoService):
                 logger.debug("✅ Found sync state for drive %s: %s", drive_id, result[0])
                 return result[0]
             
-            logger.debug("⚠️ No sync state found for drive %s, assuming NOT_STARTED", drive_id)
+            logger.debug("No sync state found for drive %s, assuming NOT_STARTED", drive_id)
             return 'NOT_STARTED'
 
         except Exception as e:

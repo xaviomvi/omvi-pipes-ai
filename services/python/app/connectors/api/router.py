@@ -12,8 +12,8 @@ from app.utils.logger import logger
 from fastapi.responses import StreamingResponse
 import os
 import aiohttp
-from app.config.configuration_service import config_node_constants, Routes, TokenScopes
-from app.config.arangodb_constants import CollectionNames
+from app.config.configuration_service import Routes, TokenScopes
+from app.config.arangodb_constants import CollectionNames, RecordRelations
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from typing import Optional, Any
 import google.oauth2.credentials
@@ -545,8 +545,6 @@ async def download_file(
                 client_secret=creds_data.get('client_secret'),
                 scopes=SCOPES
             )
-            print("creds data token", creds_data.get('access_token'))
-            print("creds token", creds.token)
             if not creds_data.get('access_token'):
                 raise HTTPException(status_code=401, detail="Invalid creds1")
             if not creds.token:
@@ -605,7 +603,7 @@ async def download_file(
                 file_buffer = io.BytesIO()
                 
                 # Get the file metadata first to get mimeType
-                file_metadata = drive_service.files().get(fileId=file_id).execute()
+                # file_metadata = drive_service.files().get(fileId=file_id).execute()
                 
                 # Download the file
                 request = drive_service.files().get_media(fileId=file_id)
@@ -621,29 +619,98 @@ async def download_file(
                 # Stream the response
                 return StreamingResponse(
                     file_buffer,
-                    media_type=file_metadata.get('mimeType', 'application/octet-stream')
+                    media_type='application/octet-stream'
                 )
-                
+
             elif connector == "gmail":
-                logger.info(f"Downloading Gmail attachment: {file_id}")
-                # Build the Gmail service
+                logger.info(f"Downloading Gmail attachment for record_id: {record_id}")
                 gmail_service = build('gmail', 'v1', credentials=creds)
                 
-                # Get the attachment
-                attachment = gmail_service.users().messages().attachments().get(
-                    userId='me',
-                    messageId=record.get('messageId'),  # We need the message ID
-                    id=file_id
-                ).execute()
-                
-                # Decode the attachment data
-                file_data = base64.urlsafe_b64decode(attachment['data'])
-                
-                # Stream the response
-                return StreamingResponse(
-                    iter([file_data]),
-                    media_type=attachment.get('mimeType', 'application/octet-stream')
-                )
+                # Get the related message's externalRecordId using AQL
+                aql_query = f"""
+                FOR v, e IN 1..1 OUTBOUND '{CollectionNames.RECORDS.value}/{record_id}' {CollectionNames.RECORD_RELATIONS.value}
+                    FILTER e.relationType == '{RecordRelations.ATTACHMENT.value}'
+                    RETURN {{
+                        messageId: v.externalRecordId,
+                        _key: v._key,
+                        relationType: e.relationType
+                    }}
+                """
+
+                cursor = arango_service.db.aql.execute(aql_query)
+                messages = list(cursor)
+                logger.info(f"🚀 Query results: {messages}")
+
+                if not messages or not messages[0]:
+                    # If no results found, try the reverse direction
+                    logger.info("No results found with OUTBOUND, trying INBOUND...")
+                    aql_query = f"""
+                    FOR v, e IN 1..1 INBOUND '{CollectionNames.RECORDS.value}/{record_id}' {CollectionNames.RECORD_RELATIONS.value}
+                        FILTER e.relationType == '{RecordRelations.ATTACHMENT.value}'
+                        RETURN {{
+                            messageId: v.externalRecordId,
+                            _key: v._key,
+                            relationType: e.relationType
+                        }}
+                    """
+                    cursor = arango_service.db.aql.execute(aql_query)
+                    messages = list(cursor)
+                    logger.info(f"🚀 Reverse query results: {messages}")
+                    
+                if not messages or not messages[0]:
+                    record_details = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+                    logger.error(f"Record details: {record_details}")
+                    raise HTTPException(status_code=404, detail="Related message not found")
+
+                message = messages[0]
+                message_id = message['messageId']
+                logger.info(f"Found message ID: {message_id}")
+
+                # First try getting the attachment from Gmail
+                try:
+                    attachment = gmail_service.users().messages().attachments().get(
+                        userId='me',
+                        messageId=message_id,
+                        id=file_id
+                    ).execute()
+                    
+                    # Decode the attachment data
+                    file_data = base64.urlsafe_b64decode(attachment['data'])
+                    
+                    # Stream the response
+                    return StreamingResponse(
+                        iter([file_data]),
+                        media_type='application/octet-stream'
+                    )
+                    
+                except Exception as gmail_error:
+                    logger.warning(f"Failed to get attachment from Gmail: {str(gmail_error)}, trying Drive...")
+                    
+                    # Try to get the file from Drive as fallback
+                    try:
+                        drive_service = build('drive', 'v3', credentials=creds)
+                        file_buffer = io.BytesIO()
+                        
+                        request = drive_service.files().get_media(fileId=file_id)
+                        downloader = MediaIoBaseDownload(file_buffer, request)
+                        
+                        done = False
+                        while not done:
+                            _, done = downloader.next_chunk()
+                        
+                        file_buffer.seek(0)
+                        
+                        return StreamingResponse(
+                            file_buffer,
+                            media_type='application/octet-stream'
+                        )
+                        
+                    except Exception as drive_error:
+                        logger.error(f"Failed to get file from both Gmail and Drive. Gmail error: {str(gmail_error)}, Drive error: {str(drive_error)}")
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Failed to download file from both Gmail and Drive"
+                        )
             else:
                 raise HTTPException(status_code=400, detail="Invalid connector type")
 

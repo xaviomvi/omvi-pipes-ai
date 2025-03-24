@@ -57,7 +57,6 @@ class GmailUserService:
                 "userId": user_id,
                 "scopes": [TokenScopes.FETCH_CONFIG.value]
             }
-            print("payload: ", payload)
 
             # Create JWT token
             jwt_token = jwt.encode(
@@ -408,17 +407,21 @@ class GmailUserService:
             attachments = []
             if 'payload' in message and 'parts' in message['payload']:
                 for part in message['payload']['parts']:
-                    if 'headers' in part:
-                        for header in part.get('headers', []):
-                            if header['name'] == 'X-Attachment-Id':
-                                attachments.append({
-                                    'message_id': message['id'],
-                                    'org_id': org_id,
-                                    'attachment_id': header['value'],
-                                    'filename': part.get('filename', ''),
-                                    'mimeType': part.get('mimeType', ''),
-                                    'size': part.get('body', {}).get('size', 0)
-                                })
+                    # Check if this part has a body with an attachmentId
+                    if part.get('body', {}).get('attachmentId'):
+                        # Parse file extension from filename
+                        filename = part.get('filename', '')
+                        extension = os.path.splitext(filename)[1].lower()[1:] if filename else ''
+
+                        attachments.append({
+                            'message_id': message['id'],
+                            'org_id': org_id,
+                            'attachment_id': part['body']['attachmentId'],
+                            'filename': filename,
+                            'extension': extension,
+                            'mimeType': part.get('mimeType', ''),
+                            'size': part['body'].get('size', 0)
+                        })
 
             # Get any Google Drive file IDs from the message
             file_ids = await self.get_file_ids(message)
@@ -440,6 +443,7 @@ class GmailUserService:
                             'attachment_id': file_id,
                             'filename': file_metadata.get('name', ''),
                             'mimeType': file_metadata.get('mimeType', ''),
+                            'extension': file_metadata.get('extension', ''),
                             'size': file_metadata.get('size', 0),
                             'drive_file': True
                         })

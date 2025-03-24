@@ -365,6 +365,7 @@ class BaseDriveSyncService(ABC):
                 # Prepare nodes and edges for batch processing
                 files = []
                 records = []
+                is_of_type_records = []
                 recordRelations = []
                 existing_files = []
 
@@ -438,23 +439,30 @@ class BaseDriveSyncService(ABC):
                             'isDirty': False,
                             'reason': None,
                         }
+                        
+                        is_of_type_record = {
+                            '_from': f'records/{record["_key"]}',
+                            '_to': f'files/{file["_key"]}',
+                            "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                            "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                        }
 
                         files.append(file)
                         records.append(record)
+                        is_of_type_records.append(is_of_type_record)
 
                 # Batch process all collected data
                 if files or records or recordRelations:
                     try:
                         txn = None
                         txn = self.arango_service.db.begin_transaction(
-                            read=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value,
+                            read=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                                   CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value, CollectionNames.BELONGS_TO.value],
-                            write=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value,
+                            write=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                                    CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value, CollectionNames.BELONGS_TO.value]
                         )
                         # Process files with revision checking
                         if files:
-                            print("files: ", files)
                             if not await self.arango_service.batch_upsert_nodes(
                                 files,
                                 collection=CollectionNames.FILES.value,
@@ -465,7 +473,6 @@ class BaseDriveSyncService(ABC):
 
                         # Process records and relations
                         if records:
-                            print("records: ", records)
                             if not await self.arango_service.batch_upsert_nodes(
                                 records,
                                 collection=CollectionNames.RECORDS.value,
@@ -473,6 +480,15 @@ class BaseDriveSyncService(ABC):
                             ):
                                 raise Exception(
                                     "Failed to batch upsert records")
+                                
+                        if is_of_type_records:
+                            if not await self.arango_service.batch_create_edges(
+                                is_of_type_records,
+                                collection=CollectionNames.IS_OF_TYPE.value,
+                                transaction=txn
+                            ):
+                                raise Exception(
+                                    "Failed to batch create is_of_type relations")
 
                         db = txn if txn else self.arango_service.db
                         # Prepare edge data if parent exists
@@ -536,7 +552,7 @@ class BaseDriveSyncService(ABC):
                                     "❌ File not found with ID: %s", file_id)
                                 return False
                             if permissions:
-                                await self.arango_service.process_file_permissions(file_key, permissions, transaction=txn)
+                                await self.arango_service.process_file_permissions(org_id, file_key, permissions, transaction=txn)
 
                         txn.commit_transaction()
                         txn = None
@@ -771,35 +787,38 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
                 # Process each drive
                 for drive_id, worker in self.drive_workers.items():
-                    if await self._should_stop(org_id):
-                        logger.info("Sync stopped during drive %s processing", drive_id)
-                        await self.arango_service.update_drive_sync_state(
-                            drive_id,
-                            'PAUSED'
-                        )
-                        return False
-
-                    # Check drive state first
-                    drive_state = await self.arango_service.get_drive_sync_state(drive_id)
-                    if drive_state == 'COMPLETED':
-                        logger.info("Drive %s is already completed, skipping", drive_id)
-                        continue
 
                     # Get drive details with complete metadata
                     drive_info = await user_service.get_drive_info(drive_id, org_id)
                     if not drive_info:
                         logger.warning("❌ Failed to get drive info for drive %s", drive_id)
                         continue
+                    
+                    drive_key = drive_info.get('drive').get('_key')
+                    
+                    # Check drive state first
+                    drive_state = await self.arango_service.get_drive_sync_state(drive_key)
+                    if drive_state == 'COMPLETED':
+                        logger.info("Drive %s is already completed, skipping", drive_key)
+                        continue
+                    
+                    if await self._should_stop(org_id):
+                        logger.info("Sync stopped during drive %s processing", drive_key)
+                        await self.arango_service.update_drive_sync_state(
+                            drive_key,
+                            'PAUSED'
+                        )
+                        return False
 
                     try:
                         # Process drive data
                         if not await self.process_drive_data(drive_info, user):
-                            logger.error("❌ Failed to process drive data for drive %s", drive_id)
+                            logger.error("❌ Failed to process drive data for drive %s", drive_key)
                             continue
 
                         # Update drive state to RUNNING
                         await self.arango_service.update_drive_sync_state(
-                            drive_id,
+                            drive_key,
                             'IN_PROGRESS'
                         )
 
@@ -816,7 +835,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                             if await self._should_stop(org_id):
                                 logger.info("Sync stopped during batch processing at index %s", i)
                                 await self.arango_service.update_drive_sync_state(
-                                    drive_id,
+                                    drive_key,
                                     'PAUSED'
                                 )
                                 return False
@@ -871,12 +890,12 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
                         # Update drive status after completion
                         await self.arango_service.update_drive_sync_state(
-                            drive_id,
+                            drive_key,
                             'COMPLETED'
                         )
 
                     except Exception as e:
-                        logger.error(f"❌ Failed to process drive {drive_id}: {str(e)}")
+                        logger.error(f"❌ Failed to process drive {drive_key}: {str(e)}")
                         continue
 
                 # Update user state to COMPLETED
@@ -966,36 +985,41 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
             # Process each drive
             for drive_id, worker in self.drive_workers.items():
+                
+                # Get drive details
+                drive_info = await user_service.get_drive_info(drive_id, org_id)
+                if not drive_info:
+                    logger.warning("❌ Failed to get drive info for drive %s", drive_id)
+                    continue
+                
+                drive_key = drive_info.get('drive').get('_key')
+
                 if await self._should_stop(org_id):
                     logger.info("Sync stopped during drive %s processing", drive_id)
                     await self.arango_service.update_drive_sync_state(
-                        drive_id,
+                        drive_key,
                         'PAUSED'
                     )
                     await self.arango_service.update_user_sync_state(user_email, 'PAUSED', service_type='drive')
                     return False
 
                 # Check drive state first
-                drive_state = await self.arango_service.get_drive_sync_state(drive_id)
+                drive_state = await self.arango_service.get_drive_sync_state(drive_key)
                 if drive_state == 'COMPLETED':
-                    logger.info("Drive %s is already completed, skipping", drive_id)
+                    logger.info("Drive %s is already completed, skipping", drive_key)
                     continue
 
-                # Get drive details
-                drive_info = await user_service.get_drive_info(drive_id, org_id)
-                if not drive_info:
-                    logger.warning("❌ Failed to get drive info for drive %s", drive_id)
-                    continue
+                
 
                 try:
                     # Process drive data
                     if not await self.process_drive_data(drive_info, user):
-                        logger.error("❌ Failed to process drive data for drive %s", drive_id)
+                        logger.error("❌ Failed to process drive data for drive %s", drive_key)
                         continue
 
                     # Update drive state to RUNNING
                     await self.arango_service.update_drive_sync_state(
-                        drive_id,
+                        drive_key,
                         'IN_PROGRESS'
                     )
 
@@ -1012,7 +1036,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                         if await self._should_stop(org_id):
                             logger.info("Sync stopped during batch processing at index %s", i)
                             await self.arango_service.update_drive_sync_state(
-                                drive_id,
+                                drive_key,
                                 'PAUSED'
                             )
                             await self.arango_service.update_user_sync_state(user_email, 'PAUSED', service_type='drive')
@@ -1060,12 +1084,12 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
                     # Update drive status after completion
                     await self.arango_service.update_drive_sync_state(
-                        drive_id,
+                        drive_key,
                         'COMPLETED'
                     )
 
                 except Exception as e:
-                    logger.error(f"❌ Failed to process drive {drive_id}: {str(e)}")
+                    logger.error(f"❌ Failed to process drive {drive_key}: {str(e)}")
                     continue
 
             # Update user state to COMPLETED
@@ -1224,35 +1248,38 @@ class DriveSyncIndividualService(BaseDriveSyncService):
 
             # Process each drive
             for drive_id, worker in self.drive_workers.items():
+                
+                # Get drive details
+                drive_info = await user_service.get_drive_info(drive_id, org_id)
+                if not drive_info:
+                    logger.warning("❌ Failed to get drive info for drive %s", drive_id)
+                    continue
+                
+                drive_key = drive_info.get('drive').get('_key')
+
                 if await self._should_stop(org_id):
-                    logger.info("Sync stopped during drive %s processing", drive_id)
+                    logger.info("Sync stopped during drive %s processing", drive_key)
                     await self.arango_service.update_drive_sync_state(
-                        drive_id,
+                        drive_key,
                         'PAUSED'
                     )
                     return False
 
                 # Check drive state first
-                drive_state = await self.arango_service.get_drive_sync_state(drive_id)
+                drive_state = await self.arango_service.get_drive_sync_state(drive_key)
                 if drive_state == 'COMPLETED':
-                    logger.info("Drive %s is already completed, skipping", drive_id)
-                    continue
-
-                # Get drive details with complete metadata
-                drive_info = await user_service.get_drive_info(drive_id, org_id)
-                if not drive_info:
-                    logger.warning("❌ Failed to get drive info for drive %s", drive_id)
+                    logger.info("Drive %s is already completed, skipping", drive_key)
                     continue
 
                 try:
                     # Process drive data
                     if not await self.process_drive_data(drive_info, user):
-                        logger.error("❌ Failed to process drive data for drive %s", drive_id)
+                        logger.error("❌ Failed to process drive data for drive %s", drive_key)
                         continue
 
                     # Update drive state to RUNNING
                     await self.arango_service.update_drive_sync_state(
-                        drive_id,
+                        drive_key,
                         'IN_PROGRESS'
                     )
 
@@ -1269,7 +1296,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                         if await self._should_stop(org_id):
                             logger.info("Sync stopped during batch processing at index %s", i)
                             await self.arango_service.update_drive_sync_state(
-                                drive_id,
+                                drive_key,
                                 'PAUSED'
                             )
                             return False
@@ -1325,12 +1352,12 @@ class DriveSyncIndividualService(BaseDriveSyncService):
 
                     # Update drive status after completion
                     await self.arango_service.update_drive_sync_state(
-                        drive_id,
+                        drive_key,
                         'COMPLETED'
                     )
 
                 except Exception as e:
-                    logger.error(f"❌ Failed to process drive {drive_id}: {str(e)}")
+                    logger.error(f"❌ Failed to process drive {drive_key}: {str(e)}")
                     continue
 
             # Update user state to COMPLETED

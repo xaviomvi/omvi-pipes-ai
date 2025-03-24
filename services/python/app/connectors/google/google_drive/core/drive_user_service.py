@@ -771,7 +771,7 @@ class DriveUserService:
                 logger.info("🚀 Drive info for root drive: %s", response)
                 drive_key = str(uuid.uuid4())
                 current_time = get_epoch_timestamp_in_ms()
-                
+
                 return {
                     'drive': {
                         '_key': drive_key,

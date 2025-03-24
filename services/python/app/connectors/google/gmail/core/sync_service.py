@@ -28,7 +28,6 @@ class GmailSyncProgress:
         self.lastUpdatedTimestampAtSource = datetime.now(
             timezone(timedelta(hours=5, minutes=30))).isoformat()
 
-
 class BaseGmailSyncService(ABC):
     """Abstract base class for sync services"""
 
@@ -232,6 +231,7 @@ class BaseGmailSyncService(ABC):
                 # Prepare nodes and edges for batch processing
                 messages = []
                 attachments = []
+                is_of_type = []
                 records = []
                 permissions = []
                 recordRelations = []
@@ -338,9 +338,9 @@ class BaseGmailSyncService(ABC):
                                 "origin": OriginTypes.CONNECTOR.value,
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
 
-                                "createdAtTimestamp":  get_epoch_timestamp_in_ms(),
-                                "updatedAtTimestamp":  get_epoch_timestamp_in_ms(),
-                                "lastSyncTimestamp":  get_epoch_timestamp_in_ms(),
+                                "createdAtTimestamp": get_epoch_timestamp_in_ms(),
+                                "updatedAtTimestamp": get_epoch_timestamp_in_ms(),
+                                "lastSyncTimestamp": get_epoch_timestamp_in_ms(),
                                 "sourceCreatedAtTimestamp": int(message.get('internalDate')) if message.get('internalDate') else None,
                                 "sourceLastModifiedTimestamp": int(message.get('internalDate')) if message.get('internalDate') else None,
                                 
@@ -356,9 +356,18 @@ class BaseGmailSyncService(ABC):
                                 "isDirty": False,
                                 "reason": None
                             }
+                            
+                            # Create is_of_type edge
+                            is_of_type_record = {
+                                '_from': f'records/{message_record["_key"]}',
+                                '_to': f'message/{message_record["_key"]}',
+                                "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                            }
 
                             messages.append(message_record)
                             records.append(record)
+                            is_of_type.append(is_of_type_record)
                             logger.debug(
                                 "✅ Message record created: %s", message_record)
 
@@ -379,7 +388,6 @@ class BaseGmailSyncService(ABC):
                     logger.debug("📎 Processing %d attachments",
                                  len(attachments_metadata))
                     for attachment in attachments_metadata:
-                        print("attachment: ", type(attachment))
                         attachment_id = attachment['attachment_id']
                         message_id = attachment.get('message_id')
                         logger.debug(
@@ -406,13 +414,12 @@ class BaseGmailSyncService(ABC):
                                 "orgId": org_id,
                                 'name': attachment.get('filename'),
                                 'isFile': True,
-                                # 'messageId': message_id,
+                                'messageId': message_id,
                                 'mimeType': attachment.get('mimeType'),
-                                "extension": None,
+                                "extension": attachment.get('extension'),
                                 
                                 'sizeInBytes': int(attachment.get('size')),
                                 'webUrl': f"https://mail.google.com/mail?authuser={{user.email}}#all/{message_id}",
-                                'lastSyncTimestamp':  get_epoch_timestamp_in_ms()
                             }
                             record = {
                                 "_key": attachment_record['_key'],
@@ -432,7 +439,7 @@ class BaseGmailSyncService(ABC):
                                 "origin": OriginTypes.CONNECTOR.value,
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
                                 "isArchived": False,
-                                "lastSyncTimestamp":  get_epoch_timestamp_in_ms(),                                
+                                "lastSyncTimestamp": get_epoch_timestamp_in_ms(),                                
                                 "isDeleted": False,
                                 "isArchived": False,
 
@@ -445,8 +452,18 @@ class BaseGmailSyncService(ABC):
                                 "isDirty": False,
                                 "reason": None
                             }
+
+                            # Create is_of_type edge
+                            is_of_type_record = {
+                                '_from': f'records/{attachment_record["_key"]}',
+                                '_to': f'files/{attachment_record["_key"]}',
+                                "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                            }
+
                             attachments.append(attachment_record)
                             records.append(record)
+                            is_of_type.append(is_of_type_record)
                             logger.debug(
                                 "✅ Attachment record created: %s", attachment_record)
 
@@ -569,13 +586,15 @@ class BaseGmailSyncService(ABC):
                                   CollectionNames.RECORDS.value, 
                                   CollectionNames.FILES.value,
                                   CollectionNames.RECORD_RELATIONS.value, 
-                                  CollectionNames.PERMISSIONS.value],
+                                  CollectionNames.PERMISSIONS.value,
+                                  CollectionNames.IS_OF_TYPE.value],
                             
                             write=[CollectionNames.MAILS.value, 
                                    CollectionNames.RECORDS.value, 
                                    CollectionNames.FILES.value,
                                    CollectionNames.RECORD_RELATIONS.value, 
-                                   CollectionNames.PERMISSIONS.value]
+                                   CollectionNames.PERMISSIONS.value,
+                                   CollectionNames.IS_OF_TYPE.value]
                             
                         )
 
@@ -589,10 +608,16 @@ class BaseGmailSyncService(ABC):
                             logger.debug("✅ Messages upserted successfully")
 
                         if attachments:
-                            print("attachments: ", attachments)
+                            # Create a copy of attachments without messageId
+                            attachment_docs = []
+                            for attachment in attachments:
+                                attachment_doc = attachment.copy()
+                                attachment_doc.pop('messageId', None)  # Remove messageId if it exists
+                                attachment_docs.append(attachment_doc)
+                            
                             logger.debug(
-                                "📥 Upserting %d attachments", len(attachments))
-                            if not await self.arango_service.batch_upsert_nodes(attachments, collection=CollectionNames.FILES.value, transaction=txn):
+                                "📥 Upserting %d attachments", len(attachment_docs))
+                            if not await self.arango_service.batch_upsert_nodes(attachment_docs, collection=CollectionNames.FILES.value, transaction=txn):
                                 raise Exception(
                                     "Failed to batch upsert attachments")
                             logger.debug("✅ Attachments upserted successfully")
@@ -614,6 +639,14 @@ class BaseGmailSyncService(ABC):
                                     "Failed to batch create relations")
                             logger.debug(
                                 "✅ Record relations created successfully")
+                            
+                        if is_of_type:
+                            logger.debug(
+                                "🔗 Creating %d is_of_type relations", len(is_of_type))
+                            if not await self.arango_service.batch_create_edges(is_of_type, collection=CollectionNames.IS_OF_TYPE.value, transaction=txn):
+                                raise Exception(
+                                    "Failed to batch create is_of_type relations")
+                            logger.debug("✅ is_of_type relations created successfully")
 
                         if permissions:
                             logger.debug(
@@ -980,6 +1013,29 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             }
                             await self.kafka_service.send_event_to_kafka(message_event)
                             logger.info("📨 Sent Kafka Indexing event for message %s", message_key)
+                            
+                    # Attachment events
+                    for attachment in metadata['attachments']:
+                        attachment_key = await self.arango_service.get_key_by_attachment_id(attachment['attachment_id'])
+                        attachment_event = {
+                            "recordId": attachment_key,
+                            "recordName": attachment.get('filename', 'Unnamed Attachment'),
+                            "recordType": RecordTypes.ATTACHMENT.value,
+                            "recordVersion": 0,
+                            'eventType': "create",
+                            "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
+                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
+                            "connectorName": Connectors.GOOGLE_MAIL.value,
+                            "origin": OriginTypes.CONNECTOR.value,
+                            "mimeType": attachment.get('mimeType', 'application/octet-stream'),
+                            "size": attachment.get('size', 0),
+                            "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
+                            "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
+                        }
+                        await self.kafka_service.send_event_to_kafka(attachment_event)
+                        logger.info(
+                            "📨 Sent Kafka Indexing event for attachment %s", attachment_key)
+
 
                 await self.arango_service.update_user_sync_state(
                     user['email'],
@@ -1160,6 +1216,28 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                         }
                         await self.kafka_service.send_event_to_kafka(message_event)
                         logger.info("📨 Sent Kafka Indexing event for message %s", message_key)
+                        
+                    # Attachment events
+                    for attachment in metadata['attachments']:
+                        attachment_key = await self.arango_service.get_key_by_attachment_id(attachment['attachment_id'])
+                        attachment_event = {
+                            "recordId": attachment_key,
+                            "recordName": attachment.get('filename', 'Unnamed Attachment'),
+                            "recordType": RecordTypes.ATTACHMENT.value,
+                            "recordVersion": 0,
+                            'eventType': "create",
+                            "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
+                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
+                            "connectorName": Connectors.GOOGLE_MAIL.value,
+                            "origin": OriginTypes.CONNECTOR.value,
+                            "mimeType": attachment.get('mimeType', 'application/octet-stream'),
+                            "size": attachment.get('size', 0),
+                            "createdAtSourceTimestamp": get_epoch_timestamp_in_ms(),
+                            "modifiedAtSourceTimestamp": get_epoch_timestamp_in_ms()
+                        }
+                        await self.kafka_service.send_event_to_kafka(attachment_event)
+                        logger.info(
+                            "📨 Sent Kafka Indexing event for attachment %s", attachment_key)
 
             # Update user state to COMPLETED
             await self.arango_service.update_user_sync_state(user_email, 'COMPLETED', 'gmail')
@@ -1379,7 +1457,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                         message = message_data['message']
                         message_key = await self.arango_service.get_key_by_external_message_id(message['id'])
                         # message = await self.arango_service.get_document(message_key, "messages")
-                        
+
                         user_id = user['userId']
                         headers = message.get('headers', {})
                         message_event = {
@@ -1395,7 +1473,6 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
                             "mimeType": "text/gmail_content",
-                            "threadId": metadata['thread']['id'],
                             "createdAtSourceTimestamp": int(message.get('internalDate', datetime.now(timezone.utc).timestamp())),
                             "modifiedAtSourceTimestamp": int(message.get('internalDate', datetime.now(timezone.utc).timestamp()))
                         }
@@ -1403,26 +1480,27 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                         logger.info(
                             "📨 Sent Kafka Indexing event for message %s", message_key)
 
-                    # # Attachment events
-                    # for attachment in metadata['attachments']:
-                    #     attachment_event = {
-                    #         "recordId": attachment['attachment_id'],
-                    #         "recordName": attachment.get('filename', 'Unnamed Attachment'),
-                    #         "recordType": RecordTypes.ATTACHMENT.value,
-                    #         "recordVersion": 0,
-                    #         'eventType': "create",
-                    #         "metadataRoute": f"/api/v1/gmail/attachments/{attachment['attachment_id']}/metadata",
-                    #         "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/gmail/attachments/{attachment['attachment_id']}/signedUrl",
-                    #         "connectorName": Connectors.GOOGLE_MAIL.value,
-                    #         "origin": OriginTypes.CONNECTOR.value,
-                    #         "mimeType": attachment.get('mimeType', 'application/octet-stream'),
-                    #         "size": attachment.get('size', 0),
-                    #         "messageId": attachment.get('message_id'),
-                    #         "threadId": metadata['thread']['id'],
-                    #         "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
-                    #         "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
-                    #     }
-                    #     await self.kafka_service.send_event_to_kafka(attachment_event)
+                    # Attachment events
+                    for attachment in metadata['attachments']:
+                        attachment_key = await self.arango_service.get_key_by_attachment_id(attachment['attachment_id'])
+                        attachment_event = {
+                            "recordId": attachment_key,
+                            "recordName": attachment.get('filename', 'Unnamed Attachment'),
+                            "recordType": RecordTypes.ATTACHMENT.value,
+                            "recordVersion": 0,
+                            'eventType': "create",
+                            "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
+                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
+                            "connectorName": Connectors.GOOGLE_MAIL.value,
+                            "origin": OriginTypes.CONNECTOR.value,
+                            "mimeType": attachment.get('mimeType', 'application/octet-stream'),
+                            "size": attachment.get('size', 0),
+                            "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
+                            "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
+                        }
+                        await self.kafka_service.send_event_to_kafka(attachment_event)
+                        logger.info(
+                            "📨 Sent Kafka Indexing event for attachment %s", attachment_key)
 
             # Update user state to COMPLETED
             await self.arango_service.update_user_sync_state(

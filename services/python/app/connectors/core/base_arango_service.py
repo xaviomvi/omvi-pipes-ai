@@ -144,6 +144,11 @@ class BaseArangoService():
                     if self.db.has_collection(CollectionNames.RECORDS.value)
                     else self.db.create_collection(CollectionNames.RECORDS.value, schema=record_schema)
                 )
+                self._collections[CollectionNames.IS_OF_TYPE.value] = (
+                    self.db.collection(CollectionNames.IS_OF_TYPE.value)
+                    if self.db.has_collection(CollectionNames.IS_OF_TYPE.value)
+                    else self.db.create_collection(CollectionNames.IS_OF_TYPE.value, edge=True, schema=is_of_type_schema)
+                )
                 self._collections[CollectionNames.RECORD_RELATIONS.value] = (
                     self.db.collection(CollectionNames.RECORD_RELATIONS.value)
                     if self.db.has_collection(CollectionNames.RECORD_RELATIONS.value)
