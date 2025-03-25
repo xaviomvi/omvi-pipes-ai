@@ -160,3 +160,12 @@ export const searchIdParamsSchema = z.object({
       .regex(objectIdRegex, { message: 'Invalid search ID format' }),
   }),
 });
+
+export const searchShareParamsSchema = searchIdParamsSchema.extend({
+  body: z.object({
+    userIds: z.array(z.string().regex(objectIdRegex)).min(1, {
+      message: 'At least one user ID is required',
+    }),
+    accessLevel: z.enum(['read', 'write']).optional(),
+  }),
+});

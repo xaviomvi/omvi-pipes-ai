@@ -4,6 +4,7 @@ import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
 import {
   addMessage,
   archiveConversation,
+  archiveSearch,
   createConversation,
   deleteConversationById,
   deleteSearchById,
@@ -16,8 +17,11 @@ import {
   search,
   searchHistory,
   shareConversationById,
+  shareSearch,
   unarchiveConversation,
+  unarchiveSearch,
   unshareConversationById,
+  unshareSearch,
   updateFeedback,
   updateTitle,
 } from '../controller/es_controller';
@@ -33,6 +37,7 @@ import {
   conversationTitleParamsSchema,
   regenerateAnswersParamsSchema,
   updateFeedbackParamsSchema,
+  searchShareParamsSchema,
 } from '../validators/es_validators';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
 import { AppConfig } from '../../tokens_manager/config/config';
@@ -276,6 +281,39 @@ export function createSemanticSearchRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     deleteSearchHistory,
+  );
+
+  router.patch(
+    '/:searchId/share',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(searchShareParamsSchema),
+    shareSearch(appConfig),
+  );
+
+  router.patch(
+    '/:searchId/unshare',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(searchShareParamsSchema),
+    unshareSearch,
+  );
+
+
+  router.patch(
+    '/:searchId/archive',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(searchIdParamsSchema),
+    archiveSearch,
+  );
+
+  router.patch(
+    '/:searchId/unarchive',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(searchIdParamsSchema),
+    unarchiveSearch,
   );
 
   return router;
