@@ -176,7 +176,7 @@ class RetrievalService:
                         files = await arango_service.get_document(record_id, CollectionNames.FILES.value)
                         record = {**record, **files}
                     if record['recordType'] == RecordTypes.MAIL.value:
-                        mail = await arango_service.get_document(record_id, CollectionNames.MAIL.value)
+                        mail = await arango_service.get_document(record_id, CollectionNames.MAILS.value)
                         record = {**record, **mail}
                     records.append(record)
             

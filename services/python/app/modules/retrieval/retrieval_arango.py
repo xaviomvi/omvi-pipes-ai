@@ -111,6 +111,8 @@ class ArangoService():
                     'topics': [topic_ids]
                 }
         """
+
+        # Todo: Fix User group and Org permission edge to record
         try:
             query = f"""
             // First get the user document using userId field
@@ -121,8 +123,7 @@ class ArangoService():
             )
 
             LET directAndGroupRecords = (
-                FOR vertex, edge, path IN 1..3 ANY userDoc._id
-                GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
+                FOR vertex, edge, path IN 1 ANY userDoc._id GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
                 FILTER IS_SAME_COLLECTION(@@records, vertex)
                 RETURN DISTINCT vertex
             )
