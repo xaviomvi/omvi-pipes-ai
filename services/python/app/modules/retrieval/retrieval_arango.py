@@ -114,39 +114,66 @@ class ArangoService():
 
         # Todo: Fix User group and Org permission edge to record
         try:
+            # First get counts separately
             query = f"""
-            // First get the user document using userId field
             LET userDoc = FIRST(
                 FOR user IN @@users
                 FILTER user.userId == @userId
                 RETURN user
             )
-
-            LET directAndGroupRecords = (
-                FOR vertex, edge, path IN 1 ANY userDoc._id GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
-                FILTER IS_SAME_COLLECTION(@@records, vertex)
-                RETURN DISTINCT vertex
+            
+            LET directRecords = (
+                FOR records IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS.value}
+                RETURN DISTINCT records
             )
+            LET directRecordsCount = LENGTH(directRecords)
+            logger.debug("Direct records count: %d", directRecordsCount)
+            
+            LET groupRecords = (
+                FOR group IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FOR records IN 1..1 ANY group._id {CollectionNames.PERMISSIONS.value}
+                RETURN DISTINCT records
+            )
+            LET groupRecordsCount = LENGTH(groupRecords)
+            logger.debug("Group records count: %d", groupRecordsCount)
+            
+            LET orgRecords = (
+                FOR org IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FOR records IN 1..1 ANY org._id {CollectionNames.PERMISSIONS.value}
+                RETURN DISTINCT records
+            )
+            LET orgRecordsCount = LENGTH(orgRecords)
+            logger.debug("Org records count: %d", orgRecordsCount)
+            
+            LET directAndGroupRecords = UNION_DISTINCT(directRecords, groupRecords, orgRecords)
+            LET directAndGroupRecordsCount = LENGTH(directAndGroupRecords)
+            logger.debug("Direct and group records count: %d", directAndGroupRecordsCount)
             
             LET kbRecords = (
-                FOR kb IN OUTBOUND userDoc._id GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
-                FILTER IS_SAME_COLLECTION(@@knowledgeBase, kb)
-                    FOR record IN INBOUND kb._id GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
-                    FILTER IS_SAME_COLLECTION(@@records, record)
-                    RETURN DISTINCT record
+                FOR kb IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value}
+                FOR records IN 1..1 ANY kb._id {CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value}
+                RETURN DISTINCT records
             )
+            LET kbRecordsCount = LENGTH(kbRecords)
+            logger.debug("Knowledge base records count: %d", kbRecordsCount)
             
             LET anyoneRecords = (
-                FOR record IN @@anyone
-                FILTER record.organization == @orgId
-                RETURN record.file_key
+                FOR records IN @@anyone
+                FILTER records.organization == @orgId
+                FOR record IN @@records
+                FILTER record._key == records.file_key
+                RETURN record
             )
+            LET anyoneRecordsCount = LENGTH(anyoneRecords)
+            logger.debug("Anyone records count: %d", anyoneRecordsCount)
             
             LET allAccessibleRecords = UNIQUE(
                 UNION(directAndGroupRecords, kbRecords, anyoneRecords)
             )
+            LET allAccessibleRecordsCount = LENGTH(allAccessibleRecords)
+            logger.debug("All accessible records count: %d", allAccessibleRecordsCount)
             """
-
+            
             # Add filter conditions if provided
             filter_conditions = []
             if filters:
@@ -205,15 +232,13 @@ class ArangoService():
             if filter_conditions:
                 query += """
                 FOR record IN allAccessibleRecords
-                FILTER """ + " AND ".join(filter_conditions) + """
-                RETURN DISTINCT record
+                    FILTER """ + " AND ".join(filter_conditions) + """
+                    RETURN DISTINCT record
                 """
             else:
                 query += """
-                FOR record IN allAccessibleRecords
-                RETURN record
+                RETURN allAccessibleRecords
                 """
-
 
             # Prepare bind variables
             bind_vars = {
@@ -221,7 +246,6 @@ class ArangoService():
                 'orgId': org_id,
                 '@users': CollectionNames.USERS.value,
                 '@records': CollectionNames.RECORDS.value,
-                '@knowledgeBase': CollectionNames.KNOWLEDGE_BASE.value,
                 '@anyone': CollectionNames.ANYONE.value,
             }
 
@@ -239,7 +263,7 @@ class ArangoService():
                     bind_vars['topicNames'] = filters['topics']  # Direct topic names
                 
             cursor = self.db.aql.execute(query, bind_vars=bind_vars)
-            return list(cursor)
+            return next(cursor)
 
         except Exception as e:
             logger.error(f"Failed to get accessible records: {str(e)}")
