@@ -721,15 +721,7 @@ class ArangoService(BaseArangoService):
                                         f"⚠️ Skipping permission for non-existent user or group: {entity_key}")
                                     pass
                             elif perm_type == 'domain':
-                                query = """
-                                FOR org IN @@orgs
-                                    FILTER org.name == @domain_name
-                                    RETURN org._key
-                                """
-                                cursor = db.aql.execute(
-                                    query, bind_vars={'domain_name': new_perm.get('domain'),
-                                                      '@orgs': CollectionNames.ORGS.value})
-                                entity_key = next(cursor, None)
+                                entity_key = org_id
                                 if not entity_key:
                                     logger.warning(
                                         f"⚠️ Skipping permission for non-existent domain: {entity_key}")

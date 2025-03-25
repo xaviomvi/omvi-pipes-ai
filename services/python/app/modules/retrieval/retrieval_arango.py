@@ -112,7 +112,6 @@ class ArangoService():
                 }
         """
 
-        # Todo: Fix User group and Org permission edge to record
         try:
             # First get counts separately
             query = f"""
@@ -126,37 +125,29 @@ class ArangoService():
                 FOR records IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS.value}
                 RETURN DISTINCT records
             )
-            LET directRecordsCount = LENGTH(directRecords)
-            logger.debug("Direct records count: %d", directRecordsCount)
             
             LET groupRecords = (
-                FOR group IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FOR group, edge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FILTER edge.entityType == 'GROUP'
                 FOR records IN 1..1 ANY group._id {CollectionNames.PERMISSIONS.value}
                 RETURN DISTINCT records
             )
-            LET groupRecordsCount = LENGTH(groupRecords)
-            logger.debug("Group records count: %d", groupRecordsCount)
             
             LET orgRecords = (
-                FOR org IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FOR org, edge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FILTER edge.entityType == 'ORGANIZATION'
                 FOR records IN 1..1 ANY org._id {CollectionNames.PERMISSIONS.value}
                 RETURN DISTINCT records
             )
-            LET orgRecordsCount = LENGTH(orgRecords)
-            logger.debug("Org records count: %d", orgRecordsCount)
-            
+
             LET directAndGroupRecords = UNION_DISTINCT(directRecords, groupRecords, orgRecords)
-            LET directAndGroupRecordsCount = LENGTH(directAndGroupRecords)
-            logger.debug("Direct and group records count: %d", directAndGroupRecordsCount)
             
             LET kbRecords = (
                 FOR kb IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value}
                 FOR records IN 1..1 ANY kb._id {CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value}
                 RETURN DISTINCT records
             )
-            LET kbRecordsCount = LENGTH(kbRecords)
-            logger.debug("Knowledge base records count: %d", kbRecordsCount)
-            
+
             LET anyoneRecords = (
                 FOR records IN @@anyone
                 FILTER records.organization == @orgId
@@ -164,16 +155,12 @@ class ArangoService():
                 FILTER record._key == records.file_key
                 RETURN record
             )
-            LET anyoneRecordsCount = LENGTH(anyoneRecords)
-            logger.debug("Anyone records count: %d", anyoneRecordsCount)
-            
+
             LET allAccessibleRecords = UNIQUE(
                 UNION(directAndGroupRecords, kbRecords, anyoneRecords)
             )
-            LET allAccessibleRecordsCount = LENGTH(allAccessibleRecords)
-            logger.debug("All accessible records count: %d", allAccessibleRecordsCount)
             """
-            
+                        
             # Add filter conditions if provided
             filter_conditions = []
             if filters:
@@ -197,7 +184,6 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-
                 if filters.get('subcategories1'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -207,7 +193,27 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-
+                
+                if filters.get('subcategories2'):
+                    filter_conditions.append(f"""
+                    LENGTH(
+                        FOR subcat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
+                        FILTER subcat.name IN @subcat2Names
+                        LIMIT 1
+                        RETURN 1
+                    ) > 0
+                    """)
+                
+                if filters.get('subcategories3'):
+                    filter_conditions.append(f"""
+                    LENGTH(
+                        FOR subcat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
+                        FILTER subcat.name IN @subcat3Names
+                        LIMIT 1
+                        RETURN 1
+                    ) > 0
+                    """)
+                
                 if filters.get('languages'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -217,7 +223,7 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-
+                
                 if filters.get('topics'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -227,7 +233,17 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-
+                
+                if filters.get('apps'):
+                    filter_conditions.append(f"""
+                    LENGTH(
+                        FOR app IN @apps
+                        FILTER LOWER(record.connectorName) == app
+                        LIMIT 1
+                        RETURN 1
+                    ) > 0
+                    """)
+                
             # Add filter conditions to main query
             if filter_conditions:
                 query += """
@@ -257,13 +273,26 @@ class ArangoService():
                     bind_vars['categoryNames'] = filters['categories']  # Direct category names
                 if filters.get('subcategories1'):
                     bind_vars['subcat1Names'] = filters['subcategories1']  # Direct subcategory names
+                if filters.get('subcategories2'):
+                    bind_vars['subcat2Names'] = filters['subcategories2']  # Direct subcategory names
+                if filters.get('subcategories3'):
+                    bind_vars['subcat3Names'] = filters['subcategories3']  # Direct subcategory names
                 if filters.get('languages'):
                     bind_vars['languageNames'] = filters['languages']  # Direct language names
                 if filters.get('topics'):
                     bind_vars['topicNames'] = filters['topics']  # Direct topic names
+                if filters.get('apps'):
+                    bind_vars['apps'] = [app.lower() for app in filters['apps']]  # Lowercase app names
                 
             cursor = self.db.aql.execute(query, bind_vars=bind_vars)
-            return next(cursor)
+            result = list(cursor)
+            if result:
+                if isinstance(result[0], dict):
+                    return result
+                else:
+                    return result[0]
+            else:
+                return []
 
         except Exception as e:
             logger.error(f"Failed to get accessible records: {str(e)}")
