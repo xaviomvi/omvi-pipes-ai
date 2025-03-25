@@ -145,6 +145,7 @@ class DriveUserService:
         """Refresh the access token"""
         try:
             logger.info("🔄 Refreshing access token")
+            SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
             
             payload = {
                 "orgId": self.org_id,
@@ -172,27 +173,39 @@ class DriveUserService:
                         raise Exception(f"Failed to refresh token: {await response.json()}")
                     
                     creds_data = await response.json()
-                    
-                    # Update credentials
-                    creds = google.oauth2.credentials.Credentials(
-                        token=creds_data.get('access_token'),
-                        refresh_token=creds_data.get('refresh_token'),
-                        token_uri="https://oauth2.googleapis.com/token",
-                        client_id=creds_data.get('client_id'),
-                        client_secret=creds_data.get('client_secret'),
-                        scopes=GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
-                    )
+                    logger.info("🚀 Access Token Refresh response: %s", creds_data)
+                                
+            # Fetch credentials from API
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch credentials: {await response.json()}")
+                    creds_data = await response.json()
+                    logger.info("🚀 Fetch refreshed access token response: %s", creds_data)
 
-                    # Update service with new credentials
-                    self.service = build('drive', 'v3', credentials=creds)
-                    
-                    # Update token expiry
-                    self.token_expiry = datetime.fromtimestamp(
-                        creds_data.get('access_token_expiry_time', 0) / 1000,
-                        tz=timezone.utc
-                    )
-                    
-                    logger.info("✅ Successfully refreshed access token, expiry: %s", self.token_expiry)
+            # Create credentials object from the response using google.oauth2.credentials.Credentials
+            creds = google.oauth2.credentials.Credentials(
+                token=creds_data.get('access_token'),
+                refresh_token=creds_data.get('refresh_token'),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=creds_data.get('client_id'),
+                client_secret=creds_data.get('client_secret'),
+                scopes=SCOPES
+            )
+
+            self.service = build('drive', 'v3', credentials=creds)
+
+            # Store token expiry time
+            self.token_expiry = datetime.fromtimestamp(
+                creds_data.get('access_token_expiry_time', 0) / 1000,
+                tz=timezone.utc
+            )
+       
+            logger.info("✅ Successfully refreshed access token, expiry: %s", self.token_expiry)
 
         except Exception as e:
             logger.error(f"❌ Failed to refresh token: {str(e)}")
@@ -625,18 +638,18 @@ class DriveUserService:
                         request_id=f"meta_{file_id}"
                     )
 
-                # # Always add permissions request
-                # logger.info(
-                #     "🚀 Adding permissions request for file ID: %s", file_id)
-                # basic_batch.add(
-                #     self.service.permissions().list(
-                #         fileId=file_id,
-                #         fields="permissions(id, displayName, type, role, domain, emailAddress, deleted)",
-                #         supportsAllDrives=True
-                #     ),
-                #     callback=metadata_callback,
-                #     request_id=f"perm_{file_id}"
-                # )
+                # Always add permissions request
+                logger.info(
+                    "🚀 Adding permissions request for file ID: %s", file_id)
+                basic_batch.add(
+                    self.service.permissions().list(
+                        fileId=file_id,
+                        fields="permissions(id, displayName, type, role, domain, emailAddress, deleted)",
+                        supportsAllDrives=True
+                    ),
+                    callback=metadata_callback,
+                    request_id=f"perm_{file_id}"
+                )
 
             # Execute batch requests
             logger.info("🚀 Executing batch requests")
@@ -743,13 +756,6 @@ class DriveUserService:
             'failed_channels': failed_channels
         }
         
-    def parse_timestamp(self, timestamp_str):
-        # Remove the 'Z' and add '+00:00' for UTC
-        if timestamp_str.endswith('Z'):
-            timestamp_str = timestamp_str[:-1] + '+00:00'
-        return datetime.fromisoformat(timestamp_str)
-
-
     @exponential_backoff()
     async def get_drive_info(self, drive_id: str, org_id: str) -> dict:
         """Get drive information for root or shared drive

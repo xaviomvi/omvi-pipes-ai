@@ -38,15 +38,15 @@ class ArangoService():
             )
             logger.debug("System DB: %s", sys_db)
 
-            # Create our database if it doesn't exist
-            logger.debug("Checking if our database exists")
-            if not sys_db.has_database(arango_db):
-                logger.info(
-                    "🚀 Database %s does not exist. Creating...",
-                    arango_db
-                )
-                sys_db.create_database(arango_db)
-                logger.info("✅ Database created successfully")
+            # # Create our database if it doesn't exist
+            # logger.debug("Checking if our database exists")
+            # if not sys_db.has_database(arango_db):
+            #     logger.info(
+            #         "🚀 Database %s does not exist. Creating...",
+            #         arango_db
+            #     )
+            #     sys_db.create_database(arango_db)
+            #     logger.info("✅ Database created successfully")
                 
             # Connect to our database
             logger.debug("Connecting to our database")
@@ -77,6 +77,22 @@ class ArangoService():
             logger.error("❌ Failed to disconnect from ArangoDB: %s", str(e))
             return False
 
+    async def get_document(self, document_key: str, collection: str):
+        """Get a document by its key"""
+        try:
+            query = """
+            FOR doc IN @@collection
+                FILTER doc._key == @document_key
+                RETURN doc
+            """
+            cursor = self.db.aql.execute(
+                query, bind_vars={'document_key': document_key, '@collection': collection})
+            result = list(cursor)
+            return result[0] if result else None
+        except Exception as e:
+            logger.error("❌ Error getting document: %s", str(e))
+            return None
+
     async def get_accessible_records(self, user_id: str, org_id: str, filters: dict = None) -> list:
         """
         Get all records accessible to a user based on their permissions and apply filters
@@ -96,7 +112,7 @@ class ArangoService():
                 }
         """
         try:
-            query = """
+            query = f"""
             // First get the user document using userId field
             LET userDoc = FIRST(
                 FOR user IN @@users
@@ -105,18 +121,16 @@ class ArangoService():
             )
 
             LET directAndGroupRecords = (
-                WITH @@users, @@records, @@permissions, @@belongsTo, @@organizations
                 FOR vertex, edge, path IN 1..3 ANY userDoc._id
-                GRAPH @@fileAccessGraph
+                GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
                 FILTER IS_SAME_COLLECTION(@@records, vertex)
                 RETURN DISTINCT vertex
             )
             
             LET kbRecords = (
-                WITH @@users, @@records, @@knowledgeBase, @@belongsToKnowledgeBase, @@permissionsToKnowledgeBase
-                FOR kb IN OUTBOUND userDoc._id GRAPH @@fileAccessGraph
+                FOR kb IN OUTBOUND userDoc._id GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
                 FILTER IS_SAME_COLLECTION(@@knowledgeBase, kb)
-                    FOR record IN INBOUND kb._id GRAPH @@fileAccessGraph
+                    FOR record IN INBOUND kb._id GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
                     FILTER IS_SAME_COLLECTION(@@records, record)
                     RETURN DISTINCT record
             )
@@ -135,50 +149,54 @@ class ArangoService():
             # Add filter conditions if provided
             filter_conditions = []
             if filters:
+                print("filters: ", filters)
                 if filters.get('departments'):
-                    filter_conditions.append("""
+                    filter_conditions.append(f"""
                     LENGTH(
                         FOR dept IN OUTBOUND record._id {CollectionNames.BELONGS_TO_DEPARTMENT.value}
-                        FILTER dept._id IN @departmentIds
-                        RETURN dept
+                        FILTER dept.departmentName IN @departmentNames
+                        LIMIT 1
+                        RETURN 1
                     ) > 0
                     """)
 
                 if filters.get('categories'):
-                    filter_conditions.append("""
+                    filter_conditions.append(f"""
                     LENGTH(
                         FOR cat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
-                        FILTER cat._id IN @categoryIds
-                        RETURN cat
+                        FILTER cat.name IN @categoryNames
+                        LIMIT 1
+                        RETURN 1
                     ) > 0
                     """)
 
                 if filters.get('subcategories1'):
-                    filter_conditions.append("""
+                    filter_conditions.append(f"""
                     LENGTH(
                         FOR subcat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
-                        FILTER subcat._id IN @subcat1Ids
-                        RETURN subcat
+                        FILTER subcat.name IN @subcat1Names
+                        LIMIT 1
+                        RETURN 1
                     ) > 0
                     """)
 
-                # Similar conditions for subcategories2 and subcategories3...
-
                 if filters.get('languages'):
-                    filter_conditions.append("""
+                    filter_conditions.append(f"""
                     LENGTH(
                         FOR lang IN OUTBOUND record._id {CollectionNames.BELONGS_TO_LANGUAGE.value}
-                        FILTER lang._id IN @languageIds
-                        RETURN lang
+                        FILTER lang.name IN @languageNames
+                        LIMIT 1
+                        RETURN 1
                     ) > 0
                     """)
 
                 if filters.get('topics'):
-                    filter_conditions.append("""
+                    filter_conditions.append(f"""
                     LENGTH(
                         FOR topic IN OUTBOUND record._id {CollectionNames.BELONGS_TO_TOPIC.value}
-                        FILTER topic._id IN @topicIds
-                        RETURN topic
+                        FILTER topic.name IN @topicNames
+                        LIMIT 1
+                        RETURN 1
                     ) > 0
                     """)
 
@@ -191,8 +209,10 @@ class ArangoService():
                 """
             else:
                 query += """
-                RETURN DISTINCT allAccessibleRecords
+                FOR record IN allAccessibleRecords
+                RETURN record
                 """
+
 
             # Prepare bind variables
             bind_vars = {
@@ -201,27 +221,22 @@ class ArangoService():
                 '@users': CollectionNames.USERS.value,
                 '@records': CollectionNames.RECORDS.value,
                 '@knowledgeBase': CollectionNames.KNOWLEDGE_BASE.value,
-                '@belongsToKnowledgeBase': CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value,
-                '@permissionsToKnowledgeBase': CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value,
-                '@permissions': CollectionNames.PERMISSIONS.value,
-                '@belongsTo': CollectionNames.BELONGS_TO.value,
                 '@anyone': CollectionNames.ANYONE.value,
-                '@fileAccessGraph': CollectionNames.FILE_ACCESS_GRAPH.value
             }
 
             # Add filter bind variables
             if filters:
                 if filters.get('departments'):
-                    bind_vars['departmentIds'] = [f"{CollectionNames.DEPARTMENTS.value}/{id}" for id in filters['departments']]
+                    bind_vars['departmentNames'] = filters['departments']  # Direct department names
                 if filters.get('categories'):
-                    bind_vars['categoryIds'] = [f"{CollectionNames.CATEGORIES.value}/{id}" for id in filters['categories']]
+                    bind_vars['categoryNames'] = filters['categories']  # Direct category names
                 if filters.get('subcategories1'):
-                    bind_vars['subcat1Ids'] = [f"{CollectionNames.SUBCATEGORIES1.value}/{id}" for id in filters['subcategories1']]
+                    bind_vars['subcat1Names'] = filters['subcategories1']  # Direct subcategory names
                 if filters.get('languages'):
-                    bind_vars['languageIds'] = [f"{CollectionNames.LANGUAGES.value}/{id}" for id in filters['languages']]
+                    bind_vars['languageNames'] = filters['languages']  # Direct language names
                 if filters.get('topics'):
-                    bind_vars['topicIds'] = [f"{CollectionNames.TOPICS.value}/{id}" for id in filters['topics']]
-
+                    bind_vars['topicNames'] = filters['topics']  # Direct topic names
+                
             cursor = self.db.aql.execute(query, bind_vars=bind_vars)
             return list(cursor)
 

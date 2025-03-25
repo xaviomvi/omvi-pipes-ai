@@ -15,7 +15,7 @@ from app.connectors.google.google_drive.core.drive_admin_service import DriveAdm
 from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
 from app.connectors.core.kafka_service import KafkaService
 from app.config.configuration_service import ConfigurationService
-from app.utils.time_conversion import get_epoch_timestamp_in_ms
+from app.utils.time_conversion import get_epoch_timestamp_in_ms, parse_timestamp
 
 class DriveSyncProgress:
     """Class to track sync progress"""
@@ -135,13 +135,6 @@ class BaseDriveSyncService(ABC):
             except Exception as e:
                 logger.error(f"❌ Failed to initialize workers: {str(e)}")
                 return False
-
-
-    def parse_timestamp(self, timestamp_str):
-        # Remove the 'Z' and add '+00:00' for UTC
-        if timestamp_str.endswith('Z'):
-            timestamp_str = timestamp_str[:-1] + '+00:00'
-        return datetime.fromisoformat(timestamp_str)
 
     async def start(self, org_id) -> bool:
         logger.info("🚀 Starting sync, Action: start")
@@ -423,8 +416,8 @@ class BaseDriveSyncService(ABC):
                             'externalRevisionId': metadata.get('headRevisionId', None),
                             'createdAtTimestamp':  get_epoch_timestamp_in_ms(),
                             'updatedAtTimestamp':  get_epoch_timestamp_in_ms(),
-                            'sourceCreatedAtTimestamp': int(self.parse_timestamp(metadata.get('createdTime')).timestamp()),
-                            'sourceLastModifiedTimestamp': int(self.parse_timestamp(metadata.get('modifiedTime')).timestamp()),
+                            'sourceCreatedAtTimestamp': int(parse_timestamp(metadata.get('createdTime')).timestamp()),
+                            'sourceLastModifiedTimestamp': int(parse_timestamp(metadata.get('modifiedTime')).timestamp()),
                             "origin": OriginTypes.CONNECTOR.value,
                             'connectorName': Connectors.GOOGLE_DRIVE.value,
                             'isArchived': False,
@@ -877,8 +870,8 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                         "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                         "connectorName": Connectors.GOOGLE_DRIVE.value,
                                         "origin": OriginTypes.CONNECTOR.value,
-                                        "createdAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('createdTime')).timestamp()),
-                                        "modifiedAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
+                                        "createdAtSourceTimestamp": int(parse_timestamp(file_metadata.get('createdTime')).timestamp()),
+                                        "modifiedAtSourceTimestamp": int(parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                                         "extension": extension,
                                         "mimeType": mime_type
                                     }
@@ -1074,8 +1067,8 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                                     "origin": OriginTypes.CONNECTOR.value,
-                                    "createdAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('createdTime')).timestamp()),
-                                    "modifiedAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
+                                    "createdAtSourceTimestamp": int(parse_timestamp(file_metadata.get('createdTime')).timestamp()),
+                                    "modifiedAtSourceTimestamp": int(parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                                     "extension": file.get('extension'),
                                     "mimeType": file.get('mimeType')
                                 }
@@ -1316,7 +1309,6 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                 None
                             )
                             if file_metadata:
-                                print("FILE METADATA: ", file_metadata)
                                 file_id = file_metadata.get('id')
 
                                 file_key = await self.arango_service.get_key_by_external_file_id(file_id)
@@ -1339,8 +1331,8 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                                     "origin": OriginTypes.CONNECTOR.value,
-                                    "createdAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('createdTime')).timestamp()),
-                                    "modifiedAtSourceTimestamp": int(self.parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
+                                    "createdAtSourceTimestamp": int(parse_timestamp(file_metadata.get('createdTime')).timestamp()),
+                                    "modifiedAtSourceTimestamp": int(parse_timestamp(file_metadata.get('modifiedTime')).timestamp()),
                                     "extension": extension,
                                     "mimeType": mime_type
                                 }

@@ -60,7 +60,6 @@ def initialize_individual_account_services_fn(container):
             change_handler=container.gmail_change_handler,
         )
     )
-
     # Initialize sync services
     container.drive_sync_service.override(
         providers.Singleton(
@@ -92,7 +91,6 @@ def initialize_individual_account_services_fn(container):
             gmail_sync_service=container.gmail_sync_service,
         )
     )
-
     container.wire(modules=[
         "app.core.celery_app",
         "app.connectors.google.core.sync_tasks",
@@ -102,7 +100,6 @@ def initialize_individual_account_services_fn(container):
     ])
 
     logger.info("✅ Successfully initialized services for individual account")
-
 
 def initialize_enterprise_account_services_fn(container):
     """Initialize services for an enterprise account type."""
@@ -461,4 +458,3 @@ async def initialize_container(container) -> bool:
     except Exception as e:
         logger.error(f"❌ Container initialization failed: {str(e)}")
         raise
-

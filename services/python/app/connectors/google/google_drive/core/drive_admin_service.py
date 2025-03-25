@@ -13,6 +13,7 @@ from app.utils.logger import logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
+from app.utils.time_conversion import parse_timestamp
 from uuid import uuid4
 import aiohttp
 import jwt
@@ -83,13 +84,6 @@ class DriveAdminService:
                 "❌ Failed to connect to Drive Admin Service: %s", str(e))
             return False
         
-    def parse_timestamp(self, timestamp_str):
-        # Remove the 'Z' and add '+00:00' for UTC
-        if timestamp_str.endswith('Z'):
-            timestamp_str = timestamp_str[:-1] + '+00:00'
-        return datetime.fromisoformat(timestamp_str)
-
-
     @exponential_backoff()
     async def list_enterprise_users(self, org_id) -> List[Dict]:
         """List all users in the domain for enterprise setup"""
@@ -121,8 +115,8 @@ class DriveAdminService:
                         'designation': user.get('designation', 'user'),
                         'businessPhones': user.get('phones', []),
                         'isActive': user.get('isActive', False),
-                        'createdAtTimestamp': int(self.parse_timestamp(user.get('creationTime')).timestamp()),
-                        'updatedAtTimestamp': int(self.parse_timestamp(user.get('creationTime')).timestamp())   
+                        'createdAtTimestamp': int(parse_timestamp(user.get('creationTime')).timestamp()),
+                        'updatedAtTimestamp': int(parse_timestamp(user.get('creationTime')).timestamp())   
                     } for user in current_users if not user.get('suspended', False)])
 
                     page_token = results.get('nextPageToken')

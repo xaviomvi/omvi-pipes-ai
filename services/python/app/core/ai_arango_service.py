@@ -43,15 +43,15 @@ class ArangoService():
             )
             logger.debug("System DB: %s", sys_db)
 
-            # Create our database if it doesn't exist
-            logger.debug("Checking if our database exists")
-            if not sys_db.has_database(arango_db):
-                logger.info(
-                    "🚀 Database %s does not exist. Creating...",
-                    arango_db
-                )
-                sys_db.create_database(arango_db)
-                logger.info("✅ Database created successfully")
+            # # Create our database if it doesn't exist
+            # logger.debug("Checking if our database exists")
+            # if not sys_db.has_database(arango_db):
+            #     logger.info(
+            #         "🚀 Database %s does not exist. Creating...",
+            #         arango_db
+            #     )
+            #     sys_db.create_database(arango_db)
+            #     logger.info("✅ Database created successfully")
                 
             # Connect to our database
             logger.debug("Connecting to our database")
@@ -61,7 +61,6 @@ class ArangoService():
                 password=arango_password,
                 verify=True
             )
-            logger.debug("Our DB: %s", self.db)
 
             return True
 
@@ -292,100 +291,3 @@ class ArangoService():
                 str(e)
             )
             return False
-
-    async def get_user_accessible_files(self, user_key: str) -> List[str]:
-        """
-        Get all file records that a user has access to based on permissions
-        
-        Args:
-            user_key (str): The key of the user
-
-        Returns:
-            List[str]: List of record keys that the user has access to
-        """
-        try:
-            query = """
-            WITH records, users, groups, organizations, permissions, belongsTo
-            FOR v, e, p IN 1..2 ANY @user_key belongsTo, permissions
-                FILTER IS_SAME_COLLECTION('records', v)
-                RETURN DISTINCT v._key
-            """
-            cursor = self.db.aql.execute(query, bind_vars={'user_key': user_key})
-            return list(cursor)
-        except Exception as e:
-            logger.error("❌ Error getting user accessible files: %s", str(e))
-            return []
-
-    async def filter_accessible_files(
-        self,
-        user_key: str,
-        department_keys: Optional[List[str]] = None,
-        category_keys: Optional[List[str]] = None,
-        subcategory1_keys: Optional[List[str]] = None,
-        subcategory2_keys: Optional[List[str]] = None,
-        subcategory3_keys: Optional[List[str]] = None,
-        language: Optional[str] = None
-    ) -> List[Dict]:
-        """
-        Filter files that a user has access to based on various criteria
-        
-        Args:
-            user_key (str): The key of the user
-            department_keys (Optional[List[str]]): List of department keys to filter by
-            category_keys (Optional[List[str]]): List of category keys to filter by
-            subcategory1_keys (Optional[List[str]]): List of subcategory1 keys to filter by
-            subcategory2_keys (Optional[List[str]]): List of subcategory2 keys to filter by
-            subcategory3_keys (Optional[List[str]]): List of subcategory3 keys to filter by
-            language (Optional[str]): Language to filter by
-
-        Returns:
-            List[Dict]: List of filtered record documents
-        """
-        try:
-            # Build the filter conditions
-            filters = []
-            bind_vars = {'user_key': user_key}
-
-            if department_keys:
-                filters.append("v._key IN (FOR d IN OUTBOUND record belongs_to_department FILTER d._key IN @department_keys RETURN record._key)")
-                bind_vars['department_keys'] = department_keys
-
-            if category_keys:
-                filters.append("v._key IN (FOR c IN OUTBOUND record belongsToCategory FILTER c._key IN @category_keys RETURN record._key)")
-                bind_vars['category_keys'] = category_keys
-
-            if subcategory1_keys:
-                filters.append("v._key IN (FOR s1 IN OUTBOUND record belongsToCategory FILTER s1._key IN @subcategory1_keys RETURN record._key)")
-                bind_vars['subcategory1_keys'] = subcategory1_keys
-
-            if subcategory2_keys:
-                filters.append("v._key IN (FOR s2 IN OUTBOUND record belongsToCategory FILTER s2._key IN @subcategory2_keys RETURN record._key)")
-                bind_vars['subcategory2_keys'] = subcategory2_keys
-
-            if subcategory3_keys:
-                filters.append("v._key IN (FOR s3 IN OUTBOUND record belongsToCategory FILTER s3._key IN @subcategory3_keys RETURN record._key)")
-                bind_vars['subcategory3_keys'] = subcategory3_keys
-
-            if language:
-                filters.append("v.language == @language")
-                bind_vars['language'] = language
-
-            # Combine the base query with filters
-            filter_clause = " AND ".join(filters)
-            if filter_clause:
-                filter_clause = f"FILTER {filter_clause}"
-
-            query = f"""
-            WITH records, users, groups, organizations, permissions, belongsTo
-            FOR v, e, p IN 1..2 ANY @user_key belongsTo, permissions
-                FILTER IS_SAME_COLLECTION('records', v)
-                {filter_clause}
-                RETURN DISTINCT v
-            """
-
-            cursor = self.db.aql.execute(query, bind_vars=bind_vars)
-            return list(cursor)
-
-        except Exception as e:
-            logger.error("❌ Error filtering accessible files: %s", str(e))
-            return []

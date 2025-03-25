@@ -1,6 +1,6 @@
 from app.utils.logger import create_logger
 from app.connectors.api.middleware import WebhookAuthMiddleware
-from app.connectors.api.setup import AppContainer, initialize_container, initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
+from app.setups.connector_setup import AppContainer, initialize_container, initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
 from app.connectors.api.router import router
 from app.connectors.core.kafka_consumer import KafkaRouteConsumer
 from typing import AsyncGenerator
@@ -171,6 +171,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     # Initialize container
     app_container = await get_initialized_container()
+    app.container = app_container
     
     # Define the routes that Kafka consumer should handle
     kafka_routes = [
@@ -188,9 +189,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Kafka Consumer - pass the app_container
     kafka_consumer = KafkaRouteConsumer(
-        arango_service=await app_container.arango_service(),
+        arango_service=await app.container.arango_service(),
         routes=kafka_routes,  # Pass the list of route patterns
-        app_container=app_container
+        app_container=app.container
     )
   
     # Initialize Kafka consumer
@@ -201,8 +202,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     consume_task = asyncio.create_task(consumer.consume_messages())
     
     # Resume sync services
-    print(f"App Container: {app_container}")
-    await resume_sync_services(app_container)
+    print(f"App Container: {app.container}")
+    await resume_sync_services(app.container)
         
     yield
     
@@ -218,7 +219,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     logger.debug("🔄 Shutting down application")
     
-
 
 # Create FastAPI app with lifespan
 app = FastAPI(
@@ -267,7 +267,6 @@ def run(host: str = "0.0.0.0", port: int = 8080, workers: int = 2, reload: bool 
         reload=reload,
         workers=workers
     )
-
 
 if __name__ == "__main__":
     run(reload=False)
