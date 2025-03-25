@@ -3,6 +3,7 @@ import {
   IConversation,
   IConversationDocument,
   IMessage,
+  IMessageDocument,
 } from '../types/conversation.interfaces';
 import { IAIResponse } from '../types/conversation.interfaces';
 import mongoose from 'mongoose';
@@ -342,7 +343,7 @@ export const buildFiltersMetadata = (
 };
 
 export const sortMessages = (
-  messages: IMessage[],
+  messages: IMessageDocument[],
   sortOptions: { field: keyof IMessage },
 ) => {
   return [...messages].sort((a, b) => {
