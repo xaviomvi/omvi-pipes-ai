@@ -1889,7 +1889,6 @@ export const searchHistory = async (
     const sortOptions = buildSortOptions(req);
     const filter = buildFilter(req, orgId, userId);
 
-
     logger.debug('Attempting to get search history', {
       requestId,
       timestamp: new Date().toISOString(),
@@ -2171,16 +2170,13 @@ export const unshareSearch = async (
       updateObject.shareLink = undefined;
     }
 
-    const updatedSearch =
-        await EnterpriseSemanticSearch.findByIdAndUpdate(
-          searchId,
-          updateObject, 
-        );
+    const updatedSearch = await EnterpriseSemanticSearch.findByIdAndUpdate(
+      searchId,
+      updateObject,
+    );
 
     if (!updatedSearch) {
-      throw new InternalServerError(
-        'Failed to update search sharing settings',
-      );
+      throw new InternalServerError('Failed to update search sharing settings');
     }
 
     // Prepare response

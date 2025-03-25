@@ -1,11 +1,8 @@
 import { Container } from 'inversify';
 import { AppConfig, loadAppConfig } from '../config/config';
 import { MongoService } from '../../../libs/services/mongo.service';
-import { EncryptionService } from '../../../libs/services/encryption.service';
-import { TokenService } from '../services/token.service';
 import { RedisService } from '../../../libs/services/redis.service';
 import { Logger } from '../../../libs/services/logger.service';
-import { TokenReferenceService } from '../services/token-reference.service';
 import { TokenEventProducer } from '../services/token-event.producer';
 import { ConfigurationManagerConfig } from '../../configuration_manager/config/config';
 import { EntitiesEventProducer } from '../../user_management/services/entity_events.service';
@@ -59,12 +56,6 @@ export class TokenManagerContainer {
         .bind<RedisService>('RedisService')
         .toConstantValue(redisService);
 
-      // Initialize Encryption Service
-      const encryptionService = new EncryptionService(config.encryption.key);
-      container
-        .bind<EncryptionService>('EncryptionService')
-        .toConstantValue(encryptionService);
-
       // Initialize Kafka Service
       const tokenEventProducer = new TokenEventProducer(
         config.kafka,
@@ -74,18 +65,6 @@ export class TokenManagerContainer {
       container
         .bind<TokenEventProducer>('KafkaService')
         .toConstantValue(tokenEventProducer);
-
-      // Initialize Token Service
-      const tokenService = new TokenService(container.get('EncryptionService'));
-      container
-        .bind<TokenService>('TokenService')
-        .toConstantValue(tokenService);
-
-      const tokenReferenceService = new TokenReferenceService();
-
-      container
-        .bind<TokenReferenceService>('TokenReferenceService')
-        .toConstantValue(tokenReferenceService);
 
       const kafkaConfig = {
         brokers: config.kafka.brokers,
@@ -99,6 +78,7 @@ export class TokenManagerContainer {
       container
         .bind<EntitiesEventProducer>('EntitiesEventProducer')
         .toConstantValue(entityEventsService);
+
       const jwtSecret = config.jwtSecret;
       const scopedJwtSecret = config.scopedJwtSecret;
       const authTokenService = new AuthTokenService(

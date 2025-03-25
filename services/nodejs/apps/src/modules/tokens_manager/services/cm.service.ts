@@ -241,10 +241,7 @@ export class ConfigService {
     );
     if (url === null) {
       url = process.env.AI_BACKEND_URL ?? 'http://localhost:8000';
-      await this.keyValueStoreService.set<string>(
-        configPaths.aiBackend,
-        url,
-      );
+      await this.keyValueStoreService.set<string>(configPaths.aiBackend, url);
     }
     return url;
   }
@@ -285,7 +282,7 @@ export class ConfigService {
   }
 
   public getCookieSecret(): string {
-    return process.env.COOKIE_SECRET!;
+    return process.env.COOKIE_SECRET_KEY!;
   }
 
   public getRsAvailable(): string {
