@@ -1,6 +1,5 @@
 import { Container } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
-import { MongoService } from '../../../libs/services/mongo.service';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { ConfigurationManagerConfig } from '../../configuration_manager/config/config';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
@@ -38,12 +37,6 @@ export class StorageContainer {
     appConfig: AppConfig,
   ): Promise<void> {
     try {
-      const mongoService = new MongoService(appConfig.mongo);
-      await mongoService.initialize();
-      container
-        .bind<MongoService>('MongoService')
-        .toConstantValue(mongoService);
-
       const keyValueStoreService = KeyValueStoreService.getInstance(
         container.get<ConfigurationManagerConfig>('ConfigurationManagerConfig'),
       );

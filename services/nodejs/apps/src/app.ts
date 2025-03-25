@@ -12,7 +12,10 @@ import { ErrorMiddleware } from './libs/middlewares/error.middleware';
 import { createUserRouter } from './modules/user_management/routes/users.routes';
 import { createUserGroupRouter } from './modules/user_management/routes/userGroups.routes';
 import { createOrgRouter } from './modules/user_management/routes/org.routes';
-import { createConversationalRouter, createSemanticSearchRouter } from './modules/enterprise_search/routes/es.routes';
+import {
+  createConversationalRouter,
+  createSemanticSearchRouter,
+} from './modules/enterprise_search/routes/es.routes';
 import { EnterpriseSearchAgentContainer } from './modules/enterprise_search/container/es.container';
 import { requestContextMiddleware } from './libs/middlewares/request.context';
 
@@ -54,10 +57,14 @@ export class Application {
   private notificationContainer!: Container;
   private port: number;
 
+  private _maxMemoryConsumption: number = 0;
+  private _dtOfMaxMemoryConsumption?: Date;
+
   constructor() {
     this.app = express();
     this.port = parseInt(process.env.PORT || '3000', 10);
     this.server = http.createServer(this.app);
+    this.monitorMemory();
   }
 
   async initialize(): Promise<void> {
@@ -106,7 +113,8 @@ export class Application {
       this.mailServiceContainer =
         await MailServiceContainer.initialize(appConfig);
 
-      this.notificationContainer = await NotificationContainer.initialize(appConfig);
+      this.notificationContainer =
+        await NotificationContainer.initialize(appConfig);
 
       // binding prometheus to all services routes
       this.logger.debug('Binding Prometheus Service with other services');
@@ -150,7 +158,9 @@ export class Application {
       this.configureRoutes();
       this.configureErrorHandling();
 
-      this.notificationContainer.get<NotificationService>(NotificationService).initialize(this.server);
+      this.notificationContainer
+        .get<NotificationService>(NotificationService)
+        .initialize(this.server);
 
       // Serve static frontend files\
       this.app.use(express.static(path.join(__dirname, 'public')));
@@ -168,7 +178,15 @@ export class Application {
       throw error;
     }
   }
-
+  private monitorMemory(): void {
+    setInterval(() => {
+      const memUsage = process.memoryUsage().rss / (1024 * 1024 * 1024); // Convert to GB
+      if (memUsage > this._maxMemoryConsumption) {
+        this._maxMemoryConsumption = memUsage;
+        this._dtOfMaxMemoryConsumption = new Date();
+      }
+    }, 500000); // Check memory every 5 seconds
+  }
   private configureMiddleware(): void {
     // Security middleware
     this.app.use(helmet());
@@ -294,7 +312,13 @@ export class Application {
 
   async stop(): Promise<void> {
     try {
-      this.notificationContainer.get<NotificationService>(NotificationService).shutdown();
+      this.logger.info(
+        `Max memory consumption: ${this._maxMemoryConsumption} at ${this._dtOfMaxMemoryConsumption}`,
+      );
+      this.logger.info('Shutting down application...');
+      this.notificationContainer
+        .get<NotificationService>(NotificationService)
+        .shutdown();
       await TokenManagerContainer.dispose();
       await StorageContainer.dispose();
       await EnterpriseSearchAgentContainer.dispose();

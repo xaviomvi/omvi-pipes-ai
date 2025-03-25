@@ -1,6 +1,5 @@
 import { Container } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
-import { MongoService } from '../../../libs/services/mongo.service';
 import { ArangoService } from '../../../libs/services/arango.service';
 import { ConfigurationManagerConfig } from '../../configuration_manager/config/config';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
@@ -43,13 +42,6 @@ export class KnowledgeBaseContainer {
   ): Promise<void> {
     try {
       // Initialize services
-
-      const mongoService = new MongoService(appConfig.mongo);
-      await mongoService.initialize();
-      container
-        .bind<MongoService>('MongoService')
-        .toConstantValue(mongoService);
-
       const arangoService = new ArangoService(appConfig.arango);
       await arangoService.initialize();
       container

@@ -1,5 +1,4 @@
 import { Container } from 'inversify';
-import { MongoService } from '../../../libs/services/mongo.service';
 import { Logger } from '../../../libs/services/logger.service';
 import { MailController } from '../controller/mail.controller';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
@@ -24,12 +23,6 @@ export class MailServiceContainer {
     appConfig: AppConfig,
   ): Promise<void> {
     try {
-      const mongoService = new MongoService(appConfig.mongo);
-      await mongoService.initialize();
-      container
-        .bind<MongoService>('MongoService')
-        .toConstantValue(mongoService);
-
       const mailController = new MailController(
         appConfig,
         container.get('Logger'),
