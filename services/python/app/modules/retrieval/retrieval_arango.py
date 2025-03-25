@@ -112,41 +112,55 @@ class ArangoService():
                 }
         """
 
-        # Todo: Fix User group and Org permission edge to record
         try:
+            # First get counts separately
             query = f"""
-            // First get the user document using userId field
             LET userDoc = FIRST(
                 FOR user IN @@users
                 FILTER user.userId == @userId
                 RETURN user
             )
-
-            LET directAndGroupRecords = (
-                FOR vertex, edge, path IN 1 ANY userDoc._id GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
-                FILTER IS_SAME_COLLECTION(@@records, vertex)
-                RETURN DISTINCT vertex
+            
+            LET directRecords = (
+                FOR records IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS.value}
+                RETURN DISTINCT records
             )
+            
+            LET groupRecords = (
+                FOR group, edge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FILTER edge.entityType == 'GROUP'
+                FOR records IN 1..1 ANY group._id {CollectionNames.PERMISSIONS.value}
+                RETURN DISTINCT records
+            )
+            
+            LET orgRecords = (
+                FOR org, edge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FILTER edge.entityType == 'ORGANIZATION'
+                FOR records IN 1..1 ANY org._id {CollectionNames.PERMISSIONS.value}
+                RETURN DISTINCT records
+            )
+
+            LET directAndGroupRecords = UNION_DISTINCT(directRecords, groupRecords, orgRecords)
             
             LET kbRecords = (
-                FOR kb IN OUTBOUND userDoc._id GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
-                FILTER IS_SAME_COLLECTION(@@knowledgeBase, kb)
-                    FOR record IN INBOUND kb._id GRAPH {CollectionNames.FILE_ACCESS_GRAPH.value}
-                    FILTER IS_SAME_COLLECTION(@@records, record)
-                    RETURN DISTINCT record
+                FOR kb IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value}
+                FOR records IN 1..1 ANY kb._id {CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value}
+                RETURN DISTINCT records
             )
-            
+
             LET anyoneRecords = (
-                FOR record IN @@anyone
-                FILTER record.organization == @orgId
-                RETURN record.file_key
+                FOR records IN @@anyone
+                FILTER records.organization == @orgId
+                FOR record IN @@records
+                FILTER record._key == records.file_key
+                RETURN record
             )
-            
+
             LET allAccessibleRecords = UNIQUE(
                 UNION(directAndGroupRecords, kbRecords, anyoneRecords)
             )
             """
-
+                        
             # Add filter conditions if provided
             filter_conditions = []
             if filters:
@@ -170,7 +184,6 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-
                 if filters.get('subcategories1'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -180,7 +193,27 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-
+                
+                if filters.get('subcategories2'):
+                    filter_conditions.append(f"""
+                    LENGTH(
+                        FOR subcat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
+                        FILTER subcat.name IN @subcat2Names
+                        LIMIT 1
+                        RETURN 1
+                    ) > 0
+                    """)
+                
+                if filters.get('subcategories3'):
+                    filter_conditions.append(f"""
+                    LENGTH(
+                        FOR subcat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
+                        FILTER subcat.name IN @subcat3Names
+                        LIMIT 1
+                        RETURN 1
+                    ) > 0
+                    """)
+                
                 if filters.get('languages'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -190,7 +223,7 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-
+                
                 if filters.get('topics'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -200,20 +233,28 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-
+                
+                if filters.get('apps'):
+                    filter_conditions.append(f"""
+                    LENGTH(
+                        FOR app IN @apps
+                        FILTER LOWER(record.connectorName) == app
+                        LIMIT 1
+                        RETURN 1
+                    ) > 0
+                    """)
+                
             # Add filter conditions to main query
             if filter_conditions:
                 query += """
                 FOR record IN allAccessibleRecords
-                FILTER """ + " AND ".join(filter_conditions) + """
-                RETURN DISTINCT record
+                    FILTER """ + " AND ".join(filter_conditions) + """
+                    RETURN DISTINCT record
                 """
             else:
                 query += """
-                FOR record IN allAccessibleRecords
-                RETURN record
+                RETURN allAccessibleRecords
                 """
-
 
             # Prepare bind variables
             bind_vars = {
@@ -221,7 +262,6 @@ class ArangoService():
                 'orgId': org_id,
                 '@users': CollectionNames.USERS.value,
                 '@records': CollectionNames.RECORDS.value,
-                '@knowledgeBase': CollectionNames.KNOWLEDGE_BASE.value,
                 '@anyone': CollectionNames.ANYONE.value,
             }
 
@@ -233,13 +273,26 @@ class ArangoService():
                     bind_vars['categoryNames'] = filters['categories']  # Direct category names
                 if filters.get('subcategories1'):
                     bind_vars['subcat1Names'] = filters['subcategories1']  # Direct subcategory names
+                if filters.get('subcategories2'):
+                    bind_vars['subcat2Names'] = filters['subcategories2']  # Direct subcategory names
+                if filters.get('subcategories3'):
+                    bind_vars['subcat3Names'] = filters['subcategories3']  # Direct subcategory names
                 if filters.get('languages'):
                     bind_vars['languageNames'] = filters['languages']  # Direct language names
                 if filters.get('topics'):
                     bind_vars['topicNames'] = filters['topics']  # Direct topic names
+                if filters.get('apps'):
+                    bind_vars['apps'] = [app.lower() for app in filters['apps']]  # Lowercase app names
                 
             cursor = self.db.aql.execute(query, bind_vars=bind_vars)
-            return list(cursor)
+            result = list(cursor)
+            if result:
+                if isinstance(result[0], dict):
+                    return result
+                else:
+                    return result[0]
+            else:
+                return []
 
         except Exception as e:
             logger.error(f"Failed to get accessible records: {str(e)}")

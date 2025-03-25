@@ -144,8 +144,8 @@ class RetrievalService:
                 org_id=org_id,
                 filters=arango_filters
             )
-            
             print("accessible_records: ", accessible_records)
+            
             if not accessible_records:
                 return []
             
