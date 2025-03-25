@@ -5,6 +5,7 @@ from qdrant_client.http.models import Filter, FieldCondition, MatchValue
 from langchain_qdrant import QdrantVectorStore, FastEmbedSparse, RetrievalMode
 from dotenv import load_dotenv
 from app.modules.retrieval.retrieval_arango import ArangoService
+from app.config.arangodb_constants import CollectionNames,RecordTypes
 
 class RetrievalService:
     def __init__(
@@ -84,86 +85,56 @@ class RetrievalService:
             formatted_results.append(formatted_result)
         return formatted_results
 
-    def _build_qdrant_filter(
-        self,
-        filter_groups: List[Dict[str, List[str]]],
-        accessible_records: List[str]
-    ) -> Filter:
+    def _build_qdrant_filter(self, accessible_records: List[str]) -> Filter:
         """
-        Build Qdrant filter from filter groups and accessible records.
+        Build Qdrant filter for accessible records.
         
         Args:
-            filter_groups: List of filter dictionaries
             accessible_records: List of record IDs the user has access to
         
         Returns:
             Qdrant Filter object
         """
-        must_conditions = []
-        
-        # Add record ID filter
-        must_conditions.append(
-            Filter(
-                should=[
-                    FieldCondition(
-                        key="id",
-                        match=MatchValue(value=record_id)
-                    ) for record_id in accessible_records
-                ]
-            )
+        print("RECORD IDS: ", accessible_records)
+        return Filter(
+            should=[
+                FieldCondition(
+                    key="metadata.recordId",
+                    match=MatchValue(value=record_id)
+                ) for record_id in accessible_records
+            ]
         )
-        
-        # Process each filter group
-        for filter_group in filter_groups:
-            should_conditions = []
-            for key, values in filter_group.items():
-                # Convert key to match your metadata structure
-                metadata_key = key.lower()  # Adjust based on your metadata schema
-                should_conditions.extend([
-                    FieldCondition(
-                        key=metadata_key,
-                        match=MatchValue(value=value)
-                    ) for value in values
-                ])
-            if should_conditions:
-                must_conditions.append(
-                    Filter(should=should_conditions)
-                )
-        
-        return Filter(must=must_conditions)
 
     async def search_with_filters(
         self,
         query: str,
         user_id: str,
         org_id: str,
-        filter_groups: List[Dict[str, List[str]]],
+        filter_groups: Optional[Dict[str, List[str]]] = None,
         limit: int = 20,
         arango_service: Optional[ArangoService] = None
     ) -> List[Dict[str, Any]]:
         """
-        Perform filtered semantic search with permission checks.
-        
-        Args:
-            query: Search query text
-            user_id: userId field value in users collection
-            org_id: Organization ID for filtering records
-            filter_groups: List of filter dictionaries for departments, categories, etc.
-            limit: Number of results to return
-            arango_service: ArangoService instance for permission checking
-        
-        Returns:
-            List of search results with scores and metadata
+        Perform semantic search on accessible records.
         """
         try:
             # Get accessible records
             if not arango_service:
                 raise ValueError("ArangoService is required for permission checking")
             
+            if filter_groups is None:
+                filter_groups = {}
+            
+            print("org_id: ", org_id)
+            print("user_id: ", user_id)
+            print("query: ", query)
+            print("limit: ", limit)
+            print("filter_groups: ", filter_groups)
+            
             # Convert filter_groups to format expected by get_accessible_records
             arango_filters = {}
-            for filter_group in filter_groups:
-                for key, values in filter_group.items():
+            if filter_groups:  # Only process if filter_groups is not empty
+                for key, values in filter_groups.items():
                     # Convert key to match collection naming
                     metadata_key = key.lower()  # e.g., 'departments', 'categories', etc.
                     arango_filters[metadata_key] = values
@@ -174,19 +145,17 @@ class RetrievalService:
                 filters=arango_filters
             )
             
+            print("accessible_records: ", accessible_records)
             if not accessible_records:
                 return []
             
             # Extract record IDs from accessible records
             record_ids = [record['_key'] for record in accessible_records]
-            
+                        
             # Build Qdrant filter
-            qdrant_filter = self._build_qdrant_filter(
-                filter_groups=filter_groups,
-                accessible_records=record_ids
-            )
+            qdrant_filter = self._build_qdrant_filter(record_ids)
             
-            # Perform search with filters
+            # Perform similarity search
             processed_query = self._preprocess_query(query)
             
             results = self.vector_store.similarity_search_with_score(
@@ -195,7 +164,26 @@ class RetrievalService:
                 filter=qdrant_filter
             )
             
-            return self._format_results(results)
+            search_results = self._format_results(results)
+            record_ids = list(set(result['metadata']['recordId'] for result in search_results))
+            
+            # Get full record documents from Arango
+            records = []
+            if record_ids:
+                for record_id in record_ids:
+                    record = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+                    if record['recordType'] == RecordTypes.FILE.value:
+                        files = await arango_service.get_document(record_id, CollectionNames.FILES.value)
+                        record = {**record, **files}
+                    if record['recordType'] == RecordTypes.MAIL.value:
+                        mail = await arango_service.get_document(record_id, CollectionNames.MAIL.value)
+                        record = {**record, **mail}
+                    records.append(record)
+            
+            return {
+                "searchResults": search_results,
+                "records": records
+            }
             
         except Exception as e:
             raise ValueError(f"Filtered search failed: {str(e)}")
@@ -203,7 +191,6 @@ class RetrievalService:
     async def search(
         self,
         query: str,
-        org_id: str,
         limit: int = 5,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:

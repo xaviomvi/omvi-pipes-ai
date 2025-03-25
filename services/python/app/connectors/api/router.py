@@ -7,7 +7,7 @@ from google.oauth2 import service_account
 from datetime import datetime, timezone, timedelta
 from dependency_injector.wiring import inject, Provide
 from fastapi import Request, Depends, HTTPException, BackgroundTasks, status
-from app.connectors.api.setup import AppContainer
+from app.setups.connector_setup import AppContainer
 from app.utils.logger import logger
 from fastapi.responses import StreamingResponse
 import os
@@ -23,16 +23,27 @@ import io
 
 router = APIRouter()
 
+async def get_drive_webhook_handler(request: Request) -> Optional[Any]:
+    try:
+        container: AppContainer = request.app.container
+        return await container.drive_webhook_handler()
+    except Exception as e:
+        logger.warning(f"Failed to get drive webhook handler: {str(e)}")
+        return None
+
 @router.post("/drive/webhook")
 @inject
 async def handle_drive_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
-    webhook_handler=Depends(
-        Provide[AppContainer.drive_webhook_handler])
+    drive_webhook_handler=Depends(get_drive_webhook_handler)
 ):
     """Handle incoming webhook notifications from Google Drive"""
     try:
+        if drive_webhook_handler is None:
+            logger.warning("Drive webhook handler not yet initialized - skipping webhook processing")
+            return {"status": "skipped", "message": "Webhook handler not yet initialized"}
+
         # Log incoming request details
         headers = dict(request.headers)
         logger.info("📥 Incoming webhook request")
@@ -49,36 +60,35 @@ async def handle_drive_webhook(
         # Process notification in background
         if resource_state != "sync":
             background_tasks.add_task(
-                webhook_handler.process_notification,
+                drive_webhook_handler.process_notification,
                 headers
             )
+            return {"status": "accepted"}
         else:
             logger.info("Received sync verification request")
-
-        return {"status": "accepted"}
+            return {"status": "sync_verified"}
 
     except Exception as e:
         logger.error("Error processing webhook: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e)) from e
 
-
-def get_gmail_webhook_handler() -> Optional[Any]:
+async def get_gmail_webhook_handler(request: Request) -> Optional[Any]:
     try:
-        return AppContainer.gmail_webhook_handler()
-    except:
+        container: AppContainer = request.app.container
+        return await container.gmail_webhook_handler()
+    except Exception as e:
+        logger.error(f"Error getting gmail webhook handler: {str(e)}")
         return None
 
 @router.get("/gmail/webhook")
 @router.post("/gmail/webhook")
 @inject
 async def handle_gmail_webhook(
-    request: Request
+    request: Request,
+    gmail_webhook_handler=Depends(get_gmail_webhook_handler)
 ):
     """Handles incoming Pub/Sub messages"""
     try:
-        # Get webhook handler, which might be None if not initialized
-        gmail_webhook_handler = get_gmail_webhook_handler()
-        
         if gmail_webhook_handler is None:
             logger.warning("Gmail webhook handler not yet initialized - skipping webhook processing")
             return {"status": "skipped", "message": "Webhook handler not yet initialized"}

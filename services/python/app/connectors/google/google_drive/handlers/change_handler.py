@@ -4,13 +4,13 @@ from app.utils.logger import logger
 import uuid
 import traceback
 from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations, OriginTypes
-from app.utils.time_conversion import get_epoch_timestamp_in_ms
+from app.utils.time_conversion import get_epoch_timestamp_in_ms, parse_timestamp
 
 class DriveChangeHandler:
     def __init__(self, config_service, arango_service):
         self.config_service = config_service
         self.arango_service = arango_service
-
+        
     async def process_change(self, change: Dict, user_service, org_id, user_id):
         """Process a single change with revision checking"""
         txn = None
@@ -105,12 +105,6 @@ class DriveChangeHandler:
             txn = None
             logger.info("Transaction committed for file: %s", {file_id})
 
-            def parse_timestamp(timestamp_str):
-                # Remove the 'Z' and add '+00:00' for UTC
-                if timestamp_str.endswith('Z'):
-                    timestamp_str = timestamp_str[:-1] + '+00:00'
-                return datetime.fromisoformat(timestamp_str)
-
             # SEND KAFKA EVENT FOR REINDEXING
 
             file_key = await self.arango_service.get_key_by_external_file_id(file_id)
@@ -192,27 +186,29 @@ class DriveChangeHandler:
     async def needs_update(self, updated_file, existing_file, existing_record, transaction) -> bool:
         """Check if file needs update based on revision"""
         try:
+
             logger.info("🚀 Checking if file needs update %s, %s",
                         updated_file.get('id'), updated_file.get('name'))
             if not existing_file:
                 logger.info("🟢 File doesn't exist in DB")
-                return True
+                return True, True
 
             # Extract permissions from updated file
             new_permissions = updated_file.get('permissions', [])
 
             # Get existing permissions from database
             existing_permissions = await self.arango_service.get_file_permissions(existing_file['_key'], transaction)
-            existing_permissions = [
-                p['permission'] for p in existing_permissions] if existing_permissions else []
+            existing_permissions = existing_permissions if existing_permissions else []
 
+            logger.info("🚀 Existing permissions: %s", existing_permissions)
+            
             # Compare basic metadata first
             latest_revision_id = updated_file.get('headRevisionId')
             latest_file_name = updated_file.get('name')
             latest_parents = updated_file.get('parents', [])
-            latest_modified_at = updated_file.get('modifiedTime')
-            db_revision_id = existing_record.get('externalRecordId')
-            db_file_name = existing_file.get('fileName')
+            latest_modified_at = int(parse_timestamp(updated_file.get('modifiedTime')).timestamp())
+            db_revision_id = existing_record.get('externalRevisionId')
+            db_file_name = existing_file.get('name')
             db_parents = await self.arango_service.get_file_parents(existing_file['_key'], transaction)
             db_modified_at = existing_record.get('sourceLastModifiedTimestamp')
 
@@ -364,12 +360,6 @@ class DriveChangeHandler:
             )
             existing = next(existing_file, None)
 
-            def parse_timestamp(timestamp_str):
-                # Remove the 'Z' and add '+00:00' for UTC
-                if timestamp_str.endswith('Z'):
-                    timestamp_str = timestamp_str[:-1] + '+00:00'
-                return datetime.fromisoformat(timestamp_str)
-
             if existing:
                 logger.debug(f"File {file_id} already exists in ArangoDB")
                 existing_files.append(file_id)
@@ -397,7 +387,7 @@ class DriveChangeHandler:
                 record = {
                     '_key': f'{file["_key"]}',
                     'orgId': org_id,
-                    'recordName': f'{file["fileName"]}',
+                    'recordName': f'{file["name"]}',
                     'recordType': RecordTypes.FILE.value,
                     'version': 0,
                     'externalRecordId': str(file_metadata.get('id')),
@@ -484,13 +474,6 @@ class DriveChangeHandler:
             logger.info("🚀 Handling update of file: %s",
                         updated_file.get('name'))
 
-            def parse_timestamp(timestamp_str):
-                # Remove the 'Z' and add '+00:00' for UTC
-                if timestamp_str.endswith('Z'):
-                    timestamp_str = timestamp_str[:-1] + '+00:00'
-                return datetime.fromisoformat(timestamp_str)
-
-            # 2. Extract permissions before storing file metadata
             permissions = updated_file.pop('permissions', [])
 
             file = {
@@ -514,19 +497,19 @@ class DriveChangeHandler:
             record = {
                 '_key': existing_record['_key'],
                 'orgId': org_id,
-                'recordName': f'{file["fileName"]}',
+                'recordName': f'{file["name"]}',
                 'recordType': RecordTypes.FILE.value,
                 'version': 0,
                 'externalRecordId': str(updated_file.get('id')),
                 "externalRevisionId": updated_file.get('headRevisionId', None),
                 'createdAtTimestamp': existing_record.get('createdAtTimestamp',  get_epoch_timestamp_in_ms()),
-                'updatedAtTimestamp':  get_epoch_timestamp_in_ms(),
+                'updatedAtTimestamp': get_epoch_timestamp_in_ms(),
                 'sourceCreatedAtTimestamp': existing_record.get('sourceCreatedAtTimestamp', int(parse_timestamp(updated_file.get('createdTime')).timestamp())),
                 'sourceLastModifiedTimestamp': existing_record.get('sourceLastModifiedTimestamp', int(parse_timestamp(updated_file.get('modifiedTime')).timestamp())),
                 "origin": OriginTypes.CONNECTOR.value,
                 'connectorName': Connectors.GOOGLE_DRIVE.value,
                 'isArchived': False,
-                'lastSyncTimestamp':  get_epoch_timestamp_in_ms(),
+                'lastSyncTimestamp': get_epoch_timestamp_in_ms(),
                 "isDeleted": False,
                 'indexingStatus': 'NOT_STARTED',
                 'extractionStatus': 'NOT_STARTED',
@@ -544,7 +527,6 @@ class DriveChangeHandler:
                 "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
             }
 
-            # 5. Update file and record nodes
             await self.arango_service.batch_upsert_nodes([file], CollectionNames.FILES.value, transaction=transaction)
             await self.arango_service.batch_upsert_nodes([record], CollectionNames.RECORDS.value, transaction=transaction)
             if is_of_type_record:
@@ -554,10 +536,8 @@ class DriveChangeHandler:
                     transaction=transaction
                 )
 
-            # 6. Handle parent relationships
             await self.update_relationships(existing_file['_key'], updated_file, transaction)
 
-            # 7. Process permissions if they exist
             if permissions:
                 await self.arango_service.process_file_permissions(org_id, existing_file['_key'], permissions, transaction=transaction)
 

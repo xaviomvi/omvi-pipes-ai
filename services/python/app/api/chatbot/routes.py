@@ -1,6 +1,6 @@
 from dependency_injector.wiring import inject
 from fastapi import APIRouter, Depends, HTTPException, Request
-from app.setup import AppContainer
+from app.setups.query_setup import AppContainer
 from app.utils.logger import logger
 from langchain_qdrant import RetrievalMode
 from pydantic import BaseModel

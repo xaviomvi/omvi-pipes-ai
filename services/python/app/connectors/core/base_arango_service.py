@@ -40,46 +40,47 @@ class BaseArangoService():
         # Collections
         self._collections = {
             # Records and Record relations
-            # What records exist in the system (Node) (Common)
             CollectionNames.RECORDS.value: None,
-            # Relationships between records (Edge) (Common)
             CollectionNames.RECORD_RELATIONS.value: None,
+            CollectionNames.IS_OF_TYPE.value: None,
 
-            CollectionNames.DRIVES.value: None, # Drive collections (Node) (Google Drive)
+            # Drive related
+            CollectionNames.DRIVES.value: None,
             CollectionNames.USER_DRIVE_RELATION.value: None,
 
-            # Types of records
-            CollectionNames.FILES.value: None,  # file records (Node) (Google Drive)
+            # Record types
+            CollectionNames.FILES.value: None,
             CollectionNames.LINKS.value: None,
-            CollectionNames.MAILS.value: None,     # message records (Node) (Gmail)
+            CollectionNames.MAILS.value: None,
 
             # Users and groups
-            # External entities - Users and groups (Node) (Common)
             CollectionNames.PEOPLE.value: None,
-            CollectionNames.USERS.value: None,        # Collection of users (Node) (Common)
-            CollectionNames.GROUPS.value: None,       # Collection of usergroups (Node) (Common)
-            # 'domains': None,      # Collection of domains (Node) (Common) ## NOT USING THIS FOR NOW
-            CollectionNames.ORGS.value: None,         # Collection of organizations (Node) (Common)
-            CollectionNames.ANYONE.value: None,       # Anyone access to file (Node) (Common)
-            # belongsTo (user-group, user-domain) (Edge) (Common)
+            CollectionNames.USERS.value: None,
+            CollectionNames.GROUPS.value: None,
+            CollectionNames.ORGS.value: None,
+            CollectionNames.ANYONE.value: None,
             CollectionNames.BELONGS_TO.value: None,
-
-            # Access of users/groups to files (user, group, domain) (Edge) (Common)
             CollectionNames.PERMISSIONS.value: None,
 
+            # History and tokens
             CollectionNames.CHANNEL_HISTORY.value: None,
             CollectionNames.PAGE_TOKENS.value: None,
 
+            # Apps and relations
             CollectionNames.APPS.value: None,
             CollectionNames.ORG_APP_RELATION.value: None,
             CollectionNames.USER_APP_RELATION.value: None,
+
+            # Departments
             CollectionNames.DEPARTMENTS.value: None,
             CollectionNames.BELONGS_TO_DEPARTMENT.value: None,
             CollectionNames.ORG_DEPARTMENT_RELATION.value: None,
 
-            # Knowledge base collection
-            CollectionNames.KNOWLEDGE_BASE.value:None,
-            
+            # Knowledge base
+            CollectionNames.KNOWLEDGE_BASE.value: None,
+            CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value: None,
+            CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value: None,
+
             # Categories and Classifications
             CollectionNames.CATEGORIES.value: None,
             CollectionNames.BELONGS_TO_CATEGORY.value: None,
@@ -91,7 +92,6 @@ class BaseArangoService():
             CollectionNames.SUBCATEGORIES2.value: None,
             CollectionNames.SUBCATEGORIES3.value: None,
             CollectionNames.INTER_CATEGORY_RELATIONS.value: None,
-            
         }
 
     async def connect(self) -> bool:
@@ -117,17 +117,23 @@ class BaseArangoService():
             )
             logger.debug("System DB: %s", sys_db)
 
-            # Create our database if it doesn't exist
+            # Check if database exists, but don't try to create if it does
             logger.debug("Checking if our database exists")
             if not sys_db.has_database(arango_db):
-                logger.info(
-                    "🚀 Database %s does not exist. Creating...",
-                    arango_db
-                )
-                sys_db.create_database(arango_db)
-                logger.info("✅ Database created successfully")
-            # Connect to our database
+                try:
+                    logger.info(
+                        "🚀 Database %s does not exist. Creating...",
+                        arango_db
+                    )
+                    sys_db.create_database(arango_db)
+                    logger.info("✅ Database created successfully")
+                except Exception as e:
+                    # If database creation fails but database exists, we can continue
+                    if "duplicate database name" not in str(e):
+                        raise
+                    logger.warning("Database already exists, continuing with connection")
 
+            # Connect to our database
             logger.debug("Connecting to our database")
             self.db = self.client.db(
                 arango_db,

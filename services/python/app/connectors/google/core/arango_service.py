@@ -361,7 +361,7 @@ class ArangoService(BaseArangoService):
             query = """
             LET relations = (
                 FOR rel IN @@recordRelations
-                    FILTER rel._to == CONCAT(@@records, '/', @file_key)
+                    FILTER rel._to == @record_id
                     RETURN rel._from
             )
             
@@ -393,7 +393,7 @@ class ArangoService(BaseArangoService):
             """
 
             bind_vars = {
-                'file_key': file_key,
+                'record_id': CollectionNames.RECORDS.value + '/' + file_key,
                 '@records': CollectionNames.RECORDS.value,
                 '@recordRelations': CollectionNames.RECORD_RELATIONS.value
             }
@@ -1069,126 +1069,6 @@ class ArangoService(BaseArangoService):
 
         except Exception as e:
             logger.error("❌ Error retrieving page tokens: %s", str(e))
-            return []
-
-    async def get_user_accessible_files(self, user_id: str) -> List[Dict]:
-        """
-        Get all files accessible by a user through various permission paths using graph traversal:
-        - Direct user permissions
-        - Group memberships
-        - Organization/domain memberships
-        - Anyone permissions
-
-        Args:
-            user_id (str): The user's ID (_key)
-
-        Returns:
-            List[Dict]: List of unique file documents with their access details
-        """
-        try:
-            logger.info("🚀 Getting all accessible files for user %s", user_id)
-
-            query = """
-            // Get user's domain from users collection
-            LET user = DOCUMENT(CONCAT('users/', @user_id))
-            
-            // Get files directly accessible to user
-            LET direct_access = (
-                FOR v, e IN 1..1 OUTBOUND CONCAT('users/', @user_id) GRAPH 'fileAccessGraph'
-                FILTER e.collection == 'permissions'
-                AND e.role IN ['owner', 'organizer', 'fileorganizer', 'writer', 'commenter', 'reader']
-                RETURN {
-                    file: v,
-                    access: {
-                        type: 'direct',
-                        role: e.role
-                    }
-                }
-            )
-            
-            // Get files accessible through groups
-            LET group_access = (
-                FOR v, e, p IN 2..2 OUTBOUND CONCAT('users/', @user_id) GRAPH 'fileAccessGraph'
-                FILTER p.edges[0].collection == 'belongsTo'
-                AND p.edges[1].collection == 'permissions'
-                AND p.edges[1].role IN ['owner', 'organizer', 'fileorganizer', 'writer', 'commenter', 'reader']
-                RETURN {
-                    file: v,
-                    access: {
-                        type: 'group',
-                        role: p.edges[1].role,
-                        via: p.vertices[1]._id
-                    }
-                }
-            )
-
-            // Get files accessible through organization
-            LET org_access = (
-                FOR v, e IN 1..1 OUTBOUND CONCAT('organizations/', user.domain) GRAPH 'fileAccessGraph'
-                FILTER e.collection == 'permissions'
-                AND e.role IN ['owner', 'organizer', 'fileorganizer', 'writer', 'commenter', 'reader']
-                RETURN {
-                    file: v,
-                    access: {
-                        type: 'organization',
-                        role: e.role,
-                        via: user.domain
-                    }
-                }
-            )
-
-            // Get files with anyone access
-            LET anyone_access = (
-                FOR doc IN anyone
-                    FILTER doc.role IN ['reader', 'writer', 'commenter']
-                    LET file = DOCUMENT(CONCAT('files/', doc.file_key))
-                    RETURN {
-                        file: file,
-                        access: {
-                            type: 'anyone',
-                            role: doc.role
-                        }
-                    }
-            )
-
-            // Combine all access paths and remove DUPLICATEs
-            LET all_access = UNION_DISTINCT(
-                direct_access,
-                group_access,
-                org_access,
-                anyone_access
-            )
-
-            RETURN {
-                files: all_access,
-                counts: {
-                    total: LENGTH(all_access),
-                    direct: LENGTH(direct_access),
-                    group: LENGTH(group_access),
-                    organization: LENGTH(org_access),
-                    anyone: LENGTH(anyone_access)
-                }
-            }
-            """
-
-            cursor = self.db.aql.execute(query, bind_vars={'userId': user_id})
-            result = next(cursor, {'files': [], 'counts': {
-                          'total': 0, 'direct': 0, 'group': 0, 'organization': 0, 'anyone': 0}})
-
-            logger.info(
-                "✅ Retrieved accessible files for user %s: %s",
-                user_id,
-                json.dumps(result['counts'])
-            )
-
-            return result['files']
-
-        except Exception as e:
-            logger.error(
-                "❌ Failed to get accessible files for user %s: %s",
-                user_id,
-                str(e)
-            )
             return []
 
     async def get_key_by_external_file_id(self, external_file_id: str, transaction: Optional[TransactionDatabase] = None) -> Optional[str]:

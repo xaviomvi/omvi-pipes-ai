@@ -15,6 +15,7 @@ from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
 from uuid import uuid4
 import aiohttp
 import jwt
+from app.utils.time_conversion import parse_timestamp
 
 class GmailAdminService:
     """GmailAdminService class for interacting with Google GMail API"""
@@ -81,13 +82,6 @@ class GmailAdminService:
             logger.error(
                 "❌ Failed to connect to Gmail Admin Service: %s", str(e))
             return False
-        
-    def parse_timestamp(self, timestamp_str):
-        # Remove the 'Z' and add '+00:00' for UTC
-        if timestamp_str.endswith('Z'):
-            timestamp_str = timestamp_str[:-1] + '+00:00'
-        return datetime.fromisoformat(timestamp_str)
-
 
     @exponential_backoff()
     async def list_enterprise_users(self, org_id: str) -> List[Dict]:
@@ -120,8 +114,8 @@ class GmailAdminService:
                         'designation': user.get('designation', 'user'),
                         'businessPhones': user.get('phones', []),
                         'isActive': user.get('isActive', False),
-                        'createdAtTimestamp': int(self.parse_timestamp(user.get('creationTime')).timestamp()),
-                        'updatedAtTimestamp': int(self.parse_timestamp(user.get('creationTime')).timestamp())
+                        'createdAtTimestamp': int(parse_timestamp(user.get('creationTime')).timestamp()),
+                        'updatedAtTimestamp': int(parse_timestamp(user.get('creationTime')).timestamp())
                     } for user in current_users if not user.get('suspended', False)])
 
                     page_token = results.get('nextPageToken')

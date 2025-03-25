@@ -5,11 +5,10 @@ import httpx
 from app.utils.logger import logger
 from dependency_injector.wiring import inject
 from typing import Dict, List
-from datetime import datetime, timezone
 from app.config.arangodb_constants import CollectionNames
 from uuid import uuid4
 import time
-from app.connectors.api.setup import initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
+from app.setups.connector_setup import initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 # Import required services
