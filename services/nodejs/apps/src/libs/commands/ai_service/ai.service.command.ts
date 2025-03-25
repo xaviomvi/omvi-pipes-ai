@@ -1,6 +1,6 @@
 import {
   AIServiceResponse,
-} from '../../../modules/enterprise_search/types/es_interfaces';
+} from  '../../../modules/enterprise_search/types/conversation.interfaces';
 import { HttpMethod } from '../../enums/http-methods.enum';
 import { Logger } from '../../services/logger.service';
 import { BaseCommand } from '../command.interface';

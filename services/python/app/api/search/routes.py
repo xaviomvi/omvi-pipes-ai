@@ -54,7 +54,7 @@ async def search(request: Request, body: SearchQuery,
             query=body.query,
             org_id=request.state.user.get('orgId'),
             user_id=request.state.user.get('userId'),
-            top_k=body.limit,
+            limit=body.limit,
             filter_groups=body.filters,
             arango_service=arango_service
         )

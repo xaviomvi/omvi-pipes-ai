@@ -138,7 +138,7 @@ class RetrievalService:
         user_id: str,
         org_id: str,
         filter_groups: List[Dict[str, List[str]]],
-        top_k: int = 20,
+        limit: int = 20,
         arango_service: Optional[ArangoService] = None
     ) -> List[Dict[str, Any]]:
         """
@@ -149,7 +149,7 @@ class RetrievalService:
             user_id: userId field value in users collection
             org_id: Organization ID for filtering records
             filter_groups: List of filter dictionaries for departments, categories, etc.
-            top_k: Number of results to return
+            limit: Number of results to return
             arango_service: ArangoService instance for permission checking
         
         Returns:
@@ -191,7 +191,7 @@ class RetrievalService:
             
             results = self.vector_store.similarity_search_with_score(
                 query=processed_query,
-                k=top_k,
+                k=limit,
                 filter=qdrant_filter
             )
             

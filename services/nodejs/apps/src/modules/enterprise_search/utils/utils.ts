@@ -3,8 +3,8 @@ import {
   IConversation,
   IConversationDocument,
   IMessage,
-} from '../types/es_interfaces';
-import { IAIResponse } from '../types/es_interfaces';
+} from '../types/conversation.interfaces';
+import { IAIResponse } from '../types/conversation.interfaces';
 import mongoose from 'mongoose';
 import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
 import { BadRequestError, InternalServerError } from '../../../libs/errors/http.errors';
@@ -112,34 +112,11 @@ export const addComputedFields = (
   };
 };
 
-export const buildSemanticSearchFilter = (
-  _req: AuthenticatedUserRequest,
-  orgId: string,
-  userId: string,
-  searchId?: string,
-) => {
-  const filter: any = {
-    orgId: new mongoose.Types.ObjectId(`${orgId}`),
-    userId: new mongoose.Types.ObjectId(`${userId}`),
-  };
-
-  if (searchId) {
-    filter._id = new mongoose.Types.ObjectId(searchId);
-  }
-
-  return filter;
-};
-
 export const buildFilter = (
   req: AuthenticatedUserRequest,
   orgId: string,
   userId: string,
-  conversationId?: string,
-  conversationSource?: string,
-  conversationSourceRecordId?: string,
-  conversationSourceConnectorIds?: string[],
-  conversationSourceRecordType?: string,
-  conversationSourceConnectorTypes?: string[],
+  id?: string, // conversationId or searchId
 ) => {
   // Initialize base filter with required fields
   const filter: any = {
@@ -154,33 +131,8 @@ export const buildFilter = (
     ],
   };
 
-  // Add optional filters only if they have values
-  if (conversationSource) {
-    filter.conversationSource = conversationSource;
-  }
-
-  if (conversationId) {
-    filter._id = new mongoose.Types.ObjectId(conversationId);
-  }
-
-  if (conversationSourceConnectorIds) {
-    filter.conversationSourceConnectorIds = conversationSourceConnectorIds.map(
-      (id) => new mongoose.Types.ObjectId(id),
-    );
-  }
-
-  if (conversationSourceConnectorTypes) {
-    filter.conversationSourceConnectorTypes = conversationSourceConnectorTypes;
-  }
-
-  if (conversationSourceRecordType) {
-    filter.conversationSourceRecordType = conversationSourceRecordType;
-  }
-
-  if (conversationSourceRecordId) {
-    filter.conversationSourceRecordId = new mongoose.Types.ObjectId(
-      conversationSourceRecordId,
-    );
+  if (id) {
+    filter._id = new mongoose.Types.ObjectId(id);
   }
 
   // Handle search

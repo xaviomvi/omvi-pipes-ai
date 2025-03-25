@@ -3,6 +3,14 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IEnterpriseSemanticSearch extends Document {
   query: string;
   limit: number;
+  isShared: boolean;
+  shareLink: string;
+  sharedWith: {
+    userId: mongoose.Types.ObjectId;
+    accessLevel: string;
+  }[];
+  isArchived: boolean;
+  archivedBy: mongoose.Types.ObjectId;
   orgId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
   citationIds: mongoose.Types.ObjectId[]; // Array of references to citation documents
@@ -20,7 +28,18 @@ const enterpriseSemanticSearchSchema = new Schema<IEnterpriseSemanticSearch>(
       type: Schema.Types.ObjectId, 
       ref: 'citation',
       index: true
-    }]
+    }],
+    isShared: { type: Boolean, default: false },
+    shareLink: { type: String },
+    sharedWith: [
+      {
+        userId: { type: Schema.Types.ObjectId },
+        accessLevel: { type: String, enum: ['read', 'write'], default: 'read' },
+      },
+      { _id: false },
+    ],
+    isArchived: { type: Boolean, default: false },
+    archivedBy: { type: Schema.Types.ObjectId },
   },
   {
     timestamps: true,

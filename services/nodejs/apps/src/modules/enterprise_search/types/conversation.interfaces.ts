@@ -1,6 +1,6 @@
 import { Document, Types, Model } from 'mongoose';
 import { ConfidenceLevel } from '../constants/constants';
-import mongoose from 'mongoose';
+import { ICitation } from '../schema/citation.schema';
 
 export interface IFollowUpQuestion {
   question: string;
@@ -124,11 +124,11 @@ export interface AIServiceResponse<T> {
   msg?: string;
 }
 
-export type AnswerMatchType = 'exact' | 'partial' | 'semantic' | 'unknown';
+export type AnswerMatchType = 'Exact Match' | 'Partial Match' | 'No Match';
 
 export interface IAIResponse {
   answer: string;
-  citations: ICitationDocument[];
+  citations: ICitation[];
   confidence: ConfidenceLevel;
   reason: string;
   answerMatchType: AnswerMatchType;
