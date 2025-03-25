@@ -154,7 +154,7 @@ export class RecordRelationService {
     const storageUrl =
       (await keyValueStoreService.get(storageEtcdPaths.endpoint)) ||
       this.defaultConfig.endpoint;
-    const signedUrlRoute = `${storageUrl}/api/v1/document/${record.externalRecordId}/download`;
+    const signedUrlRoute = `${storageUrl}/api/v1/document/internal/${record.externalRecordId}/download`;
 
     // Determine the appropriate extension by prioritizing different sources
     let extension = '';
@@ -194,7 +194,7 @@ export class RecordRelationService {
     const storageUrl =
       (await keyValueStoreService.get(storageEtcdPaths.endpoint)) ||
       this.defaultConfig.endpoint;
-    const signedUrlRoute = `${storageUrl}/api/v1/document/${record.externalRecordId}/download`;
+    const signedUrlRoute = `${storageUrl}/api/v1/document/internal/${record.externalRecordId}/download`;
 
     return {
       orgId: record.orgId,
