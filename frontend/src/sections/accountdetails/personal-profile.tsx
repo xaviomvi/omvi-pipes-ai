@@ -1,29 +1,26 @@
 import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
-import React, { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import React, { useState, useEffect, useCallback } from 'react';
 
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Grid,
   Alert,
+  Paper,
+  alpha,
   Button,
   Dialog,
+  Divider,
   Snackbar,
+  useTheme,
+  Container,
   Typography,
   DialogTitle,
   DialogContent,
   DialogActions,
   CircularProgress,
-  Divider,
-  Paper,
-  Container,
-  useTheme,
-  alpha,
-  Tooltip,
-  Avatar,
-  IconButton,
 } from '@mui/material';
 
 import { useAdmin } from 'src/context/AdminContext';
@@ -34,7 +31,6 @@ import { Form, Field } from 'src/components/hook-form';
 import {
   updateUser,
   getUserById,
-  getUserLogo,
   deleteUserLogo,
   uploadUserLogo,
   changePassword,

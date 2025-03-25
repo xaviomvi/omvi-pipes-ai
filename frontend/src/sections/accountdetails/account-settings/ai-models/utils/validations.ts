@@ -1,5 +1,5 @@
 // validations.ts
-import type { AiModel, ModelConfig, LlmConfig } from './types';
+import type { AiModel, LlmConfig } from './types';
 
 /**
  * Validates model configuration based on model type

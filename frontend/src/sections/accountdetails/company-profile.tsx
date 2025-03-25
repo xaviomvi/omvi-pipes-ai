@@ -8,19 +8,15 @@ import {
   Box,
   Grid,
   Alert,
+  Paper,
+  alpha,
   Tooltip,
   Snackbar,
   MenuItem,
+  useTheme,
+  Container,
   Typography,
   CircularProgress,
-  Paper,
-  Container,
-  useTheme,
-  alpha,
-  Avatar,
-  IconButton,
-  Divider,
-  CardMedia,
 } from '@mui/material';
 
 import { countries } from 'src/assets/data';

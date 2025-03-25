@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import axios from 'src/utils/axios';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
@@ -7,28 +6,29 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Fade,
-  Grid,
+  Chip,
   alpha,
+  Paper,
+  Stack,
+  Alert,
   Button,
+  Divider,
+  Tooltip,
   useTheme,
   TextField,
   Typography,
-  FormHelperText,
-  CircularProgress,
-  Paper,
-  Divider,
-  Chip,
-  Card,
-  CardContent,
-  Stack,
   InputAdornment,
-  Tooltip,
-  Alert,
+  CircularProgress,
 } from '@mui/material';
-import scrollableContainerStyle from 'src/sections/qna/chatbot/utils/styles/scrollbar';
+
+import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
+
+import scrollableContainerStyle from 'src/sections/qna/chatbot/utils/styles/scrollbar';
+
 import { useAuthContext } from 'src/auth/hooks';
+
 import type { ConnectorFormValues } from './types';
 
 const getCurrentRedirectUri = () => {

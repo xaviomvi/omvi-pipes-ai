@@ -1,6 +1,7 @@
 // ai-models-service.ts
 import axios from 'src/utils/axios';
-import type { ModelConfig, LlmConfig, OCRConfig, EmbeddingConfig } from './types';
+
+import type { LlmConfig, OCRConfig, ModelConfig, EmbeddingConfig } from './types';
 
 const API_BASE = '/api/v1/configurationManager';
 
