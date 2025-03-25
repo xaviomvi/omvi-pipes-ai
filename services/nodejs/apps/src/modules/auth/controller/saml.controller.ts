@@ -21,10 +21,10 @@ import {
   ConfigurationManagerServiceCommand,
 } from '../../../libs/commands/configuration_manager/cm.service.command';
 import { HttpMethod } from '../../../libs/enums/http-methods.enum';
-import { generateAuthToken } from '../utils/generateAuthToken';
+import { generateFetchConfigAuthToken } from '../utils/generateAuthToken';
 import { iamJwtGenerator } from '../../../libs/utils/createJwt';
 import { AppConfig } from '../../tokens_manager/config/config';
-import { samlSsoCallbackUrl } from '../constants/constants';
+import { samlSsoCallbackUrl, samlSsoConfigUrl } from '../constants/constants';
 const orgIdToSamlEmailKey: Record<string, string> = {};
 passport.serializeUser((user, done) => {
   done(null, user);
@@ -126,10 +126,10 @@ export class SamlController {
       }
       let configurationManagerCommandOptions: ConfigurationManagerCommandOptions =
         {
-          uri: `${this.config.cmUrl}/${samlSsoCallbackUrl}`,
+          uri: `${this.config.cmUrl}/${samlSsoConfigUrl}`,
           method: HttpMethod.GET,
           headers: {
-            Authorization: `Bearer ${await generateAuthToken(user, this.config.scopedJwtSecret)}`,
+            Authorization: `Bearer ${await generateFetchConfigAuthToken(user, this.config.scopedJwtSecret)}`,
             'Content-Type': 'application/json',
           },
         };
@@ -158,7 +158,7 @@ export class SamlController {
       const samlCertificate = credentialsData.certificate;
       const samlEntryPoint = credentialsData.entryPoint;
       const samlEmailKey = credentialsData.emailKey;
-
+      console.log(credentialsData);
       this.updateOrgIdToSamlEmailKey(user.orgId, samlEmailKey!);
       this.updateSAMLStrategy(samlCertificate!, samlEntryPoint!);
 

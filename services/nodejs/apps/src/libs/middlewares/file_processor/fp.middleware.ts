@@ -31,7 +31,7 @@ export class FileUploadMiddleware {
     const storage = multer.memoryStorage();
 
     const fileExtensionFilter = (
-      req: Request,
+      _req: Request,
       file: Express.Multer.File,
       cb: multer.FileFilterCallback,
     ) => {
@@ -71,7 +71,7 @@ export class FileUploadMiddleware {
   }
 
   public validateJSONContent() {
-    return (req: Request, res: Response, next: NextFunction) => {
+    return (req: Request, _res: Response, next: NextFunction) => {
       if (
         !req.file &&
         (!req.files || (Array.isArray(req.files) && req.files.length === 0))
@@ -79,7 +79,6 @@ export class FileUploadMiddleware {
         return next();
       }
 
-      
       const files = req.file
         ? [req.file]
         : Array.isArray(req.files)

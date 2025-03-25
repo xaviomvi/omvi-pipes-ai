@@ -1,5 +1,5 @@
 import { HttpMethod } from '../../enums/http-methods.enum';
-import { BaseCommand, ICommand } from '../command.interface';
+import { BaseCommand } from '../command.interface';
 import { Logger } from '../../services/logger.service';
 
 const logger = Logger.getInstance({
