@@ -22,7 +22,7 @@ import {
   IMessageDocument,
 } from '../types/conversation.interfaces';
 import { IConversation } from '../types/conversation.interfaces';
-import { Conversation } from '../schema/Conversation.schema';
+import { Conversation } from '../schema/conversation.schema';
 import { HTTP_STATUS } from '../../../libs/enums/http-status.enum';
 import {
   addComputedFields,
@@ -556,7 +556,7 @@ export const getConversationById = async (
 
     // Sort messages using existing helper
     const sortedMessages = sortMessages(
-      conversationWithMessages?.messages || [],
+      (conversationWithMessages?.messages || []) as unknown as IMessageDocument[],
       messageSortOptions as { field: keyof IMessage },
     );
 
