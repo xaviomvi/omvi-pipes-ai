@@ -57,14 +57,10 @@ export class Application {
   private notificationContainer!: Container;
   private port: number;
 
-  private _maxMemoryConsumption: number = 0;
-  private _dtOfMaxMemoryConsumption?: Date;
-
   constructor() {
     this.app = express();
     this.port = parseInt(process.env.PORT || '3000', 10);
     this.server = http.createServer(this.app);
-    this.monitorMemory();
   }
 
   async initialize(): Promise<void> {
@@ -178,15 +174,7 @@ export class Application {
       throw error;
     }
   }
-  private monitorMemory(): void {
-    setInterval(() => {
-      const memUsage = process.memoryUsage().rss / (1024 * 1024 * 1024); // Convert to GB
-      if (memUsage > this._maxMemoryConsumption) {
-        this._maxMemoryConsumption = memUsage;
-        this._dtOfMaxMemoryConsumption = new Date();
-      }
-    }, 500000); // Check memory every 5 seconds
-  }
+
   private configureMiddleware(): void {
     // Security middleware
     this.app.use(helmet());
@@ -312,9 +300,6 @@ export class Application {
 
   async stop(): Promise<void> {
     try {
-      this.logger.info(
-        `Max memory consumption: ${this._maxMemoryConsumption} at ${this._dtOfMaxMemoryConsumption}`,
-      );
       this.logger.info('Shutting down application...');
       this.notificationContainer
         .get<NotificationService>(NotificationService)
