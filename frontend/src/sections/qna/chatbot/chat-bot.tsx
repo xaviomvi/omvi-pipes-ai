@@ -5,6 +5,7 @@ import type {
   Conversation,
   FormattedMessage,
   ExpandedCitationsState,
+  CustomCitation,
 } from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';
@@ -78,7 +79,7 @@ const ChatInterface = () => {
   const navigate = useNavigate();
   const { conversationId } = useParams<{ conversationId: string }>();
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [aggregatedCitations, setAggregatedCitations] = useState<Citation[] | null>([]);
+  const [aggregatedCitations, setAggregatedCitations] = useState<CustomCitation[] | null>([]);
   const [openPdfView, setOpenPdfView] = useState<boolean>(false);
   // const [showQuestionDetails, setShowQuestionDetails] = useState<boolean>(false);
   const [isExcel, setIsExcel] = useState<boolean>(false);
@@ -115,23 +116,17 @@ const ChatInterface = () => {
         ...baseMessage,
         type: 'bot',
         confidence: apiMessage.confidence || '',
-        citations: (apiMessage.citations || []).map((citation: ApiCitation) => ({
+        citations: (apiMessage.citations || []).map((citation: Citation) => ({
           id: citation.citationId,
           _id: citation.citationData?._id || citation.citationId,
           citationId: citation.citationId,
-          content: citation.citationData?.content || '',
-          documentIndex: citation.citationData?.documentIndex || 0,
-          metadata: citation.citationData?.citationMetaData || [],
+          content: citation.citationData.content || '',
+          metadata: citation.citationData.metadata || [],
           orgId: citation.orgId,
           citationType: citation.citationType,
-          citationMetaData: citation.citationData?.citationMetaData || [],
-          relatedCitations: citation.citationData?.relatedCitations || [],
-          isDeleted: citation.citationData?.isDeleted || false,
-          usageCount: citation.citationData?.usageCount || 0,
-          verificationStatus: citation.citationData?.verificationStatus || 'unverified',
           createdAt: citation.citationData?.createdAt || new Date().toISOString(),
           updatedAt: citation.citationData?.updatedAt || new Date().toISOString(),
-          slug: citation.citationData?.slug || '',
+          recordIndex : citation.citationData.recordIndex || 1,
         })),
       };
     }
@@ -154,7 +149,7 @@ const ChatInterface = () => {
 
   const onViewPdf = async (
     url: string,
-    citations: Citation[],
+    citations: CustomCitation[],
     isExcelFile: boolean = false
   ): Promise<void> => {
     // setAggregatedCitations(citations);
@@ -260,7 +255,6 @@ const ChatInterface = () => {
           '/api/v1/conversations/create',
           {
             query: trimmedInput,
-            conversationSource: 'sales',
           }
         );
 
@@ -548,6 +542,7 @@ const ChatInterface = () => {
             height: '90vh',
             borderRight: openPdfView ? 1 : 0,
             borderColor: 'divider',
+            marginLeft : isDrawerOpen ? 0 : 4,
           }}
         >
           {/* <Box sx={{ flexShrink: 0 }}>

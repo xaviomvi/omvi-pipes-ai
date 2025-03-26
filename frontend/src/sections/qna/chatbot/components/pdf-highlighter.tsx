@@ -1,7 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { Citation } from 'src/types/chat-bot';
-import type {
-  ScaledPosition} from 'react-pdf-highlighter';
+import type { ScaledPosition } from 'react-pdf-highlighter';
 import type {
   Comment,
   Content,
@@ -21,11 +20,12 @@ import {
   PdfLoader,
   Highlight,
   AreaHighlight,
-  PdfHighlighter
+  PdfHighlighter,
 } from 'react-pdf-highlighter';
 
 import { Box, CircularProgress } from '@mui/material';
 
+import { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
 import CitationSidebar from './highlighter-sidebar';
 
 // Initialize PDF worker
@@ -40,23 +40,10 @@ const HighlightPopup: React.FC<HighlightPopupProps> = ({ comment }) =>
     </div>
   ) : null;
 
-const processHighlight = (citation: Citation): HighlightType | null => {
+const processHighlight = (citation: DocumentContent): HighlightType | null => {
   try {
-    // Handle direct citation format
-    if (citation.position) {
-      return {
-        content: citation.content,
-        position: citation.position,
-        comment: citation.comment || { text: '', emoji: '' },
-        id: citation.id || getNextId(),
-      };
-    }
-
     // Process from metadata format
-    const boundingBox: BoundingBox[] =
-      citation.metadata?.para?.bounding_box ||
-      citation.metadata?.bounding_box ||
-      citation.citationMetaData?.para?.bounding_box;
+    const boundingBox: BoundingBox[] = citation.metadata?.bounding_box;
 
     if (!boundingBox || boundingBox.length !== 4) {
       console.warn('Invalid bounding box:', boundingBox);
@@ -74,20 +61,12 @@ const processHighlight = (citation: Citation): HighlightType | null => {
       y2: boundingBox[2].y * PAGE_HEIGHT,
       width: PAGE_WIDTH,
       height: PAGE_HEIGHT,
-      pageNumber:
-        citation.metadata?.page_number ||
-        citation.citationMetaData?.page_number ||
-        citation.documentIndex + 1 ||
-        1,
+      pageNumber: citation.metadata?.pageNum || 1,
     };
 
     return {
       content: {
-        text:
-          citation.content ||
-          citation.metadata?.para?.content ||
-          citation.citationMetaData?.para?.content ||
-          '',
+        text: citation.content || '',
       },
       position: {
         boundingRect: mainRect,
@@ -98,7 +77,7 @@ const processHighlight = (citation: Citation): HighlightType | null => {
         text: '',
         emoji: '',
       },
-      id: citation.id || citation.citationId || getNextId(),
+      id: citation.metadata._id || citation.metadata._id || getNextId(),
     };
   } catch (error) {
     console.error('Error processing highlight:', error);
@@ -115,7 +94,7 @@ const PdfHighlighterComp = ({
   const scrollViewerTo = useRef<(highlight: HighlightType) => void>(() => {});
   // const hasInitialized = useRef<boolean>(false);
   const [processedCitations, setProcessedCitations] = useState<ProcessedCitation[]>([]);
-
+  console.log(citations);
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -232,80 +211,89 @@ const PdfHighlighterComp = ({
           }
         >
           {(pdfDocument) => (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              overflow: 'auto',
-            } as CSSProperties}>
-            <PdfHighlighter<HighlightType>
-              pdfDocument={pdfDocument}
-              enableAreaSelection={(event: MouseEvent) => event.altKey}
-              onScrollChange={() => {}}
-              scrollRef={(scrollTo: (highlight: HighlightType) => void) => {
-                scrollViewerTo.current = scrollTo;
-              }}
-              onSelectionFinished={(
-                position: ScaledPosition,
-                content: Content,
-                hideTipAndSelection,
-                transformSelection
-              ) => (
-                <Tip
-                  onOpen={transformSelection}
-                  onConfirm={(comment: Comment) => {
-                    addHighlight({ content, position, comment });
-                    hideTipAndSelection();
-                  }}
-                />
-              )}
-              highlightTransform={(
-                highlight,
-                index,
-                setTip,
-                hideTip,
-                viewportToScaled,
-                screenshot,
-                isScrolledTo
-              ) => {
-                const isTextHighlight = !highlight.content?.image;
-                const component = isTextHighlight ? (
-                  <div
-                    className="highlight-wrapper"
-                    style={{ '--highlight-color': '#e6f4f1','--highlight-opacity': '0.4' } as CSSProperties}
-                  >
-                    <Highlight
-                      isScrolledTo={isScrolledTo}
-                      position={highlight.position}
-                      comment={highlight.comment}
-                    />
-                  </div>
-                ) : (
-                  <AreaHighlight
-                    isScrolledTo={isScrolledTo}
-                    highlight={highlight}
-                    onChange={(boundingRect) => {
-                      updateHighlight(
-                        highlight.id,
-                        { boundingRect: viewportToScaled(boundingRect) },
-                        { image: screenshot(boundingRect) }
-                      );
+            <div
+              style={
+                {
+                  width: '100%',
+                  height: '100%',
+                  overflow: 'auto',
+                } as CSSProperties
+              }
+            >
+              <PdfHighlighter<HighlightType>
+                pdfDocument={pdfDocument}
+                enableAreaSelection={(event: MouseEvent) => event.altKey}
+                onScrollChange={() => {}}
+                scrollRef={(scrollTo: (highlight: HighlightType) => void) => {
+                  scrollViewerTo.current = scrollTo;
+                }}
+                onSelectionFinished={(
+                  position: ScaledPosition,
+                  content: Content,
+                  hideTipAndSelection,
+                  transformSelection
+                ) => (
+                  <Tip
+                    onOpen={transformSelection}
+                    onConfirm={(comment: Comment) => {
+                      addHighlight({ content, position, comment });
+                      hideTipAndSelection();
                     }}
                   />
-                );
+                )}
+                highlightTransform={(
+                  highlight,
+                  index,
+                  setTip,
+                  hideTip,
+                  viewportToScaled,
+                  screenshot,
+                  isScrolledTo
+                ) => {
+                  const isTextHighlight = !highlight.content?.image;
+                  const component = isTextHighlight ? (
+                    <div
+                      className="highlight-wrapper"
+                      style={
+                        {
+                          '--highlight-color': '#e6f4f1',
+                          '--highlight-opacity': '0.4',
+                        } as CSSProperties
+                      }
+                    >
+                      <Highlight
+                        isScrolledTo={isScrolledTo}
+                        position={highlight.position}
+                        comment={highlight.comment}
+                      />
+                    </div>
+                  ) : (
+                    <AreaHighlight
+                      isScrolledTo={isScrolledTo}
+                      highlight={highlight}
+                      onChange={(boundingRect) => {
+                        updateHighlight(
+                          highlight.id,
+                          { boundingRect: viewportToScaled(boundingRect) },
+                          { image: screenshot(boundingRect) }
+                        );
+                      }}
+                    />
+                  );
 
-                return (
-                  <Popup
-                    popupContent={<HighlightPopup {...highlight} />}
-                    onMouseOver={(popupContent) => setTip(highlight, () => popupContent)}
-                    onMouseOut={hideTip}
-                    key={index}
-                  >
-                    {component}
-                  </Popup>
-                );
-              }}
-              highlights={highlights}
-            />
+                  return (
+                    <Popup
+                      popupContent={<HighlightPopup {...highlight} />}
+                      onMouseOver={(popupContent) => setTip(highlight, () => popupContent)}
+                      onMouseOut={hideTip}
+                      key={index}
+                    >
+                      {component}
+                    </Popup>
+                  );
+                }}
+                highlights={highlights}
+              />
             </div>
           )}
         </PdfLoader>

@@ -1,4 +1,4 @@
-import type { Citation, FormattedMessage, ExpandedCitationsState } from 'src/types/chat-bot';
+import type { Citation, FormattedMessage, ExpandedCitationsState, CustomCitation } from 'src/types/chat-bot';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
@@ -17,7 +17,7 @@ type ChatMessagesAreaProps = {
   onFeedbackSubmit : (messageId : string, feedback : any) => Promise<void>;
   conversationId : string | null;
   isLoadingConversation : boolean;
-  onViewPdf : (url: string, citations: Citation[], isExcelFile?: boolean) => void
+  onViewPdf : (url: string, citations: CustomCitation[], isExcelFile?: boolean) => void
 }
 
 type ProcessingIndicatorProps = {
@@ -29,7 +29,7 @@ type MessageWithControlsProps = {
   index : number;
   isExpanded : boolean;
   onToggleCitations : (index : number) => void;
-  onViewPdf : (url: string, citations: Citation[], isExcelFile?: boolean) => void;
+  onViewPdf : (url: string, citations: CustomCitation[], isExcelFile?: boolean) => void;
   onFeedbackSubmit : (messageId : string, feedback : any) => Promise<void>;
   conversationId : string | null;
   onRegenerate : (messageId : string) => Promise<void>;
@@ -118,7 +118,7 @@ const ChatMessagesArea = ({
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
-        ...scrollableContainerStyle,
+        // ...scrollableContainerStyle,
       }}
     >
     {isLoadingConversation ? (

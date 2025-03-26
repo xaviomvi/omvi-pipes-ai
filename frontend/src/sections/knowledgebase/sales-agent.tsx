@@ -5,6 +5,7 @@ import type {
   ApiCitation,
   FormattedMessage,
   ExpandedCitationsState,
+  CustomCitation,
 } from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';
@@ -163,7 +164,7 @@ const RecordSalesAgent = ({ initialContext, recordId }: RecordSalesAgentProps) =
   const [expandedCitations, setExpandedCitations] = useState<ExpandedCitationsState>({});
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string>('');
-  const [aggregatedCitations, setAggregatedCitations] = useState<Citation[]>([]);
+  const [aggregatedCitations, setAggregatedCitations] = useState<CustomCitation[]>([]);
   const [openPdfView, setOpenPdfView] = useState<boolean>(false);
   const [isDrawerOpen, setDrawerOpen] = useState<boolean>(true);
   const [shouldRefreshSidebar, setShouldRefreshSidebar] = useState<boolean>(false);
@@ -205,24 +206,18 @@ const RecordSalesAgent = ({ initialContext, recordId }: RecordSalesAgentProps) =
       return {
         ...baseMessage,
         type: 'bot',
-        confidence: apiMessage.confidence || '',
-        citations: (apiMessage.citations || []).map((citation: ApiCitation) => ({
+        confidence: apiMessage.confidence || '', 
+        citations: (apiMessage.citations || []).map((citation: Citation) => ({
           id: citation.citationId,
           _id: citation.citationData?._id || citation.citationId,
           citationId: citation.citationId,
-          content: citation.citationData?.content || '',
-          documentIndex: citation.citationData?.documentIndex || 0,
-          metadata: citation.citationData?.citationMetaData || [],
+          content: citation.citationData.content || '',
+          metadata: citation.citationData.metadata || [],
           orgId: citation.orgId,
           citationType: citation.citationType,
-          citationMetaData: citation.citationData?.citationMetaData || [],
-          relatedCitations: citation.citationData?.relatedCitations || [],
-          isDeleted: citation.citationData?.isDeleted || false,
-          usageCount: citation.citationData?.usageCount || 0,
-          verificationStatus: citation.citationData?.verificationStatus || 'unverified',
           createdAt: citation.citationData?.createdAt || new Date().toISOString(),
           updatedAt: citation.citationData?.updatedAt || new Date().toISOString(),
-          slug: citation.citationData?.slug || '',
+          recordIndex : citation.citationData.recordIndex || 1,
         })),
       };
     }
@@ -304,7 +299,7 @@ const RecordSalesAgent = ({ initialContext, recordId }: RecordSalesAgentProps) =
           if (msg.type === 'bot' && msg.citations && msg.citations.length > 0) {
             citationStates[idx] = false;
           }
-        });
+        }); 
 
         setMessages(formattedMessages);
         setExpandedCitations(citationStates);
@@ -553,7 +548,7 @@ const RecordSalesAgent = ({ initialContext, recordId }: RecordSalesAgentProps) =
     setInputValue(e.target.value);
   }, []);
 
-  const onViewPdf = useCallback((url: string, citations: Citation[]) => {
+  const onViewPdf = useCallback((url: string, citations: CustomCitation[]) => {
     setAggregatedCitations(citations);
     setPdfUrl(url);
     setOpenPdfView(true);

@@ -1,4 +1,4 @@
-import type { Theme, SxProps } from "@mui/material";
+import type { Theme, SxProps } from '@mui/material';
 
 export interface Department {
   _id: string;
@@ -52,6 +52,7 @@ export interface Filters {
   searchTags?: string[];
   appSpecificRecordType?: string[];
   status?: string[];
+  connector?: string[];
 }
 
 export interface FilterHeaderProps {
@@ -111,10 +112,14 @@ export interface KnowledgeBaseSideBarProps {
   sx: SxProps<Theme>;
   filters: Filters;
   onFilterChange: (filters: Filters) => void;
+  openSidebar: boolean;
+  onToggleSidebar: () => void;
 }
 
 export interface KnowledgeSearchSideBarProps {
-  filters : Filters;
-  onFilterChange : (filters : Filters)=> void
+  filters: Filters;
+  onFilterChange: (filters: Filters) => void;
   sx: SxProps<Theme>;
+  openSidebar: boolean;
+  onToggleSidebar: () => void;
 }

@@ -44,7 +44,10 @@ import EnterpriseSemanticSearch, {
   IEnterpriseSemanticSearch,
 } from '../schema/search.schema';
 import { AppConfig } from '../../tokens_manager/config/config';
-import Citation, { ICitation } from '../schema/citation.schema';
+import Citation, {
+  AiSearchResponse,
+  ICitation,
+} from '../schema/citation.schema';
 
 const logger = Logger.getInstance({ service: 'Enterprise Search Service' });
 const rsAvailable = process.env.REPLICA_SET_AVAILABLE === 'true';
@@ -556,7 +559,8 @@ export const getConversationById = async (
 
     // Sort messages using existing helper
     const sortedMessages = sortMessages(
-      (conversationWithMessages?.messages || []) as unknown as IMessageDocument[],
+      (conversationWithMessages?.messages ||
+        []) as unknown as IMessageDocument[],
       messageSortOptions as { field: keyof IMessage },
     );
 
@@ -1815,9 +1819,10 @@ export const search =
         body: { query, limit },
       });
 
-      const aiResponse = (await aiCommand.execute()) as AIServiceResponse<
-        ICitation[]
-      >;
+      const aiResponse =
+        (await aiCommand.execute()) as AIServiceResponse<AiSearchResponse>;
+
+      console.log('AI RESPONSE', aiResponse);
 
       if (!aiResponse || aiResponse.statusCode !== 200 || !aiResponse.data) {
         throw new InternalServerError(
@@ -1826,22 +1831,36 @@ export const search =
         );
       }
 
-      const results = aiResponse.data;
-      // save the citations to the citations collection
-      const citationIds = await Promise.all(
-        results.map(async (result: ICitation) => {
-          const citationDoc = new Citation({
-            content: result.content,
-            recordIndex: result.recordIndex ?? 0, // fallback to 0 if not present
-            citationType: result.citationType,
-            metadata: result.metadata,
-          });
+      const results = aiResponse.data.searchResults;
+      let citationIds;
+      if (results) {
+        // save the citations to the citations collection
+        citationIds = await Promise.all(
+          results.map(async (result: ICitation) => {
+            const citationDoc = new Citation({
+              content: result.content,
+              recordIndex: result.recordIndex ?? 0, // fallback to 0 if not present
+              citationType: result.citationType,
+              metadata: result.metadata,
+            });
 
-          const savedCitation = await citationDoc.save();
-          return savedCitation._id;
-        }),
-      );
+            const savedCitation = await citationDoc.save();
+            return savedCitation._id;
+          }),
+        );
+      }
 
+      const recordsArray = aiResponse.data?.records || {};
+      const recordsMap = new Map();
+
+      if (Array.isArray(recordsArray)) {
+        recordsArray.forEach((record) => {
+          // Use either _id or _key as the unique key for each record
+          const key = record._id || record._key;
+          // Convert the record object to a string since your schema expects Map<string, string>
+          recordsMap.set(key, JSON.stringify(record));
+        });
+      }
       // Save the entire search operation as a single document
       const searchRecord = await new EnterpriseSemanticSearch({
         query,
@@ -1849,6 +1868,7 @@ export const search =
         orgId,
         userId,
         citationIds,
+        records: recordsMap,
       }).save();
 
       logger.debug('Saved search operation', {

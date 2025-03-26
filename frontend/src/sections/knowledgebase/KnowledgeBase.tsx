@@ -1,7 +1,7 @@
 import debounce from 'lodash/debounce';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 
-import { Box } from '@mui/material';
+import { Box, alpha, useTheme } from '@mui/material';
 
 import { fetchKnowledgeBaseDetails } from './utils';
 import KnowledgeBaseSideBar from './KnowledgeBaseSideBar';
@@ -9,7 +9,12 @@ import KnowledgeBaseDetails from './KnowledgeBaseDetails';
 
 import type { Filters, KnowledgeBaseResponse } from './types/knowledge-base';
 
+// Constants for sidebar widths - must match the ones in KnowledgeBaseSideBar
+const SIDEBAR_EXPANDED_WIDTH = 320;
+const SIDEBAR_COLLAPSED_WIDTH = 64;
+
 export default function KnowledgeBase() {
+  const theme = useTheme();
   const [filters, setFilters] = useState<Filters>({
     indexingStatus: [],
     department: [],
@@ -25,6 +30,11 @@ export default function KnowledgeBase() {
     page: 1,
     limit: 20,
   });
+  const [openSidebar, setOpenSidebar] = useState<boolean>(true);
+
+  const toggleSidebar = useCallback(() => {
+    setOpenSidebar((prev) => !prev);
+  }, []);
 
   const debouncedFetchData = useCallback(
     (filter: Filters, searchQueryContent: string) => {
@@ -100,21 +110,23 @@ export default function KnowledgeBase() {
     <Box
       sx={{
         display: 'flex',
+        position: 'relative',
         flexGrow: 1,
         overflow: 'hidden',
         zIndex: 0,
+        bgcolor: alpha(theme.palette.background.default, 0.4),
       }}
     >
       {/* Sidebar */}
       <KnowledgeBaseSideBar
         sx={{
-          pt: 3,
           zIndex: 100,
-          width: 300,
-          flexShrink: 0,
+          position: 'relative',
         }}
         filters={filters}
         onFilterChange={handleFilterChange}
+        openSidebar={openSidebar}
+        onToggleSidebar={toggleSidebar}
       />
 
       {/* Details Section */}
@@ -122,6 +134,12 @@ export default function KnowledgeBase() {
         sx={{
           flexGrow: 1,
           overflow: 'auto',
+          width: `calc(100% - ${openSidebar ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH}px)`,
+          transition: theme.transitions.create(['width', 'margin-left'], {
+            easing: theme.transitions.easing.easeInOut,
+            duration: '0.3s',
+          }),
+          marginLeft: 0,
           p: 3,
         }}
       >

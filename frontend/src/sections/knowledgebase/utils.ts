@@ -38,20 +38,24 @@ export const searchKnowledgeBase = async (
   searchtext: string,
   topK: number = 10,
   filters: SearchFilters = {}
-): Promise<SearchResponse> => {
+): Promise<SearchResponse['searchResponse']> => {
   try {
     const queryParams = new URLSearchParams({
       topK: topK.toString(),
       ...(filters as any),
     });
-
-    const response = await axios.post<SearchResponse>(
-      `${CONFIG.backendUrl}/api/v1/knowledgebase/search?${queryParams}`,
-      {
-        searchtext,
+    const body = {
+      query: searchtext,
+      limit: topK,
+      filters: {
+        departments: filters.department || [],
+        moduleIds: filters.moduleId || [],
+        appSpecificRecordTypes: filters.appSpecificRecordType || []
       }
-    );
-    return response.data;
+    };
+
+    const response = await axios.post<SearchResponse>(`/api/v1/search`, body);
+    return response.data.searchResponse;
   } catch (error) {
     throw new Error('Erro searching knowledge base ');
   }
@@ -192,6 +196,6 @@ export const handleDownloadDocument = async (
       URL.revokeObjectURL(downloadUrl);
     }
   } catch (error) {
-    throw new Error('Failed to download document')
+    throw new Error('Failed to download document');
   }
 };
