@@ -115,6 +115,16 @@ class EventProcessor:
                     orgId="default",
                     docx_binary=BytesIO(file_content)
                 )
+            
+            elif extension == "doc":
+                result = await self.processor.process_doc_document(
+                    recordName=f"Record-{record_id}",
+                    recordId=record_id,
+                    version=record_version,
+                    source=connector,
+                    orgId="default",
+                    doc_binary=file_content
+                )
             elif extension in ['xlsx', 'xls']:
                 result = await self.processor.process_excel_document(
                     recordName=f"Record-{record_id}",

@@ -10,7 +10,7 @@ import json
 from arango import ArangoClient
 from app.connectors.core.base_arango_service import BaseArangoService
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
-from app.config.arangodb_constants import CollectionNames
+from app.config.arangodb_constants import CollectionNames, Connectors
 
 logger = create_logger('google_connectors')
 
@@ -1227,14 +1227,14 @@ class ArangoService(BaseArangoService):
             logger.error(f"Error getting account type: {str(e)}")
             return None
 
-    async def update_user_sync_state(self, user_email: str, state: str, service_type: str = 'drive') -> Optional[Dict]:
+    async def update_user_sync_state(self, user_email: str, state: str, service_type: str = Connectors.GOOGLE_DRIVE.value) -> Optional[Dict]:
         """
         Update user's sync state in USER_APP_RELATION collection for specific service
 
         Args:
             user_email (str): Email of the user
             state (str): Sync state (NOT_STARTED, RUNNING, PAUSED, COMPLETED)
-            service_type (str): Type of service ('drive' or 'gmail')
+            service_type (str): Type of service 
 
         Returns:
             Optional[Dict]: Updated relation document if successful, None otherwise
@@ -1291,13 +1291,13 @@ class ArangoService(BaseArangoService):
                         service_type, str(e))
             return None
         
-    async def get_user_sync_state(self, user_email: str, service_type: str = 'drive') -> Optional[Dict]:
+    async def get_user_sync_state(self, user_email: str, service_type: str = Connectors.GOOGLE_DRIVE.value) -> Optional[Dict]:
         """
         Get user's sync state from USER_APP_RELATION collection for specific service
 
         Args:
             user_email (str): Email of the user
-            service_type (str): Type of service ('drive' or 'gmail')
+            service_type (str): Type of service
 
         Returns:
             Optional[Dict]: Relation document containing sync state if found, None otherwise
@@ -1436,44 +1436,44 @@ class ArangoService(BaseArangoService):
             logger.error("❌ Error getting drive sync state: %s", str(e))
             return None
 
-    async def get_org_apps(self, org_id: str) -> List[Dict]:
-        """
-        Get all apps associated with an organization through direct edge querying
+    # async def get_org_apps(self, org_id: str) -> List[Dict]:
+    #     """
+    #     Get all apps associated with an organization through direct edge querying
         
-        Args:
-            org_id (str): Organization ID (_key)
+    #     Args:
+    #         org_id (str): Organization ID (_key)
             
-        Returns:
-            List[Dict]: List of app documents connected to the organization
-        """
-        try:
-            logger.info("🔍 Getting apps for organization %s", org_id)
+    #     Returns:
+    #         List[Dict]: List of app documents connected to the organization
+    #     """
+    #     try:
+    #         logger.info("🔍 Getting apps for organization %s", org_id)
             
-            query = """
-            FOR edge IN @@orgAppRelation
-                FILTER edge._from == CONCAT('organizations/', @org_id)
-                LET app = DOCUMENT(edge._to)
-                RETURN {
-                    _key: app._key,
-                    name: app.name,
-                    type: app.type,
-                    status: app.status,
-                    created_at: app.created_at,
-                    updatedAt: app.updatedAt
-                }
-            """
+    #         query = """
+    #         FOR edge IN @@orgAppRelation
+    #             FILTER edge._from == CONCAT('organizations/', @org_id)
+    #             LET app = DOCUMENT(edge._to)
+            #     RETURN {
+            #         _key: app._key,
+            #         name: app.name,
+            #         type: app.type,
+            #         status: app.status,
+            #         created_at: app.created_at,
+            #         updatedAt: app.updatedAt
+            #     }
+            # """
+            # 
+    #         result = list(self.db.aql.execute(
+    #             query,
+    #             bind_vars={
+    #                 '@orgAppRelation': CollectionNames.ORG_APP_RELATION.value,
+    #                 'org_id': org_id
+    #             }
+    #         ))
             
-            result = list(self.db.aql.execute(
-                query,
-                bind_vars={
-                    '@orgAppRelation': CollectionNames.ORG_APP_RELATION.value,
-                    'org_id': org_id
-                }
-            ))
-            
-            logger.info("✅ Found %d apps for organization %s", len(result), org_id)
-            return result
+    #         logger.info("✅ Found %d apps for organization %s", len(result), org_id)
+    #         return result
 
-        except Exception as e:
-            logger.error("❌ Error getting apps for organization %s: %s", org_id, str(e))
-            return []
+    #     except Exception as e:
+    #         logger.error("❌ Error getting apps for organization %s: %s", org_id, str(e))
+    #         return []

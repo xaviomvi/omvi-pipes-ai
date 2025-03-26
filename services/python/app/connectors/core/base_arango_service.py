@@ -438,8 +438,8 @@ class BaseArangoService():
         try:
             query = f"""
             FOR app IN OUTBOUND 
-                '{CollectionNames.PLATFORM_ORGS.value}/{org_id}' 
-                {CollectionNames.PLATFORM_ORG_APP_RELATION.value}
+                '{CollectionNames.ORGS.value}/{org_id}' 
+                {CollectionNames.ORG_APP_RELATION.value}
             FILTER app.isActive == true
             RETURN app
             """
@@ -454,8 +454,8 @@ class BaseArangoService():
         try:
             query = f"""
             FOR app IN OUTBOUND 
-                '{CollectionNames.PLATFORM_USERS.value}/{user_id}' 
-                {CollectionNames.PLATFORM_USER_APP_RELATION.value}
+                '{CollectionNames.USERS.value}/{user_id}' 
+                {CollectionNames.USER_APP_RELATION.value}
             RETURN app
             """
             cursor = self.db.aql.execute(query)

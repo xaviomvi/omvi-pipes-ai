@@ -183,7 +183,7 @@ class KafkaTestProducer:
         apps = ["drive"]
         
         # Enable apps event
-        enable_event = {'eventType': 'appEnabled', 'timestamp': 1742552263073, 'payload': {'orgId': '67dd3c71cc22f87eac2b2178', 'appGroup': 'Google Workspace', 'appGroupId': '67dd3cc7cc22f87eac2b21db', 'credentialsRoute': 'http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials', 'refreshTokenRoute': 'http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken', 'apps': ['drive', 'gmail', 'calendar'], 'syncAction': 'immediate'}}
+        enable_event = {'eventType': 'appEnabled', 'timestamp': 1742552263073, 'payload': {'orgId': '67dd3c71cc22f87eac2b2178', 'appGroup': 'Google Workspace', 'appGroupId': '67dd3cc7cc22f87eac2b21db', 'credentialsRoute': 'http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials', 'refreshTokenRoute': 'http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken', 'apps': ['DRIVE', 'GMAIL', 'CALENDAR'], 'syncAction': 'immediate'}}
 
         await self.send_message('entity-events', enable_event)
         

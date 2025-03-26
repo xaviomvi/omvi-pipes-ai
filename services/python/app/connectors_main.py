@@ -10,6 +10,7 @@ import asyncio
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, Depends
+from app.config.arangodb_constants import Connectors
 
 print("Starting connector app")
 
@@ -58,17 +59,17 @@ async def resume_sync_services(app_container: AppContainer) -> None:
 
             # Ensure the method is called on the correct object
             if accountType == 'enterprise' or accountType == 'business':
-                initialize_enterprise_account_services_fn(app_container)
+                await initialize_enterprise_account_services_fn(app_container)
             elif accountType == 'individual':
-                initialize_individual_account_services_fn(app_container)
+                await initialize_individual_account_services_fn(app_container)
             else:
                 logger.error("Account Type not valid")
                 return False
 
             user_type = 'enterprise' if accountType in ['enterprise', 'business'] else 'individual'
-            
+
             logger.info("Processing organization %s with account type %s", org_id, accountType)
-            
+
             # Get users for this organization
             users = await arango_service.get_users(org_id, active=True)
             logger.info(f"User: {users}")
@@ -78,10 +79,28 @@ async def resume_sync_services(app_container: AppContainer) -> None:
                 
             logger.info("Found %d users for organization %s", len(users), org_id)
             
+            enabled_apps = await arango_service.get_org_apps(org_id)
+            print(f"Enabled Apps: {enabled_apps}")
+            
+            for app in enabled_apps:
+                if app['name'] == Connectors.GOOGLE_CALENDAR.value:
+                    logger.info("Skipping calendar sync for org %s", org_id)
+                    continue    
+                
+                if app['name'] == Connectors.GOOGLE_DRIVE.value:
+                    drive_sync_service = app_container.drive_sync_service()
+                    await drive_sync_service.initialize(org_id)
+                    logger.info("Drive Service initialized for org %s", org_id)
+                
+                if app['name'] == Connectors.GOOGLE_MAIL.value:
+                    gmail_sync_service = app_container.gmail_sync_service()
+                    await gmail_sync_service.initialize(org_id)
+                    logger.info("Gmail Service initialized for org %s", org_id)
+
             # Check if Drive sync needs to be initialized
             drive_service_needed = False
             for user in users:
-                drive_state = (await arango_service.get_user_sync_state(user['email'], 'drive') or {}).get('syncState', 'NOT_STARTED')
+                drive_state = (await arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_DRIVE.value) or {}).get('syncState', 'NOT_STARTED')
                 if drive_state in ['COMPLETED', 'IN_PROGRESS', 'PAUSED']:
                     drive_service_needed = True
                     logger.info("Drive Service needed for org %s: %s", org_id, drive_service_needed)
@@ -90,13 +109,9 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             # Initialize Drive sync if needed and collect users
             drive_sync_needed = []
             if drive_service_needed:
-                drive_sync_service = await app_container.drive_sync_service()
-                # Initialize drive sync service
-                await drive_sync_service.initialize(org_id)
-
                 # Re-iterate to collect users needing sync
                 for user in users:
-                    drive_state = (await arango_service.get_user_sync_state(user['email'], 'drive') or {}).get('syncState', 'NOT_STARTED')
+                    drive_state = (await arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_DRIVE.value) or {}).get('syncState', 'NOT_STARTED')
                     if drive_state in ['IN_PROGRESS', 'PAUSED']:
                         logger.info("User %s in org %s needs Drive sync (state: %s)", 
                                   user['email'], org_id, drive_state)
@@ -105,7 +120,7 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             # Check if Gmail sync needs to be initialized
             gmail_service_needed = False
             for user in users:
-                gmail_state = (await arango_service.get_user_sync_state(user['email'], 'gmail') or {}).get('syncState', 'NOT_STARTED')
+                gmail_state = (await arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_MAIL.value) or {}).get('syncState', 'NOT_STARTED')
                 if gmail_state in ['COMPLETED', 'IN_PROGRESS', 'PAUSED']:
                     gmail_service_needed = True
                     logger.info("Gmail Service needed for org %s: %s", org_id, gmail_service_needed)
@@ -113,15 +128,10 @@ async def resume_sync_services(app_container: AppContainer) -> None:
 
             # Initialize Gmail sync if needed and collect users
             gmail_sync_needed = []
-            if gmail_service_needed:
-                gmail_sync_service = await app_container.gmail_sync_service()
-                # Initialize gmail sync service
-                await gmail_sync_service.initialize(org_id)
-                logger.info("Gmail Service initialized for org %s", org_id)
-                
+            if gmail_service_needed:                
                 # Re-iterate to collect users needing sync
                 for user in users:
-                    gmail_state = (await arango_service.get_user_sync_state(user['email'], 'gmail') or {}).get('syncState', 'NOT_STARTED')
+                    gmail_state = (await arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_MAIL.value) or {}).get('syncState', 'NOT_STARTED')
                     if gmail_state in ['IN_PROGRESS', 'PAUSED']:
                         logger.info("User %s in org %s needs Gmail sync (state: %s)", 
                                   user['email'], org_id, gmail_state)

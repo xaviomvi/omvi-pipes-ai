@@ -83,7 +83,7 @@ class DocxParser:
                     cell_text_combined = '\n'.join(cell_content).strip()
                     search_text = cell_text.strip()
 
-                    # print(f"Comparing: '{search_text}' with '{cell_text_combined}'")  # Debug print
+                    print(f"Comparing: '{search_text}' with '{cell_text_combined}'")  # Debug print
 
                     if cell_text_combined == search_text:
                         # print(f"Found match at table {table_idx}, row {row_idx}, col {col_idx}")
@@ -92,7 +92,7 @@ class DocxParser:
                         return (table_idx, row_idx, col_idx), matched_cells
 
         print(f"No match found for cell text: '{cell_text}'")  # Debug print
-        return (-1, -1, -1)
+        return (-1, -1, -1), matched_cells
 
     def parse(self, docx_binary: bytes) -> Dict[str, Any]:
         """Parse the docx document and return structured content"""
@@ -196,9 +196,9 @@ class DocxParser:
 def main():
     """Demo the DocxParser functionality"""
 
-    docx_path = "modules/parsers/docx/test.docx"
-    parser = DocxParser(docx_path)
-    result = parser.parse()
+    docx_path = "/home/rohil/Downloads/report.docx"
+    parser = DocxParser()
+    result = parser.parse(docx_path)
 
     print("\n=== DOCUMENT PARSING RESULTS ===\n")
 

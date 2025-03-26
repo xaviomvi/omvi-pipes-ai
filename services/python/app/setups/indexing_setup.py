@@ -20,7 +20,7 @@ from app.events.events import EventProcessor
 from app.events.processor import Processor
 from app.modules.indexing.run import IndexingPipeline
 
-from app.modules.parsers.docx.docxparser import DocxParser
+from app.modules.parsers.docx.docling_docx import DocxParser
 from app.modules.parsers.doc.docparser import DocParser
 from app.modules.parsers.excel.excel_parser import ExcelParser
 from app.modules.parsers.csv.csv_parser import CSVParser
@@ -155,7 +155,7 @@ class AppContainer(containers.DeclarativeContainer):
             'pptx': PPTXParser(),
             'html': HTMLParser(),
             'md': MarkdownParser(),
-            'csv': CSVParser(),
+            'csv': CSVParser(llm_config),
             'excel': ExcelParser(llm_config),
             'doc': DocParser(),
             'google_docs': GoogleDocsParser(),

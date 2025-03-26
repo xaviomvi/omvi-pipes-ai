@@ -2,10 +2,13 @@ import csv
 from typing import List, Dict, Any, Optional, TextIO
 from pathlib import Path
 import os
-
+import json
+from datetime import datetime
+from app.modules.parsers.excel.prompt_template import row_text_prompt
+from app.core.llm_service import LLMFactory
 
 class CSVParser:
-    def __init__(self, delimiter: str = ',', quotechar: str = '"', encoding: str = 'utf-8'):
+    def __init__(self, llm_config, delimiter: str = ',', quotechar: str = '"', encoding: str = 'utf-8'):
         """
         Initialize the CSV parser with configurable parameters.
 
@@ -14,6 +17,8 @@ class CSVParser:
             quotechar: Character used for quoting fields (default: double quote)
             encoding: File encoding (default: utf-8)
         """
+        self.llm = LLMFactory.create_llm(llm_config)
+        self.row_text_prompt = row_text_prompt
         self.delimiter = delimiter
         self.quotechar = quotechar
         self.encoding = encoding
@@ -134,6 +139,48 @@ class CSVParser:
 
         # Return as string if no other type matches
         return value
+
+    async def get_rows_text(self, rows: List[Dict[str, Any]], batch_size: int = 10) -> List[str]:
+        """Convert multiple rows into natural language text in batches."""
+        processed_texts = []
+
+        for i in range(0, len(rows), batch_size):
+            batch = rows[i:i + batch_size]
+            # Prepare rows data
+            rows_data = [
+                {key: (value.isoformat() if isinstance(value, datetime) else value)
+                 for key, value in row.items()}
+                for row in batch
+            ]
+
+            # Get natural language text from LLM for all rows
+            messages = self.row_text_prompt.format_messages(
+                sheet_summary=" ",
+                table_summary=" ",
+                rows_data=json.dumps(rows_data, indent=2)
+            )
+
+            response = await self.llm.ainvoke(messages)
+
+            # Try to extract JSON array from response
+            try:
+                processed_texts.extend(json.loads(response.content))
+            except json.JSONDecodeError:
+                # If that fails, try to find and parse a JSON array in the response
+                content = response.content
+                start = content.find('[')
+                end = content.rfind(']')
+                if start != -1 and end != -1:
+                    try:
+                        processed_texts.extend(json.loads(content[start:end+1]))
+                    except json.JSONDecodeError:
+                        # If still can't parse, add response as single-item array
+                        processed_texts.append(content)
+                else:
+                    # If no array found, add response as single-item array
+                    processed_texts.append(content)
+
+        return processed_texts
 
 
 def main():

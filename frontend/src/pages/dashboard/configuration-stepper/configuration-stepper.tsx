@@ -580,7 +580,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             }
 
             apiCalls.push(
-              axios.post(`${API_BASE_URL}/connectors/googleWorkspaceConfig`, formData, {
+              axios.post(`${API_BASE_URL}/connectors/googleWorkspaceCredentials`, formData, {
                 headers: {
                   'Content-Type': 'multipart/form-data',
                 },
