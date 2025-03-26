@@ -143,8 +143,8 @@ class ArangoService():
             LET directAndGroupRecords = UNION_DISTINCT(directRecords, groupRecords, orgRecords)
             
             LET kbRecords = (
-                FOR kb IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value}
-                FOR records IN 1..1 ANY kb._id {CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value}
+                FOR kb IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value}
+                FOR records IN 1..1 ANY kb._id {CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value}
                 RETURN DISTINCT records
             )
 
