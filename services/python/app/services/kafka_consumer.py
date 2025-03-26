@@ -25,9 +25,9 @@ def generate_jwt(token_payload: dict) -> str:
         str: The generated JWT token
     """
     # Get the JWT secret from environment variable
-    jwt_secret = os.getenv('JWT_SECRET')
+    jwt_secret = os.getenv('SCOPED_JWT_SECRET')
     if not jwt_secret:
-        raise ValueError("JWT_SECRET environment variable is not set")
+        raise ValueError("SCOPED_JWT_SECRET environment variable is not set")
     
     # Add standard claims if not present
     if 'exp' not in token_payload:
@@ -61,6 +61,7 @@ async def make_api_call(signed_url_route: str, token: str) -> dict:
     async with aiohttp.ClientSession() as session:
         url = signed_url_route
         
+        print(url, "signed url route")
         # Add the JWT to the Authorization header
         headers = {
             'Authorization': f'Bearer {token}',
@@ -71,11 +72,11 @@ async def make_api_call(signed_url_route: str, token: str) -> dict:
         async with session.get(url, headers=headers) as response:
             content_type = response.headers.get('Content-Type', '').lower()
             if response.status == 200 and 'application/json' in content_type:
-                response_data = await response.json()
-                return {'is_json': True, 'data': response_data}
+                data = await response.json()
+                return {'is_json': True, 'data': data}
             else:
-                response_text = await response.text()
-                return {'is_json': False, 'data': response_text}
+                data = await response.read()
+                return {'is_json': False, 'data': data}
 
     
 # Kafka configuration
@@ -156,6 +157,7 @@ class KafkaConsumerManager:
                     # Make request to get signed URL
                     payload = {
                         'orgId': payload_data['orgId'],
+                        'scopes': ["storage:token"]
                     }
                         # Generate the JWT token
                     token = generate_jwt(payload)
@@ -172,14 +174,16 @@ class KafkaConsumerManager:
                         data["payload"] = payload_data
                         logger.info(f"Data: {data}")
                         
-                        result = await self.event_processor.on_event({
-                            **data,
-                        })
-                        logger.info(
-                            f"✅ Successfully processed document")
                     else:
-                        logger.error(f"Failed to get signed URL: {await response.text()}")
-                        return False
+                        response_data = response.get('data')
+                        payload_data['buffer'] = response_data
+
+                    await self.event_processor.on_event({
+                            **data,
+                    })
+                    logger.info(
+                        f"✅ Successfully processed document")
+                    
                 except Exception as e:
                     logger.error(f"Error getting signed URL: {str(e)}")
                     return False

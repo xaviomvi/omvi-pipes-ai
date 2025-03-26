@@ -84,18 +84,17 @@ class EventProcessor:
                 logger.info(f"Content: {event_data.get('body')}")
                 return result
             
-            if not signed_url:
-                logger.error("❌ No signed URL provided in event data")
-                return
-
-            logger.debug(f"Signed URL: {signed_url}")
-            # Download file using signed URL
-            async with aiohttp.ClientSession() as session:
-                async with session.get(signed_url) as response:
-                    if response.status != 200:
-                        logger.error(f"❌ Failed to download file: {response}")
-                        return
-                    file_content = await response.read()
+            if  signed_url:
+                logger.debug(f"Signed URL: {signed_url}")
+                # Download file using signed URL
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(signed_url) as response:
+                        if response.status != 200:
+                            logger.error(f"❌ Failed to download file: {response}")
+                            return
+                        file_content = await response.read()
+            else:
+                file_content = event_data.get('buffer')
 
             if extension == "pdf":
                 result = await self.processor.process_pdf_document(
