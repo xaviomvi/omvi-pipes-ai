@@ -14,6 +14,7 @@ export interface IEnterpriseSemanticSearch extends Document {
   orgId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
   citationIds: mongoose.Types.ObjectId[]; // Array of references to citation documents
+  records: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +30,11 @@ const enterpriseSemanticSearchSchema = new Schema<IEnterpriseSemanticSearch>(
       ref: 'citation',
       index: true
     }],
+    records: {
+      type: Map,
+      of: String,
+      default: {}
+    },
     isShared: { type: Boolean, default: false },
     shareLink: { type: String },
     sharedWith: [

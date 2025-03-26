@@ -6,6 +6,7 @@ from langchain_qdrant import RetrievalMode
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from app.modules.retrieval.retrieval_service import RetrievalService
+from app.modules.retrieval.retrieval_arango import ArangoService
 from jinja2 import Template 
 from app.modules.qna.prompt_templates import qna_prompt
 from app.core.llm_service import LLMFactory
@@ -16,6 +17,7 @@ from langchain.retrievers import RePhraseQueryRetriever
 from langchain.chains import LLMChain
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+
 
 router = APIRouter()
 
@@ -33,6 +35,11 @@ async def get_retrieval_service(request: Request) -> RetrievalService:
     # Await the async resource provider to get the actual service instance
     retrieval_service = await container.retrieval_service()
     return retrieval_service
+
+async def get_arango_service(request: Request) -> ArangoService:
+    container: AppContainer = request.app.container
+    arango_service = await container.arango_service()
+    return arango_service
 
 def setup_query_transformation(llm):
     """Setup query rewriting and expansion"""
@@ -66,15 +73,22 @@ def setup_query_transformation(llm):
 
 @router.post("/chat")
 @inject
-async def askAI(request: Request, query_info: ChatQuery, retrieval_service=Depends(get_retrieval_service)):
+async def askAI(request: Request, query_info: ChatQuery, 
+                retrieval_service=Depends(get_retrieval_service),
+                arango_service=Depends(get_arango_service)):
     """Perform semantic search across documents"""
     try:
-        results = await retrieval_service.search(
+        results = await retrieval_service.search_with_filters(
             query=query_info.query,
             org_id=request.state.user.get('orgId'),
+            user_id=request.state.user.get('userId'),
             limit=query_info.limit,
-            filters=query_info.filters,
+            filter_groups=query_info.filters,
+            arango_service=arango_service
         )
+        print("Results from the AI service", results  )
+        results = results.get('searchResults')
+        
         previous_conversations = query_info.previousConversations
         print(results, "formatted_results")
         template = Template(qna_prompt) 

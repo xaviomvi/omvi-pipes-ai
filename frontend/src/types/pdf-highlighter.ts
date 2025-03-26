@@ -1,10 +1,11 @@
+import { DocumentContent } from "src/sections/knowledgebase/types/search-response";
 import type { ScaledPosition } from "react-pdf-highlighter";
 
-import type { Citation } from "./chat-bot";
+import type { Citation, CustomCitation } from "./chat-bot";
 
 export interface PdfHighlighterCompProps {
   pdfUrl: string;
-  citations: Citation[];
+  citations: DocumentContent[] | CustomCitation[];
   initialHighlights?: Citation[];
 }
 
@@ -46,7 +47,7 @@ export interface HighlightPopupProps {
   comment?: Comment;
 }
 
-export interface ProcessedCitation extends Citation {
+export interface ProcessedCitation extends DocumentContent {
   highlight: HighlightType | null;
 }
 

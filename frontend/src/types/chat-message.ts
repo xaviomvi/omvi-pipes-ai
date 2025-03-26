@@ -1,4 +1,4 @@
-import type { Citation, FormattedMessage } from './chat-bot';
+import type { Citation, CustomCitation, FormattedMessage } from './chat-bot';
 
 export interface ChatMessageProps {
   message: FormattedMessage;
@@ -8,7 +8,7 @@ export interface ChatMessageProps {
   onRegenerate: (messageId: string) => Promise<void>;
   onFeedbackSubmit: (messageId: string, feedback: any) => Promise<void>;
   conversationId: string | null;
-  onViewPdf: (url: string, citations: Citation[], isExcelFile?: boolean) => void;
+  onViewPdf: (url: string, citations: CustomCitation[], isExcelFile?: boolean) => void;
   isRegenerating: boolean;
   showRegenerate: boolean;
 }
@@ -21,14 +21,14 @@ export interface StyledCitationProps {
 
 export interface MessageContentProps {
   content: string;
-  citations: Citation[];
+  citations: CustomCitation[];
   onRecordClick: (record: Record) => void;
-  aggregatedCitations: { [key: string]: Citation[] };
-  onViewPdf: (url: string, citations: Citation[], isExcelFile?: boolean) => Promise<void>;
+  aggregatedCitations: { [key: string]: CustomCitation[] };
+  onViewPdf: (url: string, citations: CustomCitation[], isExcelFile?: boolean) => Promise<void>;
 }
 
 export interface Record {
   recordId: string;
-  citations: Citation[];
+  citations: CustomCitation[];
   [key: string]: any;
 }

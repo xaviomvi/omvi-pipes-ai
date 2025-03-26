@@ -1,7 +1,6 @@
-import type {
-  BoxProps} from '@mui/material';
+import type { BoxProps } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
-import type { Citation } from 'src/types/chat-bot';
+import type { Citation, CustomCitation } from 'src/types/chat-bot';
 
 import * as XLSX from 'xlsx';
 import { Icon } from '@iconify/react';
@@ -22,13 +21,14 @@ import {
   Typography,
   IconButton,
   TableContainer,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 
+import { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
 import scrollableContainerStyle from '../../utils/styles/scrollbar';
 
 type ExcelViewerprops = {
-  citations: Citation[];
+  citations: DocumentContent[] | CustomCitation[];
   fileUrl: string;
 };
 
@@ -231,21 +231,21 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
     }
   }, []);
 
-  const scrollToRow = useCallback((rowNum: any): void => {
+  const scrollToRow = useCallback((blockNum: any): void => {
     if (!tableRef.current || !mountedRef.current) return;
 
     const tableRows = tableRef.current.getElementsByTagName('tr');
-    if (tableRows[rowNum]) {
+    if (tableRows[blockNum]) {
       requestAnimationFrame(() => {
         if (!mountedRef.current) return;
 
-        tableRows[rowNum].scrollIntoView({
+        tableRows[blockNum].scrollIntoView({
           behavior: 'smooth',
           block: 'center',
         });
 
-        tableRows[rowNum].style.transition = 'background-color 0.5s ease';
-        tableRows[rowNum].style.backgroundColor = 'rgba(46, 125, 50, 0.2)';
+        tableRows[blockNum].style.transition = 'background-color 0.5s ease';
+        tableRows[blockNum].style.backgroundColor = 'rgba(46, 125, 50, 0.2)';
 
         // const timeoutId = setTimeout(() => {
         //   if (mountedRef.current && tableRows[rowNum]) {
@@ -259,12 +259,14 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
   }, []);
 
   const handleCitationClick = useCallback(
-    (citation: Citation): void => {
+    (citation: DocumentContent): void => {
       if (!mountedRef.current) return;
-      const {rowNum} = citation.citationMetaData;
-      setSelectedCitation(citation._id);
-      setHighlightedRow(rowNum);
-      scrollToRow(rowNum);
+      const { blockNum } = citation.metadata;
+      if (blockNum) {
+        setSelectedCitation(citation.metadata._id);
+        setHighlightedRow(blockNum-1);
+        scrollToRow(blockNum-1);
+      }
     },
     [scrollToRow]
   );
@@ -416,10 +418,12 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
   useEffect(() => {
     if (isInitialized && citations.length > 0 && !highlightedRow && mountedRef.current) {
       const firstCitation = citations[0];
-      const { rowNum } = firstCitation.citationMetaData;
-      setHighlightedRow(rowNum);
-      setSelectedCitation(firstCitation._id);
-      scrollToRow(rowNum);
+      const { blockNum } = firstCitation.metadata;
+      if (blockNum) {
+        setHighlightedRow(blockNum-1);
+        setSelectedCitation(firstCitation.metadata._id);
+        scrollToRow(blockNum-1);
+      }
     }
   }, [citations, isInitialized, highlightedRow, scrollToRow]);
 
@@ -465,6 +469,7 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
                 backgroundColor: 'background.paper',
                 opacity: 0.9,
               },
+              mt:2
             }}
           >
             <Icon
@@ -524,7 +529,7 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
           <List sx={{ flex: 1, overflow: 'auto', px: 2 }}>
             {citations.map((citation, index) => (
               <ListItem
-                key={citation._id || index}
+                key={citation.metadata._id || index}
                 onClick={() => handleCitationClick(citation)}
                 sx={{
                   cursor: 'pointer',
@@ -536,7 +541,7 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
                   '&:hover': {
                     bgcolor: 'action.hover',
                   },
-                  ...(selectedCitation === citation._id && {
+                  ...(selectedCitation === citation.metadata._id && {
                     '&::before': {
                       content: '""',
                       position: 'absolute',
@@ -559,7 +564,7 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
                     {citation.content}
                   </Typography>
                   <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
-                    Row {citation.citationMetaData.rowNum}
+                    Row {citation.metadata.blockNum}
                   </Typography>
                 </Box>
               </ListItem>

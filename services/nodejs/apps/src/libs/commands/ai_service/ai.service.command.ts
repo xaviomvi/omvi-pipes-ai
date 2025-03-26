@@ -32,6 +32,7 @@ export class AIServiceCommand<T> extends BaseCommand<
   // Execute the HTTP request based on the provided options.
   public async execute(): Promise<AIServiceResponse<T>> {
     const url = this.buildUrl();
+    console.log("BUILD URL ", url)
     const sanitizedHeaders = this.sanitizeHeaders(this.headers);
     const requestOptions: RequestInit = {
       method: this.method,

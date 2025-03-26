@@ -87,7 +87,7 @@ const WelcomeMessage = () => {
             letterSpacing: '-0.01em'
           }}
         >
-          Enterprise Knowledge Search
+          Workplace AI
         </Typography>
         
         <Typography 

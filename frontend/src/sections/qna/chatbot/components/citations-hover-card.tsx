@@ -1,27 +1,38 @@
-import type { Citation } from 'src/types/chat-bot';
+import type { Citation, CustomCitation } from 'src/types/chat-bot';
 import type { Record } from 'src/types/chat-message';
 
 import React from 'react';
+import { Icon } from '@iconify/react';
 
-import { Fade, Card, Stack, Button, Typography } from '@mui/material';
+import { 
+  Fade, 
+  Card, 
+  Stack, 
+  Button, 
+  Typography, 
+  Chip, 
+  Box, 
+  Divider 
+} from '@mui/material';
 
-import axiosInstance from 'src/utils/axios';
+import axios from 'src/utils/axios';
+
 
 interface CitationHoverCardProps {
-  citation : Citation;
-  isVisible : boolean;
-  onRecordClick : (record: Record) => void;
-  onClose : ()=> void;
-  onViewPdf  : (url: string, citations: Citation[], isExcelFile?: boolean) => Promise<void>
-  aggregatedCitations : Citation[];
-} 
+  citation: CustomCitation;
+  isVisible: boolean;
+  onRecordClick: (record: Record) => void;
+  onClose: () => void;
+  onViewPdf: (url: string, citations: CustomCitation[], isExcelFile?: boolean) => Promise<void>;
+  aggregatedCitations: CustomCitation[];
+}
 
 interface TrimmedTextProps {
   text: string | undefined;
   maxLength?: number;
 }
 
-const TrimmedText = ({ text, maxLength = 150 } : TrimmedTextProps) => {
+const TrimmedText = ({ text, maxLength = 150 }: TrimmedTextProps) => {
   if (!text) return null;
   const trimmedText = text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 
@@ -46,7 +57,8 @@ const CitationHoverCard = ({
   onViewPdf,
   aggregatedCitations,
 }: CitationHoverCardProps) => {
-  const hasRecordId = Boolean(citation.metadata?.recordId);
+  const hasRecordId = Boolean(citation?.metadata?.recordId);
+  
   const handleClick = (e: React.MouseEvent): void => {
     e.preventDefault();
     e.stopPropagation();
@@ -55,9 +67,9 @@ const CitationHoverCard = ({
       const record: Record = {
         ...citation.metadata,
         recordId: citation.metadata.recordId,
-        citations: aggregatedCitations.filter(c => 
-          c.citationMetaData?.recordId === citation.metadata?.recordId
-        ),
+        citations: aggregatedCitations.filter(
+          (c) => c.metadata?.recordId === citation.metadata?.recordId
+        ), 
       };
       onRecordClick(record);
       onClose();
@@ -65,18 +77,20 @@ const CitationHoverCard = ({
   };
 
   const handleOpenPdf = async () => {
-    if (aggregatedCitations[0]?.citationMetaData?.recordId) {
-      try {
-        const isExcelOrCSV = aggregatedCitations[0].citationMetaData?.recordOriginFormat === 'CSV';
-        const recordId = aggregatedCitations[0]?.citationMetaData?.recordId;
-        const getRecord = await axiosInstance.get(`/api/v1/knowledgebase/${recordId}`);
-        const { storageDocumentId } = getRecord.data.fileRecord;
-        const response = await axiosInstance.get(`/api/v1/document/${storageDocumentId}/download`);
+    if (citation?.metadata?.recordId) {
+      if (citation.metadata.origin === 'UPLOAD') {
+        try {
+          const isExcelOrCSV = ['CSV', 'xlsx', 'xls'].includes(citation.metadata?.extension);
+          const recordId = citation.metadata?.recordId;
+          const response = await axios.get(`/api/v1/knowledgebase/${recordId}`);
+          const { externalRecordId } = response.data.record;
 
-        const url = response.data.data;
-        onViewPdf(url, aggregatedCitations, isExcelOrCSV);
-      } catch (err) {
-        console.error('Failed to fetch PDF:', err);
+          const downloadResponse = await axios.get(`/api/v1/document/${externalRecordId}/download`);
+          const url = downloadResponse.data.signedUrl;
+          onViewPdf(url, aggregatedCitations, isExcelOrCSV);
+        } catch (err) {
+          console.error('Failed to fetch document:', err);
+        }
       }
     }
   };
@@ -87,12 +101,12 @@ const CitationHoverCard = ({
         sx={{
           position: 'absolute',
           zIndex: 1400,
-          width: '400px',
-          height: '250px',
-          p: 2,
+          width: '380px',
+          maxHeight: '320px',
+          p: 1.5,
           mt: 1,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-          borderRadius: '8px',
+          boxShadow: '0 2px 14px rgba(0, 0, 0, 0.08)',
+          borderRadius: '6px',
           border: '1px solid',
           borderColor: 'divider',
           bgcolor: 'background.paper',
@@ -100,68 +114,184 @@ const CitationHoverCard = ({
         }}
       >
         <Stack spacing={1.5}>
-          {/* Title Section */}
-          {citation.metadata?.question && (
+          {/* Document Header with View Button */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
             <Typography
               variant="subtitle2"
               onClick={handleClick}
               sx={{
                 cursor: hasRecordId ? 'pointer' : 'default',
-                color: hasRecordId ? 'primary.main' : 'text.primary',
-                fontWeight: 600,
-                fontSize: '0.875rem',
+                color: 'text.primary',
+                fontWeight: 500,
+                fontSize: '0.85rem',
                 lineHeight: 1.4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.75,
                 transition: 'color 0.2s ease-in-out',
                 '&:hover': hasRecordId
                   ? {
-                      color: 'primary.dark',
-                      textDecoration: 'underline',
+                      color: 'primary.main',
                     }
                   : {},
               }}
             >
-              {citation.metadata.question}
+              <Icon icon="mdi:file-document-outline" width={16} height={16} />
+              {citation.metadata?.recordName || 'Document'}
             </Typography>
-          )}
+            
+            <Button
+              size="small"
+              variant="outlined"
+              color="primary"
+              onClick={handleOpenPdf}
+              sx={{ 
+                py: 0.5, 
+                px: 1, 
+                minWidth: 0, 
+                height: '28px',
+                borderRadius: '4px',
+                textTransform: 'none',
+                fontSize: '0.75rem',
+                fontWeight: 500
+              }}
+            >
+              <Icon icon="mdi:eye-outline" width={14} height={14} style={{ marginRight: '4px' }} />
+              View
+            </Button>
+          </Box>
+          
+          {/* Document Metadata */}
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 0.5 }}>
+            <Chip 
+              size="small" 
+              label={`Page ${citation.metadata?.pageNum || 1}`} 
+              variant="outlined"
+              sx={{ 
+                height: '20px', 
+                fontSize: '0.7rem',
+                fontWeight: 400,
+                bgcolor: 'transparent'
+              }}
+            />
+            {citation.metadata?.extension && (
+              <Chip 
+                size="small" 
+                label={citation.metadata.extension.toUpperCase()} 
+                variant="outlined"
+                sx={{ 
+                  height: '20px', 
+                  fontSize: '0.7rem',
+                  fontWeight: 400,
+                  bgcolor: 'transparent'
+                }}
+              />
+            )}
+          </Box>
 
-          {/* Main Content */}
-          <Typography
-            onClick={handleClick}
-            sx={{
-              fontSize: '0.8rem',
-              lineHeight: 1.4,
-              fontWeight: 600,
-              cursor: hasRecordId ? 'pointer' : 'default',
-              color: 'text.primary',
-              transition: 'all 0.2s ease-in-out',
-              '&:hover': hasRecordId
-                ? {
-                    color: 'primary.main',
-                    textDecoration: 'underline',
-                  }
-                : {},
-            }}
-          >
-            {citation.content?.length > 200
-              ? `${citation.content.substring(0, 200)}...`
-              : citation.content}
-          </Typography>
+          <Divider sx={{ my: 0.5 }} />
+          
+          {/* Citation Content */}
+          <Box>
+            <Typography
+              sx={{
+                fontSize: '0.8rem',
+                lineHeight: 1.5,
+                color: 'text.primary',
+                fontStyle: 'italic',
+                mb: 0.5,
+                pb: 0.5,
+                borderLeft: '2px solid',
+                borderColor: 'primary.light',
+                pl: 1.5,
+              }}
+            >
+              {citation?.content || 'No content available.'}
+            </Typography>
+          </Box>
 
-          {/* Paragraph Content */}
-          {citation.metadata?.para?.content && (
-            <TrimmedText text={citation.metadata.para.content} maxLength={300} />
-          )}
+          {/* Topics and Departments in one row */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {/* Topics */}
+            {citation.metadata?.topics && citation.metadata.topics.length > 0 && (
+              <Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 500, display: 'block', mb: 0.5, fontSize: '0.7rem' }}
+                >
+                  Topics
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  {citation.metadata.topics.slice(0, 4).map((topic, index) => (
+                    <Chip
+                      key={index}
+                      label={topic}
+                      size="small"
+                      sx={{
+                        height: '18px',
+                        fontSize: '0.65rem',
+                        fontWeight: 400,
+                        bgcolor: 'background.default',
+                        color: 'text.secondary',
+                        '& .MuiChip-label': {
+                          px: 1
+                        }
+                      }}
+                    />
+                  ))}
+                  {citation.metadata.topics.length > 4 && (
+                    <Chip
+                      label={`+${citation.metadata.topics.length - 4}`}
+                      size="small"
+                      sx={{ 
+                        height: '18px', 
+                        fontSize: '0.65rem',
+                        fontWeight: 400,
+                        bgcolor: 'background.default',
+                        color: 'text.secondary',
+                        '& .MuiChip-label': {
+                          px: 1
+                        }
+                      }}
+                    />
+                  )}
+                </Box>
+              </Box>
+            )}
 
-          {/* Answer Section */}
-          {citation.metadata?.answer && (
-            <Stack spacing={0.5}>
-              <Typography variant="caption" color="text.secondary">
-                Answer:
-              </Typography>
-              <TrimmedText text={citation.metadata.answer} maxLength={150} />
-            </Stack>
-          )}
-          <Button onClick={handleOpenPdf}>View Document</Button>
+            {/* Departments */}
+            {citation.metadata?.departments && citation.metadata.departments.length > 0 && (
+              <Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 500, display: 'block', mb: 0.5, fontSize: '0.7rem' }}
+                >
+                  Departments
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  {citation.metadata.departments.map((dept, index) => (
+                    <Chip
+                      key={index}
+                      label={dept}
+                      size="small"
+                      sx={{
+                        height: '18px',
+                        fontSize: '0.65rem',
+                        fontWeight: 400,
+                        bgcolor: 'background.default',
+                        color: 'text.secondary',
+                        '& .MuiChip-label': {
+                          px: 1
+                        }
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </Box>
         </Stack>
       </Card>
     </Fade>

@@ -1,4 +1,4 @@
-import type { Citation } from 'src/types/chat-bot';
+import type { Citation, CustomCitation } from 'src/types/chat-bot';
 import type {
   Record,
   ChatMessageProps,
@@ -110,44 +110,53 @@ const MessageContent: React.FC<MessageContentProps> = ({
   aggregatedCitations,
   onViewPdf,
 }) => {
-  const [hoveredCitation, setHoveredCitation] = useState<Citation | null>(null);
-  const [hoveredRecordCitations, setHoveredRecordCitations] = useState<Citation[]>([]);
+  // We track the hovered citation by a unique identifier: "lineIndex-partIndex"
+  const [hoveredCitationId, setHoveredCitationId] = useState<string | null>(null);
+  const [hoveredRecordCitations, setHoveredRecordCitations] = useState<CustomCitation[]>([]);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const citationMapping = useMemo(() => {
-    const mapping: { [key: number]: number } = {};
-    content.match(/\[(\d+)\]/g)?.forEach((match, index) => {
-      const num = parseInt(match.replace(/[[\]]/g, ''), 10);
-      mapping[num] = index;
+
+  // Create a mapping from citation number to the actual citation object
+  const citationNumberMap = useMemo(() => {
+    const result: { [key: number]: CustomCitation } = {};
+
+    citations.forEach((citation) => {
+      if (citation && citation.recordIndex && !result[citation.recordIndex]) {
+        result[citation.recordIndex] = citation;
+      }
     });
-    return mapping;
-  }, [content]);
+
+    return result;
+  }, [citations]);
 
   // Split content by newlines first
   const lines = content.split('\n');
 
-  const handleMouseEnter = (citationRef: string) => {
+  const handleMouseEnter = (citationRef: string, citationId: string) => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
     }
+
     const citationNumber = parseInt(citationRef.replace(/[[\]]/g, ''), 10);
-    const arrayIndex = citationMapping[citationNumber];
-    const citation = citations[arrayIndex];
-    if (citation?.citationMetaData?.recordId) {
-      const recordCitations = aggregatedCitations[citation.citationMetaData.recordId] || [];
-      setHoveredRecordCitations(recordCitations);
+    const citation = citationNumberMap[citationNumber];
+
+    if (citation) {
+      if (citation.metadata?.recordId) {
+        const recordCitations = aggregatedCitations[citation.metadata.recordId] || [];
+        setHoveredRecordCitations(recordCitations);
+      }
+      setHoveredCitationId(citationId);
     }
-    setHoveredCitation(citation);
   };
 
   const handleMouseLeave = () => {
     hoverTimeoutRef.current = setTimeout(() => {
-      setHoveredCitation(null);
+      setHoveredCitationId(null);
       setHoveredRecordCitations([]);
     }, 100);
   };
 
   const handleCloseHoverCard = () => {
-    setHoveredCitation(null);
+    setHoveredCitationId(null);
     setHoveredRecordCitations([]);
   };
 
@@ -156,45 +165,184 @@ const MessageContent: React.FC<MessageContentProps> = ({
       <Typography
         component="div"
         sx={{
-          fontSize: '0.9rem',
-          lineHeight: 1.6,
-          letterSpacing: '0.005em',
+          fontSize: '0.90rem',
+          lineHeight: 1.5,
+          letterSpacing: '0.01em',
           wordBreak: 'break-word',
+          color: 'text.primary',
+          fontWeight: 400,
+          '& code': {
+            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+            padding: '0.2em 0.4em',
+            borderRadius: '4px',
+            fontFamily: 'monospace',
+            fontSize: '0.9em',
+          },
+          '& strong': {
+            fontWeight: 600,
+            color: 'text.primary',
+          },
+          '& a': {
+            color: 'primary.main',
+            textDecoration: 'none',
+            borderBottom: '1px dotted',
+            borderColor: 'primary.light',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              color: 'primary.dark',
+              borderColor: 'primary.main',
+            },
+          },
         }}
       >
         {lines.map((line, lineIndex) => {
           const parts = line.split(/(\[\d+\])/);
           return (
-            <Box key={lineIndex} sx={{ mb: lineIndex < lines.length - 1 ? 1.5 : 0 }}>
+            <Box
+              key={lineIndex}
+              sx={{
+                mb: lineIndex < lines.length - 1 ? 2 : 0,
+                opacity: 1,
+                animation: lineIndex > 0 ? 'fadeIn 0.3s ease-in-out' : 'none',
+                '@keyframes fadeIn': {
+                  from: { opacity: 0.7 },
+                  to: { opacity: 1 },
+                },
+              }}
+            >
               {parts.map((part, partIndex) => {
                 const citationMatch = part.match(/\[(\d+)\]/);
                 if (citationMatch) {
                   const citationNumber = parseInt(citationMatch[1], 10);
-                  const arrayIndex = citationMapping[citationNumber];
-                  const citation = citations[arrayIndex];
+                  const citation = citationNumberMap[citationNumber];
+                  const citationId = `${lineIndex}-${partIndex}`;
+
                   return (
-                    <StyledCitation
-                      key={`${lineIndex}-${partIndex}`}
-                      onMouseEnter={() => handleMouseEnter(part)}
-                      onMouseLeave={handleMouseLeave}
+                    <Tooltip
+                      key={citationId}
+                      title="View source details"
+                      placement="top"
+                      arrow
+                      enterDelay={500}
+                      componentsProps={{
+                        tooltip: {
+                          sx: {
+                            bgcolor: 'background.paper',
+                            color: 'text.primary',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                            borderRadius: '8px',
+                            p: 1,
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                          },
+                        },
+                        arrow: {
+                          sx: {
+                            color: 'background.paper',
+                          },
+                        },
+                      }}
                     >
-                      {citationNumber}
-                      {hoveredCitation === citation && (
-                        <Box sx={{ position: 'absolute', left: 0, zIndex: 1400 }}>
-                          <CitationHoverCard
-                            citation={citation}
-                            isVisible={Boolean(true)}
-                            onRecordClick={onRecordClick}
-                            onClose={handleCloseHoverCard}
-                            aggregatedCitations={hoveredRecordCitations}
-                            onViewPdf={onViewPdf}
-                          />
+                      <Box
+                        component="span"
+                        onMouseEnter={() => handleMouseEnter(part, citationId)}
+                        onMouseLeave={handleMouseLeave}
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          ml: 0.5,
+                          mr: 0.25,
+                          cursor: 'pointer',
+                          position: 'relative',
+                          '&:hover': {
+                            '& .citation-number': {
+                              transform: 'scale(1.15) translateY(-1px)',
+                              bgcolor: 'primary.main',
+                              color: 'white',
+                              boxShadow: '0 3px 8px rgba(25, 118, 210, 0.3)',
+                            },
+                          },
+                        }}
+                      >
+                        <Box
+                          component="span"
+                          className="citation-number"
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            bgcolor: 'rgba(25, 118, 210, 0.08)',
+                            color: 'primary.main',
+                            fontSize: '0.65rem',
+                            fontWeight: 600,
+                            transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                            textDecoration: 'none',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                            border: '1px solid',
+                            borderColor: 'rgba(25, 118, 210, 0.12)',
+                          }}
+                        >
+                          {citationNumber}
                         </Box>
-                      )}
-                    </StyledCitation>
+                        {hoveredCitationId === citationId && citation && (
+                          <Fade in timeout={150}>
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                left: 0,
+                                bottom: '100%',
+                                zIndex: 1400,
+                                mb: 1,
+                                maxWidth: '350px',
+                                width: 'max-content',
+                                opacity: 1,
+                              }}
+                            >
+                              <CitationHoverCard
+                                citation={citation}
+                                isVisible={Boolean(true)}
+                                onRecordClick={onRecordClick}
+                                onClose={handleCloseHoverCard}
+                                aggregatedCitations={hoveredRecordCitations}
+                                onViewPdf={onViewPdf}
+                              />
+                            </Box>
+                          </Fade>
+                        )}
+                      </Box>
+                    </Tooltip>
                   );
                 }
-                return <span key={`${lineIndex}-${partIndex}`}>{part}</span>;
+                return (
+                  <Box
+                    component="span"
+                    key={`${lineIndex}-${partIndex}`}
+                    sx={{
+                      '& img': {
+                        maxWidth: '100%',
+                        height: 'auto',
+                        borderRadius: '8px',
+                        my: 2,
+                        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                      },
+                      '& ul, & ol': {
+                        pl: 2.5,
+                        mb: 2,
+                        mt: 1,
+                      },
+                      '& li': {
+                        mb: 0.75,
+                      },
+                    }}
+                  >
+                    {part}
+                  </Box>
+                );
               })}
             </Box>
           );
@@ -203,6 +351,7 @@ const MessageContent: React.FC<MessageContentProps> = ({
     </Box>
   );
 };
+
 
 const ChatMessage = ({
   message,
@@ -222,8 +371,8 @@ const ChatMessage = ({
   const aggregatedCitations = useMemo(() => {
     if (!message.citations) return {};
 
-    return message.citations.reduce<{ [key: string]: Citation[] }>((acc, citation) => {
-      const recordId = citation.citationMetaData?.recordId;
+    return message.citations.reduce<{ [key: string]: CustomCitation[] }>((acc, citation) => {
+      const recordId = citation.metadata?.recordId;
       if (!recordId) return acc;
 
       if (!acc[recordId]) {
@@ -248,7 +397,7 @@ const ChatMessage = ({
 
   const handleViewPdf = async (
     url: string,
-    citations: Citation[],
+    citations: CustomCitation[],
     isExcelFile?: boolean
   ): Promise<void> =>
     new Promise<void>((resolve) => {
@@ -290,7 +439,7 @@ const ChatMessage = ({
             variant="caption"
             sx={{
               color: 'text.secondary',
-              fontSize: '0.6rem',
+              fontSize: '0.65rem',
               fontWeight: 500,
             }}
           >
@@ -301,8 +450,8 @@ const ChatMessage = ({
               label={message.confidence}
               size="small"
               sx={{
-                height: '16px',
-                fontSize: '0.5rem',
+                height: '20px',
+                fontSize: '0.60rem',
                 fontWeight: 600,
                 backgroundColor:
                   message.confidence === 'Very High'
@@ -318,16 +467,16 @@ const ChatMessage = ({
       {/* Message Content */}
       <Box sx={{ position: 'relative' }}>
         <Paper
-          elevation={0}
+          elevation={1}
           sx={{
             width: '100%',
-            maxWidth: '85%',
+            maxWidth: '80%',
             p: 2,
             ml: message.type === 'user' ? 'auto' : 0,
             bgcolor: message.type === 'user' ? 'rgba(25, 118, 210, 0.02)' : 'background.paper',
             color: 'text.primary',
             borderRadius: '12px',
-            border: '1px solid',
+            border: '1.5px solid',
             borderColor:
               message.type === 'user' ? 'rgba(25, 118, 210, 0.08)' : 'rgba(0, 0, 0, 0.05)',
             position: 'relative',
@@ -364,7 +513,7 @@ const ChatMessage = ({
             </Typography>
           )}
           {/* Citations Section */}
-          {message.citations?.length && (
+          {message.citations && message.citations?.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Tooltip title={isExpanded ? 'Hide Citations' : 'Show Citations'}>
                 <Button
@@ -400,52 +549,56 @@ const ChatMessage = ({
                       elevation={0}
                       sx={{
                         p: 1.5,
-                        bgcolor: 'rgba(0, 0, 0, 0.01)',
+                        bgcolor: 'rgba(0, 0, 0, 0.02)',
                         borderRadius: '8px',
                         border: '1px solid',
-                        borderColor: 'divider',
-                        transition: 'all 0.2s ease-in-out',
+                        borderColor: 'rgba(0, 0, 0, 0.04)',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                         '&:hover': {
-                          backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                          borderColor: 'rgba(0, 0, 0, 0.1)',
+                          backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                          borderColor: 'rgba(0, 0, 0, 0.07)',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
                         },
                       }}
                     >
-                      <Stack spacing={1}>
+                      <Stack spacing={1.25}>
                         <Typography
                           sx={{
-                            fontSize: '0.75rem',
-                            lineHeight: 1.5,
-                            color: 'text.primary',
-                            fontWeight: 400,
+                            fontSize: '0.8rem',
+                            lineHeight: 1.6,
+                            color: 'text.secondary',
+                            fontWeight: 500,
+                            fontStyle: 'italic',
+                            position: 'relative',
+                            pl: 1.5,
+                            '&::before': {
+                              content: '""',
+                              position: 'absolute',
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: '3px',
+                              bgcolor: 'primary.light',
+                              borderRadius: '4px',
+                            },
                           }}
                         >
                           {citation.content}
                         </Typography>
 
-                        {citation.metadata?.para?.content && (
-                          <Typography
-                            sx={{
-                              fontSize: '0.8rem',
-                              lineHeight: 1.4,
-                              color: 'text.secondary',
-                            }}
-                          >
-                            {citation.metadata.para.content}
-                          </Typography>
-                        )}
-
                         {citation.metadata?.recordId && (
                           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                             <Button
                               size="small"
+                              variant="text"
                               startIcon={
-                                <Icon icon="mdi:file-document-outline" width={14} height={14} />
+                                <Icon icon="mdi:file-document-outline" width={12} height={12} />
                               }
                               onClick={() => {
                                 if (citation.metadata?.recordId) {
                                   const record: Record = {
-                                    recordId: citation.metadata.recordId,
+                                    // recordId: citation.metadata.recordId,
                                     citations: [], // This will be populated by handleOpenRecordDetails
                                     ...citation.metadata,
                                   };
@@ -454,8 +607,15 @@ const ChatMessage = ({
                               }}
                               sx={{
                                 textTransform: 'none',
-                                fontSize: '0.65rem',
-                                fontWeight: 500,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                color: 'primary.main',
+                                p: 0.75,
+                                minWidth: 0,
+                                borderRadius: '20px',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                                },
                               }}
                             >
                               View Details
@@ -470,7 +630,6 @@ const ChatMessage = ({
             </Box>
           )}
           {/* Message Controls */}
-          {/* // In your ChatMessage component's controls section */}
           {message.type === 'bot' && (
             <>
               <Divider sx={{ my: 1 }} />

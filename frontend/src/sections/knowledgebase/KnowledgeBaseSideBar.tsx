@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { alpha, styled, useTheme } from '@mui/material/styles';
@@ -31,23 +31,27 @@ import type {
 } from './types/knowledge-base';
 
 // Constants
-const drawerWidth = 320;
-const closedDrawerWidth = 64;
+const DRAWER_EXPANDED_WIDTH = 320;
+const DRAWER_COLLAPSED_WIDTH = 64;
 
 // Custom styled components with smooth transitions
 const OpenedDrawer = styled(Drawer, { shouldForwardProp: (prop) => prop !== 'open' })(
   ({ theme, open }) => ({
-    width: open ? drawerWidth : closedDrawerWidth,
+    width: open ? DRAWER_EXPANDED_WIDTH : DRAWER_COLLAPSED_WIDTH,
     flexShrink: 0,
     marginTop: 40,
     whiteSpace: 'nowrap',
     boxSizing: 'border-box',
+    transition: theme.transitions.create('width', {
+      easing: theme.transitions.easing.easeInOut,
+      duration: '0.3s', // Consistent duration for smoother transition
+    }),
     '& .MuiDrawer-paper': {
       marginTop: 52,
-      width: open ? drawerWidth : closedDrawerWidth,
-      transition: theme.transitions.create('width', {
+      width: open ? DRAWER_EXPANDED_WIDTH : DRAWER_COLLAPSED_WIDTH,
+      transition: theme.transitions.create(['width', 'margin'], {
         easing: theme.transitions.easing.easeInOut,
-        duration: '0.35s',
+        duration: '0.3s', // Matched with parent transition
       }),
       overflowX: 'hidden',
       borderRight: 'none',
@@ -158,7 +162,7 @@ const FiltersContainer = styled(Box)(({ theme }) => ({
     backgroundColor: alpha(theme.palette.text.secondary, 0.15),
     borderRadius: '10px',
   },
-  transition: theme.transitions.create('opacity', {
+  transition: theme.transitions.create(['opacity', 'transform'], {
     duration: '0.3s',
     easing: theme.transitions.easing.easeInOut,
   }),
@@ -236,22 +240,33 @@ const FormControlLabelStyled = styled(FormControlLabel)(({ theme }) => ({
   },
 }));
 
-const CollapsedButtonContainer = styled(Box)(({ theme }) => ({
+const CollapsedButtonContainer = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'visible',
+})<{ visible: boolean }>(({ theme, visible }) => ({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   paddingTop: theme.spacing(2),
-  animation: 'fadeInRight 0.3s ease-in-out',
-  '@keyframes fadeInRight': {
-    '0%': {
-      opacity: 0,
-      transform: 'translateX(-10px)',
-    },
-    '100%': {
-      opacity: 1,
-      transform: 'translateX(0)',
-    },
-  },
+  opacity: visible ? 1 : 0,
+  transform: visible ? 'translateX(0)' : 'translateX(-10px)',
+  transition: theme.transitions.create(['opacity', 'transform'], {
+    duration: '0.3s',
+    easing: theme.transitions.easing.easeInOut,
+    delay: visible ? '0.1s' : '0s',
+  }),
+}));
+
+const ExpandedContentContainer = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'visible',
+})<{ visible: boolean }>(({ theme, visible }) => ({
+  opacity: visible ? 1 : 0,
+  transform: visible ? 'translateX(0)' : 'translateX(10px)',
+  transition: theme.transitions.create(['opacity', 'transform'], {
+    duration: '0.3s',
+    easing: theme.transitions.easing.easeInOut,
+    delay: visible ? '0.1s' : '0s',
+  }),
+  width: '100%',
 }));
 
 const IconButtonStyled = styled(IconButton)(({ theme }) => ({
@@ -287,6 +302,9 @@ const formatLabel = (label: string): string => {
 export default function KnowledgeBaseSideBar({
   filters,
   onFilterChange,
+  openSidebar = true,
+  onToggleSidebar,
+  sx = {},
 }: KnowledgeBaseSideBarProps) {
   const theme = useTheme();
   const { pathname } = useLocation();
@@ -299,6 +317,10 @@ export default function KnowledgeBaseSideBar({
   const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
     status: true,
   });
+  
+  // Smoothly manage content appearance
+  const [showCollapsedContent, setShowCollapsedContent] = useState(!openSidebar);
+  const [showExpandedContent, setShowExpandedContent] = useState(openSidebar);
 
   // Status color mapping using theme colors
   const statusColors: Record<string, string> = {
@@ -308,9 +330,29 @@ export default function KnowledgeBaseSideBar({
     COMPLETED: theme.palette.success.main,
   };
 
+  // Sync internal state with prop
+  useEffect(() => {
+    setOpen(openSidebar);
+    
+    // Manage content visibility with a slight delay for smooth transitions
+    if (openSidebar) {
+      setShowCollapsedContent(false);
+      // Short delay before showing expanded content
+      setTimeout(() => setShowExpandedContent(true), 150);
+    } else {
+      setShowExpandedContent(false);
+      // Short delay before showing collapsed content
+      setTimeout(() => setShowCollapsedContent(true), 150);
+    }
+  }, [openSidebar]);
 
   const handleDrawerToggle = () => {
-    setOpen(!open);
+    const newOpenState = !open;
+    setOpen(newOpenState);
+    
+    if (onToggleSidebar) {
+      onToggleSidebar();
+    }
   };
 
   const toggleSection = (section: string) => {
@@ -340,6 +382,9 @@ export default function KnowledgeBaseSideBar({
     // If drawer is closed, open it
     if (!open) {
       setOpen(true);
+      if (onToggleSidebar) {
+        onToggleSidebar();
+      }
 
       // Expand the section that was clicked
       setExpandedSections({
@@ -444,7 +489,7 @@ export default function KnowledgeBaseSideBar({
 
   // Collapsed sidebar content
   const renderCollapsedContent = () => (
-    <CollapsedButtonContainer>
+    <CollapsedButtonContainer visible={showCollapsedContent}>
       <Tooltip title="Status Filters" placement="right">
         <IconButtonStyled
           color="primary"
@@ -587,7 +632,17 @@ export default function KnowledgeBaseSideBar({
   );
 
   return (
-    <OpenedDrawer variant="permanent" open={open}>
+    <OpenedDrawer 
+      variant="permanent" 
+      open={open}
+      sx={{
+        ...sx,
+        transition: theme.transitions.create('width', {
+          duration: '0.3s',
+          easing: theme.transitions.easing.easeInOut,
+        }),
+      }}
+    >
       <DrawerHeader>
         {open ? (
           <>
@@ -605,7 +660,13 @@ export default function KnowledgeBaseSideBar({
               <IconButtonStyled
                 onClick={handleDrawerToggle}
                 size="small"
-                sx={{ color: theme.palette.text.secondary }}
+                sx={{ 
+                  color: theme.palette.text.secondary,
+                  transition: theme.transitions.create('transform', {
+                    duration: '0.3s',
+                    easing: theme.transitions.easing.easeInOut,
+                  }),
+                }}
               >
                 <Icon icon="mdi:chevron-left" width={20} height={20} />
               </IconButtonStyled>
@@ -615,7 +676,14 @@ export default function KnowledgeBaseSideBar({
           <Tooltip title="Expand sidebar" placement="right">
             <IconButtonStyled
               onClick={handleDrawerToggle}
-              sx={{ mx: 'auto', color: theme.palette.primary.main }}
+              sx={{ 
+                mx: 'auto', 
+                color: theme.palette.primary.main,
+                transition: theme.transitions.create('transform', {
+                  duration: '0.3s',
+                  easing: theme.transitions.easing.easeInOut,
+                }),
+              }}
             >
               <Icon icon="mdi:chevron-right" width={20} height={20} />
             </IconButtonStyled>
@@ -626,60 +694,62 @@ export default function KnowledgeBaseSideBar({
       {!open ? (
         renderCollapsedContent()
       ) : (
-        <FiltersContainer>
-          {renderActiveFilters()}
+        <ExpandedContentContainer visible={showExpandedContent}>
+          <FiltersContainer>
+            {renderActiveFilters()}
 
-          <FilterSectionComponent
-            id="status"
-            icon="mdi:filter-variant"
-            label="Status"
-            filterType="indexingStatus"
-            items={['NOT_STARTED', 'IN_PROGRESS', 'FAILED', 'COMPLETED']}
-            renderItemLabel={(status: string) => (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Icon
-                  icon={statusIcons[status]}
-                  color={statusColors[status]}
-                  width={16}
-                  height={16}
-                />
-                {formatLabel(status)}
-              </Box>
-            )}
-          />
+            <FilterSectionComponent
+              id="status"
+              icon="mdi:filter-variant"
+              label="Status"
+              filterType="indexingStatus"
+              items={['NOT_STARTED', 'IN_PROGRESS', 'FAILED', 'COMPLETED']}
+              renderItemLabel={(status: string) => (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Icon
+                    icon={statusIcons[status]}
+                    color={statusColors[status]}
+                    width={16}
+                    height={16}
+                  />
+                  {formatLabel(status)}
+                </Box>
+              )}
+            />
 
-          <FilterSectionComponent
-            id="departments"
-            icon="mdi:office-building"
-            label="Departments"
-            filterType="department"
-            items={departments}
-          />
+            <FilterSectionComponent
+              id="departments"
+              icon="mdi:office-building"
+              label="Departments"
+              filterType="department"
+              items={departments}
+            />
 
-          <FilterSectionComponent
-            id="modules"
-            icon="mdi:view-module"
-            label="Modules"
-            filterType="moduleId"
-            items={modules}
-          />
+            <FilterSectionComponent
+              id="modules"
+              icon="mdi:view-module"
+              label="Modules"
+              filterType="moduleId"
+              items={modules}
+            />
 
-          <FilterSectionComponent
-            id="tags"
-            icon="mdi:tag"
-            label="Tags"
-            filterType="searchTags"
-            items={tags}
-          />
+            <FilterSectionComponent
+              id="tags"
+              icon="mdi:tag"
+              label="Tags"
+              filterType="searchTags"
+              items={tags}
+            />
 
-          <FilterSectionComponent
-            id="categories"
-            icon="mdi:format-list-bulleted"
-            label="Record Categories"
-            filterType="appSpecificRecordType"
-            items={recordCategories}
-          />
-        </FiltersContainer>
+            <FilterSectionComponent
+              id="categories"
+              icon="mdi:format-list-bulleted"
+              label="Record Categories"
+              filterType="appSpecificRecordType"
+              items={recordCategories}
+            />
+          </FiltersContainer>
+        </ExpandedContentContainer>
       )}
     </OpenedDrawer>
   );

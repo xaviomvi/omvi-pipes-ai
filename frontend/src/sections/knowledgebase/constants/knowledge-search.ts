@@ -1,0 +1,12 @@
+export const ORIGIN = {
+  UPLOAD: 'UPLOAD',
+  CONNECTOR: 'CONNECTOR',
+};
+
+export const CONNECTOR_NAME = {
+  ONEDRIVE: 'ONEDRIVE',
+  DRIVE: 'DRIVE',
+  CONFLUENCE: 'CONFLUENCE',
+  GMAIL: 'GMAIL',
+  SLACK: 'SLACK',
+};

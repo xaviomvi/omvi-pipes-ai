@@ -74,6 +74,7 @@ export interface ConnectorFormValues {
     projectId?: string;
     clientSecret?: string;
     redirectUri?: string;
+    adminEmail?: string;
   };
 }
 

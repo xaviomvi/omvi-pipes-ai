@@ -64,12 +64,11 @@ const ChatSidebar = ({
     setIsLoading(true);
     try {
       const response = await axiosInstance.get<ConversationsResponse>('/api/v1/conversations/', {
-        params: {
-          page: pageNum,
-          conversationSource: 'sales',
-          limit: 20,
-          shared: activeTab === 'shared'
-        },
+        // params: {
+        //   page: pageNum,
+        //   limit: 20,
+        //   shared: activeTab === 'shared'
+        // },
       });
 
       const { conversations: newConversations = [], pagination = {
@@ -99,6 +98,7 @@ const ChatSidebar = ({
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line
   }, [activeTab]);
 
   useEffect(() => {

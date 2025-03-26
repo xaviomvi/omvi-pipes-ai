@@ -86,6 +86,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
   const [connectorValues, setConnectorValues] = useState<ConnectorFormValues | null>(null);
   const [smtpValues, setSmtpValues] = useState<SmtpFormValues | null>(null);
   const [serviceCredentialsFile, setServiceCredentialsFile] = useState<File | null>(null);
+  const [adminEmail, setAdminEmail] = useState<string>('');
 
   // Reset state when dialog is opened
   useEffect(() => {
@@ -278,6 +279,9 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
     setConnectorValues(data);
     setServiceCredentialsFile(file);
     setSkipSteps((prev) => ({ ...prev, connector: false })); // Ensure it's marked as not skipped
+    if (data.googleWorkspace.adminEmail) {
+      setAdminEmail(data.googleWorkspace.adminEmail);
+    }
 
     // Give time for state to update before moving to next step
     setTimeout(() => {
@@ -549,7 +553,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           if (serviceCredentialsFile) {
             const formData = new FormData();
             formData.append('file', serviceCredentialsFile);
-
+            formData.append('adminEmail', adminEmail);
             if (connectorValues.googleWorkspace?.serviceCredentials) {
               // If we have parsed data from the file, only include non-empty fields
               const serviceAccount: any = {};

@@ -69,7 +69,9 @@ export const conversationShareParamsSchema = conversationIdParamsSchema.extend({
 
 export const addMessageParamsSchema = enterpriseSearchCreateSchema.extend({
   params: z.object({
-    conversationId: conversationIdParamsSchema,
+    conversationId: z.string().regex(objectIdRegex, {
+      message: 'Invalid conversation ID format',
+    }),
   }),
 });
 

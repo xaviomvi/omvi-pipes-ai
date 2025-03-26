@@ -1,11 +1,10 @@
-import type { Citation } from 'src/types/chat-bot';
+import type { Citation, CustomCitation } from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';
 import React, { useState, useEffect } from 'react';
 
 import {
   Box,
-  Chip,
   Paper,
   Stack,
   Button,
@@ -20,59 +19,59 @@ import axiosInstance from 'src/utils/axios';
 
 import PDFViewer from './pdf-viewer';
 
-interface Department {
-  _id: string;
-  name: string;
-}
-
-interface AppSpecificRecordType {
-  _id: string;
-  name: string;
-}
-
-interface Certificate {
-  certificateType: string;
-  [key: string]: any;
-}
-
 interface FileRecord {
-  storageDocumentId: string;
-  extension: string;
-  fileName?: string;
-  createdAt: string;
-  [key: string]: any;
-}
-
-interface Record {
-  _id: string;
   name: string;
-  slug: string;
-  version: string;
-  status: string;
+  extension: string;
+  mimeType: string;
+  sizeInBytes: number;
+  isFile: boolean;
+  webUrl: string;
+}
+
+interface RecordData {
+  _key: string;
+  _id: string;
+  _rev: string;
+  orgId: string;
+  recordName: string;
+  externalRecordId: string;
   recordType: string;
-  createdAt: string;
-  updatedAt: string;
-  departments?: Department[];
-  appSpecificRecordType?: AppSpecificRecordType[];
-  certificate?: Certificate;
+  origin: string;
+  createdAtTimestamp: number;
+  updatedAtTimestamp: number;
+  isDeleted: boolean;
+  isArchived: boolean;
+  indexingStatus: string;
+  version: number;
+  extractionStatus: string;
   fileRecord?: FileRecord;
-  [key: string]: any;
+}
+
+interface KnowledgeBase {
+  id: string;
+  name: string;
+  orgId: string;
+}
+
+interface ApiResponse {
+  record: RecordData;
+  knowledgeBase: KnowledgeBase;
+  permissions: string;
+  relatedRecords: any[];
+  meta: {
+    requestId: string;
+    timestamp: string;
+  };
 }
 
 interface RecordDetailsProps {
   recordId: string;
-  citations: Citation[];
+  citations: CustomCitation[];
   onExternalLink?: string;
 }
 
-interface RecordDetailsProps {
-  recordId: string;
-  citations: Citation[];
-  onExternalLink?: string;
-}
-
-const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetailsProps) => {
-  const [record, setRecord] = useState<Record | null>(null);
+const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetailsProps) => {
+  const [recordData, setRecordData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isPDFViewerOpen, setIsPDFViewerOpen] = useState<boolean>(false);
@@ -87,7 +86,7 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
 
       try {
         const response = await axiosInstance.get(`/api/v1/knowledgebase/${recordId}`);
-        setRecord(response.data);
+        setRecordData(response.data);
       } catch (err) {
         setError('Failed to fetch record details. Please try again later.');
       } finally {
@@ -99,18 +98,21 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
   }, [recordId]);
 
   const handleOpenPDFViewer = async () => {
-    if (record?.fileRecord?.storageDocumentId) {
-      try {
-        const response = await axiosInstance.get(
-          `/api/v1/document/${record.fileRecord.storageDocumentId}/download`
-        );
+    const record = recordData?.record;
+    if (record?.origin === 'UPLOAD') {
+      if (record?.externalRecordId) {
+        try {
+          const response = await axiosInstance.get(
+            `/api/v1/document/${record.externalRecordId}/download`
+          );
 
-        const url = response.data.data;
+          const url = response.data.signedUrl;
 
-        setPdfUrl(url);
-        setIsPDFViewerOpen(true);
-      } catch (err) {
-        console.error('Failed to fetch PDF:', err);
+          setPdfUrl(url);
+          setIsPDFViewerOpen(true);
+        } catch (err) {
+          console.error('Failed to fetch PDF:', err);
+        }
       }
     }
   };
@@ -132,7 +134,7 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
           alignItems: 'center',
           justifyContent: 'center',
           py: 4,
-          gap: 2
+          gap: 2,
         }}
       >
         <CircularProgress size={24} thickness={2} />
@@ -143,7 +145,7 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
             alignItems: 'center',
             gap: 1,
             fontSize: '0.875rem',
-            fontWeight: 500
+            fontWeight: 500,
           }}
         >
           <Icon icon="mdi:loading" fontSize={16} />
@@ -157,9 +159,12 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
     return <Typography color="error">{error}</Typography>;
   }
 
-  if (!record) {
+  if (!recordData) {
     return null;
   }
+
+  const record = recordData.record;
+  const webUrl = record.fileRecord?.webUrl;
 
   return (
     <Paper
@@ -185,15 +190,13 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
         >
           <Icon icon="mdi:file-text-outline" width={24} height={24} />
           Record Details
-          <Tooltip title="View document">
-            <IconButton
-              onClick={() =>
-                window.open(`/knowledge-base/records/${recordId}`, '_blank', 'noopener,noreferrer')
-              }
-            >
-              <Icon icon="mdi:link" color="blue" width={24} height={24} />
-            </IconButton>
-          </Tooltip>
+          {webUrl && (
+            <Tooltip title="View document">
+              <IconButton onClick={() => window.open(webUrl, '_blank', 'noopener,noreferrer')}>
+                <Icon icon="mdi:link" color="blue" width={24} height={24} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Typography>
 
         {onExternalLink && (
@@ -227,18 +230,19 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
         }}
       >
         {[
-          { label: 'Name', value: record.name },
-          { label: 'Slug', value: record.slug },
-          { label: 'Version', value: record.version },
-          { label: 'Status', value: record.status },
+          { label: 'Name', value: record.recordName },
           { label: 'Record Type', value: record.recordType },
+          { label: 'Origin', value: record.origin },
+          { label: 'Indexing Status', value: record.indexingStatus },
+          { label: 'Extraction Status', value: record.extractionStatus },
+          { label: 'Version', value: record.version },
           {
             label: 'Created At',
-            value: new Date(record.createdAt).toLocaleString(),
+            value: new Date(record.createdAtTimestamp).toLocaleString(),
           },
           {
             label: 'Updated At',
-            value: new Date(record.updatedAt).toLocaleString(),
+            value: new Date(record.updatedAtTimestamp).toLocaleString(),
           },
         ].map((item) => (
           <Box
@@ -259,7 +263,7 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
           </Box>
         ))}
 
-        {/* Departments */}
+        {/* Knowledge Base */}
         <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
           <Typography
             variant="body2"
@@ -269,24 +273,14 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
               color: 'text.secondary',
             }}
           >
-            Departments
+            Knowledge Base
           </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {record.departments?.map((dept) => (
-              <Chip
-                key={dept._id}
-                label={dept.name}
-                size="small"
-                icon={<Icon icon="mdi:folder-outline" width={16} height={16} />}
-                variant="outlined"
-                color="primary"
-                sx={{ mb: 0.5 }}
-              />
-            ))}
-          </Stack>
+          <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
+            {recordData.knowledgeBase.name}
+          </Typography>
         </Box>
 
-        {/* App Specific Record Types */}
+        {/* Permissions */}
         <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
           <Typography
             variant="body2"
@@ -296,53 +290,12 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
               color: 'text.secondary',
             }}
           >
-            Record Types
+            Permissions
           </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {record.appSpecificRecordType?.map((type) => (
-              <Chip
-                key={type._id}
-                label={type.name}
-                size="small"
-                icon={<Icon icon="mdi:tag-outline" width={16} height={16} />}
-                variant="outlined"
-                color="secondary"
-                sx={{ mb: 0.5 }}
-              />
-            ))}
-          </Stack>
+          <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
+            {recordData.permissions}
+          </Typography>
         </Box>
-
-        {/* Certificate Details */}
-        {record.certificate && (
-          <Box gridColumn="1 / -1" sx={{ mt: 2 }}>
-            <Typography
-              variant="subtitle1"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                mb: 1,
-                fontWeight: 600,
-                color: 'text.primary',
-              }}
-            >
-              <Icon icon="mdi:check-circle-outline" width={20} height={20} />
-              Certificate Information
-            </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                gap: 2,
-              }}
-            >
-              <Typography variant="body2">
-                <strong>Certificate Type:</strong> {record.certificate.certificateType}
-              </Typography>
-            </Box>
-          </Box>
-        )}
 
         {/* File Record Details */}
         {record.fileRecord && (
@@ -369,11 +322,16 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
               }}
             >
               <Typography variant="body2">
+                <strong>File Name:</strong> {record.fileRecord.name}
+              </Typography>
+              <Typography variant="body2">
                 <strong>File Extension:</strong> {record.fileRecord.extension}
               </Typography>
               <Typography variant="body2">
-                <strong>Uploaded At:</strong>{' '}
-                {new Date(record.fileRecord.createdAt).toLocaleString()}
+                <strong>MIME Type:</strong> {record.fileRecord.mimeType}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Size:</strong> {(record.fileRecord.sizeInBytes / 1024).toFixed(2)} KB
               </Typography>
               {record.fileRecord.extension.toLowerCase() === 'pdf' && (
                 <Box gridColumn="1 / -1">
@@ -397,11 +355,11 @@ const RecordDetails = ({ recordId, onExternalLink,citations = [] } : RecordDetai
         )}
       </Box>
       {pdfUrl && (
-        <PDFViewer 
+        <PDFViewer
           open={isPDFViewerOpen}
           onClose={handleClosePDFViewer}
           pdfUrl={pdfUrl}
-          fileName={record.fileRecord?.fileName || 'Document'}
+          fileName={record.fileRecord?.name || 'Document'}
           // citations={citations}
         />
       )}

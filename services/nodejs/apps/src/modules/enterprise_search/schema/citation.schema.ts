@@ -41,6 +41,11 @@ export interface ICitation extends Document {
   updatedAt: Date;
 }
 
+export interface AiSearchResponse {
+  searchResults : ICitation[];
+  records : Record<string,any>;
+}
+
 interface ICitationModel extends Model<ICitation> {
   createFromAIResponse(aiCitation: any, orgId: string): Promise<ICitation>;
 }
