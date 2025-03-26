@@ -8,6 +8,7 @@ from openpyxl.utils import get_column_letter
 from app.core.llm_service import LLMFactory
 from app.modules.parsers.excel.prompt_template import prompt, sheet_summary_prompt, table_summary_prompt, row_text_prompt
 import json
+from datetime import datetime
 
 
 class ExcelParser:
@@ -77,8 +78,8 @@ class ExcelParser:
             # Prepare metadata
             metadata = {
                 'creator': self.workbook.properties.creator,
-                'created': self.workbook.properties.created,
-                'modified': self.workbook.properties.modified,
+                'created': self.workbook.properties.created.isoformat() if self.workbook.properties.created else None,
+                'modified': self.workbook.properties.modified.isoformat() if self.workbook.properties.modified else None,
                 'last_modified_by': self.workbook.properties.lastModifiedBy,
                 'sheet_count': len(self.workbook.sheetnames)
             }
@@ -430,7 +431,8 @@ class ExcelParser:
             tables_data = []
             for idx, table in enumerate(tables, 1):
                 sample_data = [
-                    {cell['header']: cell['value'] for cell in row}
+                    {cell['header']: (cell['value'].isoformat() if isinstance(cell['value'], datetime) else cell['value'])
+                     for cell in row}
                     for row in table['data'][:3]  # Use first 3 rows as sample
                 ]
                 tables_data.append(f"Table {idx}:\nHeaders: {table['headers']}\n"
@@ -454,7 +456,8 @@ class ExcelParser:
             logger.debug(f"Getting table summary for: {table['headers']}")
             # Prepare sample data
             sample_data = [
-                {cell['header']: cell['value'] for cell in row}
+                {cell['header']: (cell['value'].isoformat() if isinstance(cell['value'], datetime) else cell['value'])
+                 for cell in row}
                 for row in table['data'][:3]  # Use first 3 rows as sample
             ]
 
@@ -476,7 +479,8 @@ class ExcelParser:
             logger.debug(f"Getting rows text for: {rows}")
             # Prepare rows data
             rows_data = [
-                {cell['header']: cell['value'] for cell in row}
+                {cell['header']: (cell['value'].isoformat() if isinstance(cell['value'], datetime) else cell['value'])
+                 for cell in row}
                 for row in rows
             ]
 
@@ -540,12 +544,14 @@ class ExcelParser:
             for i in range(0, len(table['data']), batch_size):
                 batch = table['data'][i:i + batch_size]
                 row_texts = await self.get_rows_text(batch, sheet_summary, table_summary)
+                
 
                 # Add processed rows to results
                 for row, row_text in zip(batch, row_texts):
                     processed_rows.append({
                         'raw_data': {cell['header']: cell['value'] for cell in row},
-                        'natural_language_text': row_text
+                        'natural_language_text': row_text,
+                        'row_num': row[0]['row']  # Include row number
                     })
 
             processed_tables.append({

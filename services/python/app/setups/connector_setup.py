@@ -30,67 +30,91 @@ from redis.exceptions import RedisError
 import aiohttp
 from app.utils.logger import logger
 
-def initialize_individual_account_services_fn(container):
+async def initialize_individual_account_services_fn(container):
     """Initialize services for an individual account type."""
-    
-    # Initialize base services
-    container.drive_service.override(
-        providers.Singleton(DriveUserService, config=container.config_service, rate_limiter=container.rate_limiter)
-    )
-    container.gmail_service.override(
-        providers.Singleton(GmailUserService, config=container.config_service, rate_limiter=container.rate_limiter)
-    )
+    try:    
+        # Initialize base services
+        container.drive_service.override(
+            providers.Singleton(DriveUserService, config=container.config_service, rate_limiter=container.rate_limiter)
+        )
+        drive_service = container.drive_service()
+        assert isinstance(drive_service, DriveUserService)
+        
+        container.gmail_service.override(
+            providers.Singleton(GmailUserService, config=container.config_service, rate_limiter=container.rate_limiter)
+        )
+        gmail_service = container.gmail_service()
+        assert isinstance(gmail_service, GmailUserService)
 
-    # Initialize webhook handlers
-    container.drive_webhook_handler.override(
-        providers.Singleton(
-            IndividualDriveWebhookHandler,
-            config=container.config_service,
-            drive_user_service=container.drive_service,
-            arango_service=container.arango_service,
-            change_handler=container.drive_change_handler,
+        # Initialize webhook handlers
+        container.drive_webhook_handler.override(
+            providers.Singleton(
+                IndividualDriveWebhookHandler,
+                config=container.config_service,
+                drive_user_service=container.drive_service(),
+                arango_service=await container.arango_service(),
+                change_handler=await container.drive_change_handler(),
+            )
         )
-    )
-    container.gmail_webhook_handler.override(
-        providers.Singleton(
-            IndividualGmailWebhookHandler,
-            config=container.config_service,
-            gmail_user_service=container.gmail_service,
-            arango_service=container.arango_service,
-            change_handler=container.gmail_change_handler,
+        drive_webhook_handler = container.drive_webhook_handler()
+        assert isinstance(drive_webhook_handler, IndividualDriveWebhookHandler)
+
+        container.gmail_webhook_handler.override(
+            providers.Singleton(
+                IndividualGmailWebhookHandler,
+                config=container.config_service,
+                gmail_user_service=container.gmail_service(),
+                arango_service=await container.arango_service(),
+                change_handler=await container.gmail_change_handler(),
+            )
         )
-    )
-    # Initialize sync services
-    container.drive_sync_service.override(
-        providers.Singleton(
-            DriveSyncIndividualService,
-            config=container.config_service,
-            drive_user_service=container.drive_service,
-            arango_service=container.arango_service,
-            change_handler=container.drive_change_handler,
-            kafka_service=container.kafka_service,
-            celery_app=container.celery_app
+        gmail_webhook_handler = container.gmail_webhook_handler()
+        assert isinstance(gmail_webhook_handler, IndividualGmailWebhookHandler)
+        
+        # Initialize sync services
+        container.drive_sync_service.override(
+            providers.Singleton(
+                DriveSyncIndividualService,
+                config=container.config_service,
+                drive_user_service= container.drive_service(),
+                arango_service=await container.arango_service(),
+                change_handler=await container.drive_change_handler(),
+                kafka_service=container.kafka_service,
+                celery_app=container.celery_app
+            )
         )
-    )
-    container.gmail_sync_service.override(
-        providers.Singleton(
-            GmailSyncIndividualService,
-            config=container.config_service,
-            gmail_user_service=container.gmail_service,
-            arango_service=container.arango_service,
-            change_handler=container.gmail_change_handler,
-            kafka_service=container.kafka_service,
-            celery_app=container.celery_app
+        drive_sync_service = container.drive_sync_service()
+        assert isinstance(drive_sync_service, DriveSyncIndividualService)
+
+        container.gmail_sync_service.override(
+            providers.Singleton(
+                GmailSyncIndividualService,
+                config=container.config_service,
+                gmail_user_service= container.gmail_service(),
+                arango_service=await container.arango_service(),
+                change_handler=await container.gmail_change_handler(),
+                kafka_service=container.kafka_service,
+                celery_app=container.celery_app
+            )
         )
-    )
-    container.sync_tasks.override(
-        providers.Singleton(
-            SyncTasks,
-            celery_app=container.celery_app,
-            drive_sync_service=container.drive_sync_service,
-            gmail_sync_service=container.gmail_sync_service,
+        gmail_sync_service = container.gmail_sync_service()
+        assert isinstance(gmail_sync_service, GmailSyncIndividualService)
+
+        container.sync_tasks.override(
+            providers.Singleton(
+                SyncTasks,
+                celery_app=container.celery_app,
+                drive_sync_service= container.drive_sync_service(),
+                gmail_sync_service= container.gmail_sync_service(),
+            )
         )
-    )
+        sync_tasks = container.sync_tasks()
+        assert isinstance(sync_tasks, SyncTasks)
+
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize services for individual account: {str(e)}")
+        raise
+    
     container.wire(modules=[
         "app.core.celery_app",
         "app.connectors.google.core.sync_tasks",
@@ -101,69 +125,87 @@ def initialize_individual_account_services_fn(container):
 
     logger.info("✅ Successfully initialized services for individual account")
 
-def initialize_enterprise_account_services_fn(container):
+async def initialize_enterprise_account_services_fn(container):
     """Initialize services for an enterprise account type."""
     
-    # Initialize base services
-    container.drive_service.override(
-        providers.Singleton(DriveAdminService, config=container.config_service, rate_limiter=container.rate_limiter)
-    )
-    container.gmail_service.override(
-        providers.Singleton(GmailAdminService, config=container.config_service, rate_limiter=container.rate_limiter)
-    )
+    try:
+        
+        # Initialize base services
+        container.drive_service.override(
+            providers.Singleton(DriveAdminService, config=container.config_service, rate_limiter=container.rate_limiter)
+        )
+        container.gmail_service.override(
+            providers.Singleton(GmailAdminService, config=container.config_service, rate_limiter=container.rate_limiter)
+        )
 
-    # Initialize webhook handlers
-    container.drive_webhook_handler.override(
-        providers.Singleton(
-            EnterpriseDriveWebhookHandler,
-            config=container.config_service,
-            drive_admin_service=container.drive_service,
-            arango_service=container.arango_service,
-            change_handler=container.drive_change_handler,
+        # Initialize webhook handlers
+        container.drive_webhook_handler.override(
+            providers.Singleton(
+                EnterpriseDriveWebhookHandler,
+                config=container.config_service,
+                drive_admin_service=container.drive_service(),
+                arango_service=await container.arango_service(),
+                change_handler=await container.drive_change_handler(),
+            )
         )
-    )
-    container.gmail_webhook_handler.override(
-        providers.Singleton(
-            EnterpriseGmailWebhookHandler,
-            config=container.config_service,
-            gmail_admin_service=container.gmail_service,
-            arango_service=container.arango_service,
-            change_handler=container.gmail_change_handler,
+        drive_webhook_handler = container.drive_webhook_handler()
+        assert isinstance(drive_webhook_handler, EnterpriseDriveWebhookHandler)
+        
+        container.gmail_webhook_handler.override(
+            providers.Singleton(
+                EnterpriseGmailWebhookHandler,
+                config=container.config_service,
+                gmail_admin_service=container.gmail_service(),
+                arango_service=await container.arango_service(),
+                change_handler=await container.gmail_change_handler(),
+            )
         )
-    )
+        gmail_webhook_handler = container.gmail_webhook_handler()
+        assert isinstance(gmail_webhook_handler, EnterpriseGmailWebhookHandler)
 
-    # Initialize sync services
-    container.drive_sync_service.override(
-        providers.Singleton(
-            DriveSyncEnterpriseService,
-            config=container.config_service,
-            drive_admin_service=container.drive_service,
-            arango_service=container.arango_service,
-            change_handler=container.drive_change_handler,
-            kafka_service=container.kafka_service,
-            celery_app=container.celery_app
+        # Initialize sync services
+        container.drive_sync_service.override(
+            providers.Singleton(
+                DriveSyncEnterpriseService,
+                config=container.config_service,
+                drive_admin_service=container.drive_service(),
+                arango_service=await container.arango_service(),
+                change_handler=await container.drive_change_handler(),
+                kafka_service=container.kafka_service,
+                celery_app=container.celery_app
+            )
         )
-    )
-    container.gmail_sync_service.override(
-        providers.Singleton(
-            GmailSyncEnterpriseService,
-            config=container.config_service,
-            gmail_admin_service=container.gmail_service,
-            arango_service=container.arango_service,
-            change_handler=container.gmail_change_handler,
-            kafka_service=container.kafka_service,
-            celery_app=container.celery_app
+        drive_sync_service = container.drive_sync_service()
+        assert isinstance(drive_sync_service, DriveSyncEnterpriseService)
+        
+        container.gmail_sync_service.override(
+            providers.Singleton(
+                GmailSyncEnterpriseService,
+                config=container.config_service,
+                gmail_admin_service=container.gmail_service(),
+                arango_service=await container.arango_service(),
+                change_handler=await container.gmail_change_handler(),
+                kafka_service=container.kafka_service,
+                celery_app=container.celery_app
+            )
         )
-    )
+        gmail_sync_service = container.gmail_sync_service()
+        assert isinstance(gmail_sync_service, GmailSyncEnterpriseService)
 
-    container.sync_tasks.override(
-        providers.Singleton(
-            SyncTasks,
-            celery_app=container.celery_app,
-            drive_sync_service=container.drive_sync_service,
-            gmail_sync_service=container.gmail_sync_service,
+        container.sync_tasks.override(
+            providers.Singleton(
+                SyncTasks,
+                celery_app=container.celery_app,
+                drive_sync_service=container.drive_sync_service(),
+                gmail_sync_service=container.gmail_sync_service(),
+            )
         )
-    )
+        sync_tasks = container.sync_tasks()
+        assert isinstance(sync_tasks, SyncTasks)
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize services for enterprise account: {str(e)}")
+        raise
 
     container.wire(modules=[
         "app.core.celery_app",
@@ -188,12 +230,12 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     async def _create_arango_client(config_service):
-        """Async factory method to initialize ArangoClient."""
+        """Async method to initialize ArangoClient."""
         hosts = await config_service.get_config(config_node_constants.ARANGO_URL.value)
         return ArangoClient(hosts=hosts)
 
     async def _create_redis_client(config_service):
-        """Async factory method to initialize RedisClient."""
+        """Async method to initialize RedisClient."""
         url = await config_service.get_config(config_node_constants.REDIS_URL.value)
         return await aioredis.from_url(url, encoding="utf-8", decode_responses=True)
 

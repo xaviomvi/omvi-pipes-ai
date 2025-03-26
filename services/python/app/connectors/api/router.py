@@ -26,7 +26,8 @@ router = APIRouter()
 async def get_drive_webhook_handler(request: Request) -> Optional[Any]:
     try:
         container: AppContainer = request.app.container
-        return await container.drive_webhook_handler()
+        drive_webhook_handler = container.drive_webhook_handler()
+        return drive_webhook_handler
     except Exception as e:
         logger.warning(f"Failed to get drive webhook handler: {str(e)}")
         return None
@@ -35,11 +36,12 @@ async def get_drive_webhook_handler(request: Request) -> Optional[Any]:
 @inject
 async def handle_drive_webhook(
     request: Request,
-    background_tasks: BackgroundTasks,
-    drive_webhook_handler=Depends(get_drive_webhook_handler)
+    background_tasks: BackgroundTasks
 ):
     """Handle incoming webhook notifications from Google Drive"""
     try:
+        drive_webhook_handler = await get_drive_webhook_handler(request)
+        
         if drive_webhook_handler is None:
             logger.warning("Drive webhook handler not yet initialized - skipping webhook processing")
             return {"status": "skipped", "message": "Webhook handler not yet initialized"}
@@ -75,7 +77,8 @@ async def handle_drive_webhook(
 async def get_gmail_webhook_handler(request: Request) -> Optional[Any]:
     try:
         container: AppContainer = request.app.container
-        return await container.gmail_webhook_handler()
+        gmail_webhook_handler = container.gmail_webhook_handler()
+        return gmail_webhook_handler
     except Exception as e:
         logger.error(f"Error getting gmail webhook handler: {str(e)}")
         return None
@@ -85,10 +88,12 @@ async def get_gmail_webhook_handler(request: Request) -> Optional[Any]:
 @inject
 async def handle_gmail_webhook(
     request: Request,
-    gmail_webhook_handler=Depends(get_gmail_webhook_handler)
+    background_tasks: BackgroundTasks
 ):
     """Handles incoming Pub/Sub messages"""
     try:
+        gmail_webhook_handler = await get_gmail_webhook_handler(request)
+        
         if gmail_webhook_handler is None:
             logger.warning("Gmail webhook handler not yet initialized - skipping webhook processing")
             return {"status": "skipped", "message": "Webhook handler not yet initialized"}
@@ -112,7 +117,11 @@ async def handle_gmail_webhook(
                 logger.info("Received notification: %s", notification)
 
                 # Process the notification
-                await gmail_webhook_handler.process_notification(request.headers, notification)
+                background_tasks.add_task(
+                    gmail_webhook_handler.process_notification,
+                    request.headers,
+                    notification
+                )
 
                 return {"status": "ok"}
             except Exception as e:

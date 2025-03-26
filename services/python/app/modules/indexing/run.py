@@ -33,7 +33,7 @@ class CustomChunker(SemanticChunker):
         super().__init__(*args, **kwargs)
         self.number_of_chunks = None
         self.breakpoint_threshold_type: str = "percentile"
-        self.breakpoint_threshold_amount: float = 10
+        self.breakpoint_threshold_amount: float = 1
 
     def split_documents(self, documents: List[Document]) -> List[Document]:
         """Override split_documents to use our custom merging logic"""
@@ -300,8 +300,8 @@ class IndexingPipeline:
                 'origin': meta.get('origin', ''),
                 'connector': meta.get('connectorName', ''),
                 'blockNum': meta.get('blockNum', 0),
+                'blockText': meta.get('blockText', ''),
                 'blockType': meta.get('blockType', 'paragraph'),
-                'pageNum': meta.get('pageNum', 0),
                 'departments': meta.get('departments', []),
                 'topics': meta.get('topics', []),
                 'categories': meta.get('categories', []),
@@ -312,6 +312,12 @@ class IndexingPipeline:
                 'extension': meta.get('extension', ''),
                 'mimeType': meta.get('mimeType', ''),
             }
+            if meta.get('sheetName'):
+                enhanced_metadata['sheetName'] = meta.get('sheetName')
+            if meta.get('sheetNum'):
+                enhanced_metadata['sheetNum'] = meta.get('sheetNum')
+            if meta.get('pageNum'):
+                enhanced_metadata['pageNum'] = meta.get('pageNum')
 
             # Update the chunk's metadata with enhanced metadata
             chunk.metadata = enhanced_metadata

@@ -1,7 +1,7 @@
 export enum GoogleWorkspaceApp {
-  Drive = 'drive',
-  Gmail = 'gmail',
-  Calendar = 'calendar',
+  Drive = 'DRIVE',
+  Gmail = 'GMAIL',
+  Calendar = 'CALENDAR',
 }
 
 export interface GoogleWorkspaceApps {

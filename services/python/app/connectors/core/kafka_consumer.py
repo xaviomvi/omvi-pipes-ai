@@ -5,7 +5,7 @@ import httpx
 from app.utils.logger import logger
 from dependency_injector.wiring import inject
 from typing import Dict, List
-from app.config.arangodb_constants import CollectionNames
+from app.config.arangodb_constants import CollectionNames, Connectors
 from uuid import uuid4
 import time
 from app.setups.connector_setup import initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
@@ -501,9 +501,9 @@ class KafkaRouteConsumer:
                     accountType = org['accountType']
                     # Use the existing app container to initialize services
                     if accountType == 'enterprise' or accountType == 'business':
-                        initialize_enterprise_account_services_fn(self.app_container)
+                        await initialize_enterprise_account_services_fn(self.app_container)
                     elif accountType == 'individual':
-                        initialize_individual_account_services_fn(self.app_container)
+                        await initialize_individual_account_services_fn(self.app_container)
                     else:
                         logger.error("Account Type not valid")
                         return False
@@ -515,7 +515,6 @@ class KafkaRouteConsumer:
 
                 # Handle enterprise/business account type
                 if user_type == 'enterprise':
-                    
                     active_users = await self.arango_service.get_users(org_id, active = True)
                     user_app_edges = []
 
@@ -529,7 +528,7 @@ class KafkaRouteConsumer:
                                     'syncState': 'NOT_STARTED',
                                     'lastSyncUpdate':  get_epoch_timestamp_in_ms()
                                 }
-                                
+
                                 user_app_edges.append(edge_data)
                                 await self.arango_service.batch_create_edges(
                                     user_app_edges,
@@ -537,13 +536,13 @@ class KafkaRouteConsumer:
                                 )
 
                     for app_name in enabled_apps:
-                        if app_name in ['calendar', 'gmail']:
+                        if app_name in [Connectors.GOOGLE_CALENDAR.value]:
                             logger.info(f"Skipping init for {app_name}")
                             continue
 
                         # Initialize app (this will fetch and create users)
                         await self._handle_sync_event(
-                            f'{app_name}.init', 
+                            f'{app_name.lower()}.init', 
                             {'path_params': {'org_id': org_id}}
                         )
                         
@@ -552,7 +551,7 @@ class KafkaRouteConsumer:
                         if sync_action == 'immediate':
                             # Start sync for all users
                             await self._handle_sync_event(
-                                f'{app_name}.start', 
+                                f'{app_name.lower()}.start', 
                                 {'path_params': {'org_id': org_id}}
                             )
                             await asyncio.sleep(5)
@@ -581,13 +580,13 @@ class KafkaRouteConsumer:
 
                     # First initialize each app
                     for app_name in enabled_apps:
-                        if app_name in ['calendar']:
+                        if app_name in [Connectors.GOOGLE_CALENDAR.value]:
                             logger.info(f"Skipping init for {app_name}")
                             continue
 
                         # Initialize app
                         await self._handle_sync_event(
-                            f'{app_name}.init', 
+                            f'{app_name.lower()}.init', 
                             {'path_params': {'org_id': org_id}}
                         )
                         
@@ -598,12 +597,12 @@ class KafkaRouteConsumer:
                         for app in app_docs:
                                 if sync_action == 'immediate':
                                     # Start sync for individual user
-                                    if app["name"] in ['calendar']:
+                                    if app["name"] in [Connectors.GOOGLE_CALENDAR.value]:
                                         logger.info("Skipping start")
                                         continue
                                     
                                     await self._handle_sync_event(
-                                        f'{app["name"]}.start', 
+                                        f'{app["name"].lower()}.start', 
                                         {
                                             'path_params': {
                                                 'org_id': org_id,

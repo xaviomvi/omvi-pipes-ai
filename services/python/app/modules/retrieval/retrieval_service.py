@@ -145,13 +145,13 @@ class RetrievalService:
                 filters=arango_filters
             )
             print("accessible_records: ", accessible_records)
-            
+
             if not accessible_records:
                 return []
             
             # Extract record IDs from accessible records
-            record_ids = [record['_key'] for record in accessible_records]
-                        
+            record_ids = [record['_key'] for record in accessible_records if record is not None]
+
             # Build Qdrant filter
             qdrant_filter = self._build_qdrant_filter(record_ids)
             

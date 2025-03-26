@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 
 from app.modules.parsers.pdf.ocr_handler import OCRHandler
+from app.modules.parsers.docx.docling_docx import DocxParser
 from app.config.arangodb_constants import CollectionNames
 
 class Processor:
@@ -288,6 +289,7 @@ class Processor:
             logger.info("🎯 Extracting domain metadata")
             domain_metadata = None
             paragraphs = ocr_result.get("paragraphs", [])
+            sentences = ocr_result.get("sentences", [])
             if paragraphs:
                 # Join all paragraph content with newlines
                 paragraphs_text = "\n".join(
@@ -322,6 +324,8 @@ class Processor:
             # Process paragraphs for numbering and formatting
             logger.debug("📝 Processing paragraphs")
             paragraphs = ocr_result.get("paragraphs", [])
+            for paragraph in paragraphs:
+                paragraph['blockText'] = json.dumps(paragraph['content'])
 
             # Create sentence data for indexing
             logger.debug("📑 Creating semantic sentences")
@@ -330,8 +334,6 @@ class Processor:
             if sentences:
                 logger.debug("📑 Creating semantic sentences")
 
-                logger.debug(f"🎯 Sentences: {sentences}")
-
                 # Prepare sentences for indexing with separated metadata
                 sentence_data = [{
                     'text': s["content"].strip(),
@@ -339,6 +341,7 @@ class Processor:
                     'metadata': {
                         **ocr_result.get("metadata"),
                         "recordId": recordId,
+                        "blockText": s["content"].strip(),
                         "blockType": s.get("block_type", 0),
                         "blockNum": s.get("block_number", 0),
                         "pageNum": s.get("page_number", 0)
@@ -404,171 +407,107 @@ class Processor:
             orgId (str): Organization ID
             docx_binary (bytes): Binary content of the DOCX file
         """
-        logger.info(
-            f"🚀 Starting DOCX document processing for record: {recordName}")
+        logger.info(f"🚀 Starting DOCX document processing for record: {recordName}")
 
         try:
-            # Initialize domain extractor
-
-            # Initialize and use DocxParser
+            # Convert binary to string if necessary
+            # Initialize DocxParser and parse content
             logger.debug("📄 Processing DOCX content")
             parser = self.parsers['docx']
             docx_result = parser.parse(docx_binary)
-            logger.debug(f"DOCX result: {docx_result}")
+            
+            # Get the full document structure
+            doc_dict = docx_result.export_to_dict()
+            logger.debug(f"📑 Document structure processed, {doc_dict}")
 
-            # Extract domain metadata from paragraphs
+            # Process content in reading order
+            logger.debug("📑 Processing document structure in reading order")
+            ordered_content = self._process_content_in_order(doc_dict)
+            logger.debug(f"📑 Ordered content processed, {ordered_content}")
+            
+            # Extract text in reading order
+            text_content = "\n".join(
+                item['text'].strip()
+                for item in ordered_content
+                if item['text'].strip()
+            )
+
+            # Extract domain metadata
             logger.info("🎯 Extracting domain metadata")
-            if docx_result['paragraphs']:
-                # Join all paragraph content with newlines
-                paragraphs_text = "\n".join(
-                    p["content"].strip() if isinstance(p, dict) else p.strip()
-                    for p in docx_result['paragraphs']
-                    if p and (isinstance(p, dict) and p.get("content") or isinstance(p, str))
-                )
-
-                logger.debug(f"Paragraphs text: {paragraphs_text}")
-
-                # Extract metadata using domain extractor
+            domain_metadata = None
+            if text_content:
                 try:
-                    logger.info(f"🎯 Extracting metadata from paragraphs")
-                    metadata = await self.domain_extractor.extract_metadata(paragraphs_text)
+                    logger.info("🎯 Extracting metadata from DOCX content")
+                    metadata = await self.domain_extractor.extract_metadata(text_content)
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                     domain_metadata = {**record, **file}
-                    
                 except Exception as e:
                     logger.error(f"❌ Error extracting metadata: {str(e)}")
                     domain_metadata = None
 
-            # Format content for output
-            formatted_content = ""
-            numbered_paragraphs = []
-
-            # Process paragraphs for numbering and formatting
-            logger.debug("📝 Processing paragraphs")
-            paragraphs = docx_result.get("paragraphs", [])
-            if paragraphs:
-                logger.debug("🔍 Processing valid paragraphs")
-                for idx, para in enumerate(paragraphs, 1):
-                    if isinstance(para, dict) and para.get('text', '').strip():
-                        logger.debug(f"📄 Processing paragraph {idx}")
-
-                        # Create paragraph entry
-                        paragraph_entry = {
-                            "number": idx,
-                            "content": para['text'].strip(),
-                            "type": para['type']
+            # Create sentence data for indexing
+            logger.debug("📑 Creating semantic sentences")
+            sentence_data = []
+            
+            for idx, item in enumerate(ordered_content, 1):
+                if item['text'].strip():
+                    context = item['context']
+                    sentence_data.append({
+                        'text': item['text'].strip(),
+                        'bounding_box': None,
+                        'metadata': {
+                            **(domain_metadata),
+                            'recordId': recordId,
+                            "blockType": context.get('label', 'text'),
+                            "blockText": item['text'].strip(),
+                            "blockNum": idx,
+                            "level": context.get('level'),
+                            "listInfo": context.get('list_info'),
+                            "elementType": context.get('element_type', 'text')
                         }
+                    })
 
-                        # Process links if present
-                        if para.get('links'):
-                            logger.debug(
-                                f"🔗 Processing links for paragraph {idx}")
-                            for link in para['links']:
-                                try:
-                                    # Create link record in ArangoDB
-                                    link_record = {
-                                        "recordId": recordId,
-                                        "url": link['url'],
-                                        "text": link['text'],
-                                        "paragraphNumber": idx,
-                                        "paragraphType": para['type'],
-                                        # Will be None if not in table
-                                        "tableRef": para.get('table_ref'),
-                                        # Will be None if not in table
-                                        "tableRow": para.get('row'),
-                                        # Will be None if not in table
-                                        "tableCol": para.get('col'),
-                                        "createdAt": datetime.utcnow().isoformat()
-                                    }
-
-                                    # Save link record to ArangoDB
-                                    await self.arango_service.batch_upsert_nodes([link_record], CollectionNames.LINKS.value)
-                                    logger.debug(
-                                        f"✅ Saved link record to ArangoDB: {link['url']}")
-                                except Exception as e:
-                                    logger.error(
-                                        f"❌ Error saving link record: {str(e)}")
-
-                        numbered_paragraphs.append(paragraph_entry)
-                        formatted_content += f"""[{idx}] {
-                            para['text'].strip()}\n\n"""
-
-                # Create sentence-based indexing
-                logger.debug("📑 Creating semantic sentences")
-
-                # Extract sentences from paragraphs
-                sentence_data = []
-                for para in paragraphs:
-                    if isinstance(para, dict):
-                        # Handle structured paragraph data
-                        sentences = para.get('sentences', [])
-                        for sentence in sentences:
-                            sentence_data.append({
-                                'text': sentence.strip(),
-                                'bounding_box': None,
-                                'metadata': {
-                                    **domain_metadata,
-                                    "blockType": "paragraph",
-                                    "blockNum": idx,
-                                }
-                            })
-                    else:
-                        # Handle plain text paragraphs
-                        # Split paragraph into sentences (simple split by period)
-                        sentences = [
-                            s.strip() + '.' for s in para.split('.') if s.strip()]
-                        for sentence in sentences:
-                            sentence_data.append({
-                                'text': sentence,
-                                'bounding_box': None,
-                                'metadata': {
-                                    **domain_metadata,
-                                    "recordId": recordId,
-                                    "blockType": "paragraph",
-                                    "blockNum": idx,
-                                }
-                            })
-
-                # Get semantic chunks using IndexingPipeline
-                if sentence_data:
-                    pipeline = self.indexing_pipeline
-                    # Get chunks (these will be merged based on semantic similarity)
-                    await pipeline.index_documents(sentence_data)
-
-            # Process tables
-            tables = docx_result.get("tables", [])
-            if tables:
-                logger.debug("📊 Processing tables")
-                for idx, table in enumerate(tables, 1):
-                    table_entry = {
-                        "number": f"T{idx}",
-                        "content": table,
-                        "type": "table"
-                    }
-                    numbered_paragraphs.append(table_entry)
+            # Index sentences if available
+            if sentence_data:
+                logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
+                pipeline = self.indexing_pipeline
+                await pipeline.index_documents(sentence_data)
 
             # Prepare metadata
-            logger.debug("📋 Preparing metadata")
             metadata = {
                 "recordId": recordId,
                 "recordName": recordName,
                 "orgId": orgId,
                 "version": version,
                 "source": source,
-                "domain_metadata": docx_result.get("metadata"),
-                "has_header": bool(docx_result.get("header")),
-                "has_footer": bool(docx_result.get("footer")),
-                "image_count": len(docx_result.get("images", {})),
-                "table_count": len(tables)
+                "domain_metadata": domain_metadata,
+                "document_info": {
+                    "schema_name": doc_dict.get('schema_name'),
+                    "version": doc_dict.get('version'),
+                    "name": doc_dict.get('name'),
+                    "origin": doc_dict.get('origin')
+                },
+                "structure_info": {
+                    "text_count": len(doc_dict.get('texts', [])),
+                    "group_count": len(doc_dict.get('groups', [])),
+                    "list_count": len([item for item in ordered_content if item.get('context', {}).get('list_info')]),
+                    "heading_count": len([item for item in ordered_content if item.get('context', {}).get('label') == 'heading'])
+                }
             }
 
             logger.info("✅ DOCX processing completed successfully")
             return {
-                "docx_result": docx_result,
-                "formatted_content": formatted_content,
-                "numbered_paragraphs": numbered_paragraphs,
+                "docx_result": {
+                    "document_structure": {
+                        "body": doc_dict.get('body'),
+                        "groups": doc_dict.get('groups', [])
+                    },
+                    "metadata": domain_metadata
+                },
+                "formatted_content": text_content,
+                "numbered_items": ordered_content,
                 "metadata": metadata
             }
 
@@ -586,6 +525,7 @@ class Processor:
             logger.debug("📊 Processing Excel content")
             parser = self.parsers['excel']
             excel_result = parser.parse(excel_binary)
+            logger.debug(f"📑 Excel result processed, {excel_result}")
 
             # Extract domain metadata from text content
             logger.info("🎯 Extracting domain metadata")
@@ -596,7 +536,8 @@ class Processor:
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
-                    domain_metadata = {**record, **file}
+                    # Convert datetime objects to strings
+                    domain_metadata = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in {**record, **file}.items()}
                 except Exception as e:
                     logger.error(f"❌ Error extracting metadata: {str(e)}")
                     domain_metadata = None
@@ -604,45 +545,66 @@ class Processor:
             # Format content for output
             formatted_content = ""
             numbered_items = []
+            sentence_data = []
 
-            # Process sheets for formatting
+            # Process each sheet using process_sheet_with_summaries
             logger.debug("📝 Processing sheets")
-            for sheet_idx, sheet in enumerate(excel_result['sheets'], 1):
-                sheet_name = sheet['name']
-                formatted_content += f"\n[Sheet {sheet_idx}]: {sheet_name}\n"
-
+            for sheet_idx, sheet_name in enumerate(excel_result['sheet_names'], 1):
+                sheet_data = await parser.process_sheet_with_summaries(sheet_name)
                 # Add sheet entry
                 sheet_entry = {
                     "number": f"S{sheet_idx}",
-                    "name": sheet_name,
+                    "name": sheet_data['sheet_name'],
                     "type": "sheet",
-                    "row_count": sheet['row_count'],
-                    "column_count": sheet['column_count']
+                    "row_count": len(sheet_data['tables']),
+                    "column_count": max(len(table['headers']) for table in sheet_data['tables'])
                 }
                 numbered_items.append(sheet_entry)
 
-                # Process non-empty cells
-                for row in sheet['data']:
-                    for cell in row:
-                        if cell['value']:
-                            formatted_content += f"""{cell['coordinate']
-                                                    }: {cell['value']}\n"""
+                # Format content and sentence data
+                formatted_content += f"\n[Sheet]: {sheet_data['sheet_name']}\n"
+                formatted_content += f"Summary: {sheet_data['sheet_summary']}\n"
 
+                for table in sheet_data['tables']:
+                    formatted_content += f"\nTable Summary: {table['summary']}\n"
+                    for row in table['rows']:
+                        # Convert datetime objects in row_data to strings
+                        row_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in row['raw_data'].items()}
+                        formatted_content += f"Row Data: {row_data}\n"
+                        formatted_content += f"Natural Text: {row['natural_language_text']}\n"
+
+                        # Add processed rows to sentence data
+                        sentence_data.append({
+                            'text': row['natural_language_text'],
+                            'bounding_box': None,
+                            'metadata': {
+                                **({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in domain_metadata.items()}),
+                                "recordId": recordId,
+                                "sheetName": sheet_data['sheet_name'],
+                                "sheetNum": sheet_idx,
+                                "blockNum": row['row_num'],  # Use actual row number
+                                "blockType": "table_row",
+                                "blockText": json.dumps(row_data)  # Include entire row data
+                            }
+                        })
+            # Index sentences if available
+            if sentence_data:
+                logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
+                pipeline = self.indexing_pipeline
+                await pipeline.index_documents(sentence_data)
             # Prepare metadata
             logger.debug("📋 Preparing metadata")
-            
             metadata = {
                 "recordId": recordId,
                 "recordName": recordName,
                 "orgId": orgId,
                 "version": version,
                 "source": source,
-                "domain_metadata": excel_result.get("metadata"),
+                "domain_metadata": {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in excel_result.get("metadata", {}).items()},
                 "sheet_count": len(excel_result['sheets']),
                 "total_rows": excel_result['total_rows'],
                 "total_cells": excel_result['total_cells']
             }
-
             logger.info("✅ Excel processing completed successfully")
             return {
                 "excel_result": excel_result,
@@ -670,7 +632,6 @@ class Processor:
             f"🚀 Starting CSV document processing for record: {recordName}")
 
         try:
-
             # Initialize CSV parser
             logger.debug("📊 Processing CSV content")
             parser = self.parsers['csv']
@@ -683,6 +644,7 @@ class Processor:
 
                 # Parse CSV file
                 csv_result = parser.read_file(temp_file_path)
+                logger.debug(f"📑 CSV result processed, {csv_result}")
 
                 # Extract domain metadata from CSV content
                 logger.info("🎯 Extracting domain metadata")
@@ -698,7 +660,8 @@ class Processor:
                         metadata = await self.domain_extractor.extract_metadata(csv_text)
                         logger.info(f"✅ Extracted metadata: {metadata}")
                         record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
-                        domain_metadata = record
+                        file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
+                        domain_metadata = {**record, **file}
                     except Exception as e:
                         logger.error(f"❌ Error extracting metadata: {str(e)}")
                         domain_metadata = None
@@ -711,17 +674,43 @@ class Processor:
             # Format content for output
             formatted_content = ""
             numbered_rows = []
+            sentence_data = []
 
             # Process rows for formatting
             logger.debug("📝 Processing rows")
-            for idx, row in enumerate(csv_result, 1):
-                row_entry = {
-                    "number": idx,
-                    "content": row,
-                    "type": "row"
-                }
-                numbered_rows.append(row_entry)
-                formatted_content += f"[{idx}] {json.dumps(row)}\n"
+            batch_size = 10  # Define a suitable batch size
+            for i in range(0, len(csv_result), batch_size):
+                batch = csv_result[i:i + batch_size]
+                row_texts = await parser.get_rows_text(batch)
+
+                for idx, (row, row_text) in enumerate(zip(batch, row_texts), start=i+1):
+                    row_entry = {
+                        "number": idx,
+                        "content": row,
+                        "type": "row"
+                    }
+                    numbered_rows.append(row_entry)
+                    formatted_content += f"[{idx}] {json.dumps(row)}\n"
+                    formatted_content += f"Natural Text: {row_text}\n"
+
+                    # Add sentence data for indexing
+                    sentence_data.append({
+                        'text': row_text,
+                        'bounding_box': None,
+                        'metadata': {
+                            **(domain_metadata),
+                            "recordId": recordId,
+                            "blockType": "table_row",
+                            "blockText": json.dumps(row),
+                            "blockNum": idx  
+                        }
+                    })
+
+            # Index sentences if available
+            if sentence_data:
+                logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
+                pipeline = self.indexing_pipeline
+                await pipeline.index_documents(sentence_data)
 
             # Prepare metadata
             logger.debug("📋 Preparing metadata")
@@ -999,6 +988,7 @@ class Processor:
                         'bounding_box': None,
                         'metadata': {
                             **(domain_metadata or {}),
+                            "recordId": recordId,
                             "blockType": item.get('label', 'text'),
                             "blockNum": idx,
                             "level": item.get('level'),
@@ -1195,6 +1185,7 @@ class Processor:
                         'bounding_box': None,
                         'metadata': {
                             **(domain_metadata or {}),
+                            "recordId": recordId,
                             "blockType": context.get('label', 'text'),
                             "blockNum": idx,
                             "slideNumber": context.get('slide_number'),
