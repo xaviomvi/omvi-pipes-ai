@@ -112,8 +112,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
         print("SELF.DOC", self.doc, flush=True)
 
         logger.debug("🔄 Pre-processing document to match Azure's structure")
-        self.document_analysis_result = self._preprocess_document(
-            self._needs_ocr)
+        self.document_analysis_result = self._preprocess_document()
         logger.info(f"✅ Document loaded with {len(self.doc)} pages")
 
     @Language.component("custom_sentence_boundary")
@@ -414,7 +413,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
 
         return merged_block
 
-    def _preprocess_document(self, needs_ocr: bool) -> Dict[str, Any]:
+    def _preprocess_document(self) -> Dict[str, Any]:
         """Pre-process document to match Azure's structure"""
         logger.debug("🔄 Starting document pre-processing")
         result = {

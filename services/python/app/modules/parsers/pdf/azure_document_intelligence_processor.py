@@ -67,19 +67,20 @@ class AzureOCRStrategy(OCRStrategy):
             except Exception as e:
                 logger.error(f"❌ Azure document analysis failed: {e}")
                 logger.info("⚠️ Falling back to direct PyMuPDF extraction")
-                self.doc = fitz.open(stream=content, filetype="pdf")  # Open the document outside the context manager
+                self.doc = fitz.open(stream=content, filetype="pdf")
                 self._needs_ocr = False
                 self.ocr_pdf_content = None
 
         else:
             logger.info(
                 "📝 Document doesn't need OCR, using PyMuPDF extraction")
-            self.doc = fitz.open(stream=content, filetype="pdf")  # Open the document outside the context manager
+            self.doc = fitz.open(stream=content, filetype="pdf")
+            self._needs_ocr = False
             self.ocr_pdf_content = None
 
         logger.debug("🔄 Pre-processing document to match Azure's structure")
-        self.document_analysis_result = self._preprocess_document()
-        logger.info(f"✅ Document loaded with {len(self.doc.pages())} pages")
+        self.document_analysis_result = self._preprocess_document(needs_ocr)
+        logger.info(f"✅ Document loaded!")
 
     @Language.component("custom_sentence_boundary")
     def custom_sentence_boundary(doc):
@@ -94,8 +95,8 @@ class AzureOCRStrategy(OCRStrategy):
                 (next_token.like_num and len(next_token.text) <= 2 and
                  next_token.i + 1 < len(doc) and doc[next_token.i + 1].text == ".") or
                 # Letter bullets (a., b., etc)
-                (len(next_token.text) == 1 and next_token.text.isalpha()
-                 and next_token.i + 1 < len(doc) and doc[next_token.i + 1].text == ".")
+                (len(next_token.text) == 1 and next_token.text.isalpha() and
+                 next_token.i + 1 < len(doc) and doc[next_token.i + 1].text == ".")
             ):
                 next_token.is_sent_start = True
                 continue
@@ -273,8 +274,127 @@ class AzureOCRStrategy(OCRStrategy):
                 page_height
             )
         return element_data
+    
+    def _process_block_text_pymupdf(self, block: Dict[str, Any], page_width: float, page_height: float) -> Dict[str, Any]:
+        """Process a text block to extract lines, sentences, and metadata
 
-    def _process_block_text(self, block, page_width: float, page_height: float) -> Dict[str, Any]:
+        Handles both single-span and multi-span lines:
+        - Single-span: One span containing complete line text
+        - Multi-span: Multiple spans containing individual words/characters
+
+        Args:
+            block: Dictionary containing text block data
+            page_width: Width of the page for bbox normalization
+            page_height: Height of the page for bbox normalization
+
+        Returns:
+            Dictionary containing processed text data including lines, spans, words and metadata
+        """
+
+        block_lines = []
+        block_text = []
+        block_spans = []
+        block_words = []
+
+        # Process lines and their spans
+        for line in block.get("lines", []):
+            spans = line.get("spans", [])
+            if not spans:
+                continue
+
+            # Check if this is a multi-span line by looking at text content
+            is_multi_span = len(spans) > 1
+
+            # Combine span text appropriately
+            if is_multi_span:
+                # For multi-span lines, preserve spaces between spans
+                line_text = ""
+                for span in spans:
+                    span_text = span.get("text", "")
+                    # Add space only if it's not already a space span
+                    if line_text and not span_text.isspace() and not line_text.endswith(" "):
+                        line_text += " "
+                    line_text += span_text
+            else:
+                # For single-span lines, use the text directly
+                line_text = spans[0].get("text", "")
+
+            if line_text.strip():
+                line_data = {
+                    "content": line_text.strip(),
+                    "bounding_box": self._normalize_bbox(line["bbox"], page_width, page_height)
+                }
+                block_lines.append(line_data)
+
+                # Process spans
+                for span in spans:
+                    span_text = span.get("text", "").strip()
+                    if span_text or is_multi_span:  # Include empty spans for multi-span lines
+                        block_text.append(span.get("text", ""))
+                        span_data = {
+                            "text": span.get("text", ""),
+                            "bounding_box": self._normalize_bbox(span["bbox"], page_width, page_height),
+                            "font": span.get("font"),
+                            "size": span.get("size"),
+                            "flags": span.get("flags")
+                        }
+                        block_spans.append(span_data)
+
+                        # Process individual characters if available
+                        logger.debug("🔤 Processing words in span")
+                        for char in span.get("chars", []):
+                            word_text = char.get("c", "").strip()
+                            if word_text:
+                                word = {
+                                    "content": word_text,
+                                    "bounding_box": self._normalize_bbox(char["bbox"], page_width, page_height),
+                                    "confidence": None
+                                }
+                                block_words.append(word)
+
+        # Get block metadata from first available span
+        first_span = block.get("lines", [])[0].get("spans", [])[
+            0] if block.get("lines") else {}
+        block_metadata = {
+            "font": first_span.get("font"),
+            "size": first_span.get("size"),
+            "color": first_span.get("color"),
+            "span_type": "multi_span" if len(block.get("lines", [])[0].get("spans", [])) > 1 else "single_span"
+        }
+
+        # Process sentences using the lines
+        logger.debug("🔄 Processing sentences from lines")
+        sentences = self._merge_lines_to_sentences(block_lines)
+        processed_sentences = []
+        for sentence in sentences:
+            sentence_data = {
+                "content": sentence["sentence"],
+                "bounding_box": sentence["bounding_box"],
+                "block_number": block.get("number"),
+                "block_type": block.get("type"),
+                "metadata": block_metadata
+            }
+            processed_sentences.append(sentence_data)
+
+        # Create paragraph from block
+        paragraph = {
+            "content": " ".join(block_text).strip(),
+            "bounding_box": self._normalize_bbox(block["bbox"], page_width, page_height),
+            "block_number": block.get("number"),
+            "spans": block_spans,
+            "words": block_words,
+            "metadata": block_metadata
+        }
+
+        return {
+            "lines": block_lines,
+            "sentences": processed_sentences,
+            "paragraph": paragraph if block_text else None,
+            "words": block_words
+        }
+
+
+    def _process_block_text_azure(self, block, page_width: float, page_height: float) -> Dict[str, Any]:
         """Process a text block to extract lines, sentences, and metadata
 
         Args:
@@ -326,65 +446,123 @@ class AzureOCRStrategy(OCRStrategy):
         }
 
         return paragraph if block_text else None
+    
+    def _should_merge_blocks(self, block1: Dict[str, Any], block2: Dict[str, Any], word_threshold: int = 15) -> bool:
+        """
+        Determine if blocks should be merged based on word count threshold.
+        Merges if block1 has fewer words than the threshold.
 
-    def _preprocess_document(self) -> Dict[str, Any]:
+        Args:
+            block1: First text block
+            block2: Second text block
+            word_threshold: Minimum word count threshold (default 10 words)
+
+        Returns:
+            bool: True if blocks should be merged
+        """
+        if block1.get("type") != 0 or block2.get("type") != 0:
+            return False
+
+        # Get word count for first block
+        text1 = " ".join(span.get("text", "") for line in block1.get("lines", [])
+                         for span in line.get("spans", []))
+        word_count = len(text1.split())
+
+        logger.debug(f"Block word count: {word_count}")
+
+        # Merge if word count is below threshold
+        return word_count < word_threshold
+
+    def _merge_block_content(self, block1: Dict[str, Any], block2: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Merge two text blocks into one.
+        """
+        merged_block = block1.copy()
+
+        # Merge lines
+        merged_block["lines"] = block1.get(
+            "lines", []) + block2.get("lines", [])
+
+        # Update bbox to encompass both blocks
+        b1 = block1.get("bbox", (0, 0, 0, 0))
+        b2 = block2.get("bbox", (0, 0, 0, 0))
+        merged_block["bbox"] = (
+            min(b1[0], b2[0]),  # x0
+            min(b1[1], b2[1]),  # y0
+            max(b1[2], b2[2]),  # x1
+            max(b1[3], b2[3])   # y1
+        )
+
+        return merged_block
+
+
+    def _preprocess_document(self, needs_ocr: bool) -> Dict[str, Any]:
         """Pre-process document to match PyMuPDF's structure"""
-        try:
-            logger.debug("🔄 Starting document pre-processing")
+        logger.debug("🔄 Starting document pre-processing")
+        logger.debug(f"attributes: {dir(self.doc)}")
+        # Handle both Azure and PyMuPDF document types
+        result = {
+            "pages": [],
+            "lines": [],
+            "paragraphs": [],
+            "sentences": [],
+            "tables": [],
+            "key_value_pairs": []
+        }
 
-            # Handle both Azure and PyMuPDF document types
-            if hasattr(self.doc, 'pages'):
-                doc_pages = list(self.doc.pages())  # Convert generator to list to ensure it's iterable
+        if needs_ocr:
+            logger.debug("self.doc has attribute pages")
+            doc_pages = self.doc.pages
+            
+        else:
+            logger.debug("self.doc does not have attribute pages")
+            doc_pages = range(len(self.doc))  # PyMuPDF case
+            # doc_pages = self.doc.pages()
+            logger.debug(f"DOC PAGES: {doc_pages}")
+            
+
+        # First pass: collect all lines and paragraphs by page
+        for page in doc_pages:
+            logger.debug("Page attributes: %s", dir(page))
+            if hasattr(page, 'page_number'):
+                logger.debug(f"📄 Processing page {page.page_number}")
             else:
-                doc_pages = range(len(self.doc))  # PyMuPDF case
+                logger.debug(f"📄 Processing page {page}")
 
-            result = {
-                "pages": [],
+            # Get page properties based on document type
+            if hasattr(page, 'width'):
+                logger.debug("PAGE WIDTH: %f", page.width)
+                logger.debug("PAGE HEIGHT: %f", page.height)
+                logger.debug("PAGE UNIT: %s", page.unit)
+                logger.debug("PAGE NUMBER: %d", page.page_number)
+                page_width = page.width
+                page_height = page.height
+                page_unit = page.unit
+                page_number = page.page_number
+            else:
+                page_number = page
+                page = self.doc[page_number]
+                page_width = page.rect.width
+                logger.debug("PAGE RECT WIDTH: %f", page_width)
+                page_height = page.rect.height
+                logger.debug("Content: %s", page.get_text("dict"))
+                logger.debug("PAGE RECT HEIGHT: %f", page_height)
+                page_unit = "point"
+                logger.debug("PAGE RECT UNIT: %s", page_unit)
+                
+                logger.debug("PAGE RECT NUMBER: %d", page_number)
+
+            page_dict = {
+                "page_number": page_number,
+                "width": page_width,
+                "height": page_height,
+                "unit": page_unit,
                 "lines": [],
-                "paragraphs": [],
-                "sentences": [],
-                "tables": [],
-                "key_value_pairs": []
+                "words": [],
+                "tables": []
             }
-
-            logger.debug(f"doc_pages: {doc_pages}")
-            logger.debug(f"type of doc_pages: {type(doc_pages)}")
-
-            # First pass: collect all lines and paragraphs by page
-            for page in doc_pages:
-                # Ensure page is accessed correctly
-                if isinstance(page, int):
-                    page = self.doc[page]  # Access page by index for PyMuPDF
-
-                logger.debug(f"📄 Processing page {page.page_number if hasattr(page, 'page_number') else page}")
-
-                # Get page properties based on document type
-                if hasattr(page, 'width'):
-                    logger.debug("PAGE WIDTH: %f", page.width)
-                    logger.debug("PAGE HEIGHT: %f", page.height)
-                    logger.debug("PAGE UNIT: %s", page.unit)
-                    logger.debug("PAGE NUMBER: %d", page.page_number)
-                else:
-                    logger.debug("PAGE RECT WIDTH: %f", page.rect.width)
-                    logger.debug("PAGE RECT HEIGHT: %f", page.rect.height)
-                    logger.debug("PAGE RECT UNIT: %s", "point")
-                    logger.debug("PAGE RECT NUMBER: %d", page.number)
-                    # PyMuPDF case
-                    page_width = page.rect.width
-                    page_height = page.rect.height
-                    page_unit = "point"
-                    page_number = page.number
-
-                page_dict = {
-                    "page_number": page_number,
-                    "width": page_width,
-                    "height": page_height,
-                    "unit": page_unit,
-                    "lines": [],
-                    "words": [],
-                    "tables": []
-                }
-
+            
+            if needs_ocr:
                 # Collect all lines from the page
                 page_lines = []
                 if hasattr(page, 'lines'):
@@ -402,7 +580,7 @@ class AzureOCRStrategy(OCRStrategy):
                 if hasattr(self.doc, 'paragraphs'):
                     logger.debug("Processing paragraphs")
                     for idx, paragraph in enumerate(self.doc.paragraphs):
-                        processed_paragraph = self._process_block_text(
+                        processed_paragraph = self._process_block_text_azure(
                             paragraph, page_width, page_height)
                         if processed_paragraph:
                             processed_paragraph["page_number"] = page_number
@@ -414,11 +592,6 @@ class AzureOCRStrategy(OCRStrategy):
                                 processed_paragraph["content"],
                                 processed_paragraph["bounding_box"]
                             )
-
-                            # print("================================================")
-                            # print("PARAGRAPH LINES", paragraph_lines)
-                            # print("================================================")
-
                             # Process sentences for this paragraph's lines
                             paragraph_sentences = self._merge_lines_to_sentences(
                                 paragraph_lines)
@@ -438,18 +611,74 @@ class AzureOCRStrategy(OCRStrategy):
 
                 # Process tables if present
                 if hasattr(page, 'tables'):
+                    logger.debug("Processing tables")
                     for table in page.tables:
                         table_data = self._process_table(table, page)
                         page_dict["tables"].append(table_data)
                         result["tables"].append(table_data)
 
                 result["pages"].append(page_dict)
+                
+            else:
+                logger.debug("📝 Extracting text blocks and paragraphs")
+                text_dict = page.get_text("dict")
+                blocks = text_dict.get("blocks", [])
 
+                # Process and merge blocks
+                merged_blocks = []
+                i = 0
+                while i < len(blocks):
+                    current_block = blocks[i]
+                    next_index = i + 1
+
+                    # Keep merging blocks until we have enough words or run out of blocks
+                    while (next_index < len(blocks) and
+                        self._should_merge_blocks(current_block, blocks[next_index])):
+                        logger.debug(f"Merging blocks {i} and {next_index}")
+                        current_block = self._merge_block_content(
+                            current_block, blocks[next_index])
+                        next_index += 1
+
+                    merged_blocks.append(current_block)
+                    i = next_index if next_index > i + 1 else i + 1
+
+                # Process merged blocks
+                for block in merged_blocks:
+                    if block.get("type") == 0:  # Text block
+                        processed_block = self._process_block_text_pymupdf(
+                            block, page_width, page_height)
+
+                        # Add to page-level collections
+                        page_dict["lines"].extend(processed_block["lines"])
+                        page_dict["words"].extend(processed_block["words"])
+
+                        # Add to document-level collections
+                        if processed_block["paragraph"]:
+                            processed_block["paragraph"]["page_number"] = page.number + 1
+                            result["paragraphs"].append(
+                                processed_block["paragraph"])
+                            logger.debug(
+                                "📚 Added paragraph to document collection (Page %s, Block %s)", page.number + 1, processed_block['paragraph']['block_number'])
+
+                        for sentence in processed_block["sentences"]:
+                            sentence["page_number"] = page.number + 1
+                            result["sentences"].append(sentence)
+                            logger.debug(
+                                "📑 Added sentence to document collection (Page %s, Block %s)", page.number + 1, sentence['block_number'])
+
+                logger.debug(f"✅ Completed processing page {page.number + 1}")
+                logger.debug(f"📊 Page statistics:")
+                logger.debug(f"- Lines: {len(page_dict['lines'])}")
+                logger.debug(f"- Words: {len(page_dict['words'])}")
+                result["pages"].append(page_dict)
+
+            logger.debug("📊 Final document analysis result:")
+            logger.debug(f"- Total pages: {len(result['pages'])}")
+            logger.debug(f"- Total paragraphs: {len(result['paragraphs'])}")
+            logger.debug(f"- Total sentences: {len(result['sentences'])}")
+                
             return result
-        except Exception as e:
-            logger.error(f"❌ Error processing document: {str(e)}")
-            raise
-
+        
     def _get_lines_for_paragraph(
         self,
         page_lines: List[Dict[str, Any]],

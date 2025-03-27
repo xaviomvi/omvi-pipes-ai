@@ -2,7 +2,7 @@ from app.utils.logger import logger
 from app.config.arangodb_constants import CollectionNames
 from app.config.configuration_service import ConfigurationService, config_node_constants
 from arango import ArangoClient
-
+from typing import Optional, Dict
 
 class ArangoService():
     """ArangoDB service for interacting with the database"""
@@ -297,3 +297,19 @@ class ArangoService():
         except Exception as e:
             logger.error(f"Failed to get accessible records: {str(e)}")
             raise
+
+    async def get_user_by_user_id(self, user_id: str) -> Optional[Dict]:
+        """Get user by user ID"""
+        try:
+            query = f"""
+                FOR user IN {CollectionNames.USERS.value}
+                    FILTER user.userId == @user_id
+                    RETURN user
+            """
+            cursor = self.db.aql.execute(query, bind_vars={'user_id': user_id})
+            result = next(cursor, None)
+            return result
+        except Exception as e:
+            logger.error(f"Error getting user by user ID: {str(e)}")
+            return None
+

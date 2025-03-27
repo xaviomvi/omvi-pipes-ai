@@ -165,6 +165,7 @@ class RetrievalService:
             
             search_results = self._format_results(results)
             record_ids = list(set(result['metadata']['recordId'] for result in search_results))
+            user = await arango_service.get_user_by_user_id(user_id)
             
             # Get full record documents from Arango
             records = []
@@ -176,6 +177,9 @@ class RetrievalService:
                         record = {**record, **files}
                     if record['recordType'] == RecordTypes.MAIL.value:
                         mail = await arango_service.get_document(record_id, CollectionNames.MAILS.value)
+                        message_id = record['externalRecordId']
+                        # Format the webUrl with the user's email
+                        mail['webUrl'] = f"https://mail.google.com/mail?authuser={user['email']}#all/{message_id}"
                         record = {**record, **mail}
                     records.append(record)
             
