@@ -33,6 +33,7 @@ import RecordDocumentViewer from './showDocuments';
 import EditRecordDialog from './edit-record-dialog';
 
 import type { RecordDetailsResponse } from './types/record-details';
+import DeleteRecordDialog from './delete-record-dialog';
 
 export default function RecordDetails() {
   const { recordId } = useParams<{ recordId: string }>();
@@ -40,7 +41,8 @@ export default function RecordDetails() {
   const [recordData, setRecordData] = useState<RecordDetailsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
   const users = useUsers() as User[];
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -76,6 +78,11 @@ export default function RecordDetails() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteRecord = () => {
+    // Redirect to records list page after successful deletion
+    navigate('/records');
   };
 
   if (loading) {
@@ -229,6 +236,22 @@ export default function RecordDetails() {
                   }}
                 >
                   Edit
+                </Button>
+                <Button
+                  startIcon={<Icon icon="mdi:trash-can-outline" />}
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  sx={{
+                    borderRadius: 1,
+                    textTransform: 'none',
+                    fontSize: '0.875rem',
+                    height: 36,
+                    fontWeight: 500,
+                  }}
+                >
+                  Delete
                 </Button>
                 {/* <Button
                   onClick={toggleChat}
@@ -728,6 +751,15 @@ export default function RecordDetails() {
             storageDocumentId={record.externalRecordId}
             recordId={record._key}
             record={record}
+          />
+        )}
+         {recordData && recordData.record  && (
+          <DeleteRecordDialog
+            open={isDeleteDialogOpen}
+            onClose={() => setIsDeleteDialogOpen(false)}
+            onRecordDeleted={handleDeleteRecord}
+            recordId={record._key}
+            recordName={record.recordName}
           />
         )}
       </Box>
