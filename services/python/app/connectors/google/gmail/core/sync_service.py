@@ -765,13 +765,20 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             (user for user in users if user['email'] == member['email']), None)
 
                         if matching_user:
-                            relation = {
-                                '_from': f'users/{matching_user["_key"]}',
-                                '_to': f'groups/{group["_key"]}',
-                                'entityType': 'GROUP',
-                                'role': member.get('role', 'member')
-                            }
-                            belongs_to_group_relations.append(relation)
+                            # Check if the relationship already exists
+                            existing_relation = await self.arango_service.check_edge_exists(
+                                f'users/{matching_user["_key"]}',
+                                f'groups/{group["_key"]}',
+                                CollectionNames.BELONGS_TO.value
+                            )
+                            if not existing_relation:
+                                relation = {
+                                    '_from': f'users/{matching_user["_key"]}',
+                                    '_to': f'groups/{group["_key"]}',
+                                    'entityType': 'GROUP',
+                                    'role': member.get('role', 'member')
+                                }
+                                belongs_to_group_relations.append(relation)
 
                 except Exception as e:
                     logger.error(
@@ -786,12 +793,19 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
             # Create relationships between users and orgs in belongsTo collection
             belongs_to_org_relations = []
             for user in users:
-                relation = {
-                    '_from': f'users/{user["_key"]}',
-                    '_to': f'organizations/{org_id}',
-                    'entityType': 'ORGANIZATION'
-                }
-                belongs_to_org_relations.append(relation)
+                # Check if the relationship already exists
+                existing_relation = await self.arango_service.check_edge_exists(
+                    f'users/{user["_key"]}',
+                    f'organizations/{org_id}',
+                    CollectionNames.BELONGS_TO.value
+                )
+                if not existing_relation:
+                    relation = {
+                        '_from': f'users/{user["_key"]}',
+                        '_to': f'organizations/{org_id}',
+                        'entityType': 'ORGANIZATION'
+                    }
+                    belongs_to_org_relations.append(relation)
 
             if belongs_to_org_relations:
                 await self.arango_service.batch_create_edges(belongs_to_org_relations, collection=CollectionNames.BELONGS_TO.value)
@@ -1494,8 +1508,8 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                             "origin": OriginTypes.CONNECTOR.value,
                             "mimeType": attachment.get('mimeType', 'application/octet-stream'),
                             "size": attachment.get('size', 0),
-                            "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
-                            "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
+                            "createdAtSourceTimestamp": get_epoch_timestamp_in_ms(),
+                            "modifiedAtSourceTimestamp": get_epoch_timestamp_in_ms()
                         }
                         await self.kafka_service.send_event_to_kafka(attachment_event)
                         logger.info(

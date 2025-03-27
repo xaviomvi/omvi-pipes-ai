@@ -2,7 +2,7 @@ from fastapi import APIRouter
 import base64
 import json
 import jwt
-import requests
+from app.core.signed_url import TokenPayload
 from google.oauth2 import service_account
 from datetime import datetime, timezone, timedelta
 from dependency_injector.wiring import inject, Provide
@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 import os
 import aiohttp
 from app.config.configuration_service import Routes, TokenScopes
-from app.config.arangodb_constants import CollectionNames, RecordRelations
+from app.config.arangodb_constants import CollectionNames, RecordRelations, Connectors
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from typing import Optional, Any
 import google.oauth2.credentials
@@ -602,6 +602,291 @@ async def download_file(
             raise HTTPException(status_code=404, detail="Record not found")
 
         file_id = record.get('externalRecordId')
+        
+        # Different auth handling based on account type
+        if org['accountType'] in ['enterprise', 'business']:
+            # Use service account credentials
+            creds = await get_service_account_credentials(user_id)
+        else:
+            # Individual account - use stored OAuth credentials
+            creds = await get_user_credentials(user_id)
+
+        # Download file based on connector type
+        try:
+            if connector == "drive":
+                logger.info(f"Downloading Drive file: {file_id}")
+                # Build the Drive service
+                drive_service = build('drive', 'v3', credentials=creds)
+                
+                # Create a BytesIO object to store the file content
+                file_buffer = io.BytesIO()
+                
+                # Get the file metadata first to get mimeType
+                # file_metadata = drive_service.files().get(fileId=file_id).execute()
+                
+                # Download the file
+                request = drive_service.files().get_media(fileId=file_id)
+                downloader = MediaIoBaseDownload(file_buffer, request)
+                
+                done = False
+                while not done:
+                    _, done = downloader.next_chunk()
+                
+                # Reset buffer position to start
+                file_buffer.seek(0)
+                
+                # Stream the response
+                return StreamingResponse(
+                    file_buffer,
+                    media_type='application/octet-stream'
+                )
+
+            elif connector == "gmail":
+                logger.info(f"Downloading Gmail attachment for record_id: {record_id}")
+                gmail_service = build('gmail', 'v1', credentials=creds)
+                
+                # Get the related message's externalRecordId using AQL
+                aql_query = f"""
+                FOR v, e IN 1..1 OUTBOUND '{CollectionNames.RECORDS.value}/{record_id}' {CollectionNames.RECORD_RELATIONS.value}
+                    FILTER e.relationType == '{RecordRelations.ATTACHMENT.value}'
+                    RETURN {{
+                        messageId: v.externalRecordId,
+                        _key: v._key,
+                        relationType: e.relationType
+                    }}
+                """
+
+                cursor = arango_service.db.aql.execute(aql_query)
+                messages = list(cursor)
+                logger.info(f"🚀 Query results: {messages}")
+
+                if not messages or not messages[0]:
+                    # If no results found, try the reverse direction
+                    logger.info("No results found with OUTBOUND, trying INBOUND...")
+                    aql_query = f"""
+                    FOR v, e IN 1..1 INBOUND '{CollectionNames.RECORDS.value}/{record_id}' {CollectionNames.RECORD_RELATIONS.value}
+                        FILTER e.relationType == '{RecordRelations.ATTACHMENT.value}'
+                        RETURN {{
+                            messageId: v.externalRecordId,
+                            _key: v._key,
+                            relationType: e.relationType
+                        }}
+                    """
+                    cursor = arango_service.db.aql.execute(aql_query)
+                    messages = list(cursor)
+                    logger.info(f"🚀 Reverse query results: {messages}")
+                    
+                if not messages or not messages[0]:
+                    record_details = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+                    logger.error(f"Record details: {record_details}")
+                    raise HTTPException(status_code=404, detail="Related message not found")
+
+                message = messages[0]
+                message_id = message['messageId']
+                logger.info(f"Found message ID: {message_id}")
+
+                # First try getting the attachment from Gmail
+                try:
+                    attachment = gmail_service.users().messages().attachments().get(
+                        userId='me',
+                        messageId=message_id,
+                        id=file_id
+                    ).execute()
+                    
+                    # Decode the attachment data
+                    file_data = base64.urlsafe_b64decode(attachment['data'])
+                    
+                    # Stream the response
+                    return StreamingResponse(
+                        iter([file_data]),
+                        media_type='application/octet-stream'
+                    )
+                    
+                except Exception as gmail_error:
+                    logger.warning(f"Failed to get attachment from Gmail: {str(gmail_error)}, trying Drive...")
+                    
+                    # Try to get the file from Drive as fallback
+                    try:
+                        drive_service = build('drive', 'v3', credentials=creds)
+                        file_buffer = io.BytesIO()
+                        
+                        request = drive_service.files().get_media(fileId=file_id)
+                        downloader = MediaIoBaseDownload(file_buffer, request)
+                        
+                        done = False
+                        while not done:
+                            _, done = downloader.next_chunk()
+                        
+                        file_buffer.seek(0)
+                        
+                        return StreamingResponse(
+                            file_buffer,
+                            media_type='application/octet-stream'
+                        )
+                        
+                    except Exception as drive_error:
+                        logger.error(f"Failed to get file from both Gmail and Drive. Gmail error: {str(gmail_error)}, Drive error: {str(drive_error)}")
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Failed to download file from both Gmail and Drive"
+                        )
+            else:
+                raise HTTPException(status_code=400, detail="Invalid connector type")
+
+
+        except Exception as e:
+            logger.error(f"Error downloading file: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error downloading file: {str(e)}"
+            )
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error("Error downloading file: %s", str(e))
+        raise HTTPException(status_code=500, detail="Error downloading file")
+
+@router.get("/api/v1/stream/record/{record_id}")
+@inject
+async def stream_record(
+    record_id: str,
+    token: str,
+    arango_service=Depends(Provide[AppContainer.arango_service]),
+):
+    async def get_service_account_credentials(user_id):
+        """Helper function to get service account credentials"""
+        try:
+            # Load service account credentials from environment or secure storage
+            SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
+            # admin_email = await config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
+            
+            payload = {
+                "orgId": org_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            
+            # Create JWT token
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
+            
+            user = await arango_service.get_user_by_user_id(user_id)
+            # Call credentials API
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    Routes.BUSINESS_CREDENTIALS.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch credentials: {await response.json()}")
+                    credentials_json = await response.json()
+                    logger.info(f"🚀 Credentials JSON: {credentials_json}")
+
+            credentials = service_account.Credentials.from_service_account_info(
+                credentials_json,
+                scopes=SCOPES
+            )
+            
+            # # Get the user email from the record to impersonate
+            credentials = credentials.with_subject(user['email'])
+            return credentials
+        
+        except Exception as e:
+            logger.error(f"Error getting service account credentials: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Error accessing service account credentials"
+            )
+            
+    async def get_user_credentials(user_id):
+        """Helper function to get user credentials"""
+        try:
+            SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
+
+            # Prepare payload for credentials API
+            payload = {
+                "orgId": org_id,
+                "userId": user_id,
+                "scopes": [TokenScopes.FETCH_CONFIG.value]
+            }
+            print("payload", payload)
+
+            # Create JWT token
+            jwt_token = jwt.encode(
+                payload,
+                os.getenv('SCOPED_JWT_SECRET'),
+                algorithm='HS256'
+            )
+            print("jwt_token", jwt_token)
+            headers = {
+                "Authorization": f"Bearer {jwt_token}"
+            }
+            print("headers", headers)
+            # Fetch credentials from API
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    json=payload,
+                    headers=headers
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"Failed to fetch credentials: {await response.json()}")
+                    creds_data = await response.json()
+                    print("creds_data", creds_data)
+
+            # Create credentials object from the response using google.oauth2.credentials.Credentials
+            creds = google.oauth2.credentials.Credentials(
+                token=creds_data.get('access_token'),
+                refresh_token=creds_data.get('refresh_token'),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=creds_data.get('client_id'),
+                client_secret=creds_data.get('client_secret'),
+                scopes=SCOPES
+            )
+            if not creds_data.get('access_token'):
+                raise HTTPException(status_code=401, detail="Invalid creds1")
+            if not creds.token:
+                raise HTTPException(status_code=401, detail="Invalid creds2")
+            
+            return creds
+        
+        except Exception as e:
+            logger.error(f"Error getting user credentials: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Error accessing user credentials"
+            )
+            
+    try:        
+        payload = jwt.decode(
+            token,
+            os.getenv('SCOPED_JWT_SECRET'),
+            algorithms=['HS256']
+        )
+        token_data = TokenPayload(**payload)
+        logger.info(f"Token data: {token_data}")
+
+        org_id = token_data.org_id
+        user_id = token_data.user_id
+        
+        org = await arango_service.get_document(org_id, CollectionNames.ORGS.value)
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
+        
+        record = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+        if not record:
+            raise HTTPException(status_code=404, detail="Record not found")
+        
+        file_id = record.get('externalRecordId')
+        connector = record.get('connectorName')
         
         # Different auth handling based on account type
         if org['accountType'] in ['enterprise', 'business']:
