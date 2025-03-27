@@ -31,7 +31,11 @@ import {
   DialogContent,
   DialogActions,
   FormControlLabel,
-  CircularProgress
+  CircularProgress,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
 } from '@mui/material';
 
 import { useUsers } from 'src/context/UserContext';
@@ -39,6 +43,7 @@ import { useUsers } from 'src/context/UserContext';
 import { handleDownloadDocument, uploadKnowledgeBaseFiles } from './utils';
 
 import type { Record, KnowledgeBaseDetailsProps } from './types/knowledge-base';
+import DeleteRecordDialog from './delete-record-dialog';
 
 interface ColumnVisibilityModel {
   [key: string]: boolean;
@@ -52,6 +57,14 @@ interface FileSizeErrorState {
 interface UploadErrorState {
   show: boolean;
   message: string;
+}
+
+interface ActionMenuItem {
+  label: string;
+  icon: string;
+  color: string;
+  onClick: () => void;
+  isDanger?: boolean;
 }
 
 const StyledButton = styled(Button)(({ theme }) => ({
@@ -80,11 +93,34 @@ export default function KnowledgeBaseDetails({
   const [openUploadDialog, setOpenUploadDialog] = useState<boolean>(false);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState<boolean>(false);
-  const [fileSizeError, setFileSizeError] = useState<FileSizeErrorState>({ show: false, files: [] });
+  const [fileSizeError, setFileSizeError] = useState<FileSizeErrorState>({
+    show: false,
+    files: [],
+  });
+  const [deleteDialogData, setDeleteDialogData] = useState({
+    open: false,
+    recordId: '',
+    recordName: '',
+  });
+
+  // State for action menu
+  const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [menuItems, setMenuItems] = useState<ActionMenuItem[]>([]);
+
   const [uploadError, setUploadError] = useState<UploadErrorState>({ show: false, message: '' });
   const users = useUsers();
 
   const navigate = useNavigate();
+
+  // Action menu handlers
+  const showActionMenu = (anchorElement: HTMLElement, items: ActionMenuItem[]) => {
+    setMenuItems(items);
+    setMenuAnchorEl(anchorElement);
+  };
+
+  const closeActionMenu = () => {
+    setMenuAnchorEl(null);
+  };
 
   const handleRowClick = (params: GridRowParams, event: React.MouseEvent): void => {
     const isCheckboxClick = (event.target as HTMLElement).closest('.MuiDataGrid-cellCheckbox');
@@ -95,10 +131,10 @@ export default function KnowledgeBaseDetails({
 
   // Validate file size
   const validateFileSize = (filesToCheck: File[]) => {
-    const oversizedFiles = filesToCheck.filter(file => file.size > MAX_FILE_SIZE);
+    const oversizedFiles = filesToCheck.filter((file) => file.size > MAX_FILE_SIZE);
     return {
       valid: oversizedFiles.length === 0,
-      oversizedFiles
+      oversizedFiles,
     };
   };
 
@@ -106,16 +142,16 @@ export default function KnowledgeBaseDetails({
   const onDrop = (acceptedFiles: File[]) => {
     // Check for files exceeding size limit
     const { valid, oversizedFiles } = validateFileSize(acceptedFiles);
-    
+
     if (!valid) {
       // Show error for oversized files
       setFileSizeError({
         show: true,
-        files: oversizedFiles
+        files: oversizedFiles,
       });
-      
+
       // Only keep files that are within the size limit
-      const validFiles = acceptedFiles.filter(file => file.size <= MAX_FILE_SIZE);
+      const validFiles = acceptedFiles.filter((file) => file.size <= MAX_FILE_SIZE);
       setFiles(validFiles);
     } else {
       // All files are valid
@@ -131,29 +167,29 @@ export default function KnowledgeBaseDetails({
     maxSize: MAX_FILE_SIZE,
     onDropRejected: (rejectedFiles) => {
       const oversizedFiles = rejectedFiles
-        .filter(file => file.errors.some(error => error.code === 'file-too-large'))
-        .map(file => file.file);
-      
+        .filter((file) => file.errors.some((error) => error.code === 'file-too-large'))
+        .map((file) => file.file);
+
       if (oversizedFiles.length > 0) {
         setFileSizeError({
           show: true,
-          files: oversizedFiles
+          files: oversizedFiles,
         });
       }
-    }
+    },
   });
 
   // Monitor fileRejections for size issues
   useEffect(() => {
     if (fileRejections.length > 0) {
       const oversizedFiles = fileRejections
-        .filter(file => file.errors.some(error => error.code === 'file-too-large'))
-        .map(file => file.file);
-      
+        .filter((file) => file.errors.some((error) => error.code === 'file-too-large'))
+        .map((file) => file.file);
+
       if (oversizedFiles.length > 0) {
         setFileSizeError({
           show: true,
-          files: oversizedFiles
+          files: oversizedFiles,
         });
       }
     }
@@ -177,7 +213,7 @@ export default function KnowledgeBaseDetails({
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / (k ** i)).toFixed(2))} ${sizes[i]}`;
+    return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
   };
 
   // Get file icon based on extension
@@ -494,51 +530,90 @@ export default function KnowledgeBaseDetails({
               fontSize: '0.75rem',
             }}
           />
-         
         </Box>
       ),
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 100,
+      width: 90,
       sortable: false,
       align: 'center',
       headerAlign: 'center',
-      renderCell: (params) => (
-        <Box
-          sx={{
-            width: '100%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            mt: 1,
-          }}
-        >
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/knowledge-base/record/${params.row.id}`)
-            }}
-            sx={{ mx: 0.5 }}
-          >
-            <Icon icon="mdi:eye-outline" fontSize={18} />
-          </IconButton>
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDownloadDocument(params.row.externalRecordId, params.row.recordName)
-            }}
-            sx={{ mx: 0.5 }}
-          >
-            <Icon icon="mdi:download-outline" fontSize={18} />
-          </IconButton>
-        </Box>
-      ),
+      renderCell: (params) => {
+        // Get file extension for dynamic tooltips
+        const fileExt = params.row.fileRecord?.extension || '';
+
+        // Get descriptive action based on file type
+        const getDownloadLabel = () => {
+          if (fileExt.toLowerCase().includes('pdf')) return 'Download PDF';
+          if (fileExt.toLowerCase().includes('doc')) return 'Download Document';
+          if (fileExt.toLowerCase().includes('xls')) return 'Download Spreadsheet';
+          return 'Download File';
+        };
+
+        const handleActionsClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+          event.stopPropagation();
+
+          // Create menu items dynamically
+          const items: ActionMenuItem[] = [
+            {
+              label: 'View Details',
+              icon: 'mdi:eye-outline',
+              color: '#1976d2',
+              onClick: () => navigate(`/knowledge-base/record/${params.row.id}`),
+            },
+            {
+              label: getDownloadLabel(),
+              icon: 'mdi:download-outline',
+              color: '#1976d2',
+              onClick: () =>
+                handleDownloadDocument(params.row.externalRecordId, params.row.recordName),
+            },
+            {
+              label: 'Delete Record',
+              icon: 'mdi:trash-can-outline',
+              color: '#f44336',
+              onClick: () =>
+                setDeleteDialogData({
+                  open: true,
+                  recordId: params.row.id,
+                  recordName: params.row.recordName,
+                }),
+              isDanger: true,
+            },
+          ];
+
+          // Show the menu
+          showActionMenu(event.currentTarget, items);
+        };
+
+        return (
+          <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', mt: 1 }}>
+            <IconButton
+              size="small"
+              onClick={handleActionsClick}
+              sx={{
+                width: 28,
+                height: 28,
+                borderRadius: 1.5,
+                color: 'text.secondary',
+                transition: 'all 0.15s ease-in-out',
+                '&:hover': {
+                  backgroundColor: alpha('#1976d2', 0.06),
+                  color: 'primary.main',
+                  transform: 'translateY(-1px)',
+                },
+                '&:active': {
+                  transform: 'translateY(0)',
+                },
+              }}
+            >
+              <Icon icon="mdi:dots-vertical" fontSize={18} />
+            </IconButton>
+          </Box>
+        );
+      },
     },
   ];
 
@@ -560,28 +635,28 @@ export default function KnowledgeBaseDetails({
   // File size error alert component
   const FileSizeErrorAlert = () => {
     if (!fileSizeError.show) return null;
-    
+
     return (
       <Box sx={{ mb: 3 }}>
-        <Alert 
-          severity="error" 
+        <Alert
+          severity="error"
           onClose={handleFileSizeErrorClose}
-          sx={{ 
+          sx={{
             borderRadius: '8px',
-            '& .MuiAlert-message': { width: '100%' }
+            '& .MuiAlert-message': { width: '100%' },
           }}
         >
           <AlertTitle>File size exceeds limit</AlertTitle>
           <Typography variant="body2" sx={{ mb: 1 }}>
             The following file(s) exceed the maximum upload size of 30MB:
           </Typography>
-          <Box 
-            sx={{ 
-              maxHeight: '100px', 
+          <Box
+            sx={{
+              maxHeight: '100px',
               overflowY: 'auto',
               bgcolor: alpha('#f44336', 0.05),
               borderRadius: '4px',
-              p: 1
+              p: 1,
             }}
           >
             {fileSizeError.files.map((file, index) => (
@@ -601,18 +676,12 @@ export default function KnowledgeBaseDetails({
   // Upload error alert component
   const UploadErrorAlert = () => {
     if (!uploadError.show) return null;
-    
+
     return (
       <Box sx={{ mb: 3 }}>
-        <Alert 
-          severity="error" 
-          onClose={handleUploadErrorClose}
-          sx={{ borderRadius: '8px' }}
-        >
+        <Alert severity="error" onClose={handleUploadErrorClose} sx={{ borderRadius: '8px' }}>
           <AlertTitle>Upload Failed</AlertTitle>
-          <Typography variant="body2">
-            {uploadError.message}
-          </Typography>
+          <Typography variant="body2">{uploadError.message}</Typography>
         </Alert>
       </Box>
     );
@@ -630,7 +699,7 @@ export default function KnowledgeBaseDetails({
     if (!valid) {
       setFileSizeError({
         show: true,
-        files: oversizedFiles
+        files: oversizedFiles,
       });
       return;
     }
@@ -652,7 +721,7 @@ export default function KnowledgeBaseDetails({
       console.error('Error uploading files:', error);
       setUploadError({
         show: true,
-        message: error.message || 'Failed to upload files. Please try again.'
+        message: error.message || 'Failed to upload files. Please try again.',
       });
     } finally {
       setUploading(false);
@@ -676,6 +745,20 @@ export default function KnowledgeBaseDetails({
 
   const handleReset = () => {
     setColumnVisibilityModel({});
+  };
+
+  const handleDeleteSuccess = () => {
+    // Trigger a refresh using the search change handler
+    onSearchChange('');
+  };
+
+  // Close the delete dialog
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogData({
+      open: false,
+      recordId: '',
+      recordName: '',
+    });
   };
 
   const open = Boolean(anchorEl);
@@ -1030,7 +1113,7 @@ export default function KnowledgeBaseDetails({
           <DialogContent sx={{ px: 3, py: 3 }}>
             {/* File Size Error Alert */}
             <FileSizeErrorAlert />
-            
+
             {/* Upload Error Alert */}
             <UploadErrorAlert />
 
@@ -1192,6 +1275,100 @@ export default function KnowledgeBaseDetails({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Actions menu for table rows */}
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={closeActionMenu}
+        onClick={closeActionMenu}
+        PaperProps={{
+          elevation: 2,
+          sx: {
+            minWidth: 180,
+            overflow: 'hidden',
+            borderRadius: 2,
+            mt: 1,
+            boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+            border: '1px solid',
+            borderColor: 'rgba(0,0,0,0.04)',
+            backdropFilter: 'blur(8px)',
+            '.MuiList-root': {
+              py: 0.75,
+            },
+          },
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        transitionDuration={200}
+      >
+        {menuItems.map((item, index) => {
+          const isDangerItem = index > 0 && item.isDanger;
+
+          return (
+            <React.Fragment key={index}>
+              {isDangerItem && <Divider sx={{ my: 0.75, opacity: 0.6 }} />}
+              <MenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  item.onClick();
+                }}
+                sx={{
+                  py: 0.75,
+                  mx: 0.75,
+                  my: 0.25,
+                  px: 1.5,
+                  borderRadius: 1.5,
+                  transition: 'all 0.15s ease',
+                  ...(isDangerItem
+                    ? {
+                        color: 'error.main',
+                        '&:hover': {
+                          bgcolor: 'error.lighter',
+                          transform: 'translateX(2px)',
+                        },
+                      }
+                    : {
+                        '&:hover': {
+                          bgcolor: (theme) =>
+                            theme.palette.mode === 'dark'
+                              ? alpha('#fff', 0.06)
+                              : alpha('#000', 0.04),
+                          transform: 'translateX(2px)',
+                        },
+                      }),
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 30,
+                    color: isDangerItem ? 'error.main' : item.color,
+                  }}
+                >
+                  <Icon icon={item.icon} width={18} height={18} />
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.label}
+                  primaryTypographyProps={{
+                    variant: 'body2',
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                    letterSpacing: '0.01em',
+                  }}
+                />
+              </MenuItem>
+            </React.Fragment>
+          );
+        })}
+      </Menu>
+      {/* Delete Record Dialog */}
+      <DeleteRecordDialog
+        open={deleteDialogData.open}
+        onClose={handleCloseDeleteDialog}
+        onRecordDeleted={handleDeleteSuccess}
+        recordId={deleteDialogData.recordId}
+        recordName={deleteDialogData.recordName}
+      />
     </Box>
   );
 }
