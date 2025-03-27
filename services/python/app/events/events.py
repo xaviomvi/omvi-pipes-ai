@@ -1,6 +1,7 @@
 from app.utils.logger import logger
 import aiohttp
 from io import BytesIO
+from app.config.arangodb_constants import EventTypes
 
 class EventProcessor:
     def __init__(self, processor):
@@ -24,7 +25,7 @@ class EventProcessor:
 
             # Extract event type and record ID
             event_type = event_data.get(
-                'eventType', 'newRecord')  # default to create
+                'eventType', EventTypes.NEW_RECORD.value)  # default to create
             event_data = event_data.get('payload')
             record_id = event_data.get('recordId')
             print(event_data, "event_data")
@@ -34,13 +35,13 @@ class EventProcessor:
                 return
 
             # Handle delete event
-            if event_type == 'deleteRecord':
+            if event_type == EventTypes.DELETE_RECORD.value:
                 logger.info(f"🗑️ Deleting embeddings for record {record_id}")
                 await self.processor.indexing_pipeline.delete_embeddings(record_id)
                 return
 
             # For both create and update events, we need to process the document
-            if event_type == 'updateRecord':
+            if event_type == EventTypes.UPDATE_RECORD.value:
                 # For updates, first delete existing embeddings
                 logger.info(f"""🔄 Updating record {
                             record_id} - deleting existing embeddings""")

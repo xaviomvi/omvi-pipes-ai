@@ -3,7 +3,9 @@ from datetime import datetime
 from app.utils.logger import logger
 import uuid
 import traceback
-from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations, OriginTypes
+from app.config.arangodb_constants import (CollectionNames, Connectors, 
+                                           RecordTypes, RecordRelations, 
+                                           OriginTypes, EventTypes)
 from app.utils.time_conversion import get_epoch_timestamp_in_ms, parse_timestamp
 
 class DriveChangeHandler:
@@ -81,11 +83,11 @@ class DriveChangeHandler:
 
             if not file_key:
                 await self.handle_insert(new_file, org_id, transaction=txn)
-                change = "create"
+                change = EventTypes.NEW_RECORD.value
             else:
                 if removed or is_trashed:
                     await self.handle_removal(db_file, db_record, transaction=txn)
-                    change = "delete"
+                    change = EventTypes.DELETE_RECORD.value
                 else:
                     if not new_file:
                         return
@@ -93,7 +95,7 @@ class DriveChangeHandler:
                     if needs_update_var:
                         await self.handle_update(new_file, db_file, db_record, org_id, transaction=txn)
                         if reindex_var:
-                            change = "update"
+                            change = EventTypes.UPDATE_RECORD.value
                         else:
                             change = ""
                     else:
@@ -116,7 +118,7 @@ class DriveChangeHandler:
             mime_type = file.get('mimeType')
 
             # INSERTION
-            if change == "create":
+            if change == EventTypes.NEW_RECORD.value:
                 reindex_event = {
                     'recordId': file_key,
                     "recordName": record.get('recordName'),
@@ -134,7 +136,7 @@ class DriveChangeHandler:
                 }
 
             # UPDATION
-            elif change == "update":
+            elif change == EventTypes.UPDATE_RECORD.value:
                 reindex_event = {
                     'recordId': file_key,
                     "recordName": record.get('recordName'),
@@ -152,7 +154,7 @@ class DriveChangeHandler:
                 }
 
             # DELETION
-            elif change == "delete":
+            elif change == EventTypes.DELETE_RECORD.value:
                 reindex_event = {
                     'recordId': file_key,
                     "recordName": record.get('recordName'),

@@ -6,7 +6,9 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 import uuid
 from typing import Dict, Optional
-from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations, OriginTypes
+from app.config.arangodb_constants import (CollectionNames, Connectors, 
+                                           RecordTypes, RecordRelations, 
+                                           OriginTypes, EventTypes)
 
 from app.connectors.utils.drive_worker import DriveWorker
 from app.utils.logger import logger
@@ -879,7 +881,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                         "recordName": record.get('recordName'),
                                         "recordVersion": record_version,
                                         "recordType": record.get('recordType'),
-                                        'eventType': "create",
+                                        'eventType': EventTypes.NEW_RECORD.value,
                                         "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                                         "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                         "connectorName": Connectors.GOOGLE_DRIVE.value,
@@ -1076,7 +1078,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                     "recordName": record.get('recordName'),
                                     "recordVersion": 0,
                                     "recordType": record.get('recordType'),
-                                    'eventType': "create",
+                                    'eventType': EventTypes.NEW_RECORD.value,
                                     "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,
@@ -1340,7 +1342,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                     "recordName": record.get('recordName'),
                                     "recordVersion": record_version,
                                     "recordType": record.get('recordType'),
-                                    'eventType': "create",
+                                    'eventType': EventTypes.NEW_RECORD.value,
                                     "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,

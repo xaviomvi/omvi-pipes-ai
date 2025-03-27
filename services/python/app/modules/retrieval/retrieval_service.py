@@ -85,23 +85,31 @@ class RetrievalService:
             formatted_results.append(formatted_result)
         return formatted_results
 
-    def _build_qdrant_filter(self, accessible_records: List[str]) -> Filter:
+    def _build_qdrant_filter(self, org_id: str, accessible_records: List[str]) -> Filter:
         """
-        Build Qdrant filter for accessible records.
-        
+        Build Qdrant filter for accessible records with both org_id and record_id conditions.
+
         Args:
+            org_id: Organization ID to filter
             accessible_records: List of record IDs the user has access to
-        
+
         Returns:
             Qdrant Filter object
         """
-        print("RECORD IDS: ", accessible_records)
         return Filter(
-            should=[
-                FieldCondition(
-                    key="metadata.recordId",
-                    match=MatchValue(value=record_id)
-                ) for record_id in accessible_records
+            must=[
+                FieldCondition(   # org_id condition
+                    key="metadata.orgId",
+                    match=MatchValue(value=org_id)
+                ),
+                Filter(   # recordId must be one of the accessible_records
+                    should=[
+                        FieldCondition(
+                            key="metadata.recordId",
+                            match=MatchValue(value=record_id)
+                        ) for record_id in accessible_records
+                    ]
+                )
             ]
         )
 
@@ -152,7 +160,7 @@ class RetrievalService:
             # Extract record IDs from accessible records
             record_ids = [record['_key'] for record in accessible_records if record is not None]
             # Build Qdrant filter
-            qdrant_filter = self._build_qdrant_filter(record_ids)
+            qdrant_filter = self._build_qdrant_filter(org_id, record_ids)
             
             # Perform similarity search
             processed_query = self._preprocess_query(query)

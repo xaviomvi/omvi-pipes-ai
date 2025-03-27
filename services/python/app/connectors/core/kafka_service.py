@@ -1,6 +1,7 @@
 from confluent_kafka import Producer
 from app.utils.logger import logger
-from app.config.configuration_service import ConfigurationService, config_node_constants
+from app.config.configuration_service import ConfigurationService
+from app.config.arangodb_constants import EventTypes
 import json
 import asyncio
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
@@ -31,7 +32,7 @@ class KafkaService:
 
             # Standardize event format
             formatted_event = {
-                'eventType': event_data.get('eventType', 'newRecord'),
+                'eventType': event_data.get('eventType', EventTypes.NEW_RECORD.value),
                 'timestamp': get_epoch_timestamp_in_ms(),
                 'payload': {
                     'orgId': event_data.get('orgId'),
