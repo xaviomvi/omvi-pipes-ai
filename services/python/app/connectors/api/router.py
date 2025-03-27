@@ -80,7 +80,7 @@ async def get_gmail_webhook_handler(request: Request) -> Optional[Any]:
         gmail_webhook_handler = container.gmail_webhook_handler()
         return gmail_webhook_handler
     except Exception as e:
-        logger.error(f"Error getting gmail webhook handler: {str(e)}")
+        logger.warning(f"Failed to get drive webhook handler: {str(e)}")
         return None
 
 @router.get("/gmail/webhook")
@@ -472,7 +472,6 @@ async def download_file(
         try:
             # Load service account credentials from environment or secure storage
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            # admin_email = await config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
             
             payload = {
                 "orgId": org_id,
@@ -759,7 +758,6 @@ async def stream_record(
         try:
             # Load service account credentials from environment or secure storage
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            # admin_email = await config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
             
             payload = {
                 "orgId": org_id,
