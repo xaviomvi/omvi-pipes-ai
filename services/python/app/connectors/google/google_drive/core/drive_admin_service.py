@@ -2,7 +2,6 @@
 
 # pylint: disable=E1101, W0718
 import os
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from google.oauth2 import service_account
@@ -32,7 +31,6 @@ class DriveAdminService:
         """Initialize admin service with domain-wide delegation"""
         try:
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            admin_email = await self.config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
             
             # Prepare payload for credentials API
             payload = {
@@ -61,6 +59,7 @@ class DriveAdminService:
                     if response.status != 200:
                         raise Exception(f"Failed to fetch credentials: {await response.json()}")
                     credentials_json = await response.json()
+                    admin_email = credentials_json.get('adminEmail')
                     print("CREDENTIALS: ", credentials_json)
 
             # Create credentials from JSON

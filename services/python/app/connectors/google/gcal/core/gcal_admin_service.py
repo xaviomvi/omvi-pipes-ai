@@ -31,7 +31,6 @@ class GCalAdminService:
         """Initialize admin service with domain-wide delegation"""
         try:
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            admin_email = await self.config.get_config(config_node_constants.GOOGLE_AUTH_ADMIN_EMAIL.value)
             
             # Prepare payload for credentials API
             payload = {
@@ -60,6 +59,7 @@ class GCalAdminService:
                     if response.status != 200:
                         raise Exception(f"Failed to fetch credentials: {await response.json()}")
                     credentials_json = await response.json()
+                    admin_email = credentials_json.get('adminEmail')
 
             # Create credentials from JSON
             self.credentials = service_account.Credentials.from_service_account_info(
