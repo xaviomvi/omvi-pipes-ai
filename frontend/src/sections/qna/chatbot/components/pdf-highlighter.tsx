@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { Citation } from 'src/types/chat-bot';
+import type { Citation, CustomCitation } from 'src/types/chat-bot';
 import type { ScaledPosition } from 'react-pdf-highlighter';
 import type {
   Comment,
@@ -13,25 +13,89 @@ import type {
 } from 'src/types/pdf-highlighter';
 
 import * as pdfjsLib from 'pdfjs-dist';
+import axios from 'src/utils/axios';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import {
-  Tip,
-  Popup,
-  PdfLoader,
-  Highlight,
-  AreaHighlight,
-  PdfHighlighter,
-} from 'react-pdf-highlighter';
+import { Tip, Popup, Highlight, AreaHighlight, PdfHighlighter } from 'react-pdf-highlighter';
 
 import { Box, CircularProgress } from '@mui/material';
 
 import { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
+import { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import CitationSidebar from './highlighter-sidebar';
 
 // Initialize PDF worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const getNextId = () => String(Math.random()).slice(2);
+
+// Custom PDF Loader that can work with either URL or buffer
+interface EnhancedPdfLoaderProps {
+  url?: string | null;
+  pdfBuffer?: ArrayBuffer | null;
+  beforeLoad?: any;
+  children?: any;
+  onError?: any;
+}
+
+const EnhancedPdfLoader = ({
+  url,
+  pdfBuffer,
+  beforeLoad,
+  children,
+  onError,
+}: EnhancedPdfLoaderProps) => {
+  const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy>();
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadPdf = async () => {
+      try {
+        let loadingTask;
+
+        if (pdfBuffer) {
+          // Create a copy of the buffer to prevent detachment issues
+          const bufferCopy = pdfBuffer.slice(0);
+
+          loadingTask = pdfjsLib.getDocument({
+            data: bufferCopy,
+            cMapUrl: `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`,
+            cMapPacked: true,
+          });
+        } else if (url) {
+          // URL-based loading remains unchanged
+          loadingTask = pdfjsLib.getDocument({
+            url,
+            cMapUrl: `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`,
+            cMapPacked: true,
+          });
+        } else {
+          throw new Error('Either url or pdfBuffer must be provided');
+        }
+
+        const document = await loadingTask.promise;
+        setPdfDocument(document);
+      } catch (err) {
+        console.error('Error loading PDF:', err);
+        setError(err);
+        if (onError) onError(err);
+      }
+    };
+
+    if (url || pdfBuffer) {
+      loadPdf();
+    }
+  }, [url, pdfBuffer, onError]);
+
+  if (error) {
+    return <div>Error loading PDF. Please try again.</div>;
+  }
+
+  if (!pdfDocument) {
+    return beforeLoad || <CircularProgress />;
+  }
+
+  return children(pdfDocument);
+};
 
 const HighlightPopup: React.FC<HighlightPopupProps> = ({ comment }) =>
   comment?.text ? (
@@ -87,14 +151,20 @@ const processHighlight = (citation: DocumentContent): HighlightType | null => {
 
 const PdfHighlighterComp = ({
   pdfUrl = '',
+  pdfBuffer = null,
+  externalRecordId = '',
+  fileName = '',
   initialHighlights = [],
-  citations,
+  citations = [],
 }: PdfHighlighterCompProps) => {
   const [highlights, setHighlights] = useState<HighlightType[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actualPdfUrl, setActualPdfUrl] = useState<string | null>(pdfUrl || null);
+  const [actualPdfBuffer, setActualPdfBuffer] = useState<ArrayBuffer | null>(pdfBuffer || null);
   const scrollViewerTo = useRef<(highlight: HighlightType) => void>(() => {});
-  // const hasInitialized = useRef<boolean>(false);
   const [processedCitations, setProcessedCitations] = useState<ProcessedCitation[]>([]);
-  console.log(citations);
+
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -141,6 +211,77 @@ const PdfHighlighterComp = ({
     return () => void document.head.removeChild(style);
   }, []);
 
+  // Load document from externalRecordId if provided
+  // Update this section in your useEffect for fetching the document
+  useEffect(() => {
+    if (externalRecordId && !pdfUrl && !pdfBuffer) {
+      const fetchDocument = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+
+          const response = await axios.get(`/api/v1/document/${externalRecordId}/download`, {
+            responseType: 'blob',
+          });
+
+          // Read the blob response as text to check if it's JSON with signedUrl
+          const reader = new FileReader();
+
+          const textPromise = new Promise<string>((resolve) => {
+            reader.onload = () => {
+              resolve(reader.result?.toString() || '');
+            };
+            reader.readAsText(response.data.slice(0)); // Create a copy of the blob data
+          });
+
+          const text = await textPromise;
+
+          try {
+            // Check if response is JSON with signedUrl (S3 storage)
+            const jsonData = JSON.parse(text);
+
+            if (jsonData && jsonData.signedUrl) {
+              // It's a signed URL - use URL-based loading
+              setActualPdfUrl(jsonData.signedUrl);
+            }
+          } catch (e) {
+            // Not JSON, so it's the actual binary data (local storage)
+            const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
+              const bufferReader = new FileReader();
+              bufferReader.onload = () => {
+                // Clone the ArrayBuffer to prevent detachment issues
+                const buffer = bufferReader.result as ArrayBuffer;
+                const bufferCopy = buffer.slice(0);
+                resolve(bufferCopy);
+              };
+              bufferReader.readAsArrayBuffer(response.data.slice(0)); // Create a copy of the blob data
+            });
+
+            const buffer = await arrayBufferPromise;
+            setActualPdfBuffer(buffer);
+          }
+        } catch (err) {
+          console.error('Error loading PDF:', err);
+          setError('Failed to load PDF document');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchDocument();
+    } else {
+      // Use provided URL or buffer directly
+      setActualPdfUrl(pdfUrl || null);
+
+      // Create a copy of the buffer if provided
+      if (pdfBuffer) {
+        setActualPdfBuffer(pdfBuffer.slice(0));
+      } else {
+        setActualPdfBuffer(null);
+      }
+    }
+  }, [externalRecordId, pdfUrl, pdfBuffer]);
+
   useEffect(() => {
     const processCitationsWithHighlights = () => {
       if (citations?.length > 0) {
@@ -163,7 +304,7 @@ const PdfHighlighterComp = ({
     };
 
     processCitationsWithHighlights();
-  }, [pdfUrl, citations]);
+  }, [actualPdfUrl, actualPdfBuffer, citations]);
 
   const addHighlight = useCallback((highlight: Omit<HighlightType, 'id'>): void => {
     setHighlights((prevHighlights) => [
@@ -192,11 +333,45 @@ const PdfHighlighterComp = ({
     []
   );
 
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100%',
+          width: '100%',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100%',
+          width: '100%',
+          color: 'error.main',
+        }}
+      >
+        {error}
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ display: 'flex', height: '100%', width: '100%' }}>
       <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        <PdfLoader
-          url={pdfUrl}
+        <EnhancedPdfLoader
+          url={actualPdfUrl}
+          pdfBuffer={actualPdfBuffer}
           beforeLoad={
             <Box
               sx={{
@@ -210,7 +385,7 @@ const PdfHighlighterComp = ({
             </Box>
           }
         >
-          {(pdfDocument) => (
+          {(pdfDocument: any) => (
             <div
               style={
                 {
@@ -239,7 +414,7 @@ const PdfHighlighterComp = ({
                       addHighlight({ content, position, comment });
                       hideTipAndSelection();
                     }}
-                  />
+                  /> 
                 )}
                 highlightTransform={(
                   highlight,
@@ -296,7 +471,7 @@ const PdfHighlighterComp = ({
               />
             </div>
           )}
-        </PdfLoader>
+        </EnhancedPdfLoader>
       </Box>
       <CitationSidebar citations={processedCitations} scrollViewerTo={scrollViewerTo.current} />
     </Box>

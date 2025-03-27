@@ -4,8 +4,11 @@ import type { ScaledPosition } from "react-pdf-highlighter";
 import type { Citation, CustomCitation } from "./chat-bot";
 
 export interface PdfHighlighterCompProps {
-  pdfUrl: string;
+  pdfUrl?: string | null;
+  pdfBuffer?: ArrayBuffer | null;
   citations: DocumentContent[] | CustomCitation[];
+  externalRecordId?: string;
+  fileName?: string;
   initialHighlights?: Citation[];
 }
 

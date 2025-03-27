@@ -398,10 +398,11 @@ const ChatMessage = ({
   const handleViewPdf = async (
     url: string,
     citations: CustomCitation[],
-    isExcelFile?: boolean
+    isExcelFile?: boolean,
+    buffer?: ArrayBuffer
   ): Promise<void> =>
     new Promise<void>((resolve) => {
-      onViewPdf(url, citations, isExcelFile);
+      onViewPdf(url, citations, isExcelFile,buffer);
       resolve();
     });
 

@@ -1,4 +1,4 @@
-import type { Citation, CustomCitation } from 'src/types/chat-bot';
+import type { CustomCitation } from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';
 import React, { useState, useEffect } from 'react';
@@ -15,7 +15,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import axiosInstance from 'src/utils/axios';
+import axios from 'src/utils/axios';
 
 import PDFViewer from './pdf-viewer';
 
@@ -76,6 +76,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
   const [error, setError] = useState<string | null>(null);
   const [isPDFViewerOpen, setIsPDFViewerOpen] = useState<boolean>(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [fileBuffer, setFileBuffer] = useState<ArrayBuffer>();
 
   useEffect(() => {
     if (!recordId) return;
@@ -85,7 +86,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
       setError(null);
 
       try {
-        const response = await axiosInstance.get(`/api/v1/knowledgebase/${recordId}`);
+        const response = await axios.get(`/api/v1/knowledgebase/${recordId}`);
         setRecordData(response.data);
       } catch (err) {
         setError('Failed to fetch record details. Please try again later.');
@@ -102,16 +103,59 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
     if (record?.origin === 'UPLOAD') {
       if (record?.externalRecordId) {
         try {
-          const response = await axiosInstance.get(
-            `/api/v1/document/${record.externalRecordId}/download`
-          );
+          const externalRecordId = record.externalRecordId;
+          const response = await axios.get(`/api/v1/document/${externalRecordId}/download`, {
+            responseType: 'blob',
+          });
 
-          const url = response.data.signedUrl;
+          // Read the blob response as text to check if it's JSON with signedUrl
+          const reader = new FileReader();
+          const textPromise = new Promise<string>((resolve) => {
+            reader.onload = () => {
+              resolve(reader.result?.toString() || '');
+            };
+          });
 
-          setPdfUrl(url);
-          setIsPDFViewerOpen(true);
+          reader.readAsText(response.data);
+          const text = await textPromise;
+
+          let filename = record.recordName || `document-${externalRecordId}`;
+          const contentDisposition = response.headers['content-disposition'];
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+              filename = filenameMatch[1];
+            }
+          }
+
+          try {
+            // Try to parse as JSON to check for signedUrl property
+            const jsonData = JSON.parse(text);
+            if (jsonData && jsonData.signedUrl) {
+              setPdfUrl(jsonData.signedUrl);
+              setIsPDFViewerOpen(true);
+              return;
+            }
+          } catch (e) {
+            // Case 2: Local storage - Return buffer
+            const bufferReader = new FileReader();
+            const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
+              bufferReader.onload = () => {
+                resolve(bufferReader.result as ArrayBuffer);
+              };
+              bufferReader.readAsArrayBuffer(response.data);
+            });
+
+            const buffer = await arrayBufferPromise;
+            setFileBuffer(buffer);
+            setIsPDFViewerOpen(true);
+            return;
+          }
+
+          throw new Error('Invalid response format');
         } catch (err) {
-          console.error('Failed to fetch PDF:', err);
+          console.error('Error downloading document:', err);
+          throw new Error('Failed to download document');
         }
       }
     }
@@ -354,14 +398,15 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
           </Box>
         )}
       </Box>
-      {pdfUrl && (
+      {(pdfUrl || fileBuffer) && (
         <PDFViewer
           open={isPDFViewerOpen}
           onClose={handleClosePDFViewer}
           pdfUrl={pdfUrl}
+          pdfBuffer = {fileBuffer}
           fileName={record.fileRecord?.name || 'Document'}
           // citations={citations}
-        />
+        /> 
       )}
     </Paper>
   );

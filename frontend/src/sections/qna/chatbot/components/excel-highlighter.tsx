@@ -29,7 +29,8 @@ import scrollableContainerStyle from '../../utils/styles/scrollbar';
 
 type ExcelViewerprops = {
   citations: DocumentContent[] | CustomCitation[];
-  fileUrl: string;
+  fileUrl: string | null;
+  excelBuffer?: ArrayBuffer | null;
 };
 
 interface StyleProps {
@@ -196,7 +197,7 @@ const ControlsContainer = styled(Box)(({ theme }) => ({
   zIndex: 1000,
 }));
 
-const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
+const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [tableData, setTableData] = useState<TableRowType[]>([]);
@@ -246,14 +247,6 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
 
         tableRows[blockNum].style.transition = 'background-color 0.5s ease';
         tableRows[blockNum].style.backgroundColor = 'rgba(46, 125, 50, 0.2)';
-
-        // const timeoutId = setTimeout(() => {
-        //   if (mountedRef.current && tableRows[rowNum]) {
-        //     tableRows[rowNum].style.backgroundColor = 'rgba(46, 125, 50, 0.1)';
-        //   }
-        // }, 1000);
-
-        // return () => clearTimeout(timeoutId);
       });
     }
   }, []);
@@ -264,8 +257,8 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
       const { blockNum } = citation.metadata;
       if (blockNum) {
         setSelectedCitation(citation.metadata._id);
-        setHighlightedRow(blockNum-1);
-        scrollToRow(blockNum-1);
+        setHighlightedRow(blockNum - 1);
+        scrollToRow(blockNum - 1);
       }
     },
     [scrollToRow]
@@ -299,7 +292,6 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
     return cell.w || cell.v || '';
   };
 
-  // Bug on switching from pdf to excel
   const processExcelData = useCallback(async (workbook: XLSX.WorkBook): Promise<void> => {
     if (processingRef.current || !mountedRef.current) return;
     processingRef.current = true;
@@ -355,33 +347,61 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
   }, []);
 
   const loadExcelFile = useCallback(async (): Promise<void> => {
-    if (!fileUrl || !mountedRef.current) return;
+    if (!fileUrl && !excelBuffer) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(fileUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      let workbook: XLSX.WorkBook;
+
+      if (excelBuffer) {
+        // Use buffer directly if available - prevent detached buffer issues
+        try {
+          // Create a copy of the buffer to prevent detachment issues
+          const bufferCopy = excelBuffer.slice(0);
+
+          workbook = XLSX.read(new Uint8Array(bufferCopy), {
+            type: 'array',
+            cellFormula: true,
+            cellHTML: true,
+            cellStyles: true,
+            cellText: true,
+            cellDates: true,
+            cellNF: true,
+            sheetStubs: true,
+            WTF: false,
+          });
+        } catch (bufferErr) {
+          console.error('Error reading from buffer:', bufferErr);
+          throw new Error(`Failed to read Excel data from buffer: ${bufferErr.message}`);
+        }
+      } else if (fileUrl) {
+        // Fall back to URL loading
+        const response = await fetch(fileUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        if (!mountedRef.current) return;
+
+        workbook = XLSX.read(arrayBuffer, {
+          type: 'array',
+          cellFormula: true,
+          cellHTML: true,
+          cellStyles: true,
+          cellText: true,
+          cellDates: true,
+          cellNF: true,
+          sheetStubs: true,
+          WTF: false,
+        });
+      } else {
+        throw new Error('No data source provided');
       }
 
-      const arrayBuffer = await response.arrayBuffer();
       if (!mountedRef.current) return;
-
-      const workbook = XLSX.read(arrayBuffer, {
-        type: 'array',
-        cellFormula: true,
-        cellHTML: true,
-        cellStyles: true,
-        cellText: true,
-        cellDates: true,
-        cellNF: true,
-        sheetStubs: true,
-        // fullCalc: true,
-        WTF: false,
-      });
-
       await processExcelData(workbook);
     } catch (err) {
       if (mountedRef.current) {
@@ -392,7 +412,7 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
         setLoading(false);
       }
     }
-  }, [fileUrl, processExcelData]);
+  }, [fileUrl, excelBuffer, processExcelData]);
 
   // Handle initial load and cleanup
   useEffect(() => {
@@ -403,7 +423,7 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
     };
   }, []);
 
-  // Handle file URL changes
+  // Handle file URL or buffer changes
   useEffect(() => {
     setTableData([]);
     setHeaders([]);
@@ -412,7 +432,7 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
     setError(null);
     setIsInitialized(false);
     loadExcelFile();
-  }, [fileUrl, loadExcelFile]);
+  }, [fileUrl, excelBuffer, loadExcelFile]);
 
   // Handle initial citation highlight
   useEffect(() => {
@@ -420,9 +440,9 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
       const firstCitation = citations[0];
       const { blockNum } = firstCitation.metadata;
       if (blockNum) {
-        setHighlightedRow(blockNum-1);
+        setHighlightedRow(blockNum - 1);
         setSelectedCitation(firstCitation.metadata._id);
-        scrollToRow(blockNum-1);
+        scrollToRow(blockNum - 1);
       }
     }
   }, [citations, isInitialized, highlightedRow, scrollToRow]);
@@ -448,7 +468,6 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
       ref={containerRef}
       sx={{
         position: 'relative',
-        // maxHeight: '90vh',
         height: '100%',
         backgroundColor: 'background.paper',
         '&:fullscreen': {
@@ -457,6 +476,7 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
         },
       }}
     >
+      {/* Rest of the component remains the same */}
       <ControlsContainer>
         <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
           <IconButton
@@ -469,7 +489,7 @@ const ExcelViewer = ({ citations, fileUrl }: ExcelViewerprops) => {
                 backgroundColor: 'background.paper',
                 opacity: 0.9,
               },
-              mt:2
+              mt: 2,
             }}
           >
             <Icon
