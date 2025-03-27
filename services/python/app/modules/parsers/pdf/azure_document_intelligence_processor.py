@@ -350,8 +350,7 @@ class AzureOCRStrategy(OCRStrategy):
 
         # First pass: collect all lines and paragraphs by page
         for page in doc_pages:
-            logger.debug(f"📄 Processing page {
-                         page.page_number if hasattr(page, 'page_number') else page}")
+            logger.debug(f"📄 Processing page { page.page_number if hasattr(page, 'page_number') else page}")
 
             # Get page properties based on document type
             if hasattr(page, 'width'):
@@ -611,8 +610,7 @@ class AzureOCRStrategy(OCRStrategy):
         max_x = max(point["x"] for point in all_points)
         max_y = max(point["y"] for point in all_points)
 
-        logger.debug(f"✅ Merged bounding box: {
-                     min_x}, {min_y}, {max_x}, {max_y}")
+        logger.debug(f"✅ Merged bounding box: {min_x}, {min_y}, {max_x}, {max_y}")
         return [
             {"x": min_x, "y": min_y},  # top-left
             {"x": max_x, "y": min_y},  # top-right
@@ -697,8 +695,7 @@ class AzureOCRStrategy(OCRStrategy):
             azure_page = next(
                 (p for p in self.doc.pages if p.page_number == page_num), None)
             if not azure_page:
-                logger.debug(f"⚠️ No Azure OCR results found for page {
-                             page_num + 1}")
+                logger.debug(f"⚠️ No Azure OCR results found for page {page_num + 1}")
                 continue
 
             logger.debug(f"🔄 Processing page {page_num + 1}")
