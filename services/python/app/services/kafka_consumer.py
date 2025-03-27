@@ -138,11 +138,11 @@ class KafkaConsumerManager:
                     print(f"Failed to parse JSON: {e}")
             else:
                 print(f"Unexpected message value type: {type(message_value)}")
-            
+
             if not event_type:
                 logger.error(f"missing event_type: {topic}, {event_type}")
                 return False
-            
+
             # Check for DUPLICATE processing
             if self.is_message_processed(message_id):
                 logger.info(

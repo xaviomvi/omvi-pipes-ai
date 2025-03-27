@@ -67,21 +67,19 @@ class AzureOCRStrategy(OCRStrategy):
             except Exception as e:
                 logger.error(f"❌ Azure document analysis failed: {e}")
                 logger.info("⚠️ Falling back to direct PyMuPDF extraction")
-                with fitz.open(stream=content, filetype="pdf") as temp_doc:
-                    self.doc = temp_doc
-                    self._needs_ocr = False
-                    self.ocr_pdf_content = None
+                self.doc = fitz.open(stream=content, filetype="pdf")  # Open the document outside the context manager
+                self._needs_ocr = False
+                self.ocr_pdf_content = None
 
         else:
             logger.info(
                 "📝 Document doesn't need OCR, using PyMuPDF extraction")
-            with fitz.open(stream=content, filetype="pdf") as temp_doc:
-                self.doc = temp_doc
-                self.ocr_pdf_content = None
+            self.doc = fitz.open(stream=content, filetype="pdf")  # Open the document outside the context manager
+            self.ocr_pdf_content = None
 
         logger.debug("🔄 Pre-processing document to match Azure's structure")
         self.document_analysis_result = self._preprocess_document()
-        logger.info(f"✅ Document loaded with {len(self.doc.pages)} pages")
+        logger.info(f"✅ Document loaded with {len(self.doc.pages())} pages")
 
     @Language.component("custom_sentence_boundary")
     def custom_sentence_boundary(doc):
@@ -96,8 +94,8 @@ class AzureOCRStrategy(OCRStrategy):
                 (next_token.like_num and len(next_token.text) <= 2 and
                  next_token.i + 1 < len(doc) and doc[next_token.i + 1].text == ".") or
                 # Letter bullets (a., b., etc)
-                (len(next_token.text) == 1 and next_token.text.isalpha() and
-                 next_token.i + 1 < len(doc) and doc[next_token.i + 1].text == ".")
+                (len(next_token.text) == 1 and next_token.text.isalpha()
+                 and next_token.i + 1 < len(doc) and doc[next_token.i + 1].text == ".")
             ):
                 next_token.is_sent_start = True
                 continue
@@ -331,120 +329,126 @@ class AzureOCRStrategy(OCRStrategy):
 
     def _preprocess_document(self) -> Dict[str, Any]:
         """Pre-process document to match PyMuPDF's structure"""
-        logger.debug("🔄 Starting document pre-processing")
+        try:
+            logger.debug("🔄 Starting document pre-processing")
 
-        # Handle both Azure and PyMuPDF document types
-        if hasattr(self.doc, 'pages'):
-            doc_pages = self.doc.pages
-        else:
-            doc_pages = range(len(self.doc))  # PyMuPDF case
-
-        result = {
-            "pages": [],
-            "lines": [],
-            "paragraphs": [],
-            "sentences": [],
-            "tables": [],
-            "key_value_pairs": []
-        }
-
-        # First pass: collect all lines and paragraphs by page
-        for page in doc_pages:
-            logger.debug(f"📄 Processing page { page.page_number if hasattr(page, 'page_number') else page}")
-
-            # Get page properties based on document type
-            if hasattr(page, 'width'):
-                logger.debug("PAGE WIDTH: %f", page.width)
-                logger.debug("PAGE HEIGHT: %f", page.height)
-                logger.debug("PAGE UNIT: %s", page.unit)
-                logger.debug("PAGE NUMBER: %d", page.page_number)
-                page_width = page.width
-                page_height = page.height
-                page_unit = page.unit
-                page_number = page.page_number
+            # Handle both Azure and PyMuPDF document types
+            if hasattr(self.doc, 'pages'):
+                doc_pages = list(self.doc.pages())  # Convert generator to list to ensure it's iterable
             else:
-                logger.debug("PAGE RECT WIDTH: %f", page.rect.width)
-                logger.debug("PAGE RECT HEIGHT: %f", page.rect.height)
-                logger.debug("PAGE RECT UNIT: %s", "point")
-                logger.debug("PAGE RECT NUMBER: %d", page.number)
-                # PyMuPDF case
-                page = self.doc[page]
-                page_width = page.rect.width
-                page_height = page.rect.height
-                page_unit = "point"
-                page_number = page.number
+                doc_pages = range(len(self.doc))  # PyMuPDF case
 
-            page_dict = {
-                "page_number": page_number,
-                "width": page_width,
-                "height": page_height,
-                "unit": page_unit,
+            result = {
+                "pages": [],
                 "lines": [],
-                "words": [],
-                "tables": []
+                "paragraphs": [],
+                "sentences": [],
+                "tables": [],
+                "key_value_pairs": []
             }
 
-            # Collect all lines from the page
-            page_lines = []
-            if hasattr(page, 'lines'):
-                logger.debug("Processing page lines")
-                for line in page.lines:
-                    line_data = self._process_line(
-                        line, page_width, page_height)
-                    if line_data:
-                        line_data["page_number"] = page_number
-                        page_lines.append(line_data)
-                        page_dict["lines"].append(line_data)
-                        result["lines"].append(line_data)
+            logger.debug(f"doc_pages: {doc_pages}")
+            logger.debug(f"type of doc_pages: {type(doc_pages)}")
 
-            # Process paragraphs and their associated lines
-            if hasattr(self.doc, 'paragraphs'):
-                logger.debug("Processing paragraphs")
-                for idx, paragraph in enumerate(self.doc.paragraphs):
-                    processed_paragraph = self._process_block_text(
-                        paragraph, page_width, page_height)
-                    if processed_paragraph:
-                        processed_paragraph["page_number"] = page_number
-                        processed_paragraph["paragraph_number"] = idx
+            # First pass: collect all lines and paragraphs by page
+            for page in doc_pages:
+                # Ensure page is accessed correctly
+                if isinstance(page, int):
+                    page = self.doc[page]  # Access page by index for PyMuPDF
 
-                        # Find lines that belong to this paragraph
-                        paragraph_lines = self._get_lines_for_paragraph(
-                            page_lines,
-                            processed_paragraph["content"],
-                            processed_paragraph["bounding_box"]
-                        )
+                logger.debug(f"📄 Processing page {page.page_number if hasattr(page, 'page_number') else page}")
 
-                        # print("================================================")
-                        # print("PARAGRAPH LINES", paragraph_lines)
-                        # print("================================================")
+                # Get page properties based on document type
+                if hasattr(page, 'width'):
+                    logger.debug("PAGE WIDTH: %f", page.width)
+                    logger.debug("PAGE HEIGHT: %f", page.height)
+                    logger.debug("PAGE UNIT: %s", page.unit)
+                    logger.debug("PAGE NUMBER: %d", page.page_number)
+                else:
+                    logger.debug("PAGE RECT WIDTH: %f", page.rect.width)
+                    logger.debug("PAGE RECT HEIGHT: %f", page.rect.height)
+                    logger.debug("PAGE RECT UNIT: %s", "point")
+                    logger.debug("PAGE RECT NUMBER: %d", page.number)
+                    # PyMuPDF case
+                    page_width = page.rect.width
+                    page_height = page.rect.height
+                    page_unit = "point"
+                    page_number = page.number
 
-                        # Process sentences for this paragraph's lines
-                        paragraph_sentences = self._merge_lines_to_sentences(
-                            paragraph_lines)
+                page_dict = {
+                    "page_number": page_number,
+                    "width": page_width,
+                    "height": page_height,
+                    "unit": page_unit,
+                    "lines": [],
+                    "words": [],
+                    "tables": []
+                }
 
-                        # Add sentences to the result with paragraph mapping
-                        for sentence in paragraph_sentences:
-                            sentence_data = {
-                                "content": sentence["sentence"],
-                                "bounding_box": sentence["bounding_box"],
-                                "paragraph_numbers": [idx],
-                                "page_number": page_number
-                            }
-                            result["sentences"].append(sentence_data)
+                # Collect all lines from the page
+                page_lines = []
+                if hasattr(page, 'lines'):
+                    logger.debug("Processing page lines")
+                    for line in page.lines:
+                        line_data = self._process_line(
+                            line, page_width, page_height)
+                        if line_data:
+                            line_data["page_number"] = page_number
+                            page_lines.append(line_data)
+                            page_dict["lines"].append(line_data)
+                            result["lines"].append(line_data)
 
-                        processed_paragraph["sentences"] = paragraph_sentences
-                        result["paragraphs"].append(processed_paragraph)
+                # Process paragraphs and their associated lines
+                if hasattr(self.doc, 'paragraphs'):
+                    logger.debug("Processing paragraphs")
+                    for idx, paragraph in enumerate(self.doc.paragraphs):
+                        processed_paragraph = self._process_block_text(
+                            paragraph, page_width, page_height)
+                        if processed_paragraph:
+                            processed_paragraph["page_number"] = page_number
+                            processed_paragraph["paragraph_number"] = idx
 
-            # Process tables if present
-            if hasattr(page, 'tables'):
-                for table in page.tables:
-                    table_data = self._process_table(table, page)
-                    page_dict["tables"].append(table_data)
-                    result["tables"].append(table_data)
+                            # Find lines that belong to this paragraph
+                            paragraph_lines = self._get_lines_for_paragraph(
+                                page_lines,
+                                processed_paragraph["content"],
+                                processed_paragraph["bounding_box"]
+                            )
 
-            result["pages"].append(page_dict)
+                            # print("================================================")
+                            # print("PARAGRAPH LINES", paragraph_lines)
+                            # print("================================================")
 
-        return result
+                            # Process sentences for this paragraph's lines
+                            paragraph_sentences = self._merge_lines_to_sentences(
+                                paragraph_lines)
+
+                            # Add sentences to the result with paragraph mapping
+                            for sentence in paragraph_sentences:
+                                sentence_data = {
+                                    "content": sentence["sentence"],
+                                    "bounding_box": sentence["bounding_box"],
+                                    "paragraph_numbers": [idx],
+                                    "page_number": page_number
+                                }
+                                result["sentences"].append(sentence_data)
+
+                            processed_paragraph["sentences"] = paragraph_sentences
+                            result["paragraphs"].append(processed_paragraph)
+
+                # Process tables if present
+                if hasattr(page, 'tables'):
+                    for table in page.tables:
+                        table_data = self._process_table(table, page)
+                        page_dict["tables"].append(table_data)
+                        result["tables"].append(table_data)
+
+                result["pages"].append(page_dict)
+
+            return result
+        except Exception as e:
+            logger.error(f"❌ Error processing document: {str(e)}")
+            raise
 
     def _get_lines_for_paragraph(
         self,

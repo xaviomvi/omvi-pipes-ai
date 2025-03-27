@@ -393,6 +393,7 @@ class ArangoService(BaseArangoService):
             """
 
             bind_vars = {
+                'file_key': file_key,
                 'record_id': CollectionNames.RECORDS.value + '/' + file_key,
                 '@records': CollectionNames.RECORDS.value,
                 '@recordRelations': CollectionNames.RECORD_RELATIONS.value
@@ -1436,44 +1437,31 @@ class ArangoService(BaseArangoService):
             logger.error("❌ Error getting drive sync state: %s", str(e))
             return None
 
-    # async def get_org_apps(self, org_id: str) -> List[Dict]:
-    #     """
-    #     Get all apps associated with an organization through direct edge querying
-        
-    #     Args:
-    #         org_id (str): Organization ID (_key)
+    async def check_edge_exists(self, from_id: str, to_id: str, collection: str) -> bool:
+        """Check if an edge exists between two nodes in a specified collection."""
+        try:
+            logger.info("🔍 Checking if edge exists from %s to %s in collection %s", from_id, to_id, collection)
             
-    #     Returns:
-    #         List[Dict]: List of app documents connected to the organization
-    #     """
-    #     try:
-    #         logger.info("🔍 Getting apps for organization %s", org_id)
+            query = """
+            FOR edge IN @@collection
+                FILTER edge._from == @from_id AND edge._to == @to_id
+                RETURN edge
+            """
             
-    #         query = """
-    #         FOR edge IN @@orgAppRelation
-    #             FILTER edge._from == CONCAT('organizations/', @org_id)
-    #             LET app = DOCUMENT(edge._to)
-            #     RETURN {
-            #         _key: app._key,
-            #         name: app.name,
-            #         type: app.type,
-            #         status: app.status,
-            #         created_at: app.created_at,
-            #         updatedAt: app.updatedAt
-            #     }
-            # """
-            # 
-    #         result = list(self.db.aql.execute(
-    #             query,
-    #             bind_vars={
-    #                 '@orgAppRelation': CollectionNames.ORG_APP_RELATION.value,
-    #                 'org_id': org_id
-    #             }
-    #         ))
+            cursor = self.db.aql.execute(
+                query,
+                bind_vars={
+                    'from_id': from_id,
+                    'to_id': to_id,
+                    '@collection': collection
+                }
+            )
             
-    #         logger.info("✅ Found %d apps for organization %s", len(result), org_id)
-    #         return result
+            result = next(cursor, None)
+            exists = result is not None
+            logger.info("✅ Edge exists: %s", exists)
+            return exists
 
-    #     except Exception as e:
-    #         logger.error("❌ Error getting apps for organization %s: %s", org_id, str(e))
-    #         return []
+        except Exception as e:
+            logger.error("❌ Error checking edge existence: %s", str(e))
+            return False

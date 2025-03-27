@@ -643,13 +643,20 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                         matching_user = next(
                             (user for user in users if user['email'] == member['email']), None)
                         if matching_user:
-                            relation = {
-                                '_from': f'users/{matching_user["_key"]}',
-                                '_to': f'groups/{group["_key"]}',
-                                'entityType': 'GROUP',
-                                'role': member.get('role', 'member')
-                            }
-                            belongs_to_group_relations.append(relation)
+                            # Check if the relationship already exists
+                            existing_relation = await self.arango_service.check_edge_exists(
+                                f'users/{matching_user["_key"]}',
+                                f'groups/{group["_key"]}',
+                                CollectionNames.BELONGS_TO.value
+                            )
+                            if not existing_relation:
+                                relation = {
+                                    '_from': f'users/{matching_user["_key"]}',
+                                    '_to': f'groups/{group["_key"]}',
+                                    'entityType': 'GROUP',
+                                    'role': member.get('role', 'member')
+                                }
+                                belongs_to_group_relations.append(relation)
                 except Exception as e:
                     logger.error(
                         "❌ Error fetching group members for group %s: %s", group['_key'], str(e))
@@ -665,12 +672,19 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
             # Create relationships between users and orgs
             belongs_to_org_relations = []
             for user in users:
-                relation = {
-                    '_from': f'users/{user["_key"]}',
-                    '_to': f'organizations/{org_id}',
-                    'entityType': 'ORGANIZATION'
-                }
-                belongs_to_org_relations.append(relation)
+                # Check if the relationship already exists
+                existing_relation = await self.arango_service.check_edge_exists(
+                    f'users/{user["_key"]}',
+                    f'organizations/{org_id}',
+                    CollectionNames.BELONGS_TO.value
+                )
+                if not existing_relation:
+                    relation = {
+                        '_from': f'users/{user["_key"]}',
+                        '_to': f'organizations/{org_id}',
+                        'entityType': 'ORGANIZATION'
+                    }
+                    belongs_to_org_relations.append(relation)
 
             if belongs_to_org_relations:
                 await self.arango_service.batch_create_edges(
