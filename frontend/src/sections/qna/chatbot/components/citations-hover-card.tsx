@@ -4,26 +4,23 @@ import type { Record } from 'src/types/chat-message';
 import React from 'react';
 import { Icon } from '@iconify/react';
 
-import { 
-  Fade, 
-  Card, 
-  Stack, 
-  Button, 
-  Typography, 
-  Chip, 
-  Box, 
-  Divider 
-} from '@mui/material';
+import { Fade, Card, Stack, Button, Typography, Chip, Box, Divider } from '@mui/material';
 
 import axios from 'src/utils/axios';
-
+import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
+import { CONFIG } from 'src/config-global';
 
 interface CitationHoverCardProps {
   citation: CustomCitation;
   isVisible: boolean;
   onRecordClick: (record: Record) => void;
   onClose: () => void;
-  onViewPdf: (url: string, citations: CustomCitation[], isExcelFile?: boolean,buffer?: ArrayBuffer) => Promise<void>;
+  onViewPdf: (
+    url: string,
+    citations: CustomCitation[],
+    isExcelFile?: boolean,
+    buffer?: ArrayBuffer
+  ) => Promise<void>;
   aggregatedCitations: CustomCitation[];
 }
 
@@ -58,7 +55,7 @@ const CitationHoverCard = ({
   aggregatedCitations,
 }: CitationHoverCardProps) => {
   const hasRecordId = Boolean(citation?.metadata?.recordId);
-  
+
   const handleClick = (e: React.MouseEvent): void => {
     e.preventDefault();
     e.stopPropagation();
@@ -69,7 +66,7 @@ const CitationHoverCard = ({
         recordId: citation.metadata.recordId,
         citations: aggregatedCitations.filter(
           (c) => c.metadata?.recordId === citation.metadata?.recordId
-        ), 
+        ),
       };
       onRecordClick(record);
       onClose();
@@ -83,65 +80,103 @@ const CitationHoverCard = ({
           const isExcelOrCSV = ['CSV', 'xlsx', 'xls'].includes(citation.metadata?.extension);
           const recordId = citation.metadata?.recordId;
           const response = await axios.get(`/api/v1/knowledgebase/${recordId}`);
-          const { externalRecordId } = response.data.record;
-          const fileName = response.data.record.recordName;
+          const record = response.data.record;
+          const { externalRecordId } = record;
+          const fileName = record.recordName;
           // const downloadResponse = await axios.get(`/api/v1/document/${externalRecordId}/download`);
           // const url = downloadResponse.data.signedUrl;
           // onViewPdf(url, aggregatedCitations, isExcelOrCSV);
 
-
-          try {
-            const downloadResponse = await axios.get(
-              `/api/v1/document/${externalRecordId}/download`,
-              { responseType: 'blob' }
-            );
-            
-            // Read the blob response as text to check if it's JSON with signedUrl
-            const reader = new FileReader();
-            const textPromise = new Promise<string>((resolve) => {
-              reader.onload = () => {
-                resolve(reader.result?.toString() || '');
-              };
-            });
-        
-            reader.readAsText(downloadResponse.data);
-            const text = await textPromise;
-        
-            let filename = fileName || `document-${externalRecordId}`;
-            const contentDisposition = downloadResponse.headers['content-disposition'];
-            if (contentDisposition) {
-              const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
-              if (filenameMatch && filenameMatch[1]) {
-                filename = filenameMatch[1];
-              }
-            }
-        
+          if (record.origin === ORIGIN.UPLOAD) {
             try {
-              // Try to parse as JSON to check for signedUrl property
-              const jsonData = JSON.parse(text);
-              if (jsonData && jsonData.signedUrl) {
-                onViewPdf(jsonData.signedUrl, aggregatedCitations, isExcelOrCSV);
-                return;
-              }
-            } catch (e) {
-              // Case 2: Local storage - Return buffer
-              const bufferReader = new FileReader();
-              const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
-                bufferReader.onload = () => {
-                  resolve(bufferReader.result as ArrayBuffer);
+              const downloadResponse = await axios.get(
+                `/api/v1/document/${externalRecordId}/download`,
+                { responseType: 'blob' }
+              );
+
+              // Read the blob response as text to check if it's JSON with signedUrl
+              const reader = new FileReader();
+              const textPromise = new Promise<string>((resolve) => {
+                reader.onload = () => {
+                  resolve(reader.result?.toString() || '');
                 };
-                bufferReader.readAsArrayBuffer(downloadResponse.data);
               });
-              
-              const buffer = await arrayBufferPromise;
-              onViewPdf('', aggregatedCitations, isExcelOrCSV,buffer);
-              return ;
+
+              reader.readAsText(downloadResponse.data);
+              const text = await textPromise;
+
+              let filename = fileName || `document-${externalRecordId}`;
+              const contentDisposition = downloadResponse.headers['content-disposition'];
+              if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+                if (filenameMatch && filenameMatch[1]) {
+                  filename = filenameMatch[1];
+                }
+              }
+
+              try {
+                // Try to parse as JSON to check for signedUrl property
+                const jsonData = JSON.parse(text);
+                if (jsonData && jsonData.signedUrl) {
+                  onViewPdf(jsonData.signedUrl, aggregatedCitations, isExcelOrCSV);
+                }
+              } catch (e) {
+                // Case 2: Local storage - Return buffer
+                const bufferReader = new FileReader();
+                const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
+                  bufferReader.onload = () => {
+                    resolve(bufferReader.result as ArrayBuffer);
+                  };
+                  bufferReader.readAsArrayBuffer(downloadResponse.data);
+                });
+
+                const buffer = await arrayBufferPromise;
+                onViewPdf('', aggregatedCitations, isExcelOrCSV, buffer);
+              }
+            } catch (error) {
+              console.error('Error downloading document:', error);
+              throw new Error('Failed to download document');
             }
-            
-            throw new Error('Invalid response format');
-          } catch (error) {
-            console.error('Error downloading document:', error);
-            throw new Error('Failed to download document');
+          } else if (record.origin === ORIGIN.CONNECTOR) {
+            try {
+              const connectorResponse = await axios.get(
+                `${CONFIG.aiBackend}/api/v1/stream/record/${recordId}`,
+                {
+                  responseType: 'blob',
+                }
+              );
+
+              // Extract filename from content-disposition header
+              let filename = record.recordName || `document-${recordId}`;
+              const contentDisposition = connectorResponse.headers['content-disposition'];
+              if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+                if (filenameMatch && filenameMatch[1]) {
+                  filename = filenameMatch[1];
+                }
+              }
+
+              // Convert blob directly to ArrayBuffer
+              const bufferReader = new FileReader();
+              const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
+                bufferReader.onload = () => {
+                  // Create a copy of the buffer to prevent detachment issues
+                  const originalBuffer = bufferReader.result as ArrayBuffer;
+                  const bufferCopy = originalBuffer.slice(0);
+                  resolve(bufferCopy);
+                };
+                bufferReader.onerror = () => {
+                  reject(new Error('Failed to read blob as array buffer'));
+                };
+                bufferReader.readAsArrayBuffer(connectorResponse.data);
+              });
+
+              const buffer = await arrayBufferPromise;
+              onViewPdf('', aggregatedCitations, isExcelOrCSV, buffer);
+            } catch (err) {
+              console.error('Error downloading document:', err);
+              throw new Error(`Failed to download document: ${err.message}`);
+            }
           }
         } catch (err) {
           console.error('Failed to fetch document:', err);
@@ -170,7 +205,9 @@ const CitationHoverCard = ({
       >
         <Stack spacing={1.5}>
           {/* Document Header with View Button */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}
+          >
             <Typography
               variant="subtitle2"
               onClick={handleClick}
@@ -194,58 +231,58 @@ const CitationHoverCard = ({
               <Icon icon="mdi:file-document-outline" width={16} height={16} />
               {citation.metadata?.recordName || 'Document'}
             </Typography>
-            
+
             <Button
               size="small"
               variant="outlined"
               color="primary"
               onClick={handleOpenPdf}
-              sx={{ 
-                py: 0.5, 
-                px: 1, 
-                minWidth: 0, 
+              sx={{
+                py: 0.5,
+                px: 1,
+                minWidth: 0,
                 height: '28px',
                 borderRadius: '4px',
                 textTransform: 'none',
                 fontSize: '0.75rem',
-                fontWeight: 500
+                fontWeight: 500,
               }}
             >
               <Icon icon="mdi:eye-outline" width={14} height={14} style={{ marginRight: '4px' }} />
               View
             </Button>
           </Box>
-          
+
           {/* Document Metadata */}
           <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 0.5 }}>
-            <Chip 
-              size="small" 
-              label={`Page ${citation.metadata?.pageNum || 1}`} 
+            <Chip
+              size="small"
+              label={`Page ${citation.metadata?.pageNum || 1}`}
               variant="outlined"
-              sx={{ 
-                height: '20px', 
+              sx={{
+                height: '20px',
                 fontSize: '0.7rem',
                 fontWeight: 400,
-                bgcolor: 'transparent'
+                bgcolor: 'transparent',
               }}
             />
             {citation.metadata?.extension && (
-              <Chip 
-                size="small" 
-                label={citation.metadata.extension.toUpperCase()} 
+              <Chip
+                size="small"
+                label={citation.metadata.extension.toUpperCase()}
                 variant="outlined"
-                sx={{ 
-                  height: '20px', 
+                sx={{
+                  height: '20px',
                   fontSize: '0.7rem',
                   fontWeight: 400,
-                  bgcolor: 'transparent'
+                  bgcolor: 'transparent',
                 }}
               />
             )}
           </Box>
 
           <Divider sx={{ my: 0.5 }} />
-          
+
           {/* Citation Content */}
           <Box>
             <Typography
@@ -290,8 +327,8 @@ const CitationHoverCard = ({
                         bgcolor: 'background.default',
                         color: 'text.secondary',
                         '& .MuiChip-label': {
-                          px: 1
-                        }
+                          px: 1,
+                        },
                       }}
                     />
                   ))}
@@ -299,15 +336,15 @@ const CitationHoverCard = ({
                     <Chip
                       label={`+${citation.metadata.topics.length - 4}`}
                       size="small"
-                      sx={{ 
-                        height: '18px', 
+                      sx={{
+                        height: '18px',
                         fontSize: '0.65rem',
                         fontWeight: 400,
                         bgcolor: 'background.default',
                         color: 'text.secondary',
                         '& .MuiChip-label': {
-                          px: 1
-                        }
+                          px: 1,
+                        },
                       }}
                     />
                   )}
@@ -338,8 +375,8 @@ const CitationHoverCard = ({
                         bgcolor: 'background.default',
                         color: 'text.secondary',
                         '& .MuiChip-label': {
-                          px: 1
-                        }
+                          px: 1,
+                        },
                       }}
                     />
                   ))}
