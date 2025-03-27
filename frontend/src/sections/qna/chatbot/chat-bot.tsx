@@ -85,6 +85,7 @@ const ChatInterface = () => {
   const [isExcel, setIsExcel] = useState<boolean>(false);
   const [isViewerReady, setIsViewerReady] = useState<boolean>(false);
   const [transitioning, setTransitioning] = useState<boolean>(false);
+  const [fileBuffer,setFileBuffer] = useState<ArrayBuffer>();
 
   const formatMessage = useCallback((apiMessage: Message): FormattedMessage | null => {
     if (!apiMessage) return null;
@@ -150,7 +151,8 @@ const ChatInterface = () => {
   const onViewPdf = async (
     url: string,
     citations: CustomCitation[],
-    isExcelFile: boolean = false
+    isExcelFile: boolean = false,
+    buffer?: ArrayBuffer
   ): Promise<void> => {
     // setAggregatedCitations(citations);
     // setPdfUrl(url);
@@ -175,6 +177,7 @@ const ChatInterface = () => {
     setPdfUrl(url);
     setAggregatedCitations(citations);
     setOpenPdfView(true);
+    setFileBuffer(buffer);
 
     // Allow component to mount
     setTimeout(() => {
@@ -618,15 +621,16 @@ const ChatInterface = () => {
 
             {/* Render viewer with citations */}
             {isViewerReady &&
-              pdfUrl &&
+              (pdfUrl || fileBuffer) &&
               aggregatedCitations &&
               !transitioning &&
               (isExcel ? (
-                <ExcelViewer key="excel-viewer" citations={aggregatedCitations} fileUrl={pdfUrl} />
+                <ExcelViewer key="excel-viewer" citations={aggregatedCitations} fileUrl={pdfUrl} excelBuffer={fileBuffer} />
               ) : (
                 <PdfHighlighterComp
                   key="pdf-viewer"
                   pdfUrl={pdfUrl}
+                  pdfBuffer={fileBuffer}
                   citations={aggregatedCitations}
                 />
               ))}

@@ -17,7 +17,7 @@ type ChatMessagesAreaProps = {
   onFeedbackSubmit : (messageId : string, feedback : any) => Promise<void>;
   conversationId : string | null;
   isLoadingConversation : boolean;
-  onViewPdf : (url: string, citations: CustomCitation[], isExcelFile?: boolean) => void
+  onViewPdf : (url: string, citations: CustomCitation[], isExcelFile?: boolean, buffer?: ArrayBuffer) => void;
 }
 
 type ProcessingIndicatorProps = {
@@ -29,7 +29,7 @@ type MessageWithControlsProps = {
   index : number;
   isExpanded : boolean;
   onToggleCitations : (index : number) => void;
-  onViewPdf : (url: string, citations: CustomCitation[], isExcelFile?: boolean) => void;
+  onViewPdf : (url: string, citations: CustomCitation[], isExcelFile?: boolean,buffer?: ArrayBuffer) => void;
   onFeedbackSubmit : (messageId : string, feedback : any) => Promise<void>;
   conversationId : string | null;
   onRegenerate : (messageId : string) => Promise<void>;

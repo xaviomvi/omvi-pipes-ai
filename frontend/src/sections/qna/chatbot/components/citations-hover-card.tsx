@@ -23,7 +23,7 @@ interface CitationHoverCardProps {
   isVisible: boolean;
   onRecordClick: (record: Record) => void;
   onClose: () => void;
-  onViewPdf: (url: string, citations: CustomCitation[], isExcelFile?: boolean) => Promise<void>;
+  onViewPdf: (url: string, citations: CustomCitation[], isExcelFile?: boolean,buffer?: ArrayBuffer) => Promise<void>;
   aggregatedCitations: CustomCitation[];
 }
 
@@ -84,10 +84,65 @@ const CitationHoverCard = ({
           const recordId = citation.metadata?.recordId;
           const response = await axios.get(`/api/v1/knowledgebase/${recordId}`);
           const { externalRecordId } = response.data.record;
+          const fileName = response.data.record.recordName;
+          // const downloadResponse = await axios.get(`/api/v1/document/${externalRecordId}/download`);
+          // const url = downloadResponse.data.signedUrl;
+          // onViewPdf(url, aggregatedCitations, isExcelOrCSV);
 
-          const downloadResponse = await axios.get(`/api/v1/document/${externalRecordId}/download`);
-          const url = downloadResponse.data.signedUrl;
-          onViewPdf(url, aggregatedCitations, isExcelOrCSV);
+
+          try {
+            const downloadResponse = await axios.get(
+              `/api/v1/document/${externalRecordId}/download`,
+              { responseType: 'blob' }
+            );
+            
+            // Read the blob response as text to check if it's JSON with signedUrl
+            const reader = new FileReader();
+            const textPromise = new Promise<string>((resolve) => {
+              reader.onload = () => {
+                resolve(reader.result?.toString() || '');
+              };
+            });
+        
+            reader.readAsText(downloadResponse.data);
+            const text = await textPromise;
+        
+            let filename = fileName || `document-${externalRecordId}`;
+            const contentDisposition = downloadResponse.headers['content-disposition'];
+            if (contentDisposition) {
+              const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+              if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1];
+              }
+            }
+        
+            try {
+              // Try to parse as JSON to check for signedUrl property
+              const jsonData = JSON.parse(text);
+              if (jsonData && jsonData.signedUrl) {
+                onViewPdf(jsonData.signedUrl, aggregatedCitations, isExcelOrCSV);
+                return;
+              }
+            } catch (e) {
+              // Case 2: Local storage - Return buffer
+              const bufferReader = new FileReader();
+              const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
+                bufferReader.onload = () => {
+                  resolve(bufferReader.result as ArrayBuffer);
+                };
+                bufferReader.readAsArrayBuffer(downloadResponse.data);
+              });
+              
+              const buffer = await arrayBufferPromise;
+              onViewPdf('', aggregatedCitations, isExcelOrCSV,buffer);
+              return ;
+            }
+            
+            throw new Error('Invalid response format');
+          } catch (error) {
+            console.error('Error downloading document:', error);
+            throw new Error('Failed to download document');
+          }
         } catch (err) {
           console.error('Failed to fetch document:', err);
         }

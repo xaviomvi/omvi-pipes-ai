@@ -60,7 +60,7 @@ export default function KnowledgeBaseSearch() {
   const [recordCitations, setRecordCitations] = useState<AggregatedDocument | null>(null);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [recordsMap, setRecordsMap] = useState<Record<string, PipesHub.Record>>({});
-
+  const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
   // Add a state to track if citation viewer is open
   const isCitationViewerOpen = isPdf || isExcel;
 
@@ -198,13 +198,60 @@ export default function KnowledgeBaseSearch() {
           console.error('No external record ID available');
           return;
         }
-        const response = await axios.get(`/api/v1/document/${fetchRecordId}/download`);
-        setFileUrl(response.data.signedUrl);
-
         // Find the correct citation from the aggregated data
         const citation = aggregatedCitations.find((item) => item.recordId === recordId);
         if (citation) {
           setRecordCitations(citation);
+        }
+        try {
+          const response = await axios.get(`/api/v1/document/${fetchRecordId}/download`, {
+            responseType: 'blob',
+          });
+
+          // Read the blob response as text to check if it's JSON with signedUrl
+          const reader = new FileReader();
+          const textPromise = new Promise<string>((resolve) => {
+            reader.onload = () => {
+              resolve(reader.result?.toString() || '');
+            };
+          });
+
+          reader.readAsText(response.data);
+          const text = await textPromise;
+
+          let filename = record.recordName || `document-${record.recordId}`;
+          const contentDisposition = response.headers['content-disposition'];
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+              filename = filenameMatch[1];
+            }
+          }
+
+          try {
+            // Try to parse as JSON to check for signedUrl property
+            const jsonData = JSON.parse(text);
+            if (jsonData && jsonData.signedUrl) {
+              setFileUrl(jsonData.signedUrl);
+            }
+          } catch (e) {
+            // Case 2: Local storage - Return buffer
+            const bufferReader = new FileReader();
+            const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
+              bufferReader.onload = () => {
+                resolve(bufferReader.result as ArrayBuffer);
+              };
+              bufferReader.readAsArrayBuffer(response.data);
+            });
+
+            const buffer = await arrayBufferPromise;
+            setFileBuffer(buffer);
+          }
+
+          throw new Error('Invalid response format');
+        } catch (error) {
+          console.error('Error downloading document:', error);
+          throw new Error('Failed to download document');
         }
       }
     } catch (error) {
@@ -219,6 +266,7 @@ export default function KnowledgeBaseSearch() {
   const handleCloseViewer = () => {
     setIsPdf(false);
     setIsExcel(false);
+    setFileBuffer(null);
   };
 
   return (
@@ -284,7 +332,7 @@ export default function KnowledgeBaseSearch() {
         <Divider orientation="vertical" flexItem sx={{ borderRightWidth: 3 }} />
 
         {/* PDF Viewer Container */}
-        {isPdf && (
+        {(isPdf || fileBuffer) && !isExcel && (
           <Box
             sx={{
               width: '70%',
@@ -297,13 +345,14 @@ export default function KnowledgeBaseSearch() {
             <PdfHighlighterComp
               key="pdf-viewer"
               pdfUrl={fileUrl}
+              pdfBuffer={fileBuffer}
               citations={recordCitations?.documents || []}
             />
           </Box>
         )}
 
         {/* Excel Viewer Container */}
-        {isExcel && (
+        {(isExcel || fileBuffer) && !isPdf && (
           <Box
             sx={{
               width: '70%',
@@ -317,6 +366,7 @@ export default function KnowledgeBaseSearch() {
               key="excel-viewer"
               fileUrl={fileUrl}
               citations={recordCitations?.documents || []}
+              excelBuffer={fileBuffer}
             />
           </Box>
         )}
