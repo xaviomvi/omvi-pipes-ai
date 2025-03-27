@@ -19,14 +19,7 @@ class config_node_constants(Enum):
     ARANGO_URL = "arango/url"
     ARANGO_DB = "arango/db"
     ARANGO_USER = "arango/user"
-    ARANGO_PASSWORD = "arango/password"
-    
-    # Google Auth related constants
-    GOOGLE_AUTH_CREDENTIALS_PATH = "google/auth/credentials_path"
-    GOOGLE_AUTH_TOKEN_PATH = "google/auth/token_path"
-    GOOGLE_AUTH_SERVICE_ACCOUNT_PATH = "google/auth/service_account_path"
-    GOOGLE_AUTH_ADMIN_EMAIL = "google/auth/admin_email"
-    
+    ARANGO_PASSWORD = "arango/password"    
     # Redis related constants
     REDIS_URL = "redis/url"
     

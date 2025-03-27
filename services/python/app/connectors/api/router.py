@@ -12,6 +12,7 @@ from app.utils.logger import logger
 from fastapi.responses import StreamingResponse
 import os
 import aiohttp
+from app.core.signed_url import TokenPayload
 from app.config.configuration_service import Routes, TokenScopes
 from app.config.arangodb_constants import CollectionNames, RecordRelations, Connectors
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
@@ -20,6 +21,9 @@ import google.oauth2.credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import io
+from jose import JWTError
+from pydantic import ValidationError
+
 
 router = APIRouter()
 
@@ -564,9 +568,7 @@ async def download_file(
                 scopes=SCOPES
             )
             if not creds_data.get('access_token'):
-                raise HTTPException(status_code=401, detail="Invalid creds1")
-            if not creds.token:
-                raise HTTPException(status_code=401, detail="Invalid creds2")
+                raise HTTPException(status_code=401, detail="Invalid credentials. Access token not found")
             
             return creds
         
@@ -580,6 +582,7 @@ async def download_file(
     try:
         logger.info(f"Downloading file {record_id} with connector {connector}")
         # Verify signed URL using the handler
+        
         payload = signed_url_handler.validate_token(token)
         user_id = payload.user_id
 
@@ -815,7 +818,6 @@ async def stream_record(
                 "userId": user_id,
                 "scopes": [TokenScopes.FETCH_CONFIG.value]
             }
-            print("payload", payload)
 
             # Create JWT token
             jwt_token = jwt.encode(
@@ -823,11 +825,9 @@ async def stream_record(
                 os.getenv('SCOPED_JWT_SECRET'),
                 algorithm='HS256'
             )
-            print("jwt_token", jwt_token)
             headers = {
                 "Authorization": f"Bearer {jwt_token}"
             }
-            print("headers", headers)
             # Fetch credentials from API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
@@ -850,9 +850,7 @@ async def stream_record(
                 scopes=SCOPES
             )
             if not creds_data.get('access_token'):
-                raise HTTPException(status_code=401, detail="Invalid creds1")
-            if not creds.token:
-                raise HTTPException(status_code=401, detail="Invalid creds2")
+                raise HTTPException(status_code=401, detail="Invalid credentials. Access token not found")
             
             return creds
         
@@ -863,18 +861,33 @@ async def stream_record(
                 detail="Error accessing user credentials"
             )
             
-    try:        
-        payload = jwt.decode(
-            token,
-            os.getenv('SCOPED_JWT_SECRET'),
-            algorithms=['HS256']
-        )
-        token_data = TokenPayload(**payload)
-        logger.info(f"Token data: {token_data}")
+    try:
+        try:
+            payload = jwt.decode(
+                token,
+                os.getenv('JWT_SECRET'),
+                algorithms=['HS256']
+            )
+            token_data = TokenPayload(**payload)
+            logger.info(f"Token data: {token_data}")
 
-        org_id = token_data.org_id
-        user_id = token_data.user_id
-        
+            org_id = token_data.org_id
+            user_id = token_data.user_id
+            
+        except JWTError as e:
+            logger.error("JWT validation error: %s", str(e))
+            raise HTTPException(
+                status_code=401, detail="Invalid or expired token")
+        except ValidationError as e:
+            logger.error("Payload validation error: %s", str(e))
+            raise HTTPException(
+                status_code=400, detail="Invalid token payload")
+        except Exception as e:
+            logger.error(
+                "Unexpected error during token validation: %s", str(e))
+            raise HTTPException(
+                status_code=500, detail="Error validating token")
+
         org = await arango_service.get_document(org_id, CollectionNames.ORGS.value)
         if not org:
             raise HTTPException(status_code=404, detail="Organization not found")
@@ -903,9 +916,6 @@ async def stream_record(
                 
                 # Create a BytesIO object to store the file content
                 file_buffer = io.BytesIO()
-                
-                # Get the file metadata first to get mimeType
-                # file_metadata = drive_service.files().get(fileId=file_id).execute()
                 
                 # Download the file
                 request = drive_service.files().get_media(fileId=file_id)
@@ -958,7 +968,7 @@ async def stream_record(
                     cursor = arango_service.db.aql.execute(aql_query)
                     messages = list(cursor)
                     logger.info(f"🚀 Reverse query results: {messages}")
-                    
+
                 if not messages or not messages[0]:
                     record_details = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
                     logger.error(f"Record details: {record_details}")
@@ -992,16 +1002,16 @@ async def stream_record(
                     try:
                         drive_service = build('drive', 'v3', credentials=creds)
                         file_buffer = io.BytesIO()
-                        
+
                         request = drive_service.files().get_media(fileId=file_id)
                         downloader = MediaIoBaseDownload(file_buffer, request)
-                        
+
                         done = False
                         while not done:
                             _, done = downloader.next_chunk()
-                        
+
                         file_buffer.seek(0)
-                        
+
                         return StreamingResponse(
                             file_buffer,
                             media_type='application/octet-stream'
@@ -1015,7 +1025,6 @@ async def stream_record(
                         )
             else:
                 raise HTTPException(status_code=400, detail="Invalid connector type")
-
 
         except Exception as e:
             logger.error(f"Error downloading file: {str(e)}")

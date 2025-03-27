@@ -46,6 +46,11 @@ class OriginTypes(Enum):
     CONNECTOR = "CONNECTOR"
     UPLOAD = "UPLOAD"
     
+class EventTypes(Enum):
+    NEW_RECORD = "newRecord"
+    UPDATE_RECORD = "updateRecord"
+    DELETE_RECORD = "deleteRecord"
+    
 class CollectionNames(Enum):
     # Records and Record relations
     RECORDS = 'records'

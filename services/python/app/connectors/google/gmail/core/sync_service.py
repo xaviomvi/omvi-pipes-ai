@@ -6,7 +6,9 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 import uuid
 from typing import Dict
-from app.config.arangodb_constants import CollectionNames, Connectors, RecordTypes, RecordRelations, OriginTypes
+from app.config.arangodb_constants import (CollectionNames, Connectors, 
+                                           RecordTypes, RecordRelations, 
+                                           OriginTypes, EventTypes)
 
 from app.utils.logger import logger
 from app.connectors.google.core.arango_service import ArangoService
@@ -1014,7 +1016,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                                 "recordName": headers.get('Subject', 'No Subject'),
                                 "recordType": RecordTypes.MAIL.value,
                                 "recordVersion": 0,
-                                "eventType": "create",
+                                "eventType": EventTypes.NEW_RECORD.value,
                                 "body": message.get('body', ''),
                                 "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
                                 "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
@@ -1036,7 +1038,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             "recordName": attachment.get('filename', 'Unnamed Attachment'),
                             "recordType": RecordTypes.ATTACHMENT.value,
                             "recordVersion": 0,
-                            'eventType': "create",
+                            'eventType': EventTypes.NEW_RECORD.value,
                             "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
                             "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
@@ -1216,7 +1218,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             "recordName": headers.get('Subject', 'No Subject'),
                             "recordType": RecordTypes.MAIL.value,
                             "recordVersion": 0,
-                            "eventType": "create",
+                            "eventType": EventTypes.NEW_RECORD.value,
                             "body": message.get('body', ''),
                             "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
@@ -1238,7 +1240,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             "recordName": attachment.get('filename', 'Unnamed Attachment'),
                             "recordType": RecordTypes.ATTACHMENT.value,
                             "recordVersion": 0,
-                            'eventType': "create",
+                            'eventType': EventTypes.NEW_RECORD.value,
                             "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
                             "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
@@ -1479,7 +1481,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                             "recordName": headers.get('Subject', 'No Subject'),
                             "recordType": RecordTypes.MAIL.value,
                             "recordVersion": 0,
-                            "eventType": "create",
+                            "eventType": EventTypes.NEW_RECORD.value,
                             "body": message.get('body', ''),
                             "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
@@ -1501,7 +1503,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                             "recordName": attachment.get('filename', 'Unnamed Attachment'),
                             "recordType": RecordTypes.ATTACHMENT.value,
                             "recordVersion": 0,
-                            'eventType': "create",
+                            'eventType': EventTypes.NEW_RECORD.value,
                             "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
                             "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
                             "connectorName": Connectors.GOOGLE_MAIL.value,

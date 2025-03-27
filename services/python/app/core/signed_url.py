@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 import jwt
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from jose import JWTError
 from pydantic import BaseModel, ValidationError
 from app.utils.logger import create_logger
