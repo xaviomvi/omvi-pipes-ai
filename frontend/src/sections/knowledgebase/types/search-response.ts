@@ -1,3 +1,5 @@
+import { namespace } from "stylis";
+
 export interface BoundingBox {
   x: number;
   y: number;
@@ -52,30 +54,32 @@ export interface AggregatedDocument {
   documents: DocumentContent[];
 }
 
-export interface Record {
-  _key: string;
-  _id: string;
-  _rev: string;
-  orgId: string;
-  recordName: string;
-  externalRecordId: string;
-  recordType: string;
-  origin: string;
-  createdAtTimestamp: number;
-  updatedAtTimestamp: number;
-  isDeleted: boolean;
-  isArchived: boolean;
-  indexingStatus: string;
-  version: number;
-  extractionStatus: string;
-  name: string;
-  isFile: boolean;
-  extension: string;
-  mimeType: string;
-  sizeInBytes: number;
-  webUrl: string;
-  path: string;
-  [key: string]: any;
+export namespace PipesHub {
+  export interface Record {
+    _key: string;
+    _id: string;
+    _rev: string;
+    orgId: string;
+    recordName: string;
+    externalRecordId: string;
+    recordType: string;
+    origin: string;
+    createdAtTimestamp: number;
+    updatedAtTimestamp: number;
+    isDeleted: boolean;
+    isArchived: boolean;
+    indexingStatus: string;
+    version: number;
+    extractionStatus: string;
+    name: string;
+    isFile: boolean;
+    extension: string;
+    mimeType: string;
+    sizeInBytes: number;
+    webUrl: string;
+    path: string;
+    [key: string]: any;
+  }
 }
 
 export interface SearchResult {
@@ -89,7 +93,7 @@ export interface SearchResponse {
   searchId: string;
   searchResponse: {
     searchResults: SearchResult[];
-    records: Record[];
+    records: PipesHub.Record[];
   };
 }
 
@@ -105,5 +109,5 @@ export interface KnowledgeSearchProps {
   onSearchQueryChange: (query: string) => void;
   onTopKChange: (callback: (prevTopK: number) => number) => void;
   onViewCitations: (recordId: string, isPdf: boolean, isExcel: boolean) => void;
-  recordsMap : Record<string, Record >
+  recordsMap: Record<string, PipesHub.Record>;
 }

@@ -11,9 +11,8 @@ import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
 import type { Filters } from './types/knowledge-base';
 import type {
   AggregatedDocument,
-  DocumentContent,
-  Record as RecordInterface,
   SearchResult,
+  PipesHub,
 } from './types/search-response';
 import { ORIGIN } from './constants/knowledge-search';
 
@@ -60,7 +59,7 @@ export default function KnowledgeBaseSearch() {
   const [fileUrl, setFileUrl] = useState<string>('');
   const [recordCitations, setRecordCitations] = useState<AggregatedDocument | null>(null);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
-  const [recordsMap, setRecordsMap] = useState<Record<string, RecordInterface>>({});
+  const [recordsMap, setRecordsMap] = useState<Record<string, PipesHub.Record>>({});
 
   // Add a state to track if citation viewer is open
   const isCitationViewerOpen = isPdf || isExcel;
@@ -99,7 +98,7 @@ export default function KnowledgeBaseSearch() {
   );
 
   const aggregateRecordsByRecordId = useCallback(
-    (records: RecordInterface[]): Record<string, RecordInterface> =>
+    (records: PipesHub.Record[]): Record<string, PipesHub.Record> =>
       records.reduce(
         (acc, record) => {
           // Use _key as the lookup key
@@ -110,7 +109,7 @@ export default function KnowledgeBaseSearch() {
 
           return acc;
         },
-        {} as Record<string, RecordInterface>
+        {} as Record<string, PipesHub.Record>
       ),
 
     []

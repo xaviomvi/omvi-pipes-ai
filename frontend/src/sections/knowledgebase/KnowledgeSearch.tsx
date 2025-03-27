@@ -28,7 +28,7 @@ import {
 
 import { useUsers } from 'src/context/UserContext';
 
-import type { Record, SearchResult, KnowledgeSearchProps } from './types/search-response';
+import type { SearchResult, KnowledgeSearchProps } from './types/search-response';
 
 // Helper function to get file icon based on extension
 const getFileIcon = (extension: string): string => {
