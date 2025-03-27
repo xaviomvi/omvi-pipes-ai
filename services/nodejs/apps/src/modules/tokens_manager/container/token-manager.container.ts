@@ -8,6 +8,7 @@ import { ConfigurationManagerConfig } from '../../configuration_manager/config/c
 import { EntitiesEventProducer } from '../../user_management/services/entity_events.service';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
+import { ArangoService } from '../../../libs/services/arango.service';
 
 const loggerConfig = {
   service: 'Token Manager',
@@ -47,6 +48,12 @@ export class TokenManagerContainer {
       container
         .bind<MongoService>('MongoService')
         .toConstantValue(mongoService);
+
+      const arangoService = new ArangoService(config.arango);
+      await arangoService.initialize();
+      container
+        .bind<ArangoService>('ArangoService')
+        .toConstantValue(arangoService);
 
       const redisService = new RedisService(
         config.redis,

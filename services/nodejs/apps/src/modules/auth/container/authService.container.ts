@@ -1,6 +1,5 @@
 import { Container } from 'inversify';
 import { Logger } from '../../../libs/services/logger.service';
-import { MongoService } from '../../../libs/services/mongo.service';
 import { RedisService } from '../../../libs/services/redis.service';
 import { IamService } from '../services/iam.service';
 import { MailService } from '../services/mail.service';
@@ -35,11 +34,6 @@ export class AuthServiceContainer {
     appConfig: AppConfig,
   ): Promise<void> {
     try {
-      const mongoService = new MongoService(appConfig.mongo);
-      await mongoService.initialize();
-      container
-        .bind<MongoService>('MongoService')
-        .toConstantValue(mongoService);
       const logger = container.get<Logger>('Logger');
       const redisService = new RedisService(
         appConfig.redis,

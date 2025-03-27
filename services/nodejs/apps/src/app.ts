@@ -12,7 +12,10 @@ import { ErrorMiddleware } from './libs/middlewares/error.middleware';
 import { createUserRouter } from './modules/user_management/routes/users.routes';
 import { createUserGroupRouter } from './modules/user_management/routes/userGroups.routes';
 import { createOrgRouter } from './modules/user_management/routes/org.routes';
-import { createConversationalRouter, createSemanticSearchRouter } from './modules/enterprise_search/routes/es.routes';
+import {
+  createConversationalRouter,
+  createSemanticSearchRouter,
+} from './modules/enterprise_search/routes/es.routes';
 import { EnterpriseSearchAgentContainer } from './modules/enterprise_search/container/es.container';
 import { requestContextMiddleware } from './libs/middlewares/request.context';
 
@@ -106,7 +109,8 @@ export class Application {
       this.mailServiceContainer =
         await MailServiceContainer.initialize(appConfig);
 
-      this.notificationContainer = await NotificationContainer.initialize(appConfig);
+      this.notificationContainer =
+        await NotificationContainer.initialize(appConfig);
 
       // binding prometheus to all services routes
       this.logger.debug('Binding Prometheus Service with other services');
@@ -150,7 +154,9 @@ export class Application {
       this.configureRoutes();
       this.configureErrorHandling();
 
-      this.notificationContainer.get<NotificationService>(NotificationService).initialize(this.server);
+      this.notificationContainer
+        .get<NotificationService>(NotificationService)
+        .initialize(this.server);
 
       // Serve static frontend files\
       this.app.use(express.static(path.join(__dirname, 'public')));
@@ -294,7 +300,10 @@ export class Application {
 
   async stop(): Promise<void> {
     try {
-      this.notificationContainer.get<NotificationService>(NotificationService).shutdown();
+      this.logger.info('Shutting down application...');
+      this.notificationContainer
+        .get<NotificationService>(NotificationService)
+        .shutdown();
       await TokenManagerContainer.dispose();
       await StorageContainer.dispose();
       await EnterpriseSearchAgentContainer.dispose();

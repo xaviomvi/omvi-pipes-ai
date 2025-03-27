@@ -87,7 +87,6 @@ export class SamlController {
           // Attach email & sessionToken to the user profile
           profile.orgId = relayStateDecoded.orgId;
           profile.sessionToken = relayStateDecoded.sessionToken;
-
           done(null, profile);
         } as VerifyWithRequest,
       ),
@@ -158,7 +157,6 @@ export class SamlController {
       const samlCertificate = credentialsData.certificate;
       const samlEntryPoint = credentialsData.entryPoint;
       const samlEmailKey = credentialsData.emailKey;
-      console.log(credentialsData);
       this.updateOrgIdToSamlEmailKey(user.orgId, samlEmailKey!);
       this.updateSAMLStrategy(samlCertificate!, samlEntryPoint!);
 
@@ -169,7 +167,7 @@ export class SamlController {
       req.query.RelayState = relayStateEncoded;
 
       passport.authenticate('saml', {
-        failureRedirect: '/',
+        failureRedirect: `/${this.config.frontendUrl}/auth/sign-in`,
         successRedirect: '/',
       })(req, res, next);
     } catch (error) {

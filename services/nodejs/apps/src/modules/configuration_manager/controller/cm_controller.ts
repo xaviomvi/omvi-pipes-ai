@@ -1021,7 +1021,24 @@ export const setSsoAuthConfig =
   (keyValueStoreService: KeyValueStoreService) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
-      const { certificate, entryPoint, emailKey } = req.body;
+      const { entryPoint, emailKey } = req.body;
+      let { certificate } = req.body;
+      certificate = certificate
+        .replace(/\\n/g, '') // Remove \n
+        .replace(/\n/g, '') // Remove newline characters
+        .replace(/\s+/g, '') // Remove all whitespace
+        .replace(/\\/g, ''); // Remove any remaining backslashes
+
+      // Step 2: Remove BEGIN and END certificate markers if present
+      certificate = certificate
+        .replace(/-----BEGINCERTIFICATE-----/g, '')
+        .replace(/-----ENDCERTIFICATE-----/g, '');
+
+      certificate = certificate
+        .replace(/-----BEGIN CERTIFICATE-----/g, '')
+        .replace(/-----END ERTIFICATE-----/g, '');
+      // Step 3: Ensure the certificate content is clean
+      certificate = certificate.trim();
       const configManagerConfig = loadConfigurationManagerConfig();
       const encryptedSsoConfig = EncryptionService.getInstance(
         configManagerConfig.algorithm,
@@ -1104,7 +1121,6 @@ export const getQdrantConfig =
             configManagerConfig.secretKey,
           ).decrypt(encryptedQdrantConfig),
         );
-        console.log(qdrantConfig);
         res.status(200).json(qdrantConfig).end();
         return;
       } else {
