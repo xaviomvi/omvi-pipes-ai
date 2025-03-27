@@ -1,8 +1,8 @@
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 import base64
 import json
 import jwt
-from app.core.signed_url import TokenPayload
 from google.oauth2 import service_account
 from datetime import datetime, timezone, timedelta
 from dependency_injector.wiring import inject, Provide
@@ -23,7 +23,7 @@ from googleapiclient.http import MediaIoBaseDownload
 import io
 from jose import JWTError
 from pydantic import ValidationError
-
+from app.middlewares.auth import authMiddleware
 
 router = APIRouter()
 
@@ -748,12 +748,40 @@ async def download_file(
     except Exception as e:
         logger.error("Error downloading file: %s", str(e))
         raise HTTPException(status_code=500, detail="Error downloading file")
+    
+EXCLUDE_PATHS = []
+
+async def authenticate_requests(request: Request, call_next):
+    # Check if path should be excluded from authentication
+    if any(request.url.path.startswith(path) for path in EXCLUDE_PATHS):
+        return await call_next(request)
+    
+    try:
+        # Apply authentication
+        authenticated_request = await authMiddleware(request)
+        # Continue with the request
+        response = await call_next(authenticated_request)
+        return response
+        
+    except HTTPException as exc:
+        # Handle authentication errors
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+    except Exception as exc:
+        # Handle unexpected errors
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal server error"}
+        )
+
 
 @router.get("/api/v1/stream/record/{record_id}")
 @inject
 async def stream_record(
+    request: Request,
     record_id: str,
-    token: str,
     arango_service=Depends(Provide[AppContainer.arango_service]),
 ):
     async def get_service_account_credentials(user_id):
@@ -795,9 +823,10 @@ async def stream_record(
                 credentials_json,
                 scopes=SCOPES
             )
-            
+
             # # Get the user email from the record to impersonate
             credentials = credentials.with_subject(user['email'])
+            logger.info(f"Credentials: {credentials}")
             return credentials
         
         except Exception as e:
@@ -806,7 +835,7 @@ async def stream_record(
                 status_code=500,
                 detail="Error accessing service account credentials"
             )
-            
+
     async def get_user_credentials(user_id):
         """Helper function to get user credentials"""
         try:
@@ -863,16 +892,24 @@ async def stream_record(
             
     try:
         try:
+            auth_header = request.headers.get('Authorization')
+            logger.info(f"Auth header: {auth_header}")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Missing or invalid Authorization header"
+                )
+            # Extract the token
+            token = auth_header.split(" ")[1]
+            logger.info(f"Token: {token}")
             payload = jwt.decode(
                 token,
                 os.getenv('JWT_SECRET'),
                 algorithms=['HS256']
             )
-            token_data = TokenPayload(**payload)
-            logger.info(f"Token data: {token_data}")
 
-            org_id = token_data.org_id
-            user_id = token_data.user_id
+            org_id = payload.get('orgId')
+            user_id = payload.get('userId')
             
         except JWTError as e:
             logger.error("JWT validation error: %s", str(e))
@@ -909,7 +946,7 @@ async def stream_record(
 
         # Download file based on connector type
         try:
-            if connector == "drive":
+            if connector == Connectors.GOOGLE_DRIVE.value:
                 logger.info(f"Downloading Drive file: {file_id}")
                 # Build the Drive service
                 drive_service = build('drive', 'v3', credentials=creds)
@@ -934,7 +971,7 @@ async def stream_record(
                     media_type='application/octet-stream'
                 )
 
-            elif connector == "gmail":
+            elif connector == Connectors.GOOGLE_MAIL.value:
                 logger.info(f"Downloading Gmail attachment for record_id: {record_id}")
                 gmail_service = build('gmail', 'v1', credentials=creds)
                 
