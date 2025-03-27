@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'src/utils/axios';
 import { Box, Button, styled, useTheme, alpha, Divider } from '@mui/material';
 import { Icon } from '@iconify/react';
+import { CONFIG } from 'src/config-global';
 import { searchKnowledgeBase } from './utils';
 import KnowledgeSearch from './KnowledgeSearch';
 import KnowledgeSearchSideBar from './KnowledgeSearchSideBar';
@@ -248,10 +249,46 @@ export default function KnowledgeBaseSearch() {
             setFileBuffer(buffer);
           }
 
-          throw new Error('Invalid response format');
         } catch (error) {
           console.error('Error downloading document:', error);
           throw new Error('Failed to download document');
+        }
+      }else if(record.origin=== ORIGIN.CONNECTOR){
+        try {
+          const response = await axios.get(`${CONFIG.aiBackend}/api/v1/stream/record/${recordId}`, {
+            responseType: 'blob',
+          });
+        
+          // Extract filename from content-disposition header
+          let filename = record.recordName || `document-${recordId}`;
+          const contentDisposition = response.headers['content-disposition'];
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+              filename = filenameMatch[1];
+            }
+          }
+        
+          // Convert blob directly to ArrayBuffer
+          const bufferReader = new FileReader();
+          const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
+            bufferReader.onload = () => {
+              // Create a copy of the buffer to prevent detachment issues
+              const originalBuffer = bufferReader.result as ArrayBuffer;
+              const bufferCopy = originalBuffer.slice(0);
+              resolve(bufferCopy);
+            };
+            bufferReader.onerror = () => {
+              reject(new Error('Failed to read blob as array buffer'));
+            };
+            bufferReader.readAsArrayBuffer(response.data);
+          });
+        
+          const buffer = await arrayBufferPromise;
+          setFileBuffer(buffer);
+        } catch (err) {
+          console.error('Error downloading document:', err);
+          throw new Error(`Failed to download document: ${err.message}`);
         }
       }
     } catch (error) {

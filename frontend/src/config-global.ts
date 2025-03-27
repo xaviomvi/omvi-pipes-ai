@@ -18,6 +18,7 @@ export type ConfigValue = {
     redirectPath: string;
   };
   mapboxApiKey: string;
+  aiBackend : string;
 };
 
 // ----------------------------------------------------------------------
@@ -30,6 +31,7 @@ export const CONFIG: ConfigValue = {
   authUrl: import.meta.env.VITE_AUTH_URL ?? '',
   assetsDir: import.meta.env.VITE_ASSETS_DIR ?? '',
   iamUrl: import.meta.env.VITE_IAM_URL ?? '',
+  aiBackend : import.meta.env.VITE_AI_BACKEND ?? '',
   /**
    * Auth
    * @method jwt
