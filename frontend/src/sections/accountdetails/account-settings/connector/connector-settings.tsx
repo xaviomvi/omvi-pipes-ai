@@ -82,8 +82,7 @@ const ConnectorSettings = () => {
       const results = await Promise.allSettled([fetchConnectorConfig('googleWorkspace')]);
 
       // Check if the configuration is valid
-      const googleConfigured =
-        results[0].status === 'fulfilled' && results[0].value && !!results[0].value.googleClientId;
+      const googleConfigured = results[0].status === 'fulfilled' && results[0].value;
 
       const newConfigStatus = {
         googleWorkspace: googleConfigured,
