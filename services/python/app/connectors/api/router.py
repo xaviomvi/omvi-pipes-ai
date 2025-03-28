@@ -749,33 +749,6 @@ async def download_file(
         logger.error("Error downloading file: %s", str(e))
         raise HTTPException(status_code=500, detail="Error downloading file")
     
-EXCLUDE_PATHS = []
-
-async def authenticate_requests(request: Request, call_next):
-    # Check if path should be excluded from authentication
-    if any(request.url.path.startswith(path) for path in EXCLUDE_PATHS):
-        return await call_next(request)
-    
-    try:
-        # Apply authentication
-        authenticated_request = await authMiddleware(request)
-        # Continue with the request
-        response = await call_next(authenticated_request)
-        return response
-        
-    except HTTPException as exc:
-        # Handle authentication errors
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"detail": exc.detail}
-        )
-    except Exception as exc:
-        # Handle unexpected errors
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": "Internal server error"}
-        )
-
 
 @router.get("/api/v1/stream/record/{record_id}")
 @inject

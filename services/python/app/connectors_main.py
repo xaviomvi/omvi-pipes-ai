@@ -9,8 +9,9 @@ import uvicorn
 import asyncio
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException, status
 from app.config.arangodb_constants import Connectors
+from app.middlewares.auth import authMiddleware
 
 print("Starting connector app")
 
@@ -250,6 +251,37 @@ app.add_middleware(
 
 # Add WebhookAuth middleware
 app.add_middleware(WebhookAuthMiddleware)
+
+# List of paths to apply authentication to
+INCLUDE_PATHS = ["/api/v1/stream/record/"]
+
+@app.middleware("http")
+async def authenticate_requests(request: Request, call_next):
+    logger.info(f"Middleware request: {request.url.path}")
+    # Apply middleware only to specific paths
+    if not any(request.url.path.startswith(path) for path in INCLUDE_PATHS):
+        # Skip authentication for other paths
+        return await call_next(request)
+    
+    try:
+        # Apply authentication
+        authenticated_request = await authMiddleware(request)
+        # Continue with the request
+        response = await call_next(authenticated_request)
+        return response
+        
+    except HTTPException as exc:
+        # Handle authentication errors
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+    except Exception as exc:
+        # Handle unexpected errors
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal server error"}
+        )
 
 # Include routes
 app.include_router(router)
