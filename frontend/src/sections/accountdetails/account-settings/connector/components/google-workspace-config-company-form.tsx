@@ -220,7 +220,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
         setSaveError(null);
 
         // Send admin email update
-        await axios.post('/api/v1/connectors/credentials/update', {
+        await axios.post('/api/v1/connectors/credentials', {
           service: 'googleWorkspace',
           adminEmail,
         });
