@@ -9,6 +9,7 @@ from datetime import datetime
 
 from app.modules.parsers.pdf.ocr_handler import OCRHandler
 from app.modules.parsers.docx.docling_docx import DocxParser
+from app.modules.parsers.excel.excel_parser import ExcelParser
 from app.config.arangodb_constants import CollectionNames
 from app.config.configuration_service import config_node_constants
 from app.config.ai_models_named_constants import OCRProvider, AzureDocIntelligenceModel
@@ -536,7 +537,7 @@ class Processor:
         try:
             # Initialize and use ExcelParser
             logger.debug("📊 Processing Excel content")
-            parser = self.parsers['excel']
+            parser: ExcelParser = self.parsers['excel']
             excel_result = parser.parse(excel_binary)
             logger.debug(f"📑 Excel result processed, {excel_result}")
 

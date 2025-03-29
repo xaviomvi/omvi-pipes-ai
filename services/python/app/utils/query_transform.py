@@ -42,4 +42,3 @@ async def setup_query_transformation(llm):
     )
     
     return rewrite_chain, expansion_chain
-
