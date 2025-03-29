@@ -54,7 +54,11 @@ class KafkaService:
 
             logger.info(f"Formatted event: {formatted_event}")
             logger.info(f"kafka config: {kafka_config}")
-            self.producer = Producer(kafka_config)
+            producer_config = {
+                'bootstrap.servers': kafka_config.get('servers', 'localhost:9092'),
+                'client.id': kafka_config.get('client_id', 'file-processor')
+            }
+            self.producer = Producer(producer_config)
             self.producer.produce(
                 topic='record-events',
                 key=str(formatted_event['payload']['recordId']),
