@@ -243,12 +243,11 @@ export const AuthenticationView = () => {
         dispatch(setEmail(data.email));
       }
     } catch (err) {
-      setError('Failed to initialize authentication. Please try again.');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
-
   // Handle the next step in MFA
   const handleNextAuthStep = (response: AuthResponse) => {
     if (response.nextStep !== undefined && response.allowedMethods) {

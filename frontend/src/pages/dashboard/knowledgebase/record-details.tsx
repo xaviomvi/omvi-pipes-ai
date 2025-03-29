@@ -6,7 +6,7 @@ import { CONFIG } from 'src/config-global';
 import { UserProvider } from 'src/context/UserContext';
 import { GroupsProvider } from 'src/context/GroupsContext';
 
-import RecordDetails from 'src/sections/knowledgebase/RecordDetails';
+import RecordDetails from 'src/sections/knowledgebase/record-details';
 
 // ----------------------------------------------------------------------
 

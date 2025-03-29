@@ -125,7 +125,7 @@ export default function KnowledgeBaseDetails({
   const handleRowClick = (params: GridRowParams, event: React.MouseEvent): void => {
     const isCheckboxClick = (event.target as HTMLElement).closest('.MuiDataGrid-cellCheckbox');
     if (!isCheckboxClick) {
-      navigate(`/knowledge-base/record/${params.id}`);
+      navigate(`/record/${params.id}`);
     }
   };
 
@@ -561,7 +561,7 @@ export default function KnowledgeBaseDetails({
               label: 'View Details',
               icon: 'mdi:eye-outline',
               color: '#1976d2',
-              onClick: () => navigate(`/knowledge-base/record/${params.row.id}`),
+              onClick: () => navigate(`/record/${params.row.id}`),
             },
             {
               label: getDownloadLabel(),

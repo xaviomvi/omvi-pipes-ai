@@ -13,58 +13,14 @@ import {
   Typography,
   IconButton,
   CircularProgress,
+  Chip,
 } from '@mui/material';
-
 import axios from 'src/utils/axios';
+import { Permissions, RecordDetailsResponse } from 'src/sections/knowledgebase/types/record-details';
 
 import { CONFIG } from 'src/config-global';
 import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
 import PDFViewer from './pdf-viewer';
-
-interface FileRecord {
-  name: string;
-  extension: string;
-  mimeType: string;
-  sizeInBytes: number;
-  isFile: boolean;
-  webUrl: string;
-}
-
-interface RecordData {
-  _key: string;
-  _id: string;
-  _rev: string;
-  orgId: string;
-  recordName: string;
-  externalRecordId: string;
-  recordType: string;
-  origin: string;
-  createdAtTimestamp: number;
-  updatedAtTimestamp: number;
-  isDeleted: boolean;
-  isArchived: boolean;
-  indexingStatus: string;
-  version: number;
-  extractionStatus: string;
-  fileRecord?: FileRecord;
-}
-
-interface KnowledgeBase {
-  id: string;
-  name: string;
-  orgId: string;
-}
-
-interface ApiResponse {
-  record: RecordData;
-  knowledgeBase: KnowledgeBase;
-  permissions: string;
-  relatedRecords: any[];
-  meta: {
-    requestId: string;
-    timestamp: string;
-  };
-}
 
 interface RecordDetailsProps {
   recordId: string;
@@ -73,7 +29,7 @@ interface RecordDetailsProps {
 }
 
 const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetailsProps) => {
-  const [recordData, setRecordData] = useState<ApiResponse | null>(null);
+  const [recordData, setRecordData] = useState<RecordDetailsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isPDFViewerOpen, setIsPDFViewerOpen] = useState<boolean>(false);
@@ -88,7 +44,9 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
       setError(null);
 
       try {
-        const response = await axios.get(`/api/v1/knowledgebase/${recordId}`);
+        const response = await axios.get<RecordDetailsResponse>(
+          `/api/v1/knowledgebase/${recordId}`
+        );
         setRecordData(response.data);
       } catch (err) {
         setError('Failed to fetch record details. Please try again later.');
@@ -318,7 +276,6 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
           { label: 'Record Type', value: record.recordType },
           { label: 'Origin', value: record.origin },
           { label: 'Indexing Status', value: record.indexingStatus },
-          { label: 'Extraction Status', value: record.extractionStatus },
           { label: 'Version', value: record.version },
           {
             label: 'Created At',
@@ -377,7 +334,22 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             Permissions
           </Typography>
           <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
-            {recordData.permissions}
+            {recordData.permissions.length > 0 ? (
+              recordData.permissions.map((permission: Permissions) => (
+                <Chip
+                  key={permission.relationship} // Add a key to avoid React warnings
+                  label={permission.relationship}
+                  size="small"
+                  sx={{
+                    height: 22,
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                  }}
+                />
+              ))
+            ) : (
+              <Typography variant="body2">No permissions assigned</Typography>
+            )}
           </Typography>
         </Box>
 

@@ -4,8 +4,8 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Box, alpha, useTheme } from '@mui/material';
 
 import { fetchKnowledgeBaseDetails } from './utils';
-import KnowledgeBaseSideBar from './KnowledgeBaseSideBar';
-import KnowledgeBaseDetails from './KnowledgeBaseDetails';
+import KnowledgeBaseSideBar from './knowledge-base-sidebar';
+import KnowledgeBaseDetails from './knowledge-base-details';
 
 import type { Filters, KnowledgeBaseResponse } from './types/knowledge-base';
 

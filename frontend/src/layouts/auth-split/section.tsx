@@ -33,7 +33,7 @@ export function Section({
   layoutQuery,
   methods,
   title = 'Manage the job',
-  imgUrl = `${CONFIG.assetsDir}/assets/illustrations/illustration-dashboard.webp`,
+  imgUrl = `/logo/signinpage.png`,
   subtitle = 'More effectively with optimized workflows.',
   ...other
 }: SectionProps) {
@@ -46,15 +46,15 @@ export function Section({
           color: `0deg, ${varAlpha(theme.vars.palette.background.defaultChannel, 0.92)}, ${varAlpha(theme.vars.palette.background.defaultChannel, 0.92)}`,
           imgUrl: `${CONFIG.assetsDir}/assets/background/background-3-blur.webp`,
         }),
-        px: 3,
-        pb: 3,
-        width: 1,
-        maxWidth: 480,
+        // px: 3,
+        // pb: 3,
+        // width: 1,
+        maxWidth: 780,
         display: 'none',
         position: 'relative',
-        pt: 'var(--layout-header-desktop-height)',
+        // pt: 'var(--layout-header-desktop-height)',
         [theme.breakpoints.up(layoutQuery)]: {
-          gap: 8,
+          // gap: 8,
           display: 'flex',
           alignItems: 'center',
           flexDirection: 'column',
@@ -65,22 +65,22 @@ export function Section({
       {...other}
     >
       <div>
-        <Typography variant="h3" sx={{ textAlign: 'center' }}>
+        {/* <Typography variant="h3" sx={{ textAlign: 'center' }}>
           {title}
-        </Typography>
+        </Typography> */}
 
-        {subtitle && (
+        {/* {subtitle && (
           <Typography sx={{ color: 'text.secondary', textAlign: 'center', mt: 2 }}>
             {subtitle}
           </Typography>
-        )}
+        )} */}
       </div>
 
       <Box
         component="img"
         alt="Dashboard illustration"
         src={imgUrl}
-        sx={{ width: 1, aspectRatio: '4/3', objectFit: 'cover' }}
+        sx={{ width: 1, aspectRatio: '4/3', objectFit: 'cover', height: '100%' }}
       />
 
       {!!methods?.length && method && (

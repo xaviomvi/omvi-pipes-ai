@@ -49,6 +49,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
   const recordsEventProducer = container.get<RecordsEventProducer>(
     'RecordsEventProducer',
   );
+  
   const recordRelationService = new RecordRelationService(
     arangoService,
     recordsEventProducer,
@@ -82,7 +83,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(getRecordByIdSchema),
-    getRecordById(recordRelationService),
+    getRecordById(appConfig),
   );
 
   // Update an existing record

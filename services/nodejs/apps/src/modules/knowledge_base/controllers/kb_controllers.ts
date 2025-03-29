@@ -26,6 +26,10 @@ import { KeyValueStoreService } from '../../../libs/services/keyValueStore.servi
 import { configPaths } from '../../configuration_manager/paths/paths';
 import { AppConfig } from '../../tokens_manager/config/config';
 import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
+import { HttpMethod } from '../../../libs/enums/http-methods.enum';
+import { AIServiceCommand } from '../../../libs/commands/ai_service/ai.service.command';
+import { AIServiceResponse } from '../../enterprise_search/types/conversation.interfaces';
+import { IServiceRecordsResponse } from '../types/service.records.response';
 
 const logger = Logger.getInstance({
   service: 'Knowledge Base Controller',
@@ -222,23 +226,34 @@ export const createRecords =
   };
 
 export const getRecordById =
-  (recordRelationService: RecordRelationService) =>
+  (appConfig: AppConfig) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
       const { recordId } = req.params as { recordId: string };
       const userId = req.user?.userId;
-      const orgId = req.user?.orgId;
-
+      const aiBackendUrl = appConfig.aiBackend;
       if (!userId) {
         throw new BadRequestError('User not authenticated');
       }
 
       try {
-        const recordData = await recordRelationService.getRecordById(
-          recordId,
-          userId,
-          orgId,
-        );
+        const aiCommand = new AIServiceCommand({
+          uri: `${aiBackendUrl}/api/v1/check-record-access/${recordId}`,
+          method: HttpMethod.GET,
+          headers: req.headers as Record<string, string>,
+          // body: { query, limit },
+        });
+
+        const aiResponse =
+          (await aiCommand.execute()) as AIServiceResponse<IServiceRecordsResponse>;
+        if (!aiResponse || aiResponse.statusCode !== 200 || !aiResponse.data) {
+          throw new InternalServerError(
+            'Failed to get response from AI service',
+            aiResponse?.data,
+          );
+        }
+
+        const recordData = aiResponse.data;
 
         res.status(200).json({
           ...recordData,

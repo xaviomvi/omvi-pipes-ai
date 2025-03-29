@@ -1,12 +1,13 @@
 import type { NavSectionProps } from 'src/components/nav-section';
 import type { Theme, SxProps, Breakpoint } from '@mui/material/styles';
-
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import { useTheme } from '@mui/material/styles';
 import { iconButtonClasses } from '@mui/material/IconButton';
+import { getOrgIdFromToken, getOrgLogo } from 'src/sections/accountdetails/utils';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
@@ -53,6 +54,20 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
   const isNavMini = settings.navLayout === 'mini';
   const isNavHorizontal = settings.navLayout === 'horizontal';
   const isNavVertical = isNavMini || settings.navLayout === 'vertical';
+  const [customLogo, setCustomLogo] = useState<string | null>('');
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const orgId = await getOrgIdFromToken();
+        const logoUrl = await getOrgLogo(orgId);
+        setCustomLogo(logoUrl);
+      } catch (err) {
+        console.error(err, 'error in fetching logo');
+      }
+    };
+
+    fetchLogo();
+  }, []);
 
   return (
     <LayoutSection
@@ -107,23 +122,40 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
                   cssVars={navColorVars.section}
                 />
                 {/* -- Logo -- */}
-                {isNavHorizontal && (
-                  <Box
-                    component="img"
-                    onClick={() => navigate('/')}
-                    src="/logo/logo-blue.svg"
-                    alt="Logo"
-                    sx={{
-                      display: 'none',
-                      [theme.breakpoints.up(layoutQuery)]: {
-                        display: 'inline-flex',
-                      },
-                      width: 60,
-                      height: 30,
-                      cursor: 'pointer',
-                    }}
-                  />
-                )}
+                {isNavHorizontal &&
+                  (customLogo ? (
+                    <Box
+                      component="img"
+                      onClick={() => navigate('/')}
+                      src={customLogo}
+                      alt="Logo"
+                      sx={{
+                        display: 'none',
+                        [theme.breakpoints.up(layoutQuery)]: {
+                          display: 'inline-flex',
+                        },
+                        width: 60,
+                        height: 30,
+                        cursor: 'pointer',
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      component="img"
+                      onClick={() => navigate('/')}
+                      src="/logo/logo-blue.svg"
+                      alt="Logo"
+                      sx={{
+                        display: 'none',
+                        [theme.breakpoints.up(layoutQuery)]: {
+                          display: 'inline-flex',
+                        },
+                        width: 60,
+                        height: 30,
+                        cursor: 'pointer',
+                      }}
+                    />
+                  ))}
                 {/* -- Divider -- */}
                 {isNavHorizontal && (
                   <StyledDivider

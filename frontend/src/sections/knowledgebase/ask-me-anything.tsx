@@ -15,7 +15,7 @@ import { Box, Button, styled, useTheme, Typography, IconButton } from '@mui/mate
 
 import axiosInstance from 'src/utils/axios';
 
-import RecordSidebar from './sales-agent-sidebar';
+import RecordSidebar from './ask-me-anything-sidebar';
 import ChatInput from '../qna/chatbot/components/chat-input';
 import ChatMessagesArea from '../qna/chatbot/components/chat-message-area';
 import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
