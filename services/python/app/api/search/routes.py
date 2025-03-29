@@ -11,6 +11,11 @@ from app.modules.retrieval.retrieval_service import RetrievalService
 from app.modules.retrieval.retrieval_arango import ArangoService
 from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig, LLMFactory
 from app.utils.query_transform import setup_query_transformation
+from app.config.configuration_service import ConfigurationService
+from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
+from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig
+from app.config.configuration_service import config_node_constants
+from app.core.llm_service import LLMFactory
 
 router = APIRouter()
 
@@ -42,9 +47,8 @@ async def get_arango_service(request: Request) -> ArangoService:
 
 async def get_config_service(request: Request) -> ConfigurationService:    
     container: AppContainer = request.app.container
-    config_service = await container.config_service()
+    config_service = container.config_service()
     return config_service
-
 
 @router.post("/search")
 @inject
@@ -62,11 +66,11 @@ async def search(request: Request, body: SearchQuery,
         # For now, we'll use the first available provider that matches our supported types
         # We will add logic to choose a specific provider based on our needs
         llm_config = None
-        
+        print(ai_models, "ai_models")
         for config in llm_configs:
             provider = config['provider']
             if provider == LLMProvider.AZURE_OPENAI_PROVIDER.value:
-                llm = AzureLLMConfig(
+                llm_config = AzureLLMConfig(
                     model=config['configuration']['model'],
                     temperature=config['configuration']['temperature'],
                     api_key=config['configuration']['apiKey'],
@@ -76,15 +80,17 @@ async def search(request: Request, body: SearchQuery,
                 )
                 break
             elif provider == LLMProvider.OPENAI_PROVIDER.value:
-                llm = OpenAILLMConfig(
+                llm_config = OpenAILLMConfig(
                     model=config['configuration']['model'],
                     temperature=config['configuration']['temperature'],
                     api_key=config['configuration']['apiKey'],
                 )
                 break
         
-        if not llm:
+        if not llm_config:
             raise ValueError("No supported LLM provider found in configuration")
+        
+        print(llm_config, "llm_config")
         # Create async LLM
         llm = LLMFactory.create_llm(llm_config)
 
@@ -92,6 +98,7 @@ async def search(request: Request, body: SearchQuery,
         rewrite_chain, expansion_chain = await setup_query_transformation(llm)
 
         # Run query transformations in parallel
+        print("body ", body)
         rewritten_query, expanded_queries = await asyncio.gather(
             rewrite_chain.ainvoke(body.query),
             expansion_chain.ainvoke(body.query)

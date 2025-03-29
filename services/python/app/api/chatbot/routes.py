@@ -3,20 +3,19 @@ from jinja2 import Template
 from pydantic import BaseModel
 from dependency_injector.wiring import inject
 from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Optional, Dict, Any, List
 from app.setups.query_setup import AppContainer
 from app.utils.logger import logger
 from app.config.configuration_service import config_node_constants
-from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
 from app.modules.retrieval.retrieval_service import RetrievalService
 from app.modules.retrieval.retrieval_arango import ArangoService
 from app.config.configuration_service import ConfigurationService
-from jinja2 import Template 
 from app.modules.qna.prompt_templates import qna_prompt
 from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig, LLMFactory
 from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
 from app.api.chatbot.citations import process_citations
 from app.utils.query_transform import setup_query_transformation
+from app.utils.query_decompose import QueryDecompositionService
 
 router = APIRouter()
 
@@ -25,9 +24,9 @@ class ChatQuery(BaseModel):
     query: str
     limit: Optional[int] = 20
     previousConversations: List[Dict] = []
+    useDecomposition: bool = True
     filters: Optional[Dict[str, Any]] = None
     retrieval_mode: Optional[str] = "HYBRID"
-
 
 async def get_retrieval_service(request: Request) -> RetrievalService:
     # Retrieve the container from the app (set in your lifespan)
@@ -43,7 +42,7 @@ async def get_arango_service(request: Request) -> ArangoService:
 
 async def get_config_service(request: Request) -> ConfigurationService:    
     container: AppContainer = request.app.container
-    config_service = await container.config_service()
+    config_service = container.config_service()
     return config_service
 
 @router.post("/chat")
@@ -64,7 +63,7 @@ async def askAI(request: Request, query_info: ChatQuery,
         for config in llm_configs:
             provider = config['provider']
             if provider == LLMProvider.AZURE_OPENAI_PROVIDER.value:
-                llm = AzureLLMConfig(
+                llm_config = AzureLLMConfig(
                     model=config['configuration']['model'],
                     temperature=config['configuration']['temperature'],
                     api_key=config['configuration']['apiKey'],
@@ -74,34 +73,59 @@ async def askAI(request: Request, query_info: ChatQuery,
                 )
                 break
             elif provider == LLMProvider.OPENAI_PROVIDER.value:
-                llm = OpenAILLMConfig(
+                llm_config = OpenAILLMConfig(
                     model=config['configuration']['model'],
                     temperature=config['configuration']['temperature'],
                     api_key=config['configuration']['apiKey'],
                 )
                 break
         
-        if not llm:
+        if not llm_config:
             raise ValueError("No supported LLM provider found in configuration")
 
         llm = LLMFactory.create_llm(llm_config)
       
-        rewrite_chain, expansion_chain = setup_query_transformation(llm)
-        
-        # Run query transformations in parallel
-        rewritten_query, expanded_queries = await asyncio.gather(
-            rewrite_chain.ainvoke(query_info.query),
-            expansion_chain.ainvoke(query_info.query)
-        )
-        
-        logger.info(f"Rewritten query: {rewritten_query}")
-        logger.info(f"Expanded queries: {expanded_queries}")
-        
-        expanded_queries_list = [q.strip() for q in expanded_queries.split('\n') if q.strip()]
+        print("useDecomposition", query_info.useDecomposition)
+        if query_info.useDecomposition:
+            print("calling query decomposition")
+            decomposition_service = QueryDecompositionService(llm)
+            decomposition_result = await decomposition_service.decompose_query(query_info.query)
+            decomposed_queries = decomposition_result["queries"]
+            
+            print("decomposed_queries", decomposed_queries)
+            if not decomposed_queries:
+                all_queries = [{'query': query_info.query}]
+            else:
+                all_queries = decomposed_queries
 
-        queries = [rewritten_query.strip()] if rewritten_query.strip() else []
-        queries.extend([q for q in expanded_queries_list if q not in queries])
+        else:
+            all_queries = [{'query': query_info.query}]
+        
+        for query_dict in all_queries:
+            # Setup query transformation 
+            query = query_dict.get('query')
+            print("Query is ", query)
+            rewrite_chain, expansion_chain = await setup_query_transformation(llm)
+            
+            # Run query transformations in parallel
+            rewritten_query, expanded_queries = await asyncio.gather(
+                rewrite_chain.ainvoke(query),
+                expansion_chain.ainvoke(query)
+            )
+        
+            logger.info(f"Rewritten query: {rewritten_query}")
+            logger.info(f"Expanded queries: {expanded_queries}")
+            
+            expanded_queries_list = [q.strip() for q in expanded_queries.split('\n') if q.strip()]
 
+            queries = [rewritten_query.strip()] if rewritten_query.strip() else []
+            queries.extend([q for q in expanded_queries_list if q not in queries])
+            complete_queries = []
+            seen = set()
+            for q in complete_queries:
+                if q.lower() not in seen:
+                    seen.add(q.lower())
+                    complete_queries.append(q)
         # Get search results
         results = await retrieval_service.search_with_filters(
             queries=queries,
