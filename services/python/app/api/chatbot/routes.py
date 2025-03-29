@@ -1,5 +1,4 @@
 import asyncio
-import os
 from jinja2 import Template 
 from pydantic import BaseModel
 from dependency_injector.wiring import inject
@@ -15,7 +14,6 @@ from app.config.configuration_service import ConfigurationService
 from jinja2 import Template 
 from app.modules.qna.prompt_templates import qna_prompt
 from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig, LLMFactory
-import os
 from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
 from app.api.chatbot.citations import process_citations
 from app.utils.query_transform import setup_query_transformation
@@ -143,33 +141,3 @@ async def askAI(request: Request, query_info: ChatQuery,
     except Exception as e:
         logger.error(f"Error in askAI: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
-
-@router.get("/check-record-access/{record_id}")
-@inject
-async def check_record_access(
-    record_id: str,
-    request: Request,
-    arango_service: ArangoService = Depends(get_arango_service)
-) -> Optional[Dict]:
-    """
-    Check if the current user has access to a specific record
-    """
-    try:
-        has_access = await arango_service.check_record_access_with_details(
-            user_id=request.state.user.get('userId'),
-            org_id=request.state.user.get('orgId'),
-            record_id=record_id
-        )
-        return has_access
-    except Exception as e:
-        logger.error(f"Error checking record access: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to check record access"
-        )
-
-
-@router.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
