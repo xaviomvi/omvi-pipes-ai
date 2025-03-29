@@ -99,7 +99,7 @@ export const createRecords =
             configPaths.url.frontend.publicEndpoint,
           )) || appConfig.frontendUrl;
 
-        const webUrl = `${frontendUrl}/knowledge-base/record/${key}`;
+        const webUrl = `${frontendUrl}/record/${key}`;
 
         // Get document ID from storage
         const { documentId, documentName } =

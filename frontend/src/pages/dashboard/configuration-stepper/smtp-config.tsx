@@ -69,6 +69,7 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showValidationWarning, setShowValidationWarning] = useState<boolean>(false);
   const [displayPort, setDisplayPort] = useState<string>(''); // For UI display
+  const [validationAttempted, setValidationAttempted] = useState<boolean>(false);
 
   // Default values - with port as a number to match the type
   const defaultValues = {
@@ -108,53 +109,65 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
     }
   }, [initialValues, reset]);
 
+  // Function to check if user has entered any data
+  const hasUserInput = (): boolean =>
+    !!(
+      (formValues.host && formValues.host.trim()) ||
+      (formValues.username && formValues.username.trim()) ||
+      (formValues.password && formValues.password.trim()) ||
+      (formValues.fromEmail && formValues.fromEmail.trim()) ||
+      displayPort !== ''
+    );
+
   // Expose the submit function with a clear signature that returns a promise
   useEffect(() => {
-    const hasUserInput = (): boolean =>
-      !!(
-        (
-          (formValues.host && formValues.host.trim()) ||
-          (formValues.username && formValues.username.trim()) ||
-          (formValues.password && formValues.password.trim()) ||
-          (formValues.fromEmail && formValues.fromEmail.trim()) ||
-          displayPort !== ''
-        ) // Check if port has been changed
-      );
-    // This function will be called from the parent component
+    // This function will be called from the parent component when Continue button is clicked
     (window as any).submitSmtpForm = async () => {
-      // If there's no user input, allow skipping without validation
-      if (!hasUserInput()) {
+      setValidationAttempted(true);
+
+      // Check if ANY field has input
+      const hasAnyInput = hasUserInput();
+
+      // If ANY field has input, ALL required fields must be filled
+      if (hasAnyInput) {
+        // Validate the entire form
+        const isFormValid = await trigger();
+        if (!isFormValid) {
+          setShowValidationWarning(true);
+          return false; // Return false to prevent submission
+        }
+
+        // Form is valid, submit it
+        handleSubmit(onSubmit)();
         return true;
       }
+      // ALL fields are empty - this should NOT happen when clicking Complete Setup
+      // We should force the user to explicitly skip using the Skip button
+      setShowValidationWarning(true);
+      return false; // Return false to prevent submission
+    };
 
-      // If there is user input, validate the form
-      const isFormValid = await trigger();
-
-      if (!isFormValid) {
-        // Show validation warning for partially filled forms
-        setShowValidationWarning(true);
-        return false;
-      }
-
-      // Form has input and is valid, submit it
-      handleSubmit((data) => {
-        // Use the actual port value in the form data
-        onSubmit(data);
-      })();
-
+    // For skipping - completely bypass validation
+    (window as any).skipSmtpForm = () => {
+      onSkip(); // Directly call skip
       return true;
     };
 
-    // For getting form values without validation
+    // For checking if form has any input - needed by parent
+    (window as any).hasSmtpInput = () => hasUserInput();
+
+    // For getting form values
     (window as any).getSmtpFormValues = () => getValues();
 
     return () => {
       // Clean up
       delete (window as any).submitSmtpForm;
+      delete (window as any).skipSmtpForm;
+      delete (window as any).hasSmtpInput;
       delete (window as any).getSmtpFormValues;
     };
-  }, [handleSubmit, onSubmit, getValues, trigger, formValues, displayPort]);
-
+     // eslint-disable-next-line
+  }, [handleSubmit, onSubmit, onSkip, getValues, trigger, formValues, displayPort]);
   return (
     <Box component="form" id="smtp-config-form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Typography variant="subtitle1" gutterBottom>
@@ -163,13 +176,17 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Configure SMTP settings for email notifications. You can leave all fields empty to skip this
-        configuration.
+        configuration or use the Skip button.
       </Typography>
 
-      {/* Validation warning */}
-      {showValidationWarning && Object.keys(errors).length > 0 && (
+      {/* Validation warning - show when validation attempted and has errors */}
+      {showValidationWarning && (
         <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setShowValidationWarning(false)}>
-          Please complete all required fields or leave all fields empty to skip this step.
+          <strong>SMTP Configuration Error:</strong>
+          <br />
+          {hasUserInput()
+            ? 'Please complete all required SMTP fields to continue.'
+            : "Please use the 'Skip SMTP Configuration' button if you don't want to configure SMTP."}
         </Alert>
       )}
 
@@ -185,8 +202,12 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
                 placeholder="e.g., smtp.gmail.com"
                 fullWidth
                 size="small"
-                error={!!fieldState.error}
-                helperText={fieldState.error?.message}
+                error={validationAttempted && !!fieldState.error}
+                helperText={
+                  validationAttempted && fieldState.error
+                    ? fieldState.error.message
+                    : 'Required if configuring SMTP'
+                }
               />
             )}
           />
@@ -216,7 +237,7 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
                 fullWidth
                 size="small"
                 type="number"
-                error={!!fieldState.error}
+                error={validationAttempted && !!fieldState.error}
                 helperText={fieldState.error?.message || 'Default: 587'}
               />
             )}
@@ -234,8 +255,12 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
                 placeholder="e.g., notifications@yourdomain.com"
                 fullWidth
                 size="small"
-                error={!!fieldState.error}
-                helperText={fieldState.error?.message}
+                error={validationAttempted && !!fieldState.error}
+                helperText={
+                  validationAttempted && fieldState.error
+                    ? fieldState.error.message
+                    : 'Required if configuring SMTP'
+                }
               />
             )}
           />
@@ -252,7 +277,7 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
                 placeholder="e.g., your.username"
                 fullWidth
                 size="small"
-                error={!!fieldState.error}
+                error={validationAttempted && !!fieldState.error}
                 helperText={fieldState.error?.message}
               />
             )}
@@ -270,7 +295,7 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
                 fullWidth
                 size="small"
                 type={showPassword ? 'text' : 'password'}
-                error={!!fieldState.error}
+                error={validationAttempted && !!fieldState.error}
                 helperText={fieldState.error?.message}
                 InputProps={{
                   endAdornment: (

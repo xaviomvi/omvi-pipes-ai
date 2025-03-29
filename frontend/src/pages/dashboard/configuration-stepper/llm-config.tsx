@@ -1,5 +1,4 @@
-import type {
-  SelectChangeEvent} from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 
 import { z } from 'zod';
 import React, { useState, useEffect } from 'react';
@@ -26,7 +25,7 @@ import { Iconify } from 'src/components/iconify';
 
 import type { LlmFormValues, AzureLlmFormValues, OpenAILlmFormValues } from './types';
 
-// Zod schema for OpenAI validation
+// Zod schema for OpenAI validation with more descriptive error messages
 const openaiSchema = z.object({
   modelType: z.literal('openai'),
   clientId: z.string().min(1, 'Client ID is required'),
@@ -34,10 +33,10 @@ const openaiSchema = z.object({
   model: z.string().min(1, 'Model is required'),
 });
 
-// Zod schema for Azure OpenAI validation
+// Zod schema for Azure OpenAI validation with more descriptive error messages
 const azureSchema = z.object({
   modelType: z.literal('azure'),
-  endpoint: z.string().min(1, 'Endpoint is required'),
+  endpoint: z.string().min(1, 'Endpoint is required').url('Please enter a valid URL'),
   apiKey: z.string().min(1, 'API Key is required'),
   deploymentName: z.string().min(1, 'Deployment Name is required'),
   model: z.string().min(1, 'Model is required'),
@@ -48,7 +47,7 @@ const llmSchema = z.discriminatedUnion('modelType', [openaiSchema, azureSchema])
 
 interface LlmConfigStepProps {
   onSubmit: (data: LlmFormValues) => void;
-  onSkip: () => void; // Keep interface unchanged, but we won't use this
+  onSkip: () => void;
   initialValues: LlmFormValues | null;
 }
 
@@ -81,10 +80,11 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
     control,
     handleSubmit,
     reset,
-    formState: { isValid },
+    formState: { errors, isValid, isDirty, touchedFields },
+    trigger,
   } = useForm<LlmFormValues>({
     resolver: zodResolver(llmSchema),
-    mode: 'onChange',
+    mode: 'onChange', // Validate on change
     defaultValues: getDefaultValues(),
   });
 
@@ -114,13 +114,20 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
     if (initialValues) {
       setModelType(initialValues.modelType);
       reset(initialValues);
+      // Validate initial values
+      setTimeout(() => {
+        trigger();
+      }, 0);
     }
-  }, [initialValues, reset]);
+  }, [initialValues, reset, trigger]);
 
-  // Expose submit method to parent component - make sure this works with a single click
+  // Expose submit method to parent component with improved validation
   useEffect(() => {
-    (window as any).submitLlmForm = () => {
-      if (isValid) {
+    (window as any).submitLlmForm = async () => {
+      // Trigger validation for all fields
+      const isFormValid = await trigger();
+      
+      if (isFormValid) {
         // Use a simple trick to ensure the form submits directly
         const formSubmitHandler = handleSubmit((data) => {
           onSubmit(data);
@@ -137,13 +144,14 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
     return () => {
       delete (window as any).submitLlmForm;
     };
-  }, [isValid, handleSubmit, onSubmit]);
+  }, [handleSubmit, onSubmit, trigger]);
 
-  // Direct form submission handler to avoid double-click issues
+  // Direct form submission handler
   const onFormSubmit = (data: LlmFormValues) => {
-    // Call the parent's onSubmit directly
     onSubmit(data);
   };
+
+
 
   return (
     <Box component="form" id="llm-config-form" onSubmit={handleSubmit(onFormSubmit)} noValidate>
@@ -156,7 +164,7 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
       </Typography>
 
       <Alert severity="info" sx={{ mb: 3 }}>
-        LLM configuration is required to proceed with setup.
+        LLM configuration is required to proceed with setup. All fields marked with <span style={{ color: 'error.main' }}>*</span> are required.
       </Alert>
 
       <Grid container spacing={2}>
@@ -166,10 +174,10 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
             control={control}
             render={({ field, fieldState }) => (
               <FormControl fullWidth error={!!fieldState.error} size="small">
-                <InputLabel>Provider</InputLabel>
+                <InputLabel>Provider *</InputLabel>
                 <Select
                   {...field}
-                  label="Provider"
+                  label="Provider *"
                   onChange={(e: SelectChangeEvent) => {
                     const newType = e.target.value as 'openai' | 'azure';
                     field.onChange(newType);
@@ -194,11 +202,16 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
               render={({ field, fieldState }) => (
                 <TextField
                   {...field}
-                  label="Client ID"
+                  label='Client ID'
                   fullWidth
                   size="small"
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
+                  required
+                  onBlur={() => {
+                    field.onBlur();
+                    trigger('clientId');
+                  }}
                 />
               )}
             />
@@ -215,7 +228,7 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
                 render={({ field, fieldState }) => (
                   <TextField
                     {...field}
-                    label="Endpoint"
+                    label='Endpoint'
                     fullWidth
                     size="small"
                     error={!!fieldState.error}
@@ -223,6 +236,11 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
                       fieldState.error?.message ||
                       'e.g., https://your-resource-name.openai.azure.com/'
                     }
+                    required
+                    onBlur={() => {
+                      field.onBlur();
+                      trigger('endpoint');
+                    }}
                   />
                 )}
               />
@@ -234,11 +252,16 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
                 render={({ field, fieldState }) => (
                   <TextField
                     {...field}
-                    label="Deployment Name"
+                    label='Deployment Name'
                     fullWidth
                     size="small"
                     error={!!fieldState.error}
                     helperText={fieldState.error?.message}
+                    required
+                    onBlur={() => {
+                      field.onBlur();
+                      trigger('deploymentName');
+                    }}
                   />
                 )}
               />
@@ -254,12 +277,17 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
             render={({ field, fieldState }) => (
               <TextField
                 {...field}
-                label="API Key"
+                label='API Key'
                 fullWidth
                 size="small"
                 error={!!fieldState.error}
                 helperText={fieldState.error?.message}
                 type={showPassword ? 'text' : 'password'}
+                required
+                onBlur={() => {
+                  field.onBlur();
+                  trigger('apiKey');
+                }}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -289,7 +317,7 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
             render={({ field, fieldState }) => (
               <TextField
                 {...field}
-                label="Model Name"
+                label='Model Name'
                 fullWidth
                 size="small"
                 error={!!fieldState.error}
@@ -297,6 +325,11 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
                   fieldState.error?.message ||
                   (modelType === 'openai' ? 'e.g., gpt-4-turbo' : 'e.g., gpt-4o')
                 }
+                required
+                onBlur={() => {
+                  field.onBlur();
+                  trigger('model');
+                }}
               />
             )}
           />
