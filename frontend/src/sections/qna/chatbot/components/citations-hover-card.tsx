@@ -1,14 +1,16 @@
-import type { Citation, CustomCitation } from 'src/types/chat-bot';
 import type { Record } from 'src/types/chat-message';
+import type { CustomCitation } from 'src/types/chat-bot';
 
 import React from 'react';
 import { Icon } from '@iconify/react';
 
-import { Fade, Card, Stack, Button, Typography, Chip, Box, Divider } from '@mui/material';
+import { Box, Fade, Card, Chip, Stack, Button, Divider, Typography } from '@mui/material';
 
 import axios from 'src/utils/axios';
-import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
+
 import { CONFIG } from 'src/config-global';
+
+import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
 
 interface CitationHoverCardProps {
   citation: CustomCitation;
@@ -80,7 +82,7 @@ const CitationHoverCard = ({
           const isExcelOrCSV = ['CSV', 'xlsx', 'xls'].includes(citation.metadata?.extension);
           const recordId = citation.metadata?.recordId;
           const response = await axios.get(`/api/v1/knowledgebase/${recordId}`);
-          const record = response.data.record;
+          const {record} = response.data;
           const { externalRecordId } = record;
           const fileName = record.recordName;
           // const downloadResponse = await axios.get(`/api/v1/document/${externalRecordId}/download`);

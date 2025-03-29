@@ -1,11 +1,10 @@
 import type {
   Message,
   Citation,
-  ApiCitation,
   Conversation,
+  CustomCitation,
   FormattedMessage,
   ExpandedCitationsState,
-  CustomCitation,
 } from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';

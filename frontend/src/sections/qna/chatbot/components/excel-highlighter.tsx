@@ -1,6 +1,7 @@
 import type { BoxProps } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
-import type { Citation, CustomCitation } from 'src/types/chat-bot';
+import type { CustomCitation } from 'src/types/chat-bot';
+import type { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
 
 import * as XLSX from 'xlsx';
 import { Icon } from '@iconify/react';
@@ -24,7 +25,6 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
 import scrollableContainerStyle from '../../utils/styles/scrollbar';
 
 type ExcelViewerprops = {

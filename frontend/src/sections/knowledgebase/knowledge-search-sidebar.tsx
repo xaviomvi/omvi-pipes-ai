@@ -1,8 +1,8 @@
 import { Icon } from '@iconify/react';
+import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { alpha, styled, useTheme } from '@mui/material/styles';
 
+import { alpha, styled, useTheme } from '@mui/material/styles';
 import {
   Box,
   Chip,
@@ -14,20 +14,18 @@ import {
   Checkbox,
   Collapse,
   FormGroup,
+  TextField,
   Typography,
   IconButton,
-  FormControlLabel,
-  TextField,
   InputAdornment,
+  FormControlLabel,
   CircularProgress,
-  Divider,
 } from '@mui/material';
 
-import { fetchTags, fetchModules, fetchDepartments, fetchRecordCategories } from './utils';
+import { fetchModules, fetchDepartments, fetchRecordCategories } from './utils';
 
 import type { Modules } from './types/modules';
 import type { Departments } from './types/departments';
-import type { SearchTagsRecords } from './types/search-tags';
 import type { RecordCategories } from './types/record-categories';
 import type { Filters, KnowledgeSearchSideBarProps } from './types/knowledge-base';
 

@@ -1,5 +1,5 @@
-import { DocumentContent } from "src/sections/knowledgebase/types/search-response";
 import type { ScaledPosition } from "react-pdf-highlighter";
+import type { DocumentContent } from "src/sections/knowledgebase/types/search-response";
 
 import type { Citation, CustomCitation } from "./chat-bot";
 

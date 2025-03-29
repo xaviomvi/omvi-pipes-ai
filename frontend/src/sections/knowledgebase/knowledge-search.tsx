@@ -1,29 +1,24 @@
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router';
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 import {
   Box,
-  Tab,
-  Tabs,
   Card,
   Chip,
   Paper,
-  Avatar,
-  Collapse,
+  alpha,
+  Button,
+  Divider,
+  Tooltip,
+  useTheme,
+  Skeleton,
   TextField,
   IconButton,
   Typography,
   CardContent,
-  CircularProgress,
-  IconButton as MuiIconButton,
-  useTheme,
-  alpha,
-  Divider,
-  Tooltip,
   InputAdornment,
-  Button,
-  Skeleton,
+  CircularProgress,
 } from '@mui/material';
 
 import { useUsers } from 'src/context/UserContext';
@@ -260,9 +255,9 @@ const KnowledgeSearch = ({
   };
 
   const handleRecordClick = (record: SearchResult): void => {
-    const recordId = record.metadata.recordId;
+    const {recordId} = record.metadata;
     const recordMeta = recordsMap[recordId];
-    const webUrl = recordMeta.webUrl;
+    const {webUrl} = recordMeta;
     window.open(webUrl, '_blank'); // Opens in a new tab/window
   };
 

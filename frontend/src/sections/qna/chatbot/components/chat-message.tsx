@@ -1,4 +1,4 @@
-import type { Citation, CustomCitation } from 'src/types/chat-bot';
+import type { CustomCitation } from 'src/types/chat-bot';
 import type {
   Record,
   ChatMessageProps,

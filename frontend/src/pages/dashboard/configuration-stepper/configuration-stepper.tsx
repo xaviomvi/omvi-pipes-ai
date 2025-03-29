@@ -10,17 +10,23 @@ import {
   Snackbar,
   StepLabel,
   Typography,
+  IconButton,
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress,
-  IconButton
+  CircularProgress
 } from '@mui/material';
-import { CONFIG } from 'src/config-global';
+
 import axios from 'src/utils/axios';
+
+import { CONFIG } from 'src/config-global';
+
 import { Iconify } from 'src/components/iconify';
+
 import scrollableContainerStyle from 'src/sections/qna/chatbot/utils/styles/scrollbar';
+
 import { useAuthContext } from 'src/auth/hooks';
+
 import { storageTypes } from './types';
 import LlmConfigStep from './llm-config';
 import SmtpConfigStep from './smtp-config';

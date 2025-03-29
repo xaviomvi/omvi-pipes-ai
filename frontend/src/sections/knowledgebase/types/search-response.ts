@@ -1,4 +1,3 @@
-import { namespace } from "stylis";
 
 export interface BoundingBox {
   x: number;

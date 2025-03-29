@@ -1,7 +1,7 @@
 import { Icon } from '@iconify/react';
 import { Page, pdfjs, Document } from 'react-pdf';
-import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useResizeObserver } from '@wojtekmaj/react-hooks';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import {
   Box,
