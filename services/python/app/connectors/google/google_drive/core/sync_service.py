@@ -327,7 +327,7 @@ class BaseDriveSyncService(ABC):
             user_record_relation = {
                 '_to': f'users/{user_id}',
                 '_from': f'records/{drive_info["record"]["_key"]}',
-                'role': 'WRITER' if drive_info['drive']['access_level'] == 'writer' else 'VIEWER',
+                'role': 'WRITER' if drive_info['drive']['access_level'] == 'writer' else 'READER',
                 'type': 'USER',
                 'externalPermissionId': None,
                 'createdAtTimestamp': get_epoch_timestamp_in_ms(),

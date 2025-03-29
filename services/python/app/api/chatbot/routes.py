@@ -1,5 +1,4 @@
 import asyncio
-import os
 from jinja2 import Template 
 from pydantic import BaseModel
 from dependency_injector.wiring import inject
@@ -14,9 +13,7 @@ from app.modules.retrieval.retrieval_arango import ArangoService
 from app.config.configuration_service import ConfigurationService
 from jinja2 import Template 
 from app.modules.qna.prompt_templates import qna_prompt
-from app.core.llm_service import LLMFactory
-from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig
-import os
+from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig, LLMFactory
 from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
 from app.api.chatbot.citations import process_citations
 from app.utils.query_transform import setup_query_transformation
@@ -30,31 +27,6 @@ class ChatQuery(BaseModel):
     previousConversations: List[Dict] = []
     filters: Optional[Dict[str, Any]] = None
     retrieval_mode: Optional[str] = "HYBRID"
-
-class AzureLLMConfig(BaseModel):
-    provider: str
-    azure_endpoint: str
-    azure_deployment: str
-    azure_api_version: str
-    api_key: str
-    model: str
-    temperature: float = 0.3
-
-class LLMFactory:
-    @staticmethod
-    def create_async_llm(config: AzureLLMConfig):
-        """Create an asynchronous LLM instance"""
-        if config.provider == "azure":
-            from langchain_openai import AzureChatOpenAI
-            
-            return AzureChatOpenAI(
-                azure_endpoint=config.azure_endpoint,
-                azure_deployment=config.azure_deployment,
-                api_version=config.azure_api_version,
-                api_key=config.api_key,
-                temperature=config.temperature
-            )
-        raise ValueError(f"Unsupported provider: {config.provider}")
 
 
 async def get_retrieval_service(request: Request) -> RetrievalService:
@@ -169,9 +141,3 @@ async def askAI(request: Request, query_info: ChatQuery,
     except Exception as e:
         logger.error(f"Error in askAI: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}

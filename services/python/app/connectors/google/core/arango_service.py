@@ -746,7 +746,7 @@ class ArangoService(BaseArangoService):
                             'type': 'anyone',
                             'file_key': file_key,
                             'organization': org_id,
-                            'role': new_perm.get('role', 'reader'),
+                            'role': new_perm.get('role', 'READER'),
                             'externalPermissionId': new_perm.get('id'),
                             'lastUpdatedTimestampAtSource': timestamp,
                             'active': True

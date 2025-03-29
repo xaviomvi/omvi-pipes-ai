@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from app.api.search.routes import router as search_router
 from app.api.chatbot.routes import router as chatbot_router
+from app.api.utils.routes import router as utils_router
 
 from app.middlewares.auth import authMiddleware
 import uvicorn
@@ -114,6 +115,7 @@ app.add_middleware(
 # Include routes from routes.py
 app.include_router(search_router, prefix="/api/v1")
 app.include_router(chatbot_router, prefix="/api/v1")
+app.include_router(utils_router, prefix="/api/v1")
 
 def run(host: str = "0.0.0.0", port: int = 8000, reload: bool = True):
     """Run the application"""
