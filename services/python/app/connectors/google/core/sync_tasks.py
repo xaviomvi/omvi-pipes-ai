@@ -58,8 +58,8 @@ class SyncTasks:
             logger.info(f"Scheduled sync control - Action: {action} at {current_time_str}")
 
             # Get time settings from Celery config
-            start_time = self.celery.app.conf.get('SYNC_START_TIME')
-            end_time = self.celery.app.conf.get('SYNC_PAUSE_TIME')
+            start_time = self.celery.app.conf.get('sync_start_time')
+            end_time = self.celery.app.conf.get('sync_pause_time')
 
             # Convert times to datetime.time objects
             current_time = current_time.time()

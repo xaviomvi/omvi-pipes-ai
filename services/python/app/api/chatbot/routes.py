@@ -6,10 +6,18 @@ from dependency_injector.wiring import inject
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.setups.query_setup import AppContainer
 from app.utils.logger import logger
+from app.config.configuration_service import config_node_constants
+from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from app.modules.retrieval.retrieval_service import RetrievalService
 from app.modules.retrieval.retrieval_arango import ArangoService
+from app.config.configuration_service import ConfigurationService
+from jinja2 import Template 
 from app.modules.qna.prompt_templates import qna_prompt
+from app.core.llm_service import LLMFactory
+from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig
+import os
+from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
 from app.api.chatbot.citations import process_citations
 from app.utils.query_transform import setup_query_transformation
 
@@ -61,28 +69,52 @@ async def get_arango_service(request: Request) -> ArangoService:
     arango_service = await container.arango_service()
     return arango_service
 
+async def get_config_service(request: Request) -> ConfigurationService:    
+    container: AppContainer = request.app.container
+    config_service = await container.config_service()
+    return config_service
+
 @router.post("/chat")
 @inject
 async def askAI(request: Request, query_info: ChatQuery, 
                 retrieval_service=Depends(get_retrieval_service),
-                arango_service=Depends(get_arango_service)):
+                arango_service=Depends(get_arango_service),
+                config_service=Depends(get_config_service)):
     """Perform semantic search across documents"""
     try:
         # Setup LLM configuration
-        llm_config = AzureLLMConfig(
-            provider="azure",
-            azure_endpoint=os.getenv("AZURE_ENDPOINT"),
-            azure_deployment=os.getenv("AZURE_DEPLOYMENT_NAME"),
-            azure_api_version=os.getenv("AZURE_API_VERSION"),
-            api_key=os.getenv("AZURE_API_KEY"),
-            model="gpt-4o",
-            temperature=0.3
-        )
-        # Create async LLM
-        llm = LLMFactory.create_async_llm(llm_config)
+        ai_models = await config_service.get_config(config_node_constants.AI_MODELS.value)
+        llm_configs = ai_models['llm']
+        # For now, we'll use the first available provider that matches our supported types
+        # We will add logic to choose a specific provider based on our needs
+        llm_config = None
         
-        # Setup query transformation
-        rewrite_chain, expansion_chain = await setup_query_transformation(llm)
+        for config in llm_configs:
+            provider = config['provider']
+            if provider == LLMProvider.AZURE_OPENAI_PROVIDER.value:
+                llm = AzureLLMConfig(
+                    model=config['configuration']['model'],
+                    temperature=config['configuration']['temperature'],
+                    api_key=config['configuration']['apiKey'],
+                    azure_endpoint=config['configuration']['endpoint'],
+                    azure_api_version=AzureOpenAILLM.AZURE_OPENAI_VERSION.value,
+                    azure_deployment=config['configuration']['deploymentName'],
+                )
+                break
+            elif provider == LLMProvider.OPENAI_PROVIDER.value:
+                llm = OpenAILLMConfig(
+                    model=config['configuration']['model'],
+                    temperature=config['configuration']['temperature'],
+                    api_key=config['configuration']['apiKey'],
+                )
+                break
+        
+        if not llm:
+            raise ValueError("No supported LLM provider found in configuration")
+
+        llm = LLMFactory.create_llm(llm_config)
+      
+        rewrite_chain, expansion_chain = setup_query_transformation(llm)
         
         # Run query transformations in parallel
         rewritten_query, expanded_queries = await asyncio.gather(
@@ -111,12 +143,10 @@ async def askAI(request: Request, query_info: ChatQuery,
         results = results.get('searchResults')
         # Format conversation history
         previous_conversations = query_info.previousConversations
-        
-        # Prepare prompt with retrieved context
-        template = Template(qna_prompt)
-        rendered_form = template.render(query=query_info.query, records=results)
-        
-        # Create messages for the LLM
+        print(results, "formatted_results")
+        template = Template(qna_prompt) 
+        rendered_form = template.render(query=query_info.query, records = results) 
+
         messages = [
             {"role": "system", "content": "You are a enterprise questions answering expert"}
         ]

@@ -60,7 +60,6 @@ class DriveAdminService:
                         raise Exception(f"Failed to fetch credentials: {await response.json()}")
                     credentials_json = await response.json()
                     admin_email = credentials_json.get('adminEmail')
-                    print("CREDENTIALS: ", credentials_json)
 
             # Create credentials from JSON
             self.credentials = service_account.Credentials.from_service_account_info(
@@ -68,6 +67,27 @@ class DriveAdminService:
                 scopes=SCOPES,
                 subject=admin_email
             )
+            
+            print("CREDENTIALS: ", self.credentials)
+            print(dir(self.credentials))
+            print("Token: ", self.credentials.token)
+
+            print("CREDENTIALS DETAILS:")
+            print("=" * 50)
+            
+            # Print all attributes and their values
+            for attr in dir(self.credentials):
+                # Skip private/magic attributes
+                if not attr.startswith('_'):
+                    try:
+                        value = getattr(self.credentials, attr)
+                        # Check if it's a method or a property
+                        if not callable(value):
+                            print(f"{attr}: {value}")
+                    except Exception as e:
+                        print(f"{attr}: Error accessing value - {str(e)}")
+            
+            print("=" * 50)
 
             self.admin_service = build(
                 'admin',

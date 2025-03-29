@@ -5,6 +5,7 @@ from langchain.chat_models.base import BaseChatModel
 from langchain.callbacks.base import BaseCallbackHandler
 from app.utils.logger import logger
 from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
+from app.config.ai_models_named_constants import AzureOpenAILLM
 
 class BaseLLMConfig(BaseModel):
     """Base configuration for all LLM providers"""
@@ -15,8 +16,8 @@ class BaseLLMConfig(BaseModel):
 class AzureLLMConfig(BaseLLMConfig):
     """Azure-specific configuration"""
     azure_endpoint: str
-    azure_api_version: str
     azure_deployment: str
+    azure_api_version: str
 
 class OpenAILLMConfig(BaseLLMConfig):
     """OpenAI-specific configuration"""
@@ -70,12 +71,12 @@ class LLMFactory:
 
         if isinstance(config, AzureLLMConfig):
             return AzureChatOpenAI(
-                azure_endpoint=config.azure_endpoint,
                 api_key=config.api_key,
-                temperature=config.temperature,
-                api_version=config.azure_api_version,
-                azure_deployment=config.azure_deployment,
                 model=config.model,
+                azure_endpoint=config.azure_endpoint,
+                api_version=AzureOpenAILLM.AZURE_OPENAI_VERSION.value,
+                temperature=config.temperature,
+                azure_deployment=config.azure_deployment,
                 callbacks=[cost_callback]
             )
         

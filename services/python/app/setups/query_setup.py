@@ -13,14 +13,14 @@ class AppContainer(containers.DeclarativeContainer):
 
     # Initialize ConfigurationService first
     config_service = providers.Singleton(
-        ConfigurationService,
-        environment='dev'
+        ConfigurationService
     )
     
     async def _fetch_arango_host(config_service):
         """Fetch ArangoDB host URL from etcd asynchronously."""
-        return await config_service.get_config(config_node_constants.ARANGO_URL.value)
-
+        arango_config = await config_service.get_config(config_node_constants.ARANGODB.value)
+        return arango_config['url']
+    
     async def _create_arango_client(config_service):
         """Async factory method to initialize ArangoClient."""
         hosts = await AppContainer._fetch_arango_host(config_service)
@@ -46,11 +46,12 @@ class AppContainer(containers.DeclarativeContainer):
     # Vector search service
     async def _get_qdrant_config(config_service: ConfigurationService):
         """Async factory method to get Qdrant configuration."""
+        qdrant_config = await config_service.get_config(config_node_constants.QDRANT.value)
         return {
-            'collection_name': await config_service.get_config(config_node_constants.QDRANT_COLLECTION_NAME.value),
-            'api_key': await config_service.get_config(config_node_constants.QDRANT_API_KEY.value),
-            'host': await config_service.get_config(config_node_constants.QDRANT_HOST.value),
-            'port': await config_service.get_config(config_node_constants.QDRANT_PORT.value),
+            'collection_name': qdrant_config['collection_name'],    
+            'api_key': qdrant_config['api_key'],
+            'host': qdrant_config['host'],
+            'port': qdrant_config['port'],
         }
 
     qdrant_config = providers.Resource(

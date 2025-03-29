@@ -18,11 +18,7 @@ async def load_config():
     try:
         logger.info("🚀 Starting configuration loading process")
 
-        # Initialize ConfigurationService with environment
-        environment = 'dev'
-        logger.info(f"🔧 Using environment: {environment}")
-
-        config_service = ConfigurationService(environment=environment)
+        config_service = ConfigurationService()
 
         # Check if any configuration exists and get user preference for overwrite
         has_config = await config_service.has_configuration()

@@ -225,18 +225,19 @@ class AppContainer(containers.DeclarativeContainer):
     
     # Core services that don't depend on account type
     config_service = providers.Singleton(
-        ConfigurationService,
-        environment= 'dev'
+        ConfigurationService
     )
 
     async def _create_arango_client(config_service):
         """Async method to initialize ArangoClient."""
-        hosts = await config_service.get_config(config_node_constants.ARANGO_URL.value)
+        arangodb_config = await config_service.get_config(config_node_constants.ARANGODB.value)
+        hosts = arangodb_config['url']
         return ArangoClient(hosts=hosts)
 
     async def _create_redis_client(config_service):
         """Async method to initialize RedisClient."""
-        url = await config_service.get_config(config_node_constants.REDIS_URL.value)
+        redis_config = await config_service.get_config(config_node_constants.REDIS.value)
+        url = redis_config['url']
         return await aioredis.from_url(url, encoding="utf-8", decode_responses=True)
 
     # Core Resources
@@ -342,8 +343,9 @@ async def health_check_arango(container):
     try:
         # Get the config_service instance first, then call get_config
         config_service = container.config_service()
-        username = await config_service.get_config(config_node_constants.ARANGO_USER.value)
-        password = await config_service.get_config(config_node_constants.ARANGO_PASSWORD.value)
+        arangodb_config = await config_service.get_config(config_node_constants.ARANGODB.value)
+        username = arangodb_config['user']
+        password = arangodb_config['password']
         
         logger.debug("Checking ArangoDB connection using ArangoClient")
         
@@ -368,7 +370,8 @@ async def health_check_kafka(container):
     """Check the health of Kafka by attempting to create a connection."""
     logger.info("🔍 Starting Kafka health check...")
     try:
-        kafka_servers = await container.config_service().get_config(config_node_constants.KAFKA_SERVERS.value)
+        kafka_config = await container.config_service().get_config(config_node_constants.KAFKA.value)
+        kafka_servers = kafka_config['servers']
         logger.debug(f"Checking Kafka connection at: {kafka_servers}")
         
         
@@ -405,7 +408,8 @@ async def health_check_redis(container):
     """Check the health of Redis by attempting to connect and ping."""
     logger.info("🔍 Starting Redis health check...")
     try:
-        redis_url = await container.config_service().get_config(config_node_constants.REDIS_URL.value)
+        redis_config = await container.config_service().get_config(config_node_constants.REDIS.value)
+        redis_url = redis_config['url']
         logger.debug(f"Checking Redis connection at: {redis_url}")        
         # Create Redis client and attempt to ping
         redis_client = Redis.from_url(redis_url, socket_timeout=5.0)
@@ -429,7 +433,8 @@ async def health_check_qdrant(container):
     """Check the health of Qdrant via HTTP request."""
     logger.info("🔍 Starting Qdrant health check...")
     try:
-        qdrant_url = await container.config_service().get_config(config_node_constants.QDRANT_URL.value)
+        qdrant_config = await container.config_service().get_config(config_node_constants.QDRANT.value)
+        qdrant_url = qdrant_config['url']
         logger.debug(f"Checking Qdrant health at endpoint: {qdrant_url}/healthz")
         
         async with aiohttp.ClientSession() as session:
