@@ -28,11 +28,11 @@ import {
 import { useUsers } from 'src/context/UserContext';
 
 import { fetchRecordDetails } from './utils';
-import RecordSalesAgent from './sales-agent';
-import RecordDocumentViewer from './showDocuments';
+import RecordSalesAgent from './ask-me-anything';
+import RecordDocumentViewer from './show-documents';
 import EditRecordDialog from './edit-record-dialog';
 
-import type { RecordDetailsResponse } from './types/record-details';
+import type { Permissions, RecordDetailsResponse } from './types/record-details';
 import DeleteRecordDialog from './delete-record-dialog';
 
 export default function RecordDetails() {
@@ -477,16 +477,19 @@ export default function RecordDetails() {
                             Permissions
                           </Typography>
                           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {permissions ? (
-                              <Chip
-                                label={permissions}
-                                size="small"
-                                sx={{
-                                  height: 22,
-                                  fontSize: '0.75rem',
-                                  fontWeight: 500,
-                                }}
-                              />
+                            {permissions.length > 0 ? (
+                              permissions.map((permission: Permissions) => (
+                                <Chip
+                                  key={permission.id} 
+                                  label={permission.relationship}
+                                  size="small"
+                                  sx={{
+                                    height: 22,
+                                    fontSize: '0.75rem',
+                                    fontWeight: 500,
+                                  }}
+                                />
+                              ))
                             ) : (
                               <Typography variant="body2">No permissions assigned</Typography>
                             )}
@@ -753,7 +756,7 @@ export default function RecordDetails() {
             record={record}
           />
         )}
-         {recordData && recordData.record  && (
+        {recordData && recordData.record && (
           <DeleteRecordDialog
             open={isDeleteDialogOpen}
             onClose={() => setIsDeleteDialogOpen(false)}

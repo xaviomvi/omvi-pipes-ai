@@ -178,7 +178,9 @@ export const authInitConfig = async (email: string): Promise<AuthInitResponse> =
 
     return response.data;
   } catch (error) {
-    throw new Error('Failed to initialize authentication. Please try again.');
+    console.log(error)
+    // throw error;
+    throw new Error(`${error.message}`);
   }
 };
 

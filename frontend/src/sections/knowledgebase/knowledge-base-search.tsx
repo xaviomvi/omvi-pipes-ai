@@ -4,8 +4,8 @@ import { Box, Button, styled, useTheme, alpha, Divider } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { CONFIG } from 'src/config-global';
 import { searchKnowledgeBase } from './utils';
-import KnowledgeSearch from './KnowledgeSearch';
-import KnowledgeSearchSideBar from './KnowledgeSearchSideBar';
+import KnowledgeSearch from './knowledge-search';
+import KnowledgeSearchSideBar from './knowledge-base-sidebar';
 import ExcelViewer from '../qna/chatbot/components/excel-highlighter';
 import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
 

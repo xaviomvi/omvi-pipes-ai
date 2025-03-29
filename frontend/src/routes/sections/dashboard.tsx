@@ -62,6 +62,7 @@ export const dashboardRoutes = [
     children: [
       { element: <ChatBotPage />, index: true },
       { path: ':conversationId', element: <ChatBotPage /> },
+      { path: 'record/:recordId', element: <RecordDetails /> },
       {
         path: 'account',
         children: [
@@ -132,7 +133,6 @@ export const dashboardRoutes = [
         path: 'knowledge-base',
         children: [
           { path: 'details', element: <KnowledgeBaseList /> },
-          { path: 'record/:recordId', element: <RecordDetails /> },
           { path: 'search', element: <KnowledgeSearch /> },
           { path: 'company-settings/groups/:id', element: <GroupDetails /> },
           {

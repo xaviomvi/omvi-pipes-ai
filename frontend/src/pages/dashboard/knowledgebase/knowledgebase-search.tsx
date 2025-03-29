@@ -4,7 +4,7 @@ import { CONFIG } from 'src/config-global';
 import { UserProvider } from 'src/context/UserContext';
 import { GroupsProvider } from 'src/context/GroupsContext';
 
-import KnowledgeBaseSearch from 'src/sections/knowledgebase/KnowledgeBaseSearch';
+import KnowledgeBaseSearch from 'src/sections/knowledgebase/knowledge-base-search';
 
 // ----------------------------------------------------------------------
 
