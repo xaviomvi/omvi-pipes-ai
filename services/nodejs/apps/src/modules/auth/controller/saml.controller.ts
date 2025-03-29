@@ -3,9 +3,8 @@ import {
   Strategy as SamlStrategy,
   Profile,
   VerifiedCallback,
-  VerifyWithRequest,
-} from 'passport-saml';
-import { Response, NextFunction } from 'express';
+} from '@node-saml/passport-saml';
+import { Response, NextFunction, Request } from 'express';
 import { AuthSessionRequest } from '../middlewares/types';
 import { IamService } from '../services/iam.service';
 import { OrgAuthConfig } from '../schema/orgAuthConfiguration.schema';
@@ -63,32 +62,42 @@ export class SamlController {
         .join(''),
     );
   }
+
   updateSAMLStrategy(samlCertificate: string, samlEntryPoint: string) {
     passport.use(
-      new SamlStrategy(
+      new (SamlStrategy as any)(
         {
           entryPoint: samlEntryPoint,
           callbackUrl: `${this.config.authUrl}/${samlSsoCallbackUrl}`,
           cert: samlCertificate,
           passReqToCallback: true,
+          issuer: 'your-issuer',
+          identifierFormat: null,
         },
-        function (
-          req: AuthSessionRequest,
-          profile: Profile,
-          done: VerifiedCallback,
-        ) {
-          // Retrieve RelayState (which contains email & sessionToken)
-          const relayStateBase64 = req.body.RelayState || req.query.RelayState;
-          const relayStateDecoded = relayStateBase64
-            ? JSON.parse(
-                Buffer.from(relayStateBase64, 'base64').toString('utf8'),
-              )
-            : {};
-          // Attach email & sessionToken to the user profile
-          profile.orgId = relayStateDecoded.orgId;
-          profile.sessionToken = relayStateDecoded.sessionToken;
-          done(null, profile);
-        } as VerifyWithRequest,
+        async (req: Request, profile: Profile, done: VerifiedCallback) => {
+          try {
+            const relayStateBase64 =
+              (req as any).body?.RelayState || (req as any).query?.RelayState;
+            const relayStateDecoded = relayStateBase64
+              ? JSON.parse(
+                  Buffer.from(relayStateBase64, 'base64').toString('utf8'),
+                )
+              : {};
+
+            // Attach additional metadata to profile
+            (profile as any).orgId = relayStateDecoded.orgId;
+            (profile as any).sessionToken = relayStateDecoded.sessionToken;
+
+            return done(null, profile);
+          } catch (err) {
+            return done(err as Error);
+          }
+        },
+        async (_req: Request, profile: Profile, done: VerifiedCallback) => {
+          // Optional: Handle logout request here
+          // For now, just pass profile through
+          return done(null, profile);
+        },
       ),
     );
   }
