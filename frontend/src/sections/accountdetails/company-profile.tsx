@@ -224,7 +224,6 @@ export default function CompanyProfile() {
         {/* Header */}
         <Box
           sx={{
-            py: 2.5,
             px: { xs: 3, md: 4 },
             display: 'flex',
             alignItems: 'center',
@@ -239,7 +238,7 @@ export default function CompanyProfile() {
         </Box>
 
         {/* Content */}
-        <Box sx={{ p: { xs: 3, md: 4 } }}>
+        <Box sx={{ p: { xs: 3, md: 2 } }}>
           <Grid container spacing={{ xs: 3, md: 5 }}>
             {/* Form Section - Now on the LEFT */}
             <Grid item xs={12} md={8}>
@@ -275,7 +274,7 @@ export default function CompanyProfile() {
                             placeholder="Enter your company's registered name"
                             sx={{ 
                               '& .MuiOutlinedInput-root': {
-                                height: 45
+                                height: 48
                               },
                               '& .MuiInputBase-input.Mui-disabled': {
                                 cursor: 'not-allowed',
@@ -301,7 +300,7 @@ export default function CompanyProfile() {
                             placeholder="Short name for display"
                             sx={{ 
                               '& .MuiOutlinedInput-root': {
-                                height: 45
+                                height: 48
                               },
                               '& .MuiInputBase-input.Mui-disabled': {
                                 cursor: 'not-allowed',
@@ -322,7 +321,7 @@ export default function CompanyProfile() {
                         placeholder="company@example.com"
                         sx={{ 
                           '& .MuiOutlinedInput-root': {
-                            height: 45
+                            height: 48
                           },
                           '& .MuiInputBase-input.Mui-disabled': {
                             cursor: 'not-allowed',

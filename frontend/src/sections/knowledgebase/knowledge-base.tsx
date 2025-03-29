@@ -140,7 +140,8 @@ export default function KnowledgeBase() {
             duration: '0.3s',
           }),
           marginLeft: 0,
-          p: 3,
+          px: 3,
+          py:2.5
         }}
       >
         <KnowledgeBaseDetails

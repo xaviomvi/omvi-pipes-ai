@@ -39,7 +39,7 @@ const OpenedDrawer = styled(Drawer, { shouldForwardProp: (prop) => prop !== 'ope
   ({ theme, open }) => ({
     width: open ? DRAWER_EXPANDED_WIDTH : DRAWER_COLLAPSED_WIDTH,
     flexShrink: 0,
-    marginTop: 40,
+    marginTop: 50,
     whiteSpace: 'nowrap',
     boxSizing: 'border-box',
     transition: theme.transitions.create('width', {
@@ -47,7 +47,7 @@ const OpenedDrawer = styled(Drawer, { shouldForwardProp: (prop) => prop !== 'ope
       duration: '0.3s', // Consistent duration for smoother transition
     }),
     '& .MuiDrawer-paper': {
-      marginTop: 52,
+      marginTop: 64,
       width: open ? DRAWER_EXPANDED_WIDTH : DRAWER_COLLAPSED_WIDTH,
       transition: theme.transitions.create(['width', 'margin'], {
         easing: theme.transitions.easing.easeInOut,
