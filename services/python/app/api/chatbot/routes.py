@@ -101,6 +101,7 @@ async def askAI(request: Request, query_info: ChatQuery,
         else:
             all_queries = [{'query': query_info.query}]
         
+        complete_queries = []
         for query_dict in all_queries:
             # Setup query transformation 
             query = query_dict.get('query')
@@ -120,15 +121,15 @@ async def askAI(request: Request, query_info: ChatQuery,
 
             queries = [rewritten_query.strip()] if rewritten_query.strip() else []
             queries.extend([q for q in expanded_queries_list if q not in queries])
-            complete_queries = []
             seen = set()
-            for q in complete_queries:
+            for q in queries:
                 if q.lower() not in seen:
                     seen.add(q.lower())
                     complete_queries.append(q)
         # Get search results
+        logger.debug("complete queries", complete_queries)
         results = await retrieval_service.search_with_filters(
-            queries=queries,
+            queries=complete_queries,
             org_id=request.state.user.get('orgId'),
             user_id=request.state.user.get('userId'),
             limit=query_info.limit,
@@ -141,7 +142,7 @@ async def askAI(request: Request, query_info: ChatQuery,
         previous_conversations = query_info.previousConversations
         print(results, "formatted_results")
         template = Template(qna_prompt) 
-        rendered_form = template.render(query=query_info.query, records = results) 
+        rendered_form = template.render(query=query_info.query, rephrased_queries=complete_queries, records = results) 
 
         messages = [
             {"role": "system", "content": "You are a enterprise questions answering expert"}
@@ -156,7 +157,6 @@ async def askAI(request: Request, query_info: ChatQuery,
         
         # Add current query with context
         messages.append({"role": "user", "content": rendered_form})
-        
         # Make async LLM call
         response = await llm.ainvoke(messages)
         
