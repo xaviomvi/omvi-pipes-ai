@@ -244,47 +244,62 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
     (window as any).submitStorageForm = async () => {
       setValidationAttempted(true);
 
-      // For LOCAL storage, always allow (it's valid even when empty)
+      // For LOCAL storage, always validate (even though it's simpler)
       if (storageType === storageTypes.LOCAL) {
+        // Local storage has minimal requirements, so it's usually valid
         handleSubmit(onSubmit)();
         return true;
       }
 
-      // Check if any fields are filled
-      const hasFilledFields = hasAnyFieldFilled();
+      // For S3 and Azure - validate ALL required fields when continuing
+      const allFieldsValid = await trigger();
 
-      if (hasFilledFields) {
-        // If any fields are filled, all required fields must be filled
-        const allFieldsFilled = await hasAllRequiredFieldsFilled();
-
-        if (!allFieldsFilled) {
-          setShowValidationWarning(true);
-          return false;
-        }
-
-        // All required fields are filled, submit the form
-        handleSubmit(onSubmit)();
-        return true;
+      if (!allFieldsValid) {
+        setShowValidationWarning(true);
+        return false;
       }
-      // No fields are filled, can skip (return valid)
+
+      // If all validations pass, submit the form
       handleSubmit(onSubmit)();
       return true;
     };
 
-    // Also expose a method to get the current values
+    // Method for skipping WITHOUT validation
+    (window as any).skipStorageForm = () => {
+      onSkip(); // Call directly without validation
+      return true;
+    };
+
+    // Helper method to check if form is valid
+    (window as any).isStorageFormValid = async () => {
+      // For LOCAL storage, always valid
+      if (storageType === storageTypes.LOCAL) {
+        return true;
+      }
+
+      // For other storage types, validate all required fields
+      // Fix: Don't use await in a return statement
+      return trigger();
+    };
+
+    // Method to get current form values
     (window as any).getStorageFormValues = () => getValues();
 
     return () => {
       delete (window as any).submitStorageForm;
+      delete (window as any).skipStorageForm;
+      delete (window as any).isStorageFormValid;
       delete (window as any).getStorageFormValues;
     };
   }, [
     handleSubmit,
     onSubmit,
+    onSkip,
     getValues,
     storageType,
     hasAnyFieldFilled,
     hasAllRequiredFieldsFilled,
+    trigger, // Fix: Add missing dependency
   ]);
 
   return (
@@ -590,6 +605,22 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
                 )}
               />
             </Grid>
+            {showValidationWarning && (
+              <Grid item xs={12}>
+                <Alert
+                  severity="warning"
+                  sx={{ mb: 1 }}
+                  onClose={() => setShowValidationWarning(false)}
+                >
+                  <strong>
+                    All required fields must be filled to continue with this storage configuration.
+                  </strong>
+                  <br />
+                  If you prefer not to configure storage now, please use the &quot;Use Default Storage&quot;
+                  button.
+                </Alert>
+              </Grid>
+            )}
           </>
         )}
       </Grid>

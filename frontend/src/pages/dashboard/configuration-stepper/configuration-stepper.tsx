@@ -14,14 +14,13 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
+  IconButton
 } from '@mui/material';
-
+import { CONFIG } from 'src/config-global';
 import axios from 'src/utils/axios';
-
+import { Iconify } from 'src/components/iconify';
 import scrollableContainerStyle from 'src/sections/qna/chatbot/utils/styles/scrollbar';
-
 import { useAuthContext } from 'src/auth/hooks';
-
 import { storageTypes } from './types';
 import LlmConfigStep from './llm-config';
 import SmtpConfigStep from './smtp-config';
@@ -148,7 +147,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
   };
 
   const handleSkipStep = (step: 'storage' | 'connector' | 'smtp'): void => {
-    // Cannot skip LLM step anymore
+    // Mark the step as skipped
     setSkipSteps((prev) => ({ ...prev, [step]: true }));
 
     // If skipping storage, set default local storage values
@@ -161,19 +160,14 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       setStorageValues(defaultLocalStorage);
     }
 
-    // If this is the last step, we need to submit the configs after skipping
+    // If this is the last step (SMTP), submit all configurations
     if (step === 'smtp' && activeStep === 3) {
-      // Final step was skipped, so submit all configurations
       submitAllConfigurations();
     } else {
-      // Move to the next step when skipping a non-final step
-      // Using setTimeout to ensure state is updated before handleNext runs
-      setTimeout(() => {
-        setActiveStep((prevActiveStep) => prevActiveStep + 1);
-      }, 0);
+      // Otherwise, move to the next step
+      setActiveStep((prevActiveStep) => prevActiveStep + 1);
     }
   };
-
   // Update the handleNext function in ConfigurationStepper.tsx
   const handleNext = async (): Promise<void> => {
     // For LLM step, verify we have values before continuing
@@ -336,60 +330,63 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
 
   // Submit Storage form programmatically
   const submitStorageForm = async (): Promise<boolean> => {
-    // Method 1: Use the window method if available
-    if (typeof (window as any).submitStorageForm === 'function') {
-      const result = (window as any).submitStorageForm();
-      // Wait for state to update
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      return result || !!storageValues;
+    try {
+      // Method 1: Use the window method
+      if (typeof (window as any).submitStorageForm === 'function') {
+        const result = await Promise.resolve((window as any).submitStorageForm());
+        // Wait for state to update
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return result === true; // Ensure it's explicitly true
+      }
+
+      // Method 2: Find and click the submit button
+      const storageSubmitButton = document.querySelector(
+        '#storage-config-form button[type="submit"]'
+      );
+
+      if (storageSubmitButton) {
+        (storageSubmitButton as HTMLButtonElement).click();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Check validation status
+        const formValid =
+          typeof (window as any).isStorageFormValid === 'function'
+            ? await Promise.resolve((window as any).isStorageFormValid())
+            : false;
+        return formValid === true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error validating storage form:', error);
+      return false;
     }
-
-    // Method 2: Find and click the "Continue" button in the storage form
-    const storageSubmitButton = document.querySelector(
-      '#storage-config-form button[type="submit"]'
-    );
-
-    if (storageSubmitButton) {
-      (storageSubmitButton as HTMLButtonElement).click();
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      return !!storageValues;
-    }
-
-    // If we already have values, we're good
-    if (storageValues) {
-      return true;
-    }
-
-    return false;
   };
 
   // Submit Connector form programmatically
   const submitConnectorForm = async (): Promise<boolean> => {
-    // Method 1: Use the window method if available
-    if (typeof (window as any).submitConnectorForm === 'function') {
-      const result = (window as any).submitConnectorForm();
-      // Wait for state to update
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      return result || !!connectorValues;
+    try {
+      // Method 1: Use the window method
+      if (typeof (window as any).submitConnectorForm === 'function') {
+        const result = await Promise.resolve((window as any).submitConnectorForm());
+        // Wait for state to update
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return result === true; // Ensure it's explicitly true
+      }
+
+      // Method 2: Find and click the submit button
+      const connectorSubmitButton = document.querySelector('#connector-form-submit-button');
+
+      if (connectorSubmitButton) {
+        (connectorSubmitButton as HTMLButtonElement).click();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return !!connectorValues;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error validating connector form:', error);
+      return false;
     }
-
-    // Method 2: Find and click the "Continue" button in the connector form
-    const connectorContinueButton = document.querySelector(
-      '#connector-config-form button[type="submit"]'
-    );
-
-    if (connectorContinueButton) {
-      (connectorContinueButton as HTMLButtonElement).click();
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      return !!connectorValues;
-    }
-
-    // If we already have values, we're good
-    if (connectorValues) {
-      return true;
-    }
-
-    return false;
   };
 
   // Submit all configurations at once
@@ -552,7 +549,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           // Business account with file upload
           if (serviceCredentialsFile) {
             const formData = new FormData();
-            formData.append('file', serviceCredentialsFile);
+            formData.append('googleWorkspaceCredentials', serviceCredentialsFile);
             formData.append('adminEmail', adminEmail);
             if (connectorValues.googleWorkspace?.serviceCredentials) {
               // If we have parsed data from the file, only include non-empty fields
@@ -584,11 +581,15 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             }
 
             apiCalls.push(
-              axios.post(`${API_BASE_URL}/connectors/googleWorkspaceCredentials`, formData, {
-                headers: {
-                  'Content-Type': 'multipart/form-data',
-                },
-              })
+              axios.post(
+                `${CONFIG.backendUrl}/api/v1/connectors/credentials?service=googleWorkspace`,
+                formData,
+                {
+                  headers: {
+                    'Content-Type': 'multipart/form-data',
+                  },
+                }
+              )
             );
           }
         } else if (
@@ -690,6 +691,138 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
     }
   };
 
+  const handleContinueWithValidation = async () => {
+    // Clear any previous error messages
+    setSubmissionError('');
+
+    switch (activeStep) {
+      case 0: {
+        // LLM step - always required
+        // Always validate LLM values regardless of previous state
+        if (llmValues) {
+          // Even if we have values, re-validate to ensure they're still valid
+          const llmSuccess = await submitLlmForm();
+          if (!llmSuccess) {
+            setSubmissionError(
+              'LLM configuration is required. All fields must be filled correctly.'
+            );
+            return;
+          }
+          setActiveStep(1);
+        } else {
+          const llmSuccess = await submitLlmForm();
+          if (!llmSuccess) {
+            setSubmissionError(
+              'LLM configuration is required. All fields must be filled correctly.'
+            );
+            return;
+          }
+          setActiveStep(1);
+        }
+        break;
+      }
+
+      case 1: {
+        // Storage step
+        // IMPORTANT: Reset the skip state when user tries to continue
+        // This ensures validation is applied even if previously skipped
+        if (skipSteps.storage) {
+          // If user wants to continue instead of skip now, we should validate
+          setSkipSteps((prev) => ({ ...prev, storage: false }));
+        }
+
+        // Now validate storage form regardless of previous state
+        const storageSuccess = await submitStorageForm();
+
+        if (!storageSuccess) {
+          setSubmissionError(
+            'All required fields for storage must be filled correctly. If you don\'t want to configure storage, please use the "Use Default Storage" button.'
+          );
+          return;
+        }
+
+        setActiveStep(2);
+        break;
+      }
+
+      case 2: {
+        // Connector step
+        // IMPORTANT: Reset the skip state when user tries to continue
+        // This ensures validation is applied even if previously skipped
+        if (skipSteps.connector) {
+          // If user wants to continue instead of skip now, we should validate
+          setSkipSteps((prev) => ({ ...prev, connector: false }));
+        }
+
+        // Check if user has entered any data
+        const hasConnectorInput =
+          typeof (window as any).hasConnectorInput === 'function'
+            ? (window as any).hasConnectorInput()
+            : false;
+
+        if (hasConnectorInput) {
+          // If there's any data, validate all fields
+          const connectorSuccess = await submitConnectorForm();
+          if (!connectorSuccess) {
+            setSubmissionError(
+              'Please complete all required fields for Google Workspace configuration. If you don\'t want to configure Google Workspace, use the "Skip Google Workspace" button.'
+            );
+            return;
+          }
+        } else {
+          // No data entered - force using the Skip button
+          setSubmissionError(
+            'Please use the "Skip Google Workspace" button if you don\'t want to configure Google Workspace.'
+          );
+          return;
+        }
+
+        setActiveStep(3);
+        break;
+      }
+
+      case 3: {
+        // SMTP step (final)
+        // IMPORTANT: Reset the skip state when user tries to continue
+        // This ensures validation is applied even if previously skipped
+        if (skipSteps.smtp) {
+          // If user wants to continue instead of skip now, we should validate
+          setSkipSteps((prev) => ({ ...prev, smtp: false }));
+        }
+
+        // Check if there's any input in the SMTP form
+        const hasSmtpInput =
+          typeof (window as any).hasSmtpInput === 'function'
+            ? (window as any).hasSmtpInput()
+            : false;
+
+        if (hasSmtpInput) {
+          // If there's any input, validate ALL fields
+          const isValid = await Promise.resolve((window as any).submitSmtpForm());
+          if (!isValid) {
+            setSubmissionError(
+              'Please complete all required SMTP fields or use the "Skip SMTP Configuration" button.'
+            );
+            return;
+          }
+        } else {
+          // No input - force using the Skip button
+          setSubmissionError(
+            'Please use the "Skip SMTP Configuration" button if you don\'t want to configure SMTP.'
+          );
+          return;
+        }
+
+        // If valid, proceed with submission
+        await submitAllConfigurations();
+        break;
+      }
+
+      default:
+        break;
+    }
+  };
+
   const renderStepContent = (step: number): React.ReactNode => {
     switch (step) {
       case 0:
@@ -776,8 +909,10 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           <Button
             color="inherit"
             onClick={() => {
+              // Make it very clear this is for using default settings
               switch (activeStep) {
                 case 1:
+                  // Storage step - explicitly mention going with default local storage
                   handleSkipStep('storage');
                   break;
                 case 2:
@@ -808,59 +943,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         <Button
           variant="contained"
           color="primary"
-          onClick={async () => {
-            switch (activeStep) {
-              case 0: {
-                // If we already have LLM values, just move to the next step
-                if (llmValues) {
-                  setActiveStep(1);
-                  return;
-                }
-                // Otherwise, try to submit the LLM form
-                const llmSuccess = await submitLlmForm();
-                if (!llmSuccess) {
-                  setSubmissionError('LLM configuration is required.');
-                }
-                break;
-              }
-              case 1: {
-                // If we already have storage values or it's marked as skipped, just move to the next step
-                if (storageValues || skipSteps.storage) {
-                  setActiveStep(2);
-                  return;
-                }
-                // Otherwise, try to submit the storage form
-                const storageSuccess = await submitStorageForm();
-                if (!storageSuccess) {
-                  // If form validation fails, skip this step
-                  handleSkipStep('storage');
-                }
-                break;
-              }
-              case 2: {
-                // If we already have connector values or it's marked as skipped, just move to the next step
-                if (connectorValues || skipSteps.connector) {
-                  setActiveStep(3);
-                  return;
-                }
-                // Otherwise, try to submit the connector form
-                const connectorSuccess = await submitConnectorForm();
-                if (!connectorSuccess) {
-                  // If form validation fails, skip this step
-                  handleSkipStep('connector');
-                }
-                break;
-              }
-              case 3: {
-                // SMTP form - final step
-                handleManualSubmit();
-                break;
-              }
-              default: {
-                break;
-              }
-            }
-          }}
+          onClick={handleContinueWithValidation}
           disabled={!primaryButtonEnabled()}
           startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
         >
@@ -896,51 +979,52 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
   };
 
   const handleManualSubmit = async () => {
-    // Verify LLM is configured - required now
-    if (!llmValues) {
-      setSubmissionError('LLM configuration is required.');
-      return;
-    }
-
-    // If we're on the last step (SMTP)
-    if (activeStep === 3) {
-      // If not skipping SMTP, try to submit the form
-      if (!skipSteps.smtp) {
-        try {
-          if (typeof (window as any).submitSmtpForm === 'function') {
-            // IMPORTANT: The submitSmtpForm function is async but was being called without await
-            // This was causing the promise to be treated as truthy even when it would eventually resolve to false
-            const isValid = await Promise.resolve((window as any).submitSmtpForm());
-
-            if (isValid === false) {
-              // If form is invalid, skip this step since LLM is already configured
-              setSkipSteps((prev) => ({ ...prev, smtp: true }));
-              // Submit all configurations without SMTP
-              await submitAllConfigurations();
-            } else {
-              // If SMTP form is valid or empty (returned true),
-              // the submit handler sets smtpValues, so we just need to submit all configs
-              await submitAllConfigurations();
-            }
-          } else {
-            // Fallback: No submitSmtpForm method, but we can proceed with LLM
-            console.warn('submitSmtpForm method not found, skipping SMTP config');
-            setSkipSteps((prev) => ({ ...prev, smtp: true }));
-            await submitAllConfigurations();
-          }
-        } catch (error) {
-          console.error('Error in SMTP validation:', error);
-          // We can proceed without SMTP since LLM is configured
-          setSkipSteps((prev) => ({ ...prev, smtp: true }));
-          await submitAllConfigurations();
-        }
-      } else {
-        await submitAllConfigurations();
+    try {
+      // Verify LLM is configured - required
+      if (!llmValues) {
+        setSubmissionError('LLM configuration is required.');
+        return;
       }
-    } else {
+
+      // If we're on the SMTP step
+      if (activeStep === 3) {
+        // IMPORTANT: Reset the skip state if continuing
+        if (skipSteps.smtp) {
+          setSkipSteps((prev) => ({ ...prev, smtp: false }));
+        }
+
+        // Check if there's any input in the SMTP form
+        const hasSmtpInput =
+          typeof (window as any).hasSmtpInput === 'function'
+            ? (window as any).hasSmtpInput()
+            : false;
+
+        if (hasSmtpInput) {
+          // If there's any input, validate ALL fields
+          const isValid = await Promise.resolve((window as any).submitSmtpForm());
+          if (!isValid) {
+            setSubmissionError(
+              'Please complete all required SMTP fields or use the "Skip SMTP Configuration" button.'
+            );
+            return;
+          }
+        } else {
+          // No input - force using the Skip button
+          setSubmissionError(
+            'Please use the "Skip SMTP Configuration" button if you don\'t want to configure SMTP.'
+          );
+          return;
+        }
+      }
+
+      // All validations passed, submit configurations
       await submitAllConfigurations();
+    } catch (error) {
+      console.error('Error in form submission:', error);
+      setSubmissionError('An error occurred during validation. Please try again.');
     }
   };
+
   return (
     <Dialog
       open={open}
@@ -960,8 +1044,11 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       // Prevent closing by pressing escape for important configuration
       disableEscapeKeyDown
     >
-      <DialogTitle sx={{ px: 3, pt: 2, pb: 2 }}>
+      <DialogTitle sx={{ px: 3, pt: 2, pb: 2, display: 'flex', justifyContent: 'space-between' }}>
         <Typography variant="h6">System Configuration</Typography>
+        <IconButton edge="end" color="inherit" onClick={handleCloseWithStatus} disabled={isSubmitting} aria-label="close">
+          <Iconify icon="eva:close-outline" />
+        </IconButton>
       </DialogTitle>
 
       <DialogContent sx={{ px: 3, pt: 2, pb: 1, ...scrollableContainerStyle }}>

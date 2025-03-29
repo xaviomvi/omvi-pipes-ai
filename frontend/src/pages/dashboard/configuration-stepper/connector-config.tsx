@@ -125,6 +125,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [formPartiallyFilled, setFormPartiallyFilled] = useState<boolean>(false);
+  const [validationAttempted, setValidationAttempted] = useState<boolean>(false);
 
   // Form for business accounts (file upload with extracted fields)
   const businessForm = useForm<any>({
@@ -173,7 +174,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   }, [individualForm]);
 
   // Determine which form to use based on account type
-  const { handleSubmit, formState, control, watch } =
+  const { handleSubmit, formState, control, watch, getValues } =
     accountType === 'business' ? businessForm : individualForm;
 
   const { isValid, errors } = formState;
@@ -181,27 +182,26 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   // Watch form fields to determine if partially filled
   const formValues = watch();
 
+  // Function to check if the form has any user input
+  const hasAnyInput = useCallback((): boolean => {
+    if (accountType === 'business') {
+      // For business accounts, check admin email and file
+      const values = getValues().googleWorkspace;
+      const adminEmail = values.adminEmail;
+      return (adminEmail && adminEmail.trim() !== '') || serviceCredentialsFile !== null;
+    }
+    // For individual accounts, check client ID and secret
+    const values = getValues().googleWorkspace;
+    return (
+      (values.clientId && values.clientId.trim() !== '') ||
+      (values.clientSecret && values.clientSecret.trim() !== '')
+    );
+  }, [accountType, getValues, serviceCredentialsFile]);
+
   // Check if the form is partially filled but not completely valid
   useEffect(() => {
-    if (accountType === 'business') {
-      const values = formValues.googleWorkspace;
-      // Check if any field has a value but the form isn't valid
-      const hasAnyValue =
-        (values.adminEmail && values.adminEmail.trim() !== '') || serviceCredentialsFile !== null;
-
-      setFormPartiallyFilled(hasAnyValue && !isValid);
-    } else {
-      const values = formValues.googleWorkspace;
-      // Check if any field has a value but the form isn't valid
-      const hasAnyValue =
-        (values.clientId && values.clientId.trim() !== '') ||
-        (values.clientSecret && values.clientSecret.trim() !== '') ||
-        (values.redirectUri &&
-          values.redirectUri !== 'http://localhost:3001/account/individual/settings/connector');
-
-      setFormPartiallyFilled(hasAnyValue && !isValid);
-    }
-  }, [formValues, isValid, accountType, serviceCredentialsFile]);
+    setFormPartiallyFilled(hasAnyInput() && !isValid);
+  }, [formValues, isValid, hasAnyInput]);
 
   // Second useEffect to initialize form with initial values and file
   useEffect(() => {
@@ -310,46 +310,119 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
 
   // Expose submit method to parent component
   useEffect(() => {
-    (window as any).submitConnectorForm = () => {
-      if (formPartiallyFilled) {
-        // Don't allow submission if the form is partially filled but not valid
-        setMessage('Please complete all required fields or skip this step');
+    (window as any).submitConnectorForm = async () => {
+      // Always set validation flag when Continue is clicked
+      setValidationAttempted(true);
+
+      // Check if form is empty - users must explicitly use Skip
+      const isEmpty = !hasAnyInput();
+      if (isEmpty) {
+        setMessage(
+          'Please use the "Skip Google Workspace" button if you don\'t want to configure Google Workspace.'
+        );
         return false;
       }
 
+      // For business accounts
       if (accountType === 'business') {
-        // Business accounts require file upload and admin email
-        if (isValid && serviceCredentialsFile && parsedJsonData) {
-          handleSubmit((data) => {
-            onSubmit(data, serviceCredentialsFile);
-          })();
-          return true;
-        }
-        return false;
-      }
+        const adminEmail = businessForm.getValues().googleWorkspace.adminEmail;
 
-      // Individual accounts can now submit only if fully valid
-      if (isValid) {
+        // Check for admin email
+        if (!adminEmail || adminEmail.trim() === '') {
+          setMessage('Admin email is required for business accounts');
+          return false;
+        }
+
+        // Check for valid admin email format
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+          setMessage('Please enter a valid admin email address');
+          return false;
+        }
+
+        // Check for credentials file
+        if (!serviceCredentialsFile) {
+          setMessage('Service credentials file is required for business accounts');
+          return false;
+        }
+
+        // Check if we have the required data extracted from JSON
+        if (!parsedJsonData) {
+          setMessage('Invalid or incomplete service credentials file');
+          return false;
+        }
+
+        // Run form validation
+        const isFormValid = await businessForm.trigger();
+        if (!isFormValid) {
+          setMessage('Please complete all required fields for Google Workspace configuration.');
+          return false;
+        }
+
+        // All validations passed for business account
         handleSubmit((data) => {
           onSubmit(data, serviceCredentialsFile);
         })();
         return true;
       }
+
+      // For individual accounts
+      if (accountType === 'individual') {
+        const values = individualForm.getValues().googleWorkspace;
+
+        if (!values.clientId || values.clientId.trim() === '') {
+          setMessage('Client ID is required');
+          return false;
+        }
+
+        if (!values.clientSecret || values.clientSecret.trim() === '') {
+          setMessage('Client Secret is required');
+          return false;
+        }
+
+        // Run form validation
+        const isFormValid = await individualForm.trigger();
+        if (!isFormValid) {
+          setMessage('Please complete all required fields for Google Workspace configuration.');
+          return false;
+        }
+
+        // All validations passed for individual account
+        handleSubmit((data) => {
+          onSubmit(data, serviceCredentialsFile);
+        })();
+        return true;
+      }
+
+      // Should never reach here, but just in case
+      setMessage('Please complete all required fields for Google Workspace configuration.');
       return false;
+    };
+
+    // Add a method to check if the form has any input - useful for the parent component
+    (window as any).hasConnectorInput = () => hasAnyInput();
+
+    // Method to directly skip without validation
+    (window as any).skipConnectorForm = () => {
+      onSkip();
+      return true;
     };
 
     return () => {
       delete (window as any).submitConnectorForm;
+      delete (window as any).hasConnectorInput;
+      delete (window as any).skipConnectorForm;
     };
   }, [
     accountType,
-    isValid,
+    businessForm,
+    individualForm,
     serviceCredentialsFile,
     handleSubmit,
     onSubmit,
     parsedJsonData,
-    formPartiallyFilled,
     setMessage,
+    hasAnyInput,
+    onSkip,
   ]);
 
   // Validate file type using both extension and MIME type
@@ -464,17 +537,31 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
 
   const handleFormSubmit = useCallback(
     (data: any) => {
+      setValidationAttempted(true);
+
       if (formPartiallyFilled) {
-        setMessage('Please complete all required fields or skip this step');
+        setMessage('Please complete all required fields or use the "Skip Google Workspace" button');
         return;
       }
 
       if (accountType === 'business') {
         if (serviceCredentialsFile && parsedJsonData) {
           onSubmit(data, serviceCredentialsFile);
+        } else {
+          setMessage('Service credentials file is required for business accounts');
         }
       } else {
-        // Individual account - can submit with or without file
+        // Individual account validation
+        if (!data.googleWorkspace.clientId || data.googleWorkspace.clientId.trim() === '') {
+          setMessage('Client ID is required');
+          return;
+        }
+
+        if (!data.googleWorkspace.clientSecret || data.googleWorkspace.clientSecret.trim() === '') {
+          setMessage('Client Secret is required');
+          return;
+        }
+
         onSubmit(data, serviceCredentialsFile);
       }
     },
@@ -603,7 +690,6 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         borderRadius: 3,
         overflow: 'hidden',
         ...scrollableContainerStyle,
-        ...scrollableContainerStyle,
       }}
     >
       <Box
@@ -649,6 +735,25 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
           </Box>
         </Stack>
 
+        {/* Information alert explaining requirements */}
+        <Box sx={{ mb: 3 }}>
+          <Alert
+            severity="info"
+            sx={{
+              borderRadius: '8px',
+              '& .MuiAlert-icon': {
+                color: theme.palette.primary.main,
+              },
+            }}
+          >
+            <Typography variant="body2">
+              {accountType === 'business'
+                ? 'To configure Google Workspace for business accounts, you need to provide both an admin email and upload a service credentials file.'
+                : 'To configure Google Workspace, you need to provide both Client ID and Client Secret.'}
+            </Typography>
+          </Alert>
+        </Box>
+
         {/* Business account admin email field */}
         {accountType === 'business' && (
           <Stack spacing={2.5} sx={{ mb: 3 }}>
@@ -662,8 +767,12 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                   placeholder="e.g., admin@yourdomain.com"
                   fullWidth
                   size="small"
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
+                  error={validationAttempted && !!fieldState.error}
+                  helperText={
+                    validationAttempted && fieldState.error
+                      ? fieldState.error.message
+                      : 'Required - Admin email for your Google Workspace'
+                  }
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -762,8 +871,12 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                     placeholder="e.g., 969340771549-75fn6kuu6p4oapk45ibrc5acpps.com"
                     fullWidth
                     size="small"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
+                    error={validationAttempted && !!fieldState.error}
+                    helperText={
+                      validationAttempted && fieldState.error
+                        ? fieldState.error.message
+                        : 'Required - Client ID from Google Developer Console'
+                    }
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -792,88 +905,6 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                   />
                 )}
               />
-
-              <Controller
-                name="googleWorkspace.clientSecret"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <TextField
-                    {...field}
-                    label="Client Secret"
-                    placeholder="e.g., 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"
-                    fullWidth
-                    size="small"
-                    type="password"
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Iconify
-                            icon="ri:key-2-line"
-                            width={20}
-                            height={20}
-                            sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
-                          />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        bgcolor: alpha(theme.palette.background.paper, 0.6),
-                        transition: theme.transitions.create(['box-shadow', 'background-color']),
-                        '&:hover': {
-                          bgcolor: theme.palette.background.paper,
-                        },
-                        '&.Mui-focused': {
-                          boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
-                        },
-                      },
-                    }}
-                  />
-                )}
-              />
-
-              {/* <Controller
-              name="googleWorkspace.redirectUri"
-              control={control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  label="Redirect URI"
-                  fullWidth
-                  size="small"
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Iconify
-                          icon="ri:links-line"
-                          width={20}
-                          height={20}
-                          sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
-                        />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      bgcolor: alpha(theme.palette.background.paper, 0.6),
-                      transition: theme.transitions.create(['box-shadow', 'background-color']),
-                      '&:hover': {
-                        bgcolor: theme.palette.background.paper,
-                      },
-                      '&.Mui-focused': {
-                        boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
-                      },
-                    },
-                  }}
-                />
-              )}
-            /> */}
             </Stack>
           </>
         )}
@@ -1126,6 +1157,47 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
           </Tooltip>
         </Box>
 
+        {/* Validation messages */}
+        {validationAttempted && !isValid && hasAnyInput() && (
+          <Box
+            sx={{
+              mb: 2,
+              p: 2,
+              borderRadius: '10px',
+              background: `linear-gradient(135deg, ${alpha(theme.palette.error.light, 0.08)}, ${alpha(
+                theme.palette.error.main,
+                0.08
+              )})`,
+              borderLeft: `4px solid ${theme.palette.error.main}`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              boxShadow: `0 2px 8px ${alpha(theme.palette.error.main, 0.1)}`,
+            }}
+          >
+            <Iconify
+              icon="ri:error-warning-fill"
+              width={22}
+              height={22}
+              sx={{ color: theme.palette.error.main, mt: 0.25, mr: 1.5, flexShrink: 0 }}
+            />
+            <Box>
+              <Typography variant="body2" color="error.main" sx={{ fontWeight: 500 }}>
+                {accountType === 'business'
+                  ? 'Google Workspace configuration requires both admin email and service credentials file.'
+                  : 'Google Workspace configuration requires both Client ID and Client Secret.'}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 0.5, display: 'block' }}
+              >
+                Please complete all required fields or use the Skip button to bypass Google
+                Workspace configuration.
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
         {/* Warning for partially filled forms */}
         {formPartiallyFilled && (
           <Box
@@ -1202,4 +1274,5 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     </Paper>
   );
 };
+
 export default ConnectorConfigStep;
