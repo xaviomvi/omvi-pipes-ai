@@ -32,10 +32,7 @@ class config_node_constants(Enum):
     # Non-service paths
     LOG_LEVEL = "log_level"
     MAX_WORKERS = "max_workers"
-    
-    # Webhook related constants
-    WEBHOOK = "/services/webhook"
-        
+            
     # Retry related constants
     RETRY_MAX_ATTEMPTS = "retry/max_attempts"
     RETRY_DELAY_SECONDS = "retry/delay_seconds"

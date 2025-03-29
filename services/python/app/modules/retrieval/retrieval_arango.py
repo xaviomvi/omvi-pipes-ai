@@ -1,5 +1,5 @@
 from app.utils.logger import logger
-from app.config.arangodb_constants import CollectionNames
+from app.config.arangodb_constants import CollectionNames, RecordTypes
 from app.config.configuration_service import ConfigurationService, config_node_constants
 from arango import ArangoClient
 from typing import Optional, Dict
@@ -314,4 +314,155 @@ class ArangoService():
         except Exception as e:
             logger.error(f"Error getting user by user ID: {str(e)}")
             return None
+
+    async def check_record_access_with_details(self, user_id: str, org_id: str, record_id: str):
+        """
+        Check record access and return record details if accessible
+        
+        Args:
+            user_id (str): The userId field value in users collection
+            org_id (str): The organization ID
+            record_id (str): The record ID to check access for
+            
+        Returns:
+            dict: Record details with permissions if accessible, None if not
+        """
+        try:
+            # First check access and get permission paths
+            access_query = f"""
+            LET userDoc = FIRST(
+                FOR user IN @@users
+                FILTER user.userId == @userId
+                RETURN user
+            )
+            
+            LET directAccess = (
+                FOR records, edge IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS.value}
+                FILTER records._key == @recordId
+                RETURN {{ 
+                    type: 'DIRECT', 
+                    source: userDoc,
+                    role: edge.role 
+                }}
+            )
+            
+            LET groupAccess = (
+                FOR group, belongsEdge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FILTER belongsEdge.entityType == 'GROUP'
+                FOR records, permEdge IN 1..1 ANY group._id {CollectionNames.PERMISSIONS.value}
+                FILTER records._key == @recordId
+                RETURN {{ 
+                    type: 'GROUP', 
+                    source: group,
+                    role: permEdge.role 
+                }}
+            )
+            
+            LET orgAccess = (
+                FOR org, belongsEdge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
+                FILTER belongsEdge.entityType == 'ORGANIZATION'
+                FOR records, permEdge IN 1..1 ANY org._id {CollectionNames.PERMISSIONS.value}
+                FILTER records._key == @recordId
+                RETURN {{ 
+                    type: 'ORGANIZATION', 
+                    source: org,
+                    role: permEdge.role 
+                }}
+            )
+            
+            LET kbAccess = (
+                FOR kb, kbEdge IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value}
+                FOR records IN 1..1 ANY kb._id {CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value}
+                FILTER records._key == @recordId
+                RETURN {{ 
+                    type: 'KNOWLEDGE_BASE', 
+                    source: kb,
+                    role: kbEdge.role 
+                }}
+            )
+            
+            LET anyoneAccess = (
+                FOR records IN @@anyone
+                FILTER records.organization == @orgId
+                    AND records.file_key == @recordId
+                RETURN {{ 
+                    type: 'ANYONE', 
+                    source: null,
+                    role: records.role
+                }}
+            )
+            
+            LET allAccess = UNION_DISTINCT(
+                directAccess,
+                groupAccess,
+                orgAccess,
+                kbAccess,
+                anyoneAccess
+            )
+            
+            RETURN LENGTH(allAccess) > 0 ? allAccess : null
+            """
+            
+            bind_vars = {
+                'userId': user_id,
+                'orgId': org_id,
+                'recordId': record_id,
+                '@users': CollectionNames.USERS.value,
+                '@anyone': CollectionNames.ANYONE.value,
+            } 
+            
+            cursor = self.db.aql.execute(access_query, bind_vars=bind_vars)
+            access_result = next(cursor, None)
+            
+            if not access_result:
+                return None
+            
+            # If we have access, get the complete record details
+            record = await self.get_document(record_id, CollectionNames.RECORDS.value)
+            if not record:
+                return None
+            
+            # Get file or mail details based on record type
+            additional_data = None
+            if record['recordType'] == RecordTypes.FILE.value:
+                additional_data = await self.get_document(record_id, CollectionNames.FILES.value)
+            elif record['recordType'] == RecordTypes.MAIL.value:
+                additional_data = await self.get_document(record_id, CollectionNames.MAILS.value)
+            
+            # Get knowledge base info if record is in a KB
+            kb_info = None
+            for access in access_result:
+                if access['type'] == 'KNOWLEDGE_BASE':
+                    kb = access['source']
+                    kb_info = {
+                        'id': kb['_key'],
+                        'name': kb['name'],
+                        'orgId': kb['orgId']
+                    }
+                    break
+            
+            # Format permissions from access paths
+            permissions = []
+            for access in access_result:
+                permission = {
+                    'id': record['_key'],
+                    'name': record['recordName'],
+                    'type': record['recordType'],
+                    'relationship': access['role'],
+                }
+                permissions.append(permission)
+            
+            return {
+                'record': {
+                    **record,
+                    'fileRecord': additional_data if record['recordType'] == RecordTypes.FILE.value else None,
+                    'mailRecord': additional_data if record['recordType'] == RecordTypes.MAIL.value else None,
+                },
+                'knowledgeBase': kb_info,
+                'permissions': permissions
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to check record access and get details: {str(e)}")
+            raise
 
