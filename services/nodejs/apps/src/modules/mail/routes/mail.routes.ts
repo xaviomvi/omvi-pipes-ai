@@ -4,17 +4,11 @@ import { attachContainerMiddleware } from '../../auth/middlewares/attachContaine
 import { Container } from 'inversify';
 import { MailController } from '../controller/mail.controller';
 import { z } from 'zod';
-import { ValidationMiddleware } from '../../../libs/middlewares/validation.middleware';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
-import { userAdminCheck } from '../../user_management/middlewares/userAdminCheck';
-import {
-  AuthenticatedUserRequest,
-  AuthenticatedServiceRequest,
-} from '../../../libs/middlewares/types';
+import { AuthenticatedServiceRequest } from '../../../libs/middlewares/types';
 import { smtpConfigChecker } from '../middlewares/checkSmtpConfig';
 import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
 import { AppConfig, loadAppConfig } from '../../tokens_manager/config/config';
-
 export const smtpConfigSchema = z.object({
   body: z.object({
     host: z.string().min(1, { message: 'SMTP host is required' }),
@@ -27,7 +21,7 @@ export const smtpConfigSchema = z.object({
 export function createMailServiceRouter(container: Container) {
   const router = Router();
   router.use(attachContainerMiddleware(container));
-  const mailController = container.get<MailController>('MailController');
+  let mailController = container.get<MailController>('MailController');
   const authMiddleware = container.get<AuthMiddleware>('AuthMiddleware');
   router.post(
     '/emails/sendEmail',
@@ -48,17 +42,25 @@ export function createMailServiceRouter(container: Container) {
 
   router.post(
     '/updateSmtpConfig',
-    ValidationMiddleware.validate(smtpConfigSchema),
-    authMiddleware.authenticate,
-    userAdminCheck,
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
     async (
-      _req: AuthenticatedUserRequest,
+      _req: AuthenticatedServiceRequest,
       res: Response,
       next: NextFunction,
     ) => {
       try {
-        // Reload configuration (Optional: You may choose to restart the service instead)
         const updatedConfig: AppConfig = await loadAppConfig();
+
+        container
+          .rebind<AppConfig>('AppConfig')
+          .toDynamicValue(() => updatedConfig);
+
+        container
+          .rebind<MailController>('MailController')
+          .toDynamicValue(() => {
+            return new MailController(updatedConfig, container.get('Logger'));
+          });
+        mailController = container.get<MailController>('MailController');
 
         res.status(200).json({
           message: 'SMTP configuration updated successfully',

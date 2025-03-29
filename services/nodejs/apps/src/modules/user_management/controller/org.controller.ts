@@ -125,6 +125,21 @@ export class OrgController {
         users: [adminUser._id],
       });
 
+      const allUsersGroup = new UserGroups({
+        type: 'everyone',
+        name: 'everyone',
+        orgId: org._id,
+        users: [adminUser._id],
+      });
+
+      const standardUsersGroup = new UserGroups({
+        type: 'standard',
+        name: 'standard',
+        orgId: org._id,
+        users: [],
+      });
+      //add admin to everyone
+
       const orgAuthConfig = new OrgAuthConfig({
         orgId: org._id,
         authSteps: [
@@ -142,6 +157,8 @@ export class OrgController {
         session.startTransaction();
         await orgAuthConfig.save({ session });
         await adminUserGroup.save({ session });
+        await allUsersGroup.save({ session });
+        await standardUsersGroup.save({ session });
         await adminUser.save({ session });
         await adminUserCredentials.save({ session });
         await org.save({ session });

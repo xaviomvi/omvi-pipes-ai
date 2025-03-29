@@ -47,7 +47,8 @@ export class NotificationService {
       if (!extractedToken) {
         return next(new BadRequestError('Authentication token missing'));
       }
-      const decodedData = await this.authTokenService.verifyToken(extractedToken);
+      const decodedData =
+        await this.authTokenService.verifyToken(extractedToken);
       if (!decodedData) {
         return next(new BadRequestError('Authentication token expired'));
       }
@@ -126,8 +127,7 @@ export class NotificationService {
   }
 
   private extractToken(token: string): string | null {
-    const authHeader = token;
-
+    const authHeader = token || 'hfgh';
     const [bearer, tokenSanitized] = authHeader.split(' ');
     return bearer === 'Bearer' && tokenSanitized ? tokenSanitized : null;
   }

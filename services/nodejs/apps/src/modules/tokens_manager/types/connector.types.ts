@@ -7,3 +7,9 @@ export enum GoogleWorkspaceApp {
 export interface GoogleWorkspaceApps {
   apps: GoogleWorkspaceApp[];
 }
+
+export const scopeToAppMap: { [key: string]: GoogleWorkspaceApp } = {
+  'https://www.googleapis.com/auth/gmail.readonly': GoogleWorkspaceApp.Gmail,
+  'https://www.googleapis.com/auth/calendar': GoogleWorkspaceApp.Calendar,
+  'https://www.googleapis.com/auth/drive': GoogleWorkspaceApp.Drive,
+};

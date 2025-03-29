@@ -67,49 +67,58 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
       severity: 'success' as 'success' | 'error',
     });
 
-    const showSuccessSnackbar = useCallback((message: string) => {
-      setSnackbar({
-        open: true,
-        message,
-        severity: 'success',
-      });
-    }, [setSnackbar]);
-    
-    const showErrorSnackbar = useCallback((message: string) => {
-      setSnackbar({
-        open: true,
-        message,
-        severity: 'error',
-      });
-    }, [setSnackbar]); 
+    const showSuccessSnackbar = useCallback(
+      (message: string) => {
+        setSnackbar({
+          open: true,
+          message,
+          severity: 'success',
+        });
+      },
+      [setSnackbar]
+    );
+
+    const showErrorSnackbar = useCallback(
+      (message: string) => {
+        setSnackbar({
+          open: true,
+          message,
+          severity: 'error',
+        });
+      },
+      [setSnackbar]
+    );
 
     const handleCloseSnackbar = () => {
       setSnackbar((prev) => ({ ...prev, open: false }));
     };
 
     // Validate form function - memoized with useCallback to ensure it can be safely used in dependency arrays
-    const validateForm = useCallback((data: SmtpConfigFormData) => {
-      try {
-        // Parse the data with zod schema
-        smtpConfigSchema.parse(data);
-        setErrors({});
-        onValidationChange(true);
-        return true;
-      } catch (validationError) {
-        if (validationError instanceof z.ZodError) {
-          // Extract errors into a more manageable format
-          const errorMap: Record<string, string> = {};
-          validationError.errors.forEach((err) => {
-            const path = err.path.join('.');
-            errorMap[path] = err.message;
-          });
-          setErrors(errorMap);
-          onValidationChange(false);
+    const validateForm = useCallback(
+      (data: SmtpConfigFormData) => {
+        try {
+          // Parse the data with zod schema
+          smtpConfigSchema.parse(data);
+          setErrors({});
+          onValidationChange(true);
+          return true;
+        } catch (validationError) {
+          if (validationError instanceof z.ZodError) {
+            // Extract errors into a more manageable format
+            const errorMap: Record<string, string> = {};
+            validationError.errors.forEach((err) => {
+              const path = err.path.join('.');
+              errorMap[path] = err.message;
+            });
+            setErrors(errorMap);
+            onValidationChange(false);
+            return false;
+          }
           return false;
         }
-        return false;
-      }
-    }, [onValidationChange]);
+      },
+      [onValidationChange]
+    );
 
     // Toggle password visibility
     const handleTogglePasswordVisibility = () => {
@@ -119,68 +128,72 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
     // Handle input change
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value, type } = e.target;
-      
+
       // Create a new form data object with the updated field
       const updatedFormData = {
         ...formData,
         [name]: type === 'number' ? Number(value) : value,
       };
-      
+
       setFormData(updatedFormData);
     };
 
     // Expose the handleSave method to the parent component
     // Move handleSave inside useImperativeHandle to fix the dependency issue
-    useImperativeHandle(ref, () => ({
-      handleSave: async (): Promise<boolean> => {
-        setIsSaving(true);
-  
-        try {
-          // Validate the form data with Zod before saving
-          if (!validateForm(formData)) {
-            showErrorSnackbar('Please correct the form errors before saving');
-            return false;
-          }
-  
-          // Prepare the payload
-          const payload = {
-            host: formData.host,
-            port: formData.port,
-            fromEmail: formData.fromEmail,
-            username: formData.username,
-            password: formData.password,
-          };
-  
-          // Send the update request
-          await axios.post('/api/v1/configurationManager/smtpConfig', payload);
-  
-          showSuccessSnackbar('SMTP configuration saved successfully');
+    useImperativeHandle(
+      ref,
+      () => ({
+        handleSave: async (): Promise<boolean> => {
+          setIsSaving(true);
 
-          if (onSaveSuccess) {
-            onSaveSuccess();
+          try {
+            // Validate the form data with Zod before saving
+            if (!validateForm(formData)) {
+              showErrorSnackbar('Please correct the form errors before saving');
+              return false;
+            }
+
+            // Prepare the payload
+            const payload = {
+              host: formData.host,
+              port: formData.port,
+              fromEmail: formData.fromEmail,
+              username: formData.username,
+              password: formData.password,
+            };
+
+            // Send the update request
+            await axios.post('/api/v1/configurationManager/smtpConfig', payload);
+
+            showSuccessSnackbar('SMTP configuration saved successfully');
+
+            if (onSaveSuccess) {
+              onSaveSuccess();
+            }
+
+            return true;
+          } catch (error) {
+            if (error instanceof z.ZodError) {
+              // Handle validation errors
+              const errorMap: Record<string, string> = {};
+              error.errors.forEach((err) => {
+                const path = err.path.join('.');
+                errorMap[path] = err.message;
+              });
+              setErrors(errorMap);
+              showErrorSnackbar('Please correct the form errors before saving');
+            } else {
+              // Handle API errors
+              showErrorSnackbar('Failed to save SMTP configuration');
+            }
+            return false;
+          } finally {
+            setIsSaving(false);
           }
-  
-          return true;
-        } catch (error) {
-          if (error instanceof z.ZodError) {
-            // Handle validation errors
-            const errorMap: Record<string, string> = {};
-            error.errors.forEach((err) => {
-              const path = err.path.join('.');
-              errorMap[path] = err.message;
-            });
-            setErrors(errorMap);
-            showErrorSnackbar('Please correct the form errors before saving');
-          } else {
-            // Handle API errors
-            showErrorSnackbar('Failed to save SMTP configuration');
-          }
-          return false;
-        } finally {
-          setIsSaving(false);
-        }
-      }
-    }), [formData, onSaveSuccess, validateForm, showErrorSnackbar, showSuccessSnackbar]);
+        },
+      }),
+      [formData, onSaveSuccess, validateForm, showErrorSnackbar, showSuccessSnackbar]
+    );
 
     // Load existing config on mount
     useEffect(() => {
@@ -194,18 +207,13 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
 
             const loadedData = {
               host: host || '',
-              port: typeof port === 'string' ? parseInt(port, 10) : (port || 587),
+              port: typeof port === 'string' ? parseInt(port, 10) : port || 587,
               username: username || '',
               password: password || '',
               fromEmail: fromEmail || '',
             };
 
             setFormData(loadedData);
-            
-            // Set the form as valid if we have the required fields
-            if (host && fromEmail) {
-              validateForm(loadedData);
-            }
           }
         } catch (error) {
           showErrorSnackbar('Failed to load SMTP configuration');
@@ -216,7 +224,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
       };
 
       fetchConfig();
-    }, [validateForm,showErrorSnackbar]);
+    }, [showErrorSnackbar]);
 
     // Use effect for validation, but only after initial load is complete
     useEffect(() => {
