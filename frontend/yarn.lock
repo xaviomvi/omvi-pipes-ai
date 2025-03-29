@@ -7501,10 +7501,10 @@ vite-plugin-checker@^0.7.2:
     vscode-languageserver-textdocument "^1.0.1"
     vscode-uri "^3.0.2"
 
-"vite@^4 || ^5", vite@^5.4.14, vite@>=2.0.0:
-  version "5.4.14"
-  resolved "https://registry.npmjs.org/vite/-/vite-5.4.14.tgz"
-  integrity sha512-EK5cY7Q1D8JNhSaPKVK4pwBFvaTmZxEnoKXLG/U9gmdDcihQGNzFlgIvaxezFR4glP1LsuiedwMBqCXH3wZccA==
+"vite@^4 || ^5", vite@^5.4.15, vite@>=2.0.0:
+  version "5.4.15"
+  resolved "https://registry.npmjs.org/vite/-/vite-5.4.15.tgz"
+  integrity sha512-6ANcZRivqL/4WtwPGTKNaosuNJr5tWiftOC7liM7G9+rMb8+oeJeyzymDu4rTN93seySBmbjSfsS3Vzr19KNtA==
   dependencies:
     esbuild "^0.21.3"
     postcss "^8.4.43"
