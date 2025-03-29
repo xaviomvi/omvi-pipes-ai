@@ -10,15 +10,18 @@ from datetime import datetime
 from app.modules.parsers.pdf.ocr_handler import OCRHandler
 from app.modules.parsers.docx.docling_docx import DocxParser
 from app.config.arangodb_constants import CollectionNames
+from app.config.configuration_service import config_node_constants
+from app.config.ai_models_named_constants import OCRProvider, AzureDocIntelligenceModel
 
 class Processor:
-    def __init__(self, domain_extractor, indexing_pipeline, arango_service, parsers):
+    def __init__(self, config_service, domain_extractor, indexing_pipeline, arango_service, parsers):
         logger.info("🚀 Initializing Processor")
         self.domain_extractor = domain_extractor
         self.indexing_pipeline = indexing_pipeline
         self.arango_service = arango_service
         self.parsers = parsers
-
+        self.config_service = config_service
+        
     async def process_google_slides(self, record_id, record_version):
         logger.info("🚀 Processing Google Slides")
 
@@ -259,27 +262,38 @@ class Processor:
 
         try:
             logger.debug("📄 Processing PDF binary content")
-            # Determine OCR provider
-            ocr_provider = os.getenv("OCR_PROVIDER", "pymupdf").lower()
-            logger.info(f"🔧 Using OCR provider: {ocr_provider}")
-
+            # Get OCR configurations
+            ai_models = await self.config_service.get_config(config_node_constants.AI_MODELS.value)
+            ocr_configs = ai_models['ocr']
+            
             # Configure OCR handler
             logger.debug("🛠️ Configuring OCR handler")
-            if ocr_provider == "azure":
-                logger.debug("☁️ Setting up Azure OCR handler")
-                handler = OCRHandler(
-                    "azure",
-                    endpoint=os.getenv("AZURE_DOC_INTELLIGENCE_ENDPOINT"),
-                    key=os.getenv("AZURE_DOC_INTELLIGENCE_KEY"),
-                    model_id=os.getenv("AZURE_DOC_INTELLIGENCE_MODEL_ID", "prebuilt-document")
-                )
-            else:
-                logger.debug("📚 Setting up PyMuPDF OCR handler")
-                handler = OCRHandler(
-                    "pymupdf",
-                    language=os.getenv("OCR_LANGUAGE", "eng")
-                )
-
+            handler = None
+            
+            for config in ocr_configs:
+                provider = config['provider']
+                logger.info(f"🔧 Checking OCR provider: {provider}")
+                
+                if provider == OCRProvider.AZURE_PROVIDER.value:
+                    logger.debug("☁️ Setting up Azure OCR handler")
+                    handler = OCRHandler(
+                        OCRProvider.AZURE_PROVIDER.value,
+                        endpoint=config['configuration']['endpoint'],
+                        key=config['configuration']['apiKey'],
+                        model_id=AzureDocIntelligenceModel.PREBUILT_DOCUMENT.value
+                    )
+                    break
+                elif provider == OCRProvider.PYMUPDF_PROVIDER.value:
+                    logger.debug("📚 Setting up PyMuPDF OCR handler")
+                    handler = OCRHandler(
+                        OCRProvider.PYMUPDF_PROVIDER.value
+                    )
+                    break
+            
+            if not handler:
+                logger.error("❌ No supported OCR provider found in configuration")
+                raise Exception("No supported OCR provider found in configuration")
+            
             # Process document
             logger.info("🔄 Processing document with OCR handler")
             ocr_result = await handler.process_document(pdf_binary)
@@ -363,8 +377,7 @@ class Processor:
                 "source": source,
                 "domain_metadata": domain_metadata,
                 "document_info": {
-                    "ocr_provider": ocr_provider,
-                    "language": os.getenv("OCR_LANGUAGE", "eng"),
+                    "ocr_provider": provider,
                     "page_count": len(set(p.get("page_number", 1) for p in paragraphs))
                 },
                 "structure_info": {

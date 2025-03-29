@@ -390,10 +390,11 @@ class DriveUserService:
             async with self.google_limiter:
                 # await self.stop_webhook_channels(channels_log_path='logs/channels_log.json')
                 channel_id = str(uuid.uuid4())
-                webhook_expiration_days = await self.config.get_config(config_node_constants.WEBHOOK_EXPIRATION_DAYS.value)
-                webhook_expiration_hours = await self.config.get_config(config_node_constants.WEBHOOK_EXPIRATION_HOURS.value)
-                webhook_expiration_minutes = await self.config.get_config(config_node_constants.WEBHOOK_EXPIRATION_MINUTES.value)
-                webhook_base_url = await self.config.get_config(config_node_constants.WEBHOOK_BASE_URL.value)
+                webhook_config = await self.config.get_config(config_node_constants.WEBHOOK.value)
+                webhook_expiration_days = webhook_config['expiration_days']
+                webhook_expiration_hours = webhook_config['expiration_hours']
+                webhook_expiration_minutes = webhook_config['expiration_minutes']
+                webhook_base_url = webhook_config['base_url']
 
                 webhook_url = f"{webhook_base_url.rstrip('/')}/drive/webhook"
 

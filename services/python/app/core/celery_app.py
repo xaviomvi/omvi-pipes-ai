@@ -20,14 +20,15 @@ class CeleryApp:
     async def configure_app(self) -> None:
         """Configure Celery application"""
         try:
+            celery_config = await self.config_service.get_config(config_node_constants.CELERY.value)
             celery_config = {
-                'broker_url': await self.config_service.get_config(config_node_constants.CELERY_BROKER_URL.value),
-                'result_backend': await self.config_service.get_config(config_node_constants.CELERY_RESULT_BACKEND.value),
-                'task_serializer': await self.config_service.get_config(config_node_constants.CELERY_TASK_SERIALIZER.value),
-                'result_serializer': await self.config_service.get_config(config_node_constants.CELERY_RESULT_SERIALIZER.value),
-                'accept_content': await self.config_service.get_config(config_node_constants.CELERY_ACCEPT_CONTENT.value),
-                'timezone': await self.config_service.get_config(config_node_constants.CELERY_TIMEZONE.value),
-                'enable_utc': await self.config_service.get_config(config_node_constants.CELERY_ENABLE_UTC.value)
+                'broker_url': celery_config['broker_url'],
+                'result_backend': celery_config['result_backend'],
+                'task_serializer': celery_config['task_serializer'],
+                'result_serializer': celery_config['result_serializer'],
+                'accept_content': celery_config['accept_content'],
+                'timezone': celery_config['timezone'],
+                'enable_utc': celery_config['enable_utc']
             }
 
             self.app.conf.update(celery_config)
@@ -39,8 +40,11 @@ class CeleryApp:
     async def setup_schedules(self) -> None:
         """Setup periodic task schedules"""
         try:
-            start_time = await self.config_service.get_config('celery/schedule/sync_start_time')
-            pause_time = await self.config_service.get_config('celery/schedule/sync_pause_time')
+            celery_config = await self.config_service.get_config(config_node_constants.CELERY.value)
+            sync_config = celery_config['schedule']
+            start_time = sync_config['sync_start_time']
+            pause_time = sync_config['sync_pause_time']
+            self.app.conf.update(sync_config)
 
             self.app.conf.beat_schedule = {
                 'start-sync-schedule': {

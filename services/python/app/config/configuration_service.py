@@ -7,6 +7,7 @@ from app.config.key_value_store_factory import KeyValueStoreFactory, StoreConfig
 from app.config.providers.etcd3_store import Etcd3DistributedKeyValueStore
 from enum import Enum
 from app.utils.logger import create_logger
+from app.config.encryption.encryption_service import EncryptionService
 
 dotenv.load_dotenv()
 
@@ -15,85 +16,38 @@ logger = create_logger('etcd')
 class config_node_constants(Enum):
     """Constants for ETCD configuration paths"""
     
-    # Arango DB related constants
-    ARANGO_URL = "arango/url"
-    ARANGO_DB = "arango/db"
-    ARANGO_USER = "arango/user"
-    ARANGO_PASSWORD = "arango/password"    
-    # Redis related constants
-    REDIS_URL = "redis/url"
+    # Service paths
+    STORAGE_SERVICE = "services/storage_service"
+    AUTH = "services/auth"
+    SMTP = "services/smtp"
+    MONGODB = "services/mongodb"
+    ARANGODB = "services/arangodb"
+    QDRANT = "services/qdrant"
+    NODEJS = "services/nodejs"
+    REDIS = "services/redis"
+    WEBHOOK = "services/webhook"
+    AI_MODELS = "services/aiModels"
+    KAFKA = "services/kafka"
+    
+    # Non-service paths
+    LOG_LEVEL = "log_level"
+    MAX_WORKERS = "max_workers"
     
     # Webhook related constants
-    WEBHOOK_SECRET = "webhook/secret"
-    WEBHOOK_BASE_URL = "webhook/base_url"
-    WEBHOOK_BATCH_SIZE = "webhook/batch_size"
-    WEBHOOK_EXPIRATION_DAYS = "webhook/expiration_days"
-    WEBHOOK_EXPIRATION_HOURS = "webhook/expiration_hours"
-    WEBHOOK_EXPIRATION_MINUTES = "webhook/expiration_minutes"
-    WEBHOOK_RENEWAL_THRESHOLD_HOURS = "webhook/renewal_threshold_hours"
-    WEBHOOK_COALESCE_DELAY = "webhook/coalesce_delay"
-    
-    # LLM related constants
-    LLM_PROVIDER = "llm/provider"
-    LLM_MODEL = "llm/model"
-    LLM_TEMPERATURE = "llm/temperature"
-    OPENAI_API_KEY = "openai/api_key"
-    
+    WEBHOOK = "/services/webhook"
+        
     # Retry related constants
     RETRY_MAX_ATTEMPTS = "retry/max_attempts"
     RETRY_DELAY_SECONDS = "retry/delay_seconds"
     
     # Sync related constants
-    SYNC_BATCH_SIZE = "sync/batch_size"
-    SYNC_START_HOUR = "sync/start_hour"
-    SYNC_END_HOUR = "sync/end_hour"
+    SYNC_SCHEDULE = "/services/sync"
     
     # Metadata related constants
     METADATA_CACHE_SIZE = "metadata/cache_size"
     
-    # Kafka related constants
-    KAFKA_SERVERS = "kafka_servers"
-    KAFKA_CLIENT_ID = "kafka_client_id"
-    KAFKA_CONFIG_BOOTSTRAP_SERVERS = "kafka/config/bootstrap.servers"
-    KAFKA_CONFIG_CLIENT_ID = "kafka/config/client.id"
-    
-    # Organization related constants
-    ORGANIZATION = "organization"
-    INDIVIDUAL_USER_EMAIL = "individual_user_email"
-    
     # Celery related constants
-    CELERY_BROKER_URL = "celery/broker_url"
-    CELERY_RESULT_BACKEND = "celery/result_backend"
-    CELERY_TASK_SERIALIZER = "celery/task_serializer"
-    CELERY_RESULT_SERIALIZER = "celery/result_serializer"
-    CELERY_ACCEPT_CONTENT = "celery/accept_content"
-    CELERY_TIMEZONE = "celery/timezone"
-    CELERY_ENABLE_UTC = "celery/enable_utc"
-    CELERY_SCHEDULE_START_TIME = "celery/schedule/sync_start_time"
-    CELERY_SCHEDULE_PAUSE_TIME = "celery/schedule/sync_pause_time"
-    
-    # Qdrant related constants
-    QDRANT_API_KEY = "qdrant/api_key"
-    QDRANT_HOST = "qdrant/host"
-    QDRANT_PORT = "qdrant/port"
-    QDRANT_COLLECTION_NAME = "qdrant/collection_name"
-    QDRANT_URL = "qdrant/url"
-    
-    # Other constants
-    LOG_LEVEL = "log_level"
-    MAX_WORKERS = "max_workers"
-    
-    # Azure related constants
-    AZURE_DOC_INTELLIGENCE_ENDPOINT = "azure/doc_intelligence/endpoint"
-    AZURE_DOC_INTELLIGENCE_KEY = "azure/doc_intelligence/key"
-    AZURE_API_KEY = "azure/api_key"
-    AZURE_ENDPOINT = "azure/endpoint"
-    AZURE_API_VERSION = "azure/api_version"
-    AZURE_DEPLOYMENT_NAME = "azure/deployment_name"
-    
-    # Security related constants
-    JWT_SECRET = "security/jwt_secret"
-    SCOPED_JWT_SECRET = "security/scoped_jwt_secret"
+    CELERY = "services/celery"
     
 class TokenScopes(Enum):
     """Constants for token scopes"""
@@ -113,10 +67,16 @@ class Routes(Enum):
 class ConfigurationService:
     """Service to manage configuration using etcd store"""
 
-    def __init__(self, environment: str):
+    def __init__(self):
         logger.debug(
-            "🔧 Initializing ConfigurationService with environment: %s", environment)
-        self.prefix = '/config/' + environment
+            "🔧 Initializing ConfigurationService")
+
+        secret_key = os.getenv('SECRET_KEY')
+        if not secret_key:
+            raise ValueError("SECRET_KEY environment variable is required")
+        self.encryption_service = EncryptionService.get_instance("aes-256-gcm", secret_key)
+        logger.debug("🔐 Initialized EncryptionService")
+        
         logger.debug("🔧 Creating ETCD store...")
         self.store = self._create_store()
         logger.debug("✅ ConfigurationService initialized successfully")
@@ -189,75 +149,74 @@ class ConfigurationService:
         """Load default configuration into etcd."""
         logger.debug("🔄 Starting to load default configuration")
         logger.debug("📂 Reading default_config.json...")
+        
         with open('default_config.json', 'r') as f:
             default_config = json.load(f)
             logger.debug("📋 Default config loaded: %s", default_config)
-
-        async def store_nested_config(config_data, current_path=""):
-            """Recursively store nested configuration."""
-            for key, value in config_data.items():
-                config_key = f"{current_path}/{key}" if current_path else f"{self.prefix}/{key}"
-                
-                # Check if key exists
-                existing_value = await self.store.get_key(config_key)
-                if existing_value is not None and not overwrite:
-                    logger.debug("⏭️ Skipping existing key: %s", config_key)
-                    continue
-
-                if isinstance(value, dict):
-                    # Recursively handle nested dictionaries
-                    await store_nested_config(value, config_key)
-                else:
-                    logger.debug("🔑 Storing key: %s", config_key)
-                    logger.debug("📋 Value to store: %s (type: %s)", value, type(value))
-
-                    # Serialize complex types to JSON string
-                    if isinstance(value, (dict, list, bool, int, float)):
-                        value = json.dumps(value)
-
-                    success = await self.store.create_key(config_key, value)
-                    if success:
-                        logger.debug("✅ Successfully stored key: %s", config_key)
-                    else:
-                        logger.error("❌ Failed to store key: %s", config_key)
-
-        # Store configuration recursively
-        await store_nested_config(default_config)
-
-        # Verify configuration
-        logger.debug("🔍 Verifying stored configuration...")
         
-        async def verify_nested_config(config_data, current_path=""):
-            """Recursively verify nested configuration."""
-            for key, expected_value in config_data.items():
-                config_key = f"{current_path}/{key}" if current_path else f"{self.prefix}/{key}"
-                
-                if isinstance(expected_value, dict):
-                    # Recursively verify nested dictionaries
-                    await verify_nested_config(expected_value, config_key)
-                else:
-                    stored_value = await self.store.get_key(config_key)
-                    logger.debug("🔍 Verifying key: %s", config_key)
-                    logger.debug("📋 Expected: %s, Got: %s", expected_value, stored_value)
-
-                    # Convert stored value back to original type for comparison
-                    if isinstance(expected_value, (dict, list, bool, int, float)):
-                        try:
-                            stored_value = json.loads(stored_value)
-                        except (json.JSONDecodeError, TypeError):
-                            pass
-
-        # Verify configuration recursively
-        await verify_nested_config(default_config)
-        logger.debug("✅ Default configuration loaded and verified completely")
+        # Process and store configuration
+        for key, value in default_config.items():
+            if isinstance(value, dict):
+                # For nested dictionaries, store each value separately
+                for sub_key, sub_value in value.items():
+                    config_key = f"{key}/{sub_key}"
+                    await self._store_config_value(config_key, sub_value, overwrite)
+            else:
+                # Store non-dict values directly
+                await self._store_config_value(key, value, overwrite)
         
+        logger.debug("✅ Default configuration loaded completely")
+
+    async def _store_config_value(self, key: str, value: Any, overwrite: bool) -> bool:
+        """Helper method to store a single configuration value"""
+        try:
+            # Check if key exists
+            existing_value = await self.store.get_key(key)
+            if existing_value is not None and not overwrite:
+                logger.debug("⏭️ Skipping existing key: %s", key)
+                return True
+            
+            # Convert value to JSON string
+            value_json = json.dumps(value)
+            
+            # Encrypt the value
+            encrypted_value = self.encryption_service.encrypt(value_json)
+            logger.debug("🔒 Encrypted value for key %s", key)
+            
+            # Store the encrypted value
+            success = await self.store.create_key(key, encrypted_value)
+            if success:
+                logger.debug("✅ Successfully stored encrypted key: %s", key)
+                
+                # Verify the stored value
+                encrypted_stored_value = await self.store.get_key(key)
+                if encrypted_stored_value:
+                    decrypted_value = self.encryption_service.decrypt(encrypted_stored_value)
+                    stored_value = json.loads(decrypted_value)
+                    
+                    if stored_value != value:
+                        logger.warning("⚠️ Verification failed for key: %s", key)
+                        logger.warning("  Expected: %s", value)
+                        logger.warning("  Got: %s", stored_value)
+                        return False
+                    
+                return True
+            else:
+                logger.error("❌ Failed to store key: %s", key)
+                return False
+
+        except Exception as e:
+            logger.error("❌ Failed to store config value for key %s: %s", key, str(e))
+            logger.exception("Detailed error:")
+            return False
+
     async def has_configuration(self) -> bool:
         """Check if any configuration exists in etcd."""
         try:
             logger.debug("🔍 Checking for existing configuration in ETCD")
             values = await self.store.get_all_keys()
-            exists = any(key.startswith(
-                f"{self.prefix}/") for key in values)
+            # Check if any configuration exists
+            exists = len(values) > 0
             logger.debug("✅ Configuration check complete. Exists: %s", exists)
             return exists
         except Exception as e:
@@ -269,57 +228,21 @@ class ConfigurationService:
     async def get_config(self, key: str, default: Any = None) -> Any:
         """Get configuration value with fallback to default_config"""
         try:
-            full_key = f"{self.prefix}/{key}"
-            # logger.debug("🔍 Getting config for key: %s", full_key)
-            # logger.debug("📋 Default value if not found: %s", default)
+            full_key = key
+            encrypted_value = await self.store.get_key(full_key)
 
-            value = await self.store.get_key(full_key)
-            # logger.debug("📋 Initial ETCD value: %s (type: %s)",
-            #              value, type(value))
-
-            if value is not None:
-                # logger.debug("✅ Found value in ETCD")
-                return value
+            if encrypted_value is not None:
+                try:
+                    # Decrypt the stored value
+                    decrypted_value = self.encryption_service.decrypt(encrypted_value)
+                    # Parse the JSON string back to its original form
+                    return json.loads(decrypted_value)
+                except Exception as e:
+                    logger.error(f"❌ Failed to decrypt value for key {full_key}: {str(e)}")
+                    return default
             else:
-                logger.error(f"❌ ERROR! Value not found in ETCD for key: {full_key}")
+                logger.error(f"❌ Value not found in ETCD for key: {full_key}")
                 return False
-
-            # logger.debug(
-            #     "⚠️ Value not found in ETCD, checking configuration existence")
-            # has_config = await self.has_configuration()
-            # # logger.debug("📋 Has configuration: %s", has_config)
-
-            # # if not has_config:
-            # # logger.debug(
-            # #     "🔄 No configuration found, loading default config")
-            # await self.load_default_config()
-            # value = await self.store.get_key(full_key)
-            # # logger.debug("📋 Value after loading defaults: %s", value)
-
-            # if value is None:
-            #     # logger.debug("🔄 Still no value, checking default_config.json")
-            #     with open('default_config.json', 'r') as f:
-            #         default_config = json.load(f)
-            #     # logger.debug("📋 Loaded default_config.json")
-
-            #     # Navigate the nested dictionary
-            #     current = default_config
-            #     for part in key.split('/'):
-            #         # logger.debug("🔍 Checking config part: %s", part)
-            #         if part in current:
-            #             current = current[part]
-            #             # logger.debug("📋 Found value: %s", current)
-            #         else:
-            #             #   logger.debug("⚠️ Part not found, using default")
-            #             current = default
-            #             break
-            #     value = current if current != default_config else default
-            #     # logger.debug("📋 Final value from default_config: %s", value)
-
-            # final_value = value if value is not None else default
-            # logger.debug("✅ Final config value for %s: %s (type: %s)",
-            #              full_key, final_value, type(final_value))
-            # return final_value
 
         except Exception as e:
             logger.error("❌ Failed to get config %s: %s", key, str(e))

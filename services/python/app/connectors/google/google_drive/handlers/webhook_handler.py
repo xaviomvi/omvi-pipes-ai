@@ -111,7 +111,8 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
     async def _delayed_process_notifications(self, user_email: str = None):
         """Process notifications for a specific user"""
         try:
-            coalesce_delay = await self.config.get_config(config_node_constants.WEBHOOK_COALESCE_DELAY.value)
+            webhook_config = await self.config.get_config(config_node_constants.WEBHOOK.value)
+            coalesce_delay = webhook_config['coalesce_delay']
             await asyncio.sleep(coalesce_delay)
 
             async with self.processing_lock:
@@ -234,7 +235,8 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
     async def _delayed_process_notifications(self):
         """Process notifications for the entire organization"""
         try:
-            coalesce_delay = await self.config.get_config(config_node_constants.WEBHOOK_COALESCE_DELAY.value)
+            webhook_config = await self.config.get_config(config_node_constants.WEBHOOK.value)
+            coalesce_delay = webhook_config['coalesce_delay']
             await asyncio.sleep(coalesce_delay)
 
             async with self.processing_lock:

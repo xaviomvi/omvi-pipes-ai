@@ -9,8 +9,8 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from arango import ArangoClient
 from dependency_injector import containers, providers
-from app.config.configuration_service import ConfigurationService
-from app.config.configuration_service import config_node_constants
+from app.config.configuration_service import ConfigurationService, config_node_constants
+from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
 from app.core.ai_arango_service import ArangoService
 from app.services.kafka_consumer import KafkaConsumerManager
 from app.modules.extraction.domain_extraction import DomainExtractor
@@ -43,32 +43,33 @@ class AppContainer(containers.DeclarativeContainer):
 
     # Initialize ConfigurationService first
     config_service = providers.Singleton(
-        ConfigurationService,
-        environment= 'dev'
+        ConfigurationService
     )
 
     async def _create_llm_config(config_service):
         """Async factory method to create LLMConfig."""
-        provider = await config_service.get_config(config_node_constants.LLM_PROVIDER.value)
-        if provider == 'azure':
-            return AzureLLMConfig(
-                provider=await config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'azure'),
-                model=await config_service.get_config(config_node_constants.LLM_MODEL.value, 'gpt-4o'),
-                temperature=await config_service.get_config(config_node_constants.LLM_TEMPERATURE.value, 0.3),
-                api_key=await config_service.get_config(config_node_constants.AZURE_API_KEY.value),
-                azure_endpoint=await config_service.get_config(config_node_constants.AZURE_ENDPOINT.value),
-                azure_api_version=await config_service.get_config(config_node_constants.AZURE_API_VERSION.value),
-                azure_deployment=await config_service.get_config(config_node_constants.AZURE_DEPLOYMENT_NAME.value, 'gpt-4o')
-            )
-        elif provider == 'openai':
-            return OpenAILLMConfig(
-                provider=await config_service.get_config(config_node_constants.LLM_PROVIDER.value, 'openai'),
-                model=await config_service.get_config(config_node_constants.LLM_MODEL.value, 'gpt-4o'),
-                temperature=await config_service.get_config(config_node_constants.LLM_TEMPERATURE.value, 0.3),
-                api_key=await config_service.get_config(config_node_constants.OPENAI_API_KEY.value),
-            )
-        else:
-            raise ValueError(f"Invalid LLM provider: {provider}")
+        ai_models = await config_service.get_config(config_node_constants.AI_MODELS.value)
+        llm_configs = ai_models['llm']
+        # Iterate through available LLM configurations
+        for config in llm_configs:
+            provider = config['provider']
+            if provider == LLMProvider.AZURE_OPENAI_PROVIDER.value:
+                return AzureLLMConfig(
+                    model=config['configuration']['model'],
+                    temperature=config['configuration']['temperature'],
+                    api_key=config['configuration']['apiKey'],
+                    azure_endpoint=config['configuration']['endpoint'],
+                    azure_api_version=AzureOpenAILLM.AZURE_OPENAI_VERSION.value,
+                    azure_deployment=config['configuration']['deploymentName'],                
+                )
+            elif provider == LLMProvider.OPENAI_PROVIDER.value:
+                return OpenAILLMConfig(
+                    model=config['configuration']['model'],
+                    temperature=config['configuration']['temperature'],
+                    api_key=config['configuration']['apiKey'],
+                )
+        
+        raise ValueError("No supported LLM provider found in configuration")
 
     llm_config = providers.Resource(
         _create_llm_config,
@@ -77,8 +78,9 @@ class AppContainer(containers.DeclarativeContainer):
 
     async def _fetch_arango_host(config_service):
         """Fetch ArangoDB host URL from etcd asynchronously."""
-        return await config_service.get_config(config_node_constants.ARANGO_URL.value)
-
+        arango_config = await config_service.get_config(config_node_constants.ARANGODB.value)
+        return arango_config['url']
+    
     async def _create_arango_client(config_service):
         """Async factory method to initialize ArangoClient."""
         hosts = await AppContainer._fetch_arango_host(config_service)
@@ -104,11 +106,12 @@ class AppContainer(containers.DeclarativeContainer):
     # Vector search service
     async def _get_qdrant_config(config_service: ConfigurationService):
         """Async factory method to get Qdrant configuration."""
+        qdrant_config = await config_service.get_config(config_node_constants.QDRANT.value)
         return {
-            'collection_name': await config_service.get_config(config_node_constants.QDRANT_COLLECTION_NAME.value),
-            'api_key': await config_service.get_config(config_node_constants.QDRANT_API_KEY.value),
-            'host': await config_service.get_config(config_node_constants.QDRANT_HOST.value),
-            'port': await config_service.get_config(config_node_constants.QDRANT_PORT.value),
+            'collection_name': qdrant_config['collection_name'],
+            'api_key': qdrant_config['api_key'],
+            'host': qdrant_config['host'],
+            'port': qdrant_config['port'],
         }
 
     qdrant_config = providers.Resource(
@@ -170,9 +173,10 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     # Processor - depends on domain_extractor, indexing_pipeline, and arango_service
-    async def _create_processor(domain_extractor, indexing_pipeline, arango_service, parsers):
+    async def _create_processor(config_service, domain_extractor, indexing_pipeline, arango_service, parsers):
         """Async factory for Processor"""
         processor = Processor(
+            config_service=config_service,
             domain_extractor=domain_extractor,
             indexing_pipeline=indexing_pipeline,
             arango_service=arango_service,
@@ -183,6 +187,7 @@ class AppContainer(containers.DeclarativeContainer):
 
     processor = providers.Resource(
         _create_processor,
+        config_service=config_service,
         domain_extractor=domain_extractor,
         indexing_pipeline=indexing_pipeline,
         arango_service=arango_service,
@@ -260,8 +265,9 @@ async def health_check_arango(container):
     try:
         # Get the config_service instance first, then call get_config
         config_service = container.config_service()
-        username = await config_service.get_config(config_node_constants.ARANGO_USER.value)
-        password = await config_service.get_config(config_node_constants.ARANGO_PASSWORD.value)
+        arangodb_config = await config_service.get_config(config_node_constants.ARANGODB.value)
+        username = arangodb_config['user']
+        password = arangodb_config['password']
         
         logger.debug("Checking ArangoDB connection using ArangoClient")
         
@@ -286,7 +292,8 @@ async def health_check_kafka(container):
     """Check the health of Kafka by attempting to create a connection."""
     logger.info("🔍 Starting Kafka health check...")
     try:
-        kafka_servers = await container.config_service().get_config(config_node_constants.KAFKA_SERVERS.value)
+        kafka_config = await container.config_service().get_config(config_node_constants.KAFKA.value)
+        kafka_servers = kafka_config['servers']
         logger.debug(f"Checking Kafka connection at: {kafka_servers}")
         
         
@@ -323,7 +330,8 @@ async def health_check_redis(container):
     """Check the health of Redis by attempting to connect and ping."""
     logger.info("🔍 Starting Redis health check...")
     try:
-        redis_url = await container.config_service().get_config(config_node_constants.REDIS_URL.value)
+        redis_config = await container.config_service().get_config(config_node_constants.REDIS.value)
+        redis_url = redis_config['url']
         logger.debug(f"Checking Redis connection at: {redis_url}")        
         # Create Redis client and attempt to ping
         redis_client = Redis.from_url(redis_url, socket_timeout=5.0)
@@ -347,7 +355,8 @@ async def health_check_qdrant(container):
     """Check the health of Qdrant via HTTP request."""
     logger.info("🔍 Starting Qdrant health check...")
     try:
-        qdrant_url = await container.config_service().get_config(config_node_constants.QDRANT_URL.value)
+        qdrant_config = await container.config_service().get_config(config_node_constants.QDRANT.value)
+        qdrant_url = qdrant_config['url']
         logger.debug(f"Checking Qdrant health at endpoint: {qdrant_url}/healthz")
         
         async with aiohttp.ClientSession() as session:

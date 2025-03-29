@@ -18,10 +18,12 @@ class ArangoService():
         """Connect to ArangoDB and initialize collections"""
         try:
             logger.info("🚀 Connecting to ArangoDB...")
-            arango_url = await self.config.get_config(config_node_constants.ARANGO_URL.value)
-            arango_user = await self.config.get_config(config_node_constants.ARANGO_USER.value)
-            arango_password = await self.config.get_config(config_node_constants.ARANGO_PASSWORD.value)
-            arango_db = await self.config.get_config(config_node_constants.ARANGO_DB.value)
+            arangodb_config = await self.config.get_config(config_node_constants.ARANGODB.value)
+            arango_url = arangodb_config['url']
+            arango_user = arangodb_config['user']
+            arango_password = arangodb_config['password']
+            arango_db = arangodb_config['db']
+            
             if not isinstance(arango_url, str):
                 raise ValueError("ArangoDB URL must be a string")
             if not self.client:

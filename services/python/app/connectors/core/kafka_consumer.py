@@ -6,6 +6,7 @@ from app.utils.logger import logger
 from dependency_injector.wiring import inject
 from typing import Dict, List
 from app.config.arangodb_constants import CollectionNames, Connectors
+from app.config.configuration_service import Routes
 from uuid import uuid4
 import time
 from app.setups.connector_setup import initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
@@ -16,9 +17,7 @@ from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.config.configuration_service import ConfigurationService
 
 # Initialize common services
-config_service = ConfigurationService(        
-    environment= 'dev'
-)
+config_service = ConfigurationService()
 rate_limiter = GoogleAPIRateLimiter()
 
 KAFKA_CONFIG = {
@@ -457,6 +456,8 @@ class KafkaRouteConsumer:
             if not org:
                 logger.error(f"Organization not found: {org_id}")
                 return False
+            
+            
 
             # Create app entities
             app_docs = []

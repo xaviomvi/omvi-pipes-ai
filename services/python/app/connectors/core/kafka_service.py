@@ -1,6 +1,6 @@
 from confluent_kafka import Producer
 from app.utils.logger import logger
-from app.config.configuration_service import ConfigurationService
+from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.config.arangodb_constants import EventTypes
 import json
 import asyncio
@@ -25,8 +25,7 @@ class KafkaService:
         :param event_data: Dictionary containing file processing details
         """
         try:
-            # kafka_config = await self.config.get_config(config_node_constants.KAFKA_CONFIG.value)
-            kafka_config = {"bootstrap.servers": "localhost:9092"}
+            kafka_config = await self.config.get_config(config_node_constants.KAFKA.value)
             if not isinstance(kafka_config, dict):
                 raise ValueError("Kafka configuration must be a dictionary")
 
