@@ -25,12 +25,12 @@ class QueryDecompositionService:
         # Template for query decomposition with confidence scores
         self.decomposition_template = ChatPromptTemplate.from_template(
             """You are an expert at breaking down complex questions into simpler sub-questions.
-            
+
             Given the following complex query, break it down into 2-4 simpler sub-queries that together would help answer the original query.
             Focus on different aspects of the question, and make sure each sub-query is self-contained and specific.
-            
+
             COMPLEX QUERY: {query}
-            
+
             First explain your reasoning for how you're decomposing this query, then provide the list of sub-queries.
             For each sub-query, assign a confidence score as follows:
             - Very High: You're extremely confident this sub-query directly addresses a core aspect of the original query
@@ -39,28 +39,19 @@ class QueryDecompositionService:
             - Low: This sub-query might be relevant but you're less confident
 
             Format your response as a JSON object with the following structure:
-            
-            ```json
-            {
+
+            {{
                 "queries": [
-                    {"query": "sub-query 1", "confidence": "Very High"},
-                    {"query": "sub-query 2", "confidence": "High"},
-                    {"query": "sub-query 3", "confidence": "Medium"}
+                    {{"query": "sub-query 1", "confidence": "Very High"}},
+                    {{"query": "sub-query 2", "confidence": "High"}},
+                    {{"query": "sub-query 3", "confidence": "Medium"}}
                 ],
                 "reason": "explanation of decomposition approach"
-            }
-            ```
-            
+            }}
+
             For simple queries that don't need decomposition, return just 1 query in the list (the original query) with "Very High" confidence.
+            "Your entire response/output is going to consist of a single JSON, and you will NOT wrap it within JSON md markers"
             """
-        )
-        
-        # Setup the chain
-        self.decomposition_chain = (
-            {"query": RunnablePassthrough()} 
-            | self.decomposition_template 
-            | self.llm 
-            | self._parse_decomposition_response
         )
     
     def _parse_decomposition_response(self, response: str) -> Dict[str, Any]:
@@ -68,23 +59,15 @@ class QueryDecompositionService:
         # Extract JSON from the response
         try:
             print("decomposed response from llm", response)
-            # First, try to find JSON blocks with ```json ... ``` format
-            json_match = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(1)
-            else:
-                # Try to find any JSON object in the response
-                json_match = re.search(r"\{.*\}", response, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(0)
-                else:
-                    # If no JSON is found, treat entire response as reasoning and use original query
-                    return {
-                        "queries": [],
-                        "reason": "Failed to parse response: " + response
-                    }
             
-            # Parse the JSON
+            # If response is an AIMessage object, access the content attribute directly
+            if hasattr(response, 'content'):
+                json_str = response.content
+            elif isinstance(response, dict):
+                json_str = response.get('content')
+            else:
+                json_str = response  # Assume it's already a string
+                            # Parse the JSON
             parsed_json = json.loads(json_str)
             
             # Handle legacy format without confidence (convert to new format)
@@ -99,11 +82,9 @@ class QueryDecompositionService:
             return parsed_json
         except Exception as e:
             # If parsing fails, return error
-            return {
-                "queries": [],
-                "reason": f"Error parsing response: {str(e)}\nOriginal response: {response}"
-            }
-    
+            print("error: ", str(e))
+            return {"error": str(e)}  # Return error in structured format
+        
     async def decompose_query(self, query: str) -> Dict[str, Any]:
         """
         Decompose a complex query into simpler sub-queries with confidence scores
@@ -115,9 +96,14 @@ class QueryDecompositionService:
             Dictionary with queries list (with confidence) and reason
         """
         try:
-            result = await self.decomposition_chain.ainvoke({"query": query})
+            decomposition_chain = (
+                {"query": RunnablePassthrough()} 
+                | self.decomposition_template 
+                | self.llm 
+                | self._parse_decomposition_response
+            )
+            result = await decomposition_chain.ainvoke(query)
             
-            print("Decomposed query response")
             # Validate the result
             if not result.get("queries"):
                 # If no queries were returned, use the original query with Very High confidence
@@ -136,7 +122,7 @@ class QueryDecompositionService:
                 
             return result
         except Exception as e:
-            # If an error occurs, return the original query with Very High confidence
+            print("exception", {str(e)})
             return {
                 "queries": [{"query": query, "confidence": "Very High"}],
                 "reason": f"Error during decomposition: {str(e)}"
