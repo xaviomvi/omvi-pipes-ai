@@ -1,5 +1,5 @@
 protobuf<=3.20.3
-cryptography==44.0.0
+cryptography==44.0.1
 fastapi==0.115.6
 PyJWT==2.10.1
 requests==2.32.3

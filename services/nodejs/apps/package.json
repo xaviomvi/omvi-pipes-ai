@@ -45,6 +45,7 @@
   "dependencies": {
     "@azure/msal-node": "^2.16.2",
     "@azure/storage-blob": "^12.25.0",
+    "@node-saml/passport-saml": "^5.0.1",
     "@qdrant/js-client-rest": "^1.13.0",
     "@types/bcrypt": "^5.0.2",
     "@types/express-session": "^1.18.1",
@@ -55,7 +56,6 @@
     "aws-sdk": "^2.1534.0",
     "axios": "^1.7.9",
     "bcryptjs": "^3.0.2",
-    "compress-images": "^2.0.5",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^16.4.7",

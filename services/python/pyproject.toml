@@ -23,7 +23,7 @@ dependencies = [
     "requests-mock==1.12.1",
     "protobuf==3.20.3",
     "aiohttp==3.11.2",
-    "python-jose==3.3.0",
+    "python-jose==3.4.0",
     "requests-toolbelt==1.0.0",
     "spacy<=3.7.5",
     "python-docx==1.1.2",
@@ -55,7 +55,8 @@ dependencies = [
     "celery==5.4.0",
     "requests==2.32.3",
     "langchain-community==0.3.18",
-    "Jinja2==3.1.6"
+    "Jinja2==3.1.6",
+    "cryptography==44.0.1"
 ]
 
 [tool.setuptools.packages.find]
