@@ -765,7 +765,7 @@ export default function KnowledgeBaseDetails({
   const id = open ? 'column-visibility-popover' : undefined;
 
   return (
-    <Box sx={{ height: 'calc(100vh - 100px)', width: '100%', p: 3 }}>
+    <Box sx={{ height: 'calc(100vh - 100px)', width: '100%', px: 1 }}>
       {/* Header section */}
       <Paper
         elevation={0}

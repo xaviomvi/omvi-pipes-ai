@@ -22,6 +22,7 @@ import { Scrollbar } from 'src/components/scrollbar';
 import { AnimateAvatar } from 'src/components/animate';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { getOrgIdFromToken, getOrgLogo } from 'src/sections/accountdetails/utils';
 
 import { AccountButton } from './account-button';
 import { SignOutButton } from './sign-out-button';
@@ -70,10 +71,23 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuthContext();
-  
+
   const [open, setOpen] = useState(false);
   const [menuItems, setMenuItems] = useState(data);
+  const [customLogo, setCustomLogo] = useState<string | null>('');
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const orgId = await getOrgIdFromToken();
+        const logoUrl = await getOrgLogo(orgId);
+        setCustomLogo(logoUrl);
+      } catch (err) {
+        console.error(err, 'error in fetching logo');
+      }
+    };
 
+    fetchLogo();
+  }, []);
 
   // Build menu items when user data changes
   useEffect(() => {
@@ -82,20 +96,20 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
       setMenuItems(data);
       return;
     }
-    
+
     // Otherwise build based on account type
     const items = [...baseAccountItems];
-        
+
     // Check for business account type with fallbacks
-    const isBusiness = 
-      user?.accountType === 'business' || 
+    const isBusiness =
+      user?.accountType === 'business' ||
       user?.accountType === 'organization' ||
       user?.role === 'business';
-    
+
     if (isBusiness) {
       items.push(companySettingsItem);
     }
-    
+
     setMenuItems(items);
   }, [data, user]);
 
@@ -135,7 +149,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
     <>
       <AccountButton
         onClick={handleOpenDrawer}
-        photoURL={user?.photoURL}
+        photoURL={customLogo || user?.photoURL}
         displayName={user?.fullName}
         sx={sx}
         {...other}
@@ -169,12 +183,16 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
 
             {/* Show account type if available */}
             {user?.accountType && (
-              <Label 
-                color={user.accountType === 'business' || user.accountType === 'organization' ? 'primary' : 'info'} 
+              <Label
+                color={
+                  user.accountType === 'business' || user.accountType === 'organization'
+                    ? 'primary'
+                    : 'info'
+                }
                 sx={{ mt: 1 }}
               >
-                {user.accountType === 'business' || user.accountType === 'organization' 
-                  ? 'Business Account' 
+                {user.accountType === 'business' || user.accountType === 'organization'
+                  ? 'Business Account'
                   : 'Individual Account'}
               </Label>
             )}
