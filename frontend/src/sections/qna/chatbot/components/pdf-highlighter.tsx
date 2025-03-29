@@ -58,6 +58,7 @@ const EnhancedPdfLoader = ({
             data: bufferCopy,
             cMapUrl: `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`,
             cMapPacked: true,
+            isEvalSupported: false,
           });
         } else if (url) {
           // URL-based loading remains unchanged
@@ -65,6 +66,7 @@ const EnhancedPdfLoader = ({
             url,
             cMapUrl: `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`,
             cMapPacked: true,
+            isEvalSupported: false,
           });
         } else {
           throw new Error('Either url or pdfBuffer must be provided');
@@ -209,7 +211,6 @@ const PdfHighlighterComp = ({
     return () => void document.head.removeChild(style);
   }, []);
 
-
   useEffect(() => {
     const processCitationsWithHighlights = () => {
       if (citations?.length > 0) {
@@ -342,7 +343,7 @@ const PdfHighlighterComp = ({
                       addHighlight({ content, position, comment });
                       hideTipAndSelection();
                     }}
-                  /> 
+                  />
                 )}
                 highlightTransform={(
                   highlight,
