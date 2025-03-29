@@ -10,7 +10,10 @@ export class MailServiceContainer {
   static async initialize(appConfig: AppConfig): Promise<Container> {
     const container = new Container();
     container.bind<Logger>('Logger').toConstantValue(new Logger());
-    container.bind<AppConfig>('AppConfig').toConstantValue(appConfig);
+    container
+      .bind<AppConfig>('AppConfig')
+      .toDynamicValue(() => appConfig) // Always fetch latest reference
+      .inSingletonScope();
     // Initialize and bind services
     await this.initializeServices(container, appConfig);
 
@@ -23,13 +26,13 @@ export class MailServiceContainer {
     appConfig: AppConfig,
   ): Promise<void> {
     try {
-      const mailController = new MailController(
-        appConfig,
-        container.get('Logger'),
-      );
-      container
-        .bind<MailController>('MailController')
-        .toConstantValue(mailController);
+      if (container.isBound('MailController')) {
+        container.unbind('MailController'); // Unbind safely before rebinding
+      }
+
+      container.bind<MailController>('MailController').toDynamicValue(() => {
+        return new MailController(appConfig, container.get('Logger'));
+      });
       const jwtSecret = appConfig.jwtSecret;
       const scopedJwtSecret = appConfig.scopedJwtSecret;
       const authTokenService = new AuthTokenService(jwtSecret, scopedJwtSecret);

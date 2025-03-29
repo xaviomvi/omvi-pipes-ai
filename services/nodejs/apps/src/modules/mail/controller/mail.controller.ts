@@ -1,5 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
-import { InternalServerError } from '../../../libs/errors/http.errors';
+import {
+  InternalServerError,
+  NotFoundError,
+} from '../../../libs/errors/http.errors';
 import { EmailTemplateType, MailBody, SmtpConfig } from '../middlewares/types';
 import { MailModel } from '../schema/mailInfo.schema';
 import {
@@ -27,6 +30,10 @@ export class MailController {
     let result;
     try {
       const body = req.body;
+      if (!this.config.smtp) {
+        throw new NotFoundError('Smtp Configuration not set');
+      }
+      console.log(this.config.smtp);
       result = await this.emailSender(body, this.config.smtp);
       if (!result.status) {
         throw new InternalServerError(result.data || 'Error sending mail');
@@ -98,7 +105,7 @@ export class MailController {
             }),
       });
 
-      transporter.sendMail({
+      await transporter.sendMail({
         from: fromEmailDomain,
         to: bodyData.sendEmailTo,
         cc: bodyData.sendCcTo,
@@ -114,11 +121,16 @@ export class MailController {
         cc: bodyData.sendCcTo ? bodyData.sendCcTo : [],
         emailTemplateType: bodyData.emailTemplateType,
       });
+
       await mailEntry.save();
 
-      return { status: true, data: 'email sent' };
+      return { status: true, data: 'Email sent' };
     } catch (error) {
-      throw error;
+      console.log(error);
+      return {
+        status: false,
+        error: 'Failed to send email',
+      }; // Return a response instead of throwing
     }
   }
 }

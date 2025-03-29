@@ -24,7 +24,7 @@ export const userAdminCheck = async (
       isDeleted: false,
     }).select('type');
 
-    let isAdmin = groups.find((userGroup: any) => userGroup.type === 'admin');
+    const isAdmin = groups.find((userGroup: any) => userGroup.type === 'admin');
 
     if (!isAdmin) {
       throw new BadRequestError('Admin access required');

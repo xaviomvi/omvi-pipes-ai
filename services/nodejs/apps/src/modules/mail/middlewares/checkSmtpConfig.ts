@@ -18,7 +18,13 @@ export const smtpConfigChecker = (
       throw new NotFoundError('Mail container not found');
     }
     const config = container.get<AppConfig>('AppConfig');
-    if (!config.smtp.port || !config.smtp.host || !config.smtp.fromEmail) {
+
+    if (
+      !config.smtp ||
+      !config.smtp.port ||
+      !config.smtp.host ||
+      !config.smtp.fromEmail
+    ) {
       throw new BadRequestError('Smtp not configured properly');
     }
     next();

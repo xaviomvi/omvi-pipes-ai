@@ -58,7 +58,7 @@ export interface AppConfig {
     username?: string;
     password?: string;
     fromEmail: string;
-  };
+  } | null;
   storage: {
     storageType: string;
     endpoint: string;

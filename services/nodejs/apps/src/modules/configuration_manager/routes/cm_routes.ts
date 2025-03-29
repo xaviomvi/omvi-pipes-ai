@@ -130,7 +130,11 @@ export function createConfigurationManagerRouter(container: Container): Router {
     userAdminCheck,
     metricsMiddleware(container),
     ValidationMiddleware.validate(smtpConfigSchema),
-    createSmtpConfig(keyValueStoreService),
+    createSmtpConfig(
+      keyValueStoreService,
+      appConfig.communicationBackend,
+      appConfig.scopedJwtSecret,
+    ),
   );
 
   /**

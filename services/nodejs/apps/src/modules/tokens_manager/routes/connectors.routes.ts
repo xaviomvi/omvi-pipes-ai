@@ -26,7 +26,7 @@ import {
   AppDisabledEvent,
   AppEnabledEvent,
 } from '../../user_management/services/entity_events.service';
-import { GoogleWorkspaceApp } from '../types/connector.types';
+import { GoogleWorkspaceApp, scopeToAppMap } from '../types/connector.types';
 import { AppConfig, loadAppConfig } from '../config/config';
 import {
   GOOGLE_WORKSPACE_BUSINESS_CREDENTIALS_PATH,
@@ -609,6 +609,14 @@ export function createConnectorRouter(container: Container) {
           name: connectorData.name,
         });
 
+        // Extract received scopes from the request
+        const receivedScopes = data.scope.split(' ');
+
+        // Filter apps based on received scopes
+        const enabledApps = Object.keys(scopeToAppMap)
+          .filter((scope) => receivedScopes.includes(scope)) // Check if the received scope is in our map
+          .map((scope) => scopeToAppMap[scope]);
+
         await eventService.start();
         let event: Event;
 
@@ -624,11 +632,7 @@ export function createConnectorRouter(container: Container) {
               appGroupId: connector._id,
               credentialsRoute: `${config.cmUrl}/${GOOGLE_WORKSPACE_INDIVIDUAL_CREDENTIALS_PATH}`,
               refreshTokenRoute: `${config.cmUrl}/${REFRESH_TOKEN_PATH}`,
-              apps: [
-                GoogleWorkspaceApp.Drive,
-                GoogleWorkspaceApp.Gmail,
-                GoogleWorkspaceApp.Calendar,
-              ],
+              apps: enabledApps,
               syncAction: 'immediate',
             } as AppEnabledEvent,
           };

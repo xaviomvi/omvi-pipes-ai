@@ -28,6 +28,8 @@ import {
 } from '../../user_management/services/entity_events.service';
 import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
 import { AppConfig } from '../../tokens_manager/config/config';
+import { generateFetchConfigAuthToken } from '../../auth/utils/generateAuthToken';
+import axios from 'axios';
 
 const logger = Logger.getInstance({
   service: 'ConfigurationManagerController',
@@ -236,9 +238,16 @@ export const getStorageConfig =
   };
 
 export const createSmtpConfig =
-  (keyValueStoreService: KeyValueStoreService) =>
+  (
+    keyValueStoreService: KeyValueStoreService,
+    communicationBackend: string,
+    scopedJwtSecret: string,
+  ) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('User not Found');
+      }
       const smtpConfig = req.body;
       const configManagerConfig = loadConfigurationManagerConfig();
       const encryptedSmtpConfig = EncryptionService.getInstance(
@@ -249,6 +258,19 @@ export const createSmtpConfig =
         configPaths.smtp,
         encryptedSmtpConfig,
       );
+      const config = {
+        method: 'post' as const,
+        url: `${communicationBackend}/api/v1/mail/updateSmtpConfig`,
+        headers: {
+          Authorization: `Bearer ${await generateFetchConfigAuthToken(req.user, scopedJwtSecret)}`,
+          'Content-Type': 'application/json',
+        },
+      };
+
+      const response = await axios(config);
+      if (response.status != 200) {
+        throw new BadRequestError('Error setting smtp config');
+      }
 
       res
         .status(200)

@@ -131,14 +131,14 @@ export class ConfigService {
   }
 
   // SMTP Configuration
-  public async getSmtpConfig(): Promise<SmtpConfig> {
-    return this.getEncryptedConfig<SmtpConfig>(configPaths.smtp, {
-      host: process.env.SMTP_HOST || 'smtp.example.com',
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      username: process.env.SMTP_USERNAME,
-      password: process.env.SMTP_PASSWORD,
-      fromEmail: process.env.SMTP_FROM_EMAIL || 'default_from_email',
-    });
+  public async getSmtpConfig(): Promise<SmtpConfig | null> {
+    const encryptedConfig = await this.keyValueStoreService.get<string>(
+      configPaths.smtp,
+    );
+    if (encryptedConfig) {
+      return JSON.parse(this.encryptionService.decrypt(encryptedConfig));
+    }
+    return null;
   }
 
   // Kafka Configuration
