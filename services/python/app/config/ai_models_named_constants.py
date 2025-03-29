@@ -5,7 +5,7 @@ class LLMProvider(Enum):
     OPENAI_PROVIDER = "openAI"
     
 class OCRProvider(Enum):
-    AZURE_PROVIDER = "azure"
+    AZURE_PROVIDER = "azureDI"
     PYMUPDF_PROVIDER = "pymupdf"
     
 class AzureOpenAILLM(Enum):

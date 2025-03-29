@@ -115,7 +115,7 @@ app.add_middleware(
 # Include routes from routes.py
 app.include_router(search_router, prefix="/api/v1")
 app.include_router(chatbot_router, prefix="/api/v1")
-# app.include_router(utils_router, prefix="/api/v1")
+app.include_router(utils_router, prefix="/api/v1")
 
 def run(host: str = "0.0.0.0", port: int = 8000, reload: bool = True):
     """Run the application"""
