@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from app.utils.logger import logger
 import fitz
+from app.config.ai_models_named_constants import OCRProvider
 
 
 class OCRStrategy(ABC):
@@ -100,13 +101,13 @@ class OCRHandler:
         """Factory method to create appropriate OCR strategy"""
         logger.debug(f"🏭 Creating OCR strategy: {strategy_type}")
 
-        if strategy_type.lower() == "pymupdf":
+        if strategy_type == OCRProvider.PYMUPDF_PROVIDER.value:
             logger.debug("📚 Creating PyMuPDF OCR strategy")
             from app.modules.parsers.pdf.pymupdf_ocrmypdf_processor import PyMuPDFOCRStrategy
             return PyMuPDFOCRStrategy(
                 language=kwargs.get("language", "eng")
             )
-        elif strategy_type.lower() == "azure":
+        elif strategy_type == OCRProvider.AZURE_PROVIDER.value:
             logger.debug("☁️ Creating Azure OCR strategy")
             from app.modules.parsers.pdf.azure_document_intelligence_processor import AzureOCRStrategy
             return AzureOCRStrategy(
