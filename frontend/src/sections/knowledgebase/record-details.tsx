@@ -31,9 +31,9 @@ import { fetchRecordDetails } from './utils';
 import RecordSalesAgent from './ask-me-anything';
 import RecordDocumentViewer from './show-documents';
 import EditRecordDialog from './edit-record-dialog';
+import DeleteRecordDialog from './delete-record-dialog';
 
 import type { Permissions, RecordDetailsResponse } from './types/record-details';
-import DeleteRecordDialog from './delete-record-dialog';
 
 export default function RecordDetails() {
   const { recordId } = useParams<{ recordId: string }>();

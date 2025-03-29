@@ -187,7 +187,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     if (accountType === 'business') {
       // For business accounts, check admin email and file
       const values = getValues().googleWorkspace;
-      const adminEmail = values.adminEmail;
+      const {adminEmail} = values;
       return (adminEmail && adminEmail.trim() !== '') || serviceCredentialsFile !== null;
     }
     // For individual accounts, check client ID and secret
@@ -325,7 +325,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
 
       // For business accounts
       if (accountType === 'business') {
-        const adminEmail = businessForm.getValues().googleWorkspace.adminEmail;
+        const {adminEmail} = businessForm.getValues().googleWorkspace;
 
         // Check for admin email
         if (!adminEmail || adminEmail.trim() === '') {

@@ -21,8 +21,9 @@ import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
 import { AnimateAvatar } from 'src/components/animate';
 
+import { getOrgLogo, getOrgIdFromToken } from 'src/sections/accountdetails/utils';
+
 import { useAuthContext } from 'src/auth/hooks';
-import { getOrgIdFromToken, getOrgLogo } from 'src/sections/accountdetails/utils';
 
 import { AccountButton } from './account-button';
 import { SignOutButton } from './sign-out-button';

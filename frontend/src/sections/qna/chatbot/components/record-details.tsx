@@ -1,25 +1,27 @@
 import type { CustomCitation } from 'src/types/chat-bot';
+import type { Permissions, RecordDetailsResponse } from 'src/sections/knowledgebase/types/record-details';
 
 import { Icon } from '@iconify/react';
 import React, { useState, useEffect } from 'react';
 
 import {
   Box,
+  Chip,
   Paper,
-  Stack,
   Button,
   Divider,
   Tooltip,
   Typography,
   IconButton,
   CircularProgress,
-  Chip,
 } from '@mui/material';
+
 import axios from 'src/utils/axios';
-import { Permissions, RecordDetailsResponse } from 'src/sections/knowledgebase/types/record-details';
 
 import { CONFIG } from 'src/config-global';
+
 import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
+
 import PDFViewer from './pdf-viewer';
 
 interface RecordDetailsProps {
@@ -63,7 +65,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
     if (record?.origin === ORIGIN.UPLOAD) {
       if (record?.externalRecordId) {
         try {
-          const externalRecordId = record.externalRecordId;
+          const {externalRecordId} = record;
           const response = await axios.get(`/api/v1/document/${externalRecordId}/download`, {
             responseType: 'blob',
           });
@@ -205,7 +207,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
     return null;
   }
 
-  const record = recordData.record;
+  const {record} = recordData;
   const webUrl = record.fileRecord?.webUrl;
 
   return (

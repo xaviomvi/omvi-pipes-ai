@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
-import type { Citation, CustomCitation } from 'src/types/chat-bot';
 import type { ScaledPosition } from 'react-pdf-highlighter';
+import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
+import type { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
 import type {
   Comment,
   Content,
@@ -13,14 +14,11 @@ import type {
 } from 'src/types/pdf-highlighter';
 
 import * as pdfjsLib from 'pdfjs-dist';
-import axios from 'src/utils/axios';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Tip, Popup, Highlight, AreaHighlight, PdfHighlighter } from 'react-pdf-highlighter';
 
 import { Box, CircularProgress } from '@mui/material';
 
-import { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
-import { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import CitationSidebar from './highlighter-sidebar';
 
 // Initialize PDF worker

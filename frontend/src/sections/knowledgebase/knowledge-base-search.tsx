@@ -1,21 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
-import axios from 'src/utils/axios';
-import { Box, Button, styled, useTheme, alpha, Divider } from '@mui/material';
 import { Icon } from '@iconify/react';
+import { useState, useEffect, useCallback } from 'react';
+
+import { Box, alpha, Button, styled, Divider, useTheme } from '@mui/material';
+
+import axios from 'src/utils/axios';
+
 import { CONFIG } from 'src/config-global';
+
 import { searchKnowledgeBase } from './utils';
 import KnowledgeSearch from './knowledge-search';
+import { ORIGIN } from './constants/knowledge-search';
 import KnowledgeSearchSideBar from './knowledge-base-sidebar';
 import ExcelViewer from '../qna/chatbot/components/excel-highlighter';
 import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
 
 import type { Filters } from './types/knowledge-base';
 import type {
-  AggregatedDocument,
-  SearchResult,
   PipesHub,
+  SearchResult,
+  AggregatedDocument,
 } from './types/search-response';
-import { ORIGIN } from './constants/knowledge-search';
 
 // Constants for sidebar widths - must match with the sidebar component
 const SIDEBAR_EXPANDED_WIDTH = 300;

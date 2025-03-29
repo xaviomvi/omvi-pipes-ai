@@ -1,4 +1,4 @@
-import type { Citation, FormattedMessage, ExpandedCitationsState, CustomCitation } from 'src/types/chat-bot';
+import type { CustomCitation, FormattedMessage, ExpandedCitationsState } from 'src/types/chat-bot';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
@@ -6,7 +6,6 @@ import { Box, Fade, Stack, Typography, CircularProgress } from '@mui/material';
 
 import ChatMessage from './chat-message';
 import WelcomeMessage from './welcome-message';
-import scrollableContainerStyle from '../../utils/styles/scrollbar';
 
 type ChatMessagesAreaProps = {
   messages : FormattedMessage[];

@@ -9,6 +9,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import {
   Box,
   Chip,
+  Menu,
   Paper,
   Stack,
   alpha,
@@ -28,22 +29,20 @@ import {
   IconButton,
   AlertTitle,
   DialogTitle,
+  ListItemIcon,
+  ListItemText,
   DialogContent,
   DialogActions,
   FormControlLabel,
   CircularProgress,
-  Menu,
-  ListItemIcon,
-  ListItemText,
-  Tooltip,
 } from '@mui/material';
 
 import { useUsers } from 'src/context/UserContext';
 
+import DeleteRecordDialog from './delete-record-dialog';
 import { handleDownloadDocument, uploadKnowledgeBaseFiles } from './utils';
 
 import type { Record, KnowledgeBaseDetailsProps } from './types/knowledge-base';
-import DeleteRecordDialog from './delete-record-dialog';
 
 interface ColumnVisibilityModel {
   [key: string]: boolean;

@@ -1,17 +1,19 @@
 import type { NavSectionProps } from 'src/components/nav-section';
 import type { Theme, SxProps, Breakpoint } from '@mui/material/styles';
-import { useEffect, useState } from 'react';
+
 import { useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import { useTheme } from '@mui/material/styles';
 import { iconButtonClasses } from '@mui/material/IconButton';
-import { getOrgIdFromToken, getOrgLogo } from 'src/sections/accountdetails/utils';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
 import { useSettingsContext } from 'src/components/settings';
+
+import { getOrgLogo, getOrgIdFromToken } from 'src/sections/accountdetails/utils';
 
 import { Main } from './main';
 import { NavMobile } from './nav-mobile';
