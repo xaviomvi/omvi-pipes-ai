@@ -334,7 +334,7 @@ class ExcelParser:
             logger.error(f"❌ Error processing cell: {str(e)}")
             raise
 
-    def get_tables_in_sheet(self, sheet_name: str) -> List[Dict[str, Any]]:
+    async def get_tables_in_sheet(self, sheet_name: str) -> List[Dict[str, Any]]:
         """Get all tables in a specific sheet"""
         try:
             logger.debug(f"Getting tables in sheet: {sheet_name}")
@@ -380,7 +380,7 @@ class ExcelParser:
                     {"role": "system", "content": "You are a data analysis expert. Respond with only the list of headers."},
                     {"role": "user", "content": formatted_prompt}
                 ]
-                response = self.llm.invoke(messages)
+                response = await self.llm.ainvoke(messages)
 
                 try:
                     # Parse LLM response to get headers
@@ -526,7 +526,7 @@ class ExcelParser:
             raise ValueError(f"Sheet '{sheet_name}' not found in workbook")
 
         # Get tables in the sheet
-        tables = self.get_tables_in_sheet(sheet_name)
+        tables = await self.get_tables_in_sheet(sheet_name)
 
         # Get sheet-level summary
         sheet_summary = await self.get_sheet_summary(sheet_name, tables)

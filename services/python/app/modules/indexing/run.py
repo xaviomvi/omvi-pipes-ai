@@ -327,8 +327,8 @@ class IndexingPipeline:
             if chunk.bounding_box:
                 chunk.metadata['bounding_box'] = chunk.bounding_box
 
-        # Use vector_store's add_documents method which handles both dense and sparse embeddings
-        self.vector_store.add_documents(chunks)
+        # Use vector_store's async add_documents method which handles both dense and sparse embeddings
+        self.vector_store.aadd_documents(chunks)
         
         logger.info(f"✅ Successfully added {len(chunks)} documents to vector store")
 
