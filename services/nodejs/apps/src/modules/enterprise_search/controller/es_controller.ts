@@ -1822,7 +1822,6 @@ export const search =
       const aiResponse =
         (await aiCommand.execute()) as AIServiceResponse<AiSearchResponse>;
 
-      console.log('AI RESPONSE', aiResponse);
 
       if (!aiResponse || aiResponse.statusCode !== 200 || !aiResponse.data) {
         throw new InternalServerError(
@@ -1964,11 +1963,10 @@ export const getSearchById = async (
       searchId,
       timestamp: new Date().toISOString(),
     });
-
-    const search = await EnterpriseSemanticSearch.findById(filter)
+    const search = await EnterpriseSemanticSearch.find(filter)
       .populate({
         path: 'citationIds',
-        model: 'citations',
+        model: 'citation',
         select: '-__v',
       })
       .lean()
@@ -2007,7 +2005,7 @@ export const deleteSearchById = async (
       timestamp: new Date().toISOString(),
     });
 
-    const search = await EnterpriseSemanticSearch.findByIdAndDelete(filter);
+    const search = await EnterpriseSemanticSearch.findOneAndDelete(filter);
     if (!search) {
       throw new NotFoundError('Search Id not found');
     }
@@ -2053,7 +2051,7 @@ export const shareSearch =
       }
 
       const search: IEnterpriseSemanticSearch | null =
-        await EnterpriseSemanticSearch.findById(filter);
+        await EnterpriseSemanticSearch.findOne(filter);
       if (!search) {
         throw new NotFoundError('Search Id not found');
       }
@@ -2063,7 +2061,7 @@ export const shareSearch =
         isShared: true,
       };
 
-      updateObject.shareLink = `${appConfig.frontendUrl}/search/${search._id}`;
+      updateObject.shareLink = `${appConfig.frontendUrl}/api/v1/search/${search._id}`;
 
       // Validate all user IDs
       const validUsers = await Promise.all(
@@ -2120,8 +2118,7 @@ export const shareSearch =
       }
 
       // Update sharedWith array with merged users
-      search.sharedWith = mergedSharedWith;
-
+      updateObject.sharedWith = mergedSharedWith;
       // Update the search
       const updatedSearch = await EnterpriseSemanticSearch.findByIdAndUpdate(
         searchId,
@@ -2145,16 +2142,14 @@ export const shareSearch =
     }
   };
 
-export const unshareSearch = async (
-  req: AuthenticatedUserRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  const requestId = req.context?.requestId;
-  const searchId = req.params.searchId;
-  const startTime = Date.now();
-  const { userIds } = req.body;
-  try {
+export const unshareSearch =
+  (appConfig: AppConfig) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    const requestId = req.context?.requestId;
+    const searchId = req.params.searchId;
+    const startTime = Date.now();
+    const { userIds } = req.body;
+    try {
     const orgId = req.user?.orgId;
     const userId = req.user?.userId;
     const filter = buildFilter(req, orgId, userId, searchId);
@@ -2170,6 +2165,31 @@ export const unshareSearch = async (
     if (!search) {
       throw new NotFoundError('Search Id not found or unauthorized');
     }
+
+    // Validate all user IDs
+    await Promise.all(
+      userIds.map(async (id: string) => {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new BadRequestError(`Invalid user ID format: ${id}`);
+        }
+        try {
+          const iamCommand = new IAMServiceCommand({
+            uri: `${appConfig.iamBackend}/api/v1/users/${id}`,
+            method: HttpMethod.GET,
+            headers: req.headers as Record<string, string>,
+          });
+          const userResponse = await iamCommand.execute();
+          if (userResponse && userResponse.statusCode !== 200) {
+            throw new BadRequestError(`User not found: ${id}`);
+          }
+        } catch (exception) {
+          logger.debug(`User does not exist: ${id}`, {
+            requestId,
+          });
+          throw new BadRequestError(`User not found: ${id}`);
+        }
+      }),
+    );
 
     // Get existing shared users
     const existingSharedWith = search.sharedWith || [];
@@ -2235,13 +2255,7 @@ export const archiveSearch = async (
   try {
     const orgId = req.user?.orgId;
     const userId = req.user?.userId;
-    const filter = {
-      ...buildFilter(req, orgId, userId, searchId),
-      $or: [
-        { initiator: userId },
-        { 'sharedWith.userId': userId, 'sharedWith.accessLevel': 'write' },
-      ],
-    };
+    const filter = buildFilter(req, orgId, userId, searchId);
 
     logger.debug('Attempting to archive search', {
       requestId,
@@ -2316,10 +2330,7 @@ export const unarchiveSearch = async (
     const userId = req.user?.userId;
     const filter = {
       ...buildFilter(req, orgId, userId, searchId),
-      $or: [
-        { initiator: userId },
-        { 'sharedWith.userId': userId, 'sharedWith.accessLevel': 'write' },
-      ],
+      isArchived: true,
     };
 
     logger.debug('Attempting to unarchive conversation', {
@@ -2329,7 +2340,6 @@ export const unarchiveSearch = async (
       userId,
       timestamp: new Date().toISOString(),
     });
-
     const search = await EnterpriseSemanticSearch.findOne(filter);
     if (!search) {
       throw new NotFoundError('Search Id not found or no unarchive permission');
@@ -2340,7 +2350,7 @@ export const unarchiveSearch = async (
     }
 
     const updatedSearch: IEnterpriseSemanticSearch | null =
-      await EnterpriseSemanticSearch.findByIdAndUpdate(searchId, {
+      await EnterpriseSemanticSearch.findOneAndUpdate(filter, {
         $set: {
           isArchived: false,
           archivedBy: null,

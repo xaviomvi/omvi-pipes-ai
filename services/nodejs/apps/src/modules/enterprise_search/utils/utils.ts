@@ -122,11 +122,10 @@ export const buildFilter = (
   // Initialize base filter with required fields
   const filter: any = {
     orgId: new mongoose.Types.ObjectId(`${orgId}`),
-    userId: new mongoose.Types.ObjectId(`${userId}`),
     isDeleted: false,
     isArchived: false,
     $or: [
-      { initiator: new mongoose.Types.ObjectId(`${userId}`) },
+      { userId: new mongoose.Types.ObjectId(`${userId}`), },
       { 'sharedWith.userId': new mongoose.Types.ObjectId(`${userId}`) },
       { isShared: true },
     ],
