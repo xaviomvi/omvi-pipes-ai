@@ -196,7 +196,6 @@ export default function KnowledgeBaseSearch() {
       // Find the correct citation from the aggregated data
       const citation = aggregatedCitations.find((item) => item.recordId === recordId);
       if (citation) {
-        console.log(citation);
         setRecordCitations(citation);
       }
       if (record.origin === ORIGIN.UPLOAD) {
@@ -256,7 +255,6 @@ export default function KnowledgeBaseSearch() {
         }
       } else if (record.origin === ORIGIN.CONNECTOR) {
         try {
-          console.log("after buffer set")
 
           const response = await axios.get(
             `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
@@ -264,7 +262,6 @@ export default function KnowledgeBaseSearch() {
               responseType: 'blob',
             }
           );
-          console.log("after buffer set")
 
           // Extract filename from content-disposition header
           let filename = record.recordName || `document-${recordId}`;
@@ -293,8 +290,6 @@ export default function KnowledgeBaseSearch() {
 
           const buffer = await arrayBufferPromise;
           setFileBuffer(buffer);
-          console.log(buffer)
-          console.log("after buffer set")
         } catch (err) {
           console.error('Error downloading document:', err);
           throw new Error(`Failed to download document: ${err.message}`);

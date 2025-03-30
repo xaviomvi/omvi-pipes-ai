@@ -78,7 +78,6 @@ const CitationHoverCard = ({
 
   const handleOpenPdf = async () => {
     if (citation?.metadata?.recordId) {
-      console.log(citation.metadata);
       
       try {
         const isExcelOrCSV = ['CSV', 'xlsx', 'xls'].includes(citation.metadata?.extension);
@@ -90,7 +89,6 @@ const CitationHoverCard = ({
         // const downloadResponse = await axios.get(`/api/v1/document/${externalRecordId}/download`);
         // const url = downloadResponse.data.signedUrl;
         // onViewPdf(url, aggregatedCitations, isExcelOrCSV);
-        console.log(citation.metadata);
         const citationMeta = citation.metadata;
         onViewPdf('', citationMeta, aggregatedCitations, isExcelOrCSV);
         // if (record.origin === ORIGIN.UPLOAD) {

@@ -167,7 +167,6 @@ const ChatInterface = () => {
     setTransitioning(true);
     setIsViewerReady(false);
     setDrawerOpen(false);
-    console.log(citationMeta);
     setOpenPdfView(true);
     setAggregatedCitations(citations);
 
