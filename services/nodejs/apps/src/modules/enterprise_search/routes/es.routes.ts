@@ -296,7 +296,7 @@ export function createSemanticSearchRouter(container: Container): Router {
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(searchShareParamsSchema),
-    unshareSearch,
+    unshareSearch(appConfig),
   );
 
 
