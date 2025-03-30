@@ -1,21 +1,18 @@
-""" 
+"""
 src/api/middleware.py
 """
 
 from ipaddress import ip_address, ip_network
 from cryptography.exceptions import InvalidSignature
 from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
 from app.utils.logger import create_logger
 
 logger = create_logger('google_connectors')
 
-class WebhookAuthMiddleware(BaseHTTPMiddleware):
-    """Webhook Authentication Middleware"""
+class WebhookAuthVerifier:
+    """Reusable webhook auth helper for specific routes"""
 
-    def __init__(self, app):
-        super().__init__(app)
+    def __init__(self):
         self.google_ips = [
             '64.233.160.0/19', '66.102.0.0/20',
             '66.249.80.0/20', '72.14.192.0/18',
@@ -24,60 +21,37 @@ class WebhookAuthMiddleware(BaseHTTPMiddleware):
             '216.58.192.0/19', '216.239.32.0/19'
         ]
 
-    async def dispatch(self, request: Request, call_next):
-        """Process each request through the middleware"""
-        try:
-            # Only apply to webhook endpoints
-            if "/api/webhook" in request.url.path:
-                # 1. Verify request source
-                client_ip = request.client.host
-                # if not self._is_google_ip(client_ip):
-                #     logger.warning(f"Unauthorized IP attempt from: {client_ip}")
-                #     return Response(status_code=403)
+    async def verify_request(self, request: Request) -> bool:
+        """Combined IP and signature check"""
+        client_ip = request.client.host
 
-                # 2. Verify request signature
-                if not await self._verify_signature(request):
-                    logger.warning(
-                        "Invalid signature in request from %s", {client_ip})
-                    return Response(status_code=401)
+        # Uncomment this to enable IP restriction
+        # if not self._is_google_ip(client_ip):
+        #     logger.warning(f"Unauthorized IP attempt from: {client_ip}")
+        #     return False
 
-                logger.info(
-                    "Webhook request authenticated from %s", {client_ip})
+        if not await self._verify_signature(request):
+            logger.warning("Invalid signature in request from %s", client_ip)
+            return False
 
-            # Continue with the request
-            response = await call_next(request)
-            return response
-
-        except ValueError as e:
-            logger.error("Value error in middleware: %s", str(e))
-            return Response(status_code=400)
-        except ConnectionError as e:
-            logger.error("Connection error in middleware: %s", str(e))
-            return Response(status_code=503)
-        except RuntimeError as e:
-            logger.error("Runtime error in middleware: %s", str(e))
-            return Response(status_code=500)
+        logger.info("Webhook request authenticated from %s", client_ip)
+        return True
 
     def _is_google_ip(self, ip: str) -> bool:
-        """Verify if IP is from Google's range"""
+        """Check if IP is from Google's range"""
         try:
             ip_addr = ip_address(ip)
-
             return any(
                 ip_addr in ip_network(google_range)
                 for google_range in self.google_ips
             )
-        except ValueError as e:
-            logger.error("Invalid IP address format: %s", str(e))
-            return False
-        except TypeError as e:
-            logger.error("Invalid IP address type: %s", str(e))
+        except (ValueError, TypeError) as e:
+            logger.error("IP parsing error: %s", str(e))
             return False
 
     async def _verify_signature(self, request: Request) -> bool:
-        """Verify the webhook signature from Google"""
+        """Verify headers or HMAC signature if needed"""
         try:
-            # Get headers with fallbacks for different case variations
             channel_id = (
                 request.headers.get('X-Goog-Channel-ID') or
                 request.headers.get('x-goog-channel-id') or
@@ -90,13 +64,14 @@ class WebhookAuthMiddleware(BaseHTTPMiddleware):
                 request.headers.get('X-GOOG-RESOURCE-ID')
             )
 
-            if not channel_id or resource_id:
+            if not channel_id or not resource_id:
                 logger.warning(
-                    "Missing required headers. Channel ID: %s, Resource ID: %s",
+                    "Missing headers. Channel ID: %s, Resource ID: %s",
                     bool(channel_id), bool(resource_id))
                 return False
 
-            return True  # Ideally should compare signatures
+            # TODO: Add actual signature validation here
+            return True
 
         except (InvalidSignature, ValueError, TypeError) as e:
             logger.error("Signature verification error: %s", str(e))

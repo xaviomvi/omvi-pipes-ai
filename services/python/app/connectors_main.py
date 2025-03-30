@@ -1,5 +1,4 @@
 from app.utils.logger import create_logger
-from app.connectors.api.middleware import WebhookAuthMiddleware
 from app.setups.connector_setup import AppContainer, initialize_container, initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
 from app.connectors.api.router import router
 from app.connectors.core.kafka_consumer import KafkaRouteConsumer
@@ -248,10 +247,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Add WebhookAuth middleware
-app.add_middleware(WebhookAuthMiddleware)
-
 # List of paths to apply authentication to
 INCLUDE_PATHS = ["/api/v1/stream/record/"]
 
