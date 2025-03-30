@@ -342,54 +342,57 @@ export default function RecordDetails() {
                   <Grid container spacing={4}>
                     <Grid item xs={12} sm={6}>
                       <Stack spacing={3}>
-                        <Box>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            gutterBottom
-                            sx={{
-                              textTransform: 'uppercase',
-                              fontWeight: 500,
-                              letterSpacing: '0.5px',
-                              display: 'block',
-                              mb: 0.75,
-                            }}
-                          >
-                            File Name
-                          </Typography>
-                          <Typography variant="body2">{fileRecord?.name || 'N/A'}</Typography>
-                        </Box>
-
-                        <Box>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            gutterBottom
-                            sx={{
-                              textTransform: 'uppercase',
-                              fontWeight: 500,
-                              letterSpacing: '0.5px',
-                              display: 'block',
-                              mb: 0.75,
-                            }}
-                          >
-                            File Type
-                          </Typography>
-                          <Chip
-                            label={fileType}
-                            size="small"
-                            sx={{
-                              height: 22,
-                              fontSize: '0.75rem',
-                              fontWeight: 500,
-                              bgcolor: alpha(theme.palette.primary.main, 0.08), // Dynamic theme color
-                              color: theme.palette.primary.main, // Ensure text matches theme color
-                              '&:hover': {
-                                bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
-                              },
-                            }}
-                          />
-                        </Box>
+                        {fileRecord && (
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              gutterBottom
+                              sx={{
+                                textTransform: 'uppercase',
+                                fontWeight: 500,
+                                letterSpacing: '0.5px',
+                                display: 'block',
+                                mb: 0.75,
+                              }}
+                            >
+                              File Name
+                            </Typography>
+                            <Typography variant="body2">{fileRecord?.name || 'N/A'}</Typography>
+                          </Box>
+                        )}
+                        {fileRecord && (
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              gutterBottom
+                              sx={{
+                                textTransform: 'uppercase',
+                                fontWeight: 500,
+                                letterSpacing: '0.5px',
+                                display: 'block',
+                                mb: 0.75,
+                              }}
+                            >
+                              File Type
+                            </Typography>
+                            <Chip
+                              label={fileType}
+                              size="small"
+                              sx={{
+                                height: 22,
+                                fontSize: '0.75rem',
+                                fontWeight: 500,
+                                bgcolor: alpha(theme.palette.primary.main, 0.08), // Dynamic theme color
+                                color: theme.palette.primary.main, // Ensure text matches theme color
+                                '&:hover': {
+                                  bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
+                                },
+                              }}
+                            />
+                          </Box>
+                        )}
 
                         <Box>
                           <Typography
@@ -480,7 +483,7 @@ export default function RecordDetails() {
                             {permissions.length > 0 ? (
                               permissions.map((permission: Permissions) => (
                                 <Chip
-                                  key={permission.id} 
+                                  key={permission.id}
                                   label={permission.relationship}
                                   size="small"
                                   sx={{

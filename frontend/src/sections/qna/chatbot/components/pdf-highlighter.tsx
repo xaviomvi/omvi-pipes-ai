@@ -58,7 +58,7 @@ const EnhancedPdfLoader = ({
             data: bufferCopy,
             cMapUrl: `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`,
             cMapPacked: true,
-            isEvalSupported: false,
+            // isEvalSupported: false,
           });
         } else if (url) {
           // URL-based loading remains unchanged
@@ -66,7 +66,7 @@ const EnhancedPdfLoader = ({
             url,
             cMapUrl: `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`,
             cMapPacked: true,
-            isEvalSupported: false,
+            // isEvalSupported: false,
           });
         } else {
           throw new Error('Either url or pdfBuffer must be provided');
