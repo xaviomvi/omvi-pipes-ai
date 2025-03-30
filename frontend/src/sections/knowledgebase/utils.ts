@@ -74,50 +74,50 @@ export const uploadKnowledgeBaseFiles = async (formData: FormData) => {
   }
 };
 
-export const fetchDepartments = async () => {
-  try {
-    const response = await axios.get<Departments[]>(`${CONFIG.backendUrl}/api/v1/departments/`);
-    return response.data;
-  } catch (error) {
-    throw new Error('Error fetching departments');
-  }
-};
+// export const fetchDepartments = async () => {
+//   try {
+//     const response = await axios.get<Departments[]>(`${CONFIG.backendUrl}/api/v1/departments/`);
+//     return response.data;
+//   } catch (error) {
+//     throw new Error('Error fetching departments');
+//   }
+// };
 
-export const fetchTags = async () => {
-  try {
-    const response = await axios.get<SearchTagsRecords[]>(
-      `${CONFIG.backendUrl}/api/v1/search-tags?category=Records`
-    );
-    return response.data;
-  } catch (error) {
-    throw new Error('Error fetching Tags');
-  }
-};
+// export const fetchTags = async () => {
+//   try {
+//     const response = await axios.get<SearchTagsRecords[]>(
+//       `${CONFIG.backendUrl}/api/v1/search-tags?category=Records`
+//     );
+//     return response.data;
+//   } catch (error) {
+//     throw new Error('Error fetching Tags');
+//   }
+// };
 
-export const fetchModules = async () => {
-  try {
-    const response = await axios.get<Modules[]>(`${CONFIG.backendUrl}/api/v1/modules`);
-    return response.data;
-  } catch (error) {
-    throw new Error('Error fetching modules');
-  }
-};
+// export const fetchModules = async () => {
+//   try {
+//     const response = await axios.get<Modules[]>(`${CONFIG.backendUrl}/api/v1/modules`);
+//     return response.data;
+//   } catch (error) {
+//     throw new Error('Error fetching modules');
+//   }
+// };
 
-export const fetchRecordCategories = async () => {
-  try {
-    const response = await axios.get<RecordCategories[]>(
-      `${CONFIG.backendUrl}/api/v1/recordCategories`
-    );
-    return response.data;
-  } catch (error) {
-    throw new Error('Error fetching record categories');
-  }
-};
+// export const fetchRecordCategories = async () => {
+//   try {
+//     const response = await axios.get<RecordCategories[]>(
+//       `${CONFIG.backendUrl}/api/v1/recordCategories`
+//     );
+//     return response.data;
+//   } catch (error) {
+//     throw new Error('Error fetching record categories');
+//   }
+// };
 
 export const fetchRecordDetails = async (recordId: string): Promise<RecordDetailsResponse> => {
   try {
     const response = await axios.get<RecordDetailsResponse>(
-      `${CONFIG.backendUrl}/api/v1/knowledgebase/${recordId}`
+      `${CONFIG.backendUrl}/api/v1/knowledgebase/record/${recordId}`
     );
     return response.data;
   } catch (error) {

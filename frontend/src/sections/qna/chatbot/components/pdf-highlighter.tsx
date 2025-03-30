@@ -33,6 +33,7 @@ interface EnhancedPdfLoaderProps {
   beforeLoad?: any;
   children?: any;
   onError?: any;
+  setLoading : any;
 }
 
 const EnhancedPdfLoader = ({
@@ -41,10 +42,10 @@ const EnhancedPdfLoader = ({
   beforeLoad,
   children,
   onError,
+  setLoading,
 }: EnhancedPdfLoaderProps) => {
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy>();
   const [error, setError] = useState(null);
-
   useEffect(() => {
     const loadPdf = async () => {
       try {
@@ -74,6 +75,7 @@ const EnhancedPdfLoader = ({
 
         const document = await loadingTask.promise;
         setPdfDocument(document);
+        setLoading(false);
       } catch (err) {
         console.error('Error loading PDF:', err);
         setError(err);
@@ -84,6 +86,7 @@ const EnhancedPdfLoader = ({
     if (url || pdfBuffer) {
       loadPdf();
     }
+    // eslint-disable-next-line
   }, [url, pdfBuffer, onError]);
 
   if (error) {
@@ -294,13 +297,15 @@ const PdfHighlighterComp = ({
       </Box>
     );
   }
+  console.log(actualPdfBuffer)
 
   return (
     <Box sx={{ display: 'flex', height: '100%', width: '100%' }}>
       <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <EnhancedPdfLoader
           url={actualPdfUrl}
-          pdfBuffer={actualPdfBuffer}
+          pdfBuffer={actualPdfBuffer || pdfBuffer}
+          setLoading = {setLoading}
           beforeLoad={
             <Box
               sx={{

@@ -10,16 +10,12 @@ import { CONFIG } from 'src/config-global';
 import { searchKnowledgeBase } from './utils';
 import KnowledgeSearch from './knowledge-search';
 import { ORIGIN } from './constants/knowledge-search';
-import KnowledgeSearchSideBar from './knowledge-base-sidebar';
+import KnowledgeSearchSideBar from './knowledge-search-sidebar';
 import ExcelViewer from '../qna/chatbot/components/excel-highlighter';
 import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
 
 import type { Filters } from './types/knowledge-base';
-import type {
-  PipesHub,
-  SearchResult,
-  AggregatedDocument,
-} from './types/search-response';
+import type { PipesHub, SearchResult, AggregatedDocument } from './types/search-response';
 
 // Constants for sidebar widths - must match with the sidebar component
 const SIDEBAR_EXPANDED_WIDTH = 300;
@@ -197,17 +193,19 @@ export default function KnowledgeBaseSearch() {
         console.error('Record not found for ID:', recordId);
         return;
       }
+      // Find the correct citation from the aggregated data
+      const citation = aggregatedCitations.find((item) => item.recordId === recordId);
+      if (citation) {
+        console.log(citation);
+        setRecordCitations(citation);
+      }
       if (record.origin === ORIGIN.UPLOAD) {
         const fetchRecordId = record.externalRecordId || '';
         if (!fetchRecordId) {
           console.error('No external record ID available');
           return;
         }
-        // Find the correct citation from the aggregated data
-        const citation = aggregatedCitations.find((item) => item.recordId === recordId);
-        if (citation) {
-          setRecordCitations(citation);
-        }
+
         try {
           const response = await axios.get(`/api/v1/document/${fetchRecordId}/download`, {
             responseType: 'blob',
@@ -252,17 +250,22 @@ export default function KnowledgeBaseSearch() {
             const buffer = await arrayBufferPromise;
             setFileBuffer(buffer);
           }
-
         } catch (error) {
           console.error('Error downloading document:', error);
           throw new Error('Failed to download document');
         }
-      }else if(record.origin=== ORIGIN.CONNECTOR){
+      } else if (record.origin === ORIGIN.CONNECTOR) {
         try {
-          const response = await axios.get(`${CONFIG.aiBackend}/api/v1/stream/record/${recordId}`, {
-            responseType: 'blob',
-          });
-        
+          console.log("after buffer set")
+
+          const response = await axios.get(
+            `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
+            {
+              responseType: 'blob',
+            }
+          );
+          console.log("after buffer set")
+
           // Extract filename from content-disposition header
           let filename = record.recordName || `document-${recordId}`;
           const contentDisposition = response.headers['content-disposition'];
@@ -272,7 +275,7 @@ export default function KnowledgeBaseSearch() {
               filename = filenameMatch[1];
             }
           }
-        
+
           // Convert blob directly to ArrayBuffer
           const bufferReader = new FileReader();
           const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
@@ -287,9 +290,11 @@ export default function KnowledgeBaseSearch() {
             };
             bufferReader.readAsArrayBuffer(response.data);
           });
-        
+
           const buffer = await arrayBufferPromise;
           setFileBuffer(buffer);
+          console.log(buffer)
+          console.log("after buffer set")
         } catch (err) {
           console.error('Error downloading document:', err);
           throw new Error(`Failed to download document: ${err.message}`);
@@ -386,7 +391,7 @@ export default function KnowledgeBaseSearch() {
             <PdfHighlighterComp
               key="pdf-viewer"
               pdfUrl={fileUrl}
-              pdfBuffer={fileBuffer}
+              pdfBuffer={fileBuffer || null}
               citations={recordCitations?.documents || []}
             />
           </Box>

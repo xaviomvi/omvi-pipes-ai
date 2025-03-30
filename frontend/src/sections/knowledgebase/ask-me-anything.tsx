@@ -5,6 +5,7 @@ import type {
   CustomCitation,
   FormattedMessage,
   ExpandedCitationsState,
+  Metadata,
 } from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';
@@ -547,7 +548,7 @@ const RecordSalesAgent = ({ initialContext, recordId }: RecordSalesAgentProps) =
     setInputValue(e.target.value);
   }, []);
 
-  const onViewPdf = useCallback((url: string, citations: CustomCitation[]) => {
+  const onViewPdf = useCallback((url: string,citationMeta : Metadata, citations: CustomCitation[]) => {
     setAggregatedCitations(citations);
     setPdfUrl(url);
     setOpenPdfView(true);

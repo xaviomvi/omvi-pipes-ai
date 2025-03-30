@@ -1,4 +1,4 @@
-import type { CustomCitation, FormattedMessage, ExpandedCitationsState } from 'src/types/chat-bot';
+import type { CustomCitation, FormattedMessage, ExpandedCitationsState, Metadata } from 'src/types/chat-bot';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
@@ -16,7 +16,7 @@ type ChatMessagesAreaProps = {
   onFeedbackSubmit : (messageId : string, feedback : any) => Promise<void>;
   conversationId : string | null;
   isLoadingConversation : boolean;
-  onViewPdf : (url: string, citations: CustomCitation[], isExcelFile?: boolean, buffer?: ArrayBuffer) => void;
+  onViewPdf : (url: string,citationMeta : Metadata, citations: CustomCitation[], isExcelFile?: boolean, buffer?: ArrayBuffer) => void;
 }
 
 type ProcessingIndicatorProps = {
@@ -28,7 +28,7 @@ type MessageWithControlsProps = {
   index : number;
   isExpanded : boolean;
   onToggleCitations : (index : number) => void;
-  onViewPdf : (url: string, citations: CustomCitation[], isExcelFile?: boolean,buffer?: ArrayBuffer) => void;
+  onViewPdf : (url: string,citationMeta : Metadata, citations: CustomCitation[], isExcelFile?: boolean,buffer?: ArrayBuffer) => void;
   onFeedbackSubmit : (messageId : string, feedback : any) => Promise<void>;
   conversationId : string | null;
   onRegenerate : (messageId : string) => Promise<void>;

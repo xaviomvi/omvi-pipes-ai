@@ -15,6 +15,7 @@ import {
   archiveRecord,
   getRecordById,
   updateRecord,
+  getRecordBuffer,
 } from '../controllers/kb_controllers';
 import { ArangoService } from '../../../libs/services/arango.service';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
@@ -79,7 +80,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
 
   // Get a specific record by ID
   router.get(
-    '/:recordId',
+    '/record/:recordId',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(getRecordByIdSchema),
@@ -88,7 +89,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
 
   // Update an existing record
   router.put(
-    '/:recordId',
+    '/record/:recordId',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ...FileProcessorFactory.createBufferUploadProcessor({
@@ -110,7 +111,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
 
   // Delete a record by ID
   router.delete(
-    '/:recordId',
+    '/record/:recordId',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(deleteRecordSchema),
@@ -126,9 +127,17 @@ export function createKnowledgeBaseRouter(container: Container): Router {
     getRecords(recordRelationService),
   );
 
+  router.get(
+    '/stream/record/:recordId',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(getRecordByIdSchema),
+    getRecordBuffer()
+  )
+
   // Archive a record
   router.patch(
-    '/:recordId/archive',
+    '/record/:recordId/archive',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(archiveRecordSchema),
@@ -137,7 +146,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
 
   // Unarchive a previously archived record
   router.patch(
-    '/:recordId/unarchive',
+    '/record/:recordId/unarchive',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(unarchiveRecordSchema),
@@ -146,7 +155,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
 
   // Restore a deleted record
   router.patch(
-    '/:recordId/restore',
+    '/record/:recordId/restore',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(restoreRecordSchema),
@@ -155,7 +164,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
 
   // Set expiration time for a record
   router.post(
-    '/:recordId/expiration',
+    '/record/:recordId/expiration',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(setRecordExpirationTimeSchema),
@@ -164,7 +173,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
 
   // Get OCR data for a record
   router.get(
-    '/:recordId/ocr',
+    '/record/:recordId/ocr',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(getOCRDataSchema),
@@ -173,7 +182,7 @@ export function createKnowledgeBaseRouter(container: Container): Router {
 
   // Upload a new version of an existing record
   router.post(
-    '/:recordId/nextVersion',
+    '/record/:recordId/nextVersion',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ...FileProcessorFactory.createBufferUploadProcessor({
