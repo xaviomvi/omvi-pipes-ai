@@ -37,7 +37,7 @@ class CustomChunker(SemanticChunker):
 
     def split_documents(self, documents: List[Document]) -> List[Document]:
         """Override split_documents to use our custom merging logic"""
-        logger.info("Documents for splitting: %s", documents)
+        logger.info("Splitting documents")
         if len(documents) <= 1:
             return documents
 
@@ -205,6 +205,7 @@ class IndexingPipeline:
         collection_name: str,
         qdrant_api_key: str,
         qdrant_host,
+        grpc_port,
     ):
         """
         Initialize the indexing pipeline with necessary configurations.
@@ -242,6 +243,7 @@ class IndexingPipeline:
         # Initialize Qdrant client and collection
         self.qdrant_client = QdrantClient(
             host=qdrant_host,
+            grpc_port=grpc_port,
             api_key=qdrant_api_key,
             prefer_grpc=True,
             https=False,
@@ -327,7 +329,7 @@ class IndexingPipeline:
             if chunk.bounding_box:
                 chunk.metadata['bounding_box'] = chunk.bounding_box
 
-        # Use vector_store's async add_documents method which handles both dense and sparse embeddings
+        # Use vector_store's add_documents method which handles both dense and sparse embeddings
         await self.vector_store.aadd_documents(chunks)
         
         logger.info(f"✅ Successfully added {len(chunks)} documents to vector store")
@@ -382,6 +384,7 @@ class IndexingPipeline:
         print(f"🎯 Sentences - Metadata: {sentences[0]['metadata']}")
         print(f"🎯 Sentences - Bounding Box: {sentences[0]['bounding_box']}")
         
+        
         # Convert sentences to custom Document class
         documents = [
             Document(
@@ -391,7 +394,20 @@ class IndexingPipeline:
             )
             for sentence in sentences
         ]
-        
+
+        record_id = sentences[0]['metadata']['recordId']
+
+        record = await self.arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+        doc = dict(record)  # Create a copy of all existing fields
+
+        # Update with new metadata fields
+        doc.update({
+            "indexingStatus": "IN_PROGRESS"
+        })
+
+        docs = [doc]
+        await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)   
+             
         # Process documents into chunks
         chunks = self.text_splitter.split_documents(documents)
 

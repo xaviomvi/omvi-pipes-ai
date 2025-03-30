@@ -7,24 +7,14 @@ import asyncio
 import os
 from datetime import datetime, timedelta, timezone
 from jose import jwt
+from app.config.configuration_service import ConfigurationService, config_node_constants
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Kafka configuration
-KAFKA_CONFIG = {
-    'bootstrap.servers': 'localhost:9092',
-    'group.id': 'record_consumer_group',
-    'auto.offset.reset': 'earliest',
-    'enable.auto.commit': True,  # Enable auto-commit
-    'auto.commit.interval.ms': 5000,  # Commit every 5 seconds
-    'isolation.level': 'read_committed',  # Ensure we only read committed messages
-    'enable.partition.eof': False,
-}
-
-# Topic to consume from
-KAFKA_TOPIC = 'record-events'
+config_service = ConfigurationService()
 
 # Concurrency control settings
 MAX_CONCURRENT_TASKS = 5  # Maximum number of messages to process concurrently
@@ -91,11 +81,11 @@ async def make_api_call(signed_url_route: str, token: str) -> dict:
                 return {'is_json': False, 'data': data}
 
 class KafkaConsumerManager:
-    def __init__(self, event_processor):
+    def __init__(self, config_service, event_processor):
         self.consumer = None
         self.running = False
         self.event_processor = event_processor
-        
+        self.config_service = config_service
         # Concurrency control
         self.semaphore = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
         self.active_tasks: Set[asyncio.Task] = set()
@@ -104,8 +94,27 @@ class KafkaConsumerManager:
         # Message tracking
         self.processed_messages: Dict[str, List[int]] = {}
         
-    def create_consumer(self):
+    async def create_consumer(self):
         try:
+            
+            async def get_kafka_config():
+                kafka_config = await self.config_service.get_config(config_node_constants.KAFKA.value)
+                brokers = kafka_config['brokers']
+                
+                return {
+                    'bootstrap.servers': ",".join(brokers),
+                    'group.id': 'record_consumer_group',
+                    'auto.offset.reset': 'earliest',
+                    'enable.auto.commit': True,
+                    'isolation.level': 'read_committed',
+                    'enable.partition.eof': False,
+                    'client.id': kafka_config['clientIdMain']
+                }
+
+            KAFKA_CONFIG = await get_kafka_config()
+            # Topic to consume from
+            KAFKA_TOPIC = 'record-events'
+
             self.consumer = Consumer(KAFKA_CONFIG)
             self.consumer.subscribe([KAFKA_TOPIC])
             logger.info(f"Successfully subscribed to topic: {KAFKA_TOPIC}")
@@ -296,10 +305,10 @@ class KafkaConsumerManager:
                 self.consumer.close()
                 logger.info("Kafka consumer closed")
 
-    def start(self):
+    async def start(self):
         """Start the consumer."""
         self.running = True
-        self.create_consumer()
+        await self.create_consumer()
 
     def stop(self):
         """Stop the consumer."""

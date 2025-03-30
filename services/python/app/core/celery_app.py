@@ -22,13 +22,13 @@ class CeleryApp:
         try:
             celery_config = await self.config_service.get_config(config_node_constants.CELERY.value)
             celery_config = {
-                'broker_url': celery_config['broker_url'],
-                'result_backend': celery_config['result_backend'],
-                'task_serializer': celery_config['task_serializer'],
-                'result_serializer': celery_config['result_serializer'],
-                'accept_content': celery_config['accept_content'],
+                'broker_url': celery_config['brokerUrl'],
+                'result_backend': celery_config['resultBackend'],
+                'task_serializer': celery_config['taskSerializer'],
+                'result_serializer': celery_config['resultSerializer'],
+                'accept_content': celery_config['acceptContent'],
                 'timezone': celery_config['timezone'],
-                'enable_utc': celery_config['enable_utc']
+                'enable_utc': celery_config['enableUtc']
             }
 
             self.app.conf.update(celery_config)
@@ -42,8 +42,8 @@ class CeleryApp:
         try:
             celery_config = await self.config_service.get_config(config_node_constants.CELERY.value)
             sync_config = celery_config['schedule']
-            start_time = sync_config['sync_start_time']
-            pause_time = sync_config['sync_pause_time']
+            start_time = sync_config['syncStartTime']
+            pause_time = sync_config['syncPauseTime']
             self.app.conf.update(sync_config)
 
             self.app.conf.beat_schedule = {

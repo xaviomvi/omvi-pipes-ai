@@ -14,6 +14,7 @@ class RetrievalService:
         collection_name: str,
         qdrant_api_key: str,
         qdrant_host: str,
+        grpc_port: int
     ):
         """
         Initialize the retrieval service with necessary configurations.
@@ -23,8 +24,6 @@ class RetrievalService:
             qdrant_api_key: API key for Qdrant
             qdrant_host: Qdrant server host URL
         """
-        load_dotenv()  # Load environment variables
-
         # Initialize dense embeddings with BGE (same as indexing)
         model_name = "BAAI/bge-large-en-v1.5"
         encode_kwargs = {'normalize_embeddings': True}
@@ -41,11 +40,11 @@ class RetrievalService:
         # Initialize Qdrant client
         self.qdrant_client = QdrantClient(
             host=qdrant_host,
+            grpc_port=grpc_port,
             api_key=qdrant_api_key,
             prefer_grpc=True,
             https=False,
         )
-
         self.collection_name = collection_name
 
         # Initialize vector store with same configuration as indexing
@@ -58,7 +57,7 @@ class RetrievalService:
             sparse_embedding=self.sparse_embeddings,
             retrieval_mode=RetrievalMode.HYBRID,
         )
-
+        
     def _preprocess_query(self, query: str) -> str:
         """
         Preprocess the query text.

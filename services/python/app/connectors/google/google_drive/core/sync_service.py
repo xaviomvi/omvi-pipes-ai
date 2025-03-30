@@ -16,7 +16,7 @@ from app.connectors.google.core.arango_service import ArangoService
 from app.connectors.google.google_drive.core.drive_admin_service import DriveAdminService
 from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
 from app.connectors.core.kafka_service import KafkaService
-from app.config.configuration_service import ConfigurationService
+from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.utils.time_conversion import get_epoch_timestamp_in_ms, parse_timestamp
 
 class DriveSyncProgress:
@@ -41,7 +41,7 @@ class BaseDriveSyncService(ABC):
         kafka_service: KafkaService,
         celery_app
     ):
-        self.config = config
+        self.config_service = config
         self.arango_service = arango_service
         self.change_handler = change_handler
         self.kafka_service = kafka_service
@@ -871,7 +871,10 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                     file = await self.arango_service.get_document(file_key, CollectionNames.FILES.value)
                                     
                                     user_id = user['userId']
-
+                                    
+                                    connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+                                    connector_endpoint = connector_config.get('endpoint')
+            
                                     record_version = 0  # Initial version for new files
                                     extension = file.get('extension')
                                     mime_type = file.get('mimeType')
@@ -882,7 +885,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                         "recordVersion": record_version,
                                         "recordType": record.get('recordType'),
                                         'eventType': EventTypes.NEW_RECORD.value,
-                                        "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
+                                        "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                                         "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                         "connectorName": Connectors.GOOGLE_DRIVE.value,
                                         "origin": OriginTypes.CONNECTOR.value,
@@ -1070,6 +1073,9 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                 file = await self.arango_service.get_document(file_key, CollectionNames.FILES.value)
 
                                 user_id = user['userId']
+                                
+                                connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+                                connector_endpoint = connector_config.get('endpoint')
 
                                 # Send Kafka indexing event
                                 index_event = {
@@ -1079,7 +1085,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                     "recordVersion": 0,
                                     "recordType": record.get('recordType'),
                                     'eventType': EventTypes.NEW_RECORD.value,
-                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
+                                    "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                                     "origin": OriginTypes.CONNECTOR.value,
@@ -1336,6 +1342,9 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                 mime_type = file.get('mimeType')
                                 user_id = user['userId']
                                 
+                                connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+                                connector_endpoint = connector_config.get('endpoint')
+                                                    
                                 index_event = {
                                     "orgId": org_id,
                                     "recordId": file_key,
@@ -1343,7 +1352,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                                     "recordVersion": record_version,
                                     "recordType": record.get('recordType'),
                                     'eventType': EventTypes.NEW_RECORD.value,
-                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
+                                    "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                                     "origin": OriginTypes.CONNECTOR.value,

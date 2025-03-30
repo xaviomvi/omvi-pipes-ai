@@ -21,7 +21,7 @@ class GCalUserService:
 
     def __init__(self, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter, credentials=None):
         logger.info("🚀 Initializing GCalUserService")
-        self.config = config
+        self.config_service = config
         self.service = None
         self.credentials = credentials
         self.rate_limiter = rate_limiter
@@ -40,7 +40,7 @@ class GCalUserService:
                 if creds and creds.expired and creds.refresh_token:
                     creds.refresh(Request())
                 else:
-                    credentials_path = await self.config.get_config(config_node_constants.GOOGLE_AUTH_CREDENTIALS_PATH.value)
+                    credentials_path = await self.config_service.get_config(config_node_constants.GOOGLE_AUTH_CREDENTIALS_PATH.value)
                     flow = InstalledAppFlow.from_client_secrets_file(
                         credentials_path, SCOPES)
                     creds = flow.run_local_server(port=8090)

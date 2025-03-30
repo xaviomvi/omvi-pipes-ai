@@ -199,6 +199,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Kafka Consumer - pass the app_container
     kafka_consumer = KafkaRouteConsumer(
+        config_service= app.container.config_service(),
         arango_service=await app.container.arango_service(),
         routes=kafka_routes,  # Pass the list of route patterns
         app_container=app.container
@@ -206,7 +207,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
   
     # Initialize Kafka consumer
     consumer = kafka_consumer
-    consumer.start()
+    await consumer.start()
     logger.info("✅ Kafka consumer initialized")
 
     consume_task = asyncio.create_task(consumer.consume_messages())

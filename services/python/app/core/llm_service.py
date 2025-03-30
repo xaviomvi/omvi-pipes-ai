@@ -10,7 +10,7 @@ from app.config.ai_models_named_constants import AzureOpenAILLM
 class BaseLLMConfig(BaseModel):
     """Base configuration for all LLM providers"""
     model: str
-    temperature: float = Field(default=0.3, ge=0, le=1)
+    temperature: float = Field(default=0.4, ge=0, le=1)
     api_key: str
 
 class AzureLLMConfig(BaseLLMConfig):
@@ -75,7 +75,7 @@ class LLMFactory:
                 model=config.model,
                 azure_endpoint=config.azure_endpoint,
                 api_version=AzureOpenAILLM.AZURE_OPENAI_VERSION.value,
-                temperature=config.temperature,
+                temperature=0.4,
                 azure_deployment=config.azure_deployment,
                 callbacks=[cost_callback]
             )
@@ -83,7 +83,7 @@ class LLMFactory:
         elif isinstance(config, OpenAILLMConfig):
             return ChatOpenAI(
                 model=config.model,
-                temperature=config.temperature,
+                temperature=0.4,
                 api_key=config.api_key,
                 organization=config.organization_id,
                 callbacks=[cost_callback]

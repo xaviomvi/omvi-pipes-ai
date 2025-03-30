@@ -10,6 +10,7 @@ from redis.exceptions import RedisError
 from arango import ArangoClient
 from dependency_injector import containers, providers
 from app.config.configuration_service import ConfigurationService, config_node_constants
+from app.config.arangodb_constants import QdrantCollectionNames
 from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
 from app.core.ai_arango_service import ArangoService
 from app.services.kafka_consumer import KafkaConsumerManager
@@ -56,7 +57,7 @@ class AppContainer(containers.DeclarativeContainer):
             if provider == LLMProvider.AZURE_OPENAI_PROVIDER.value:
                 return AzureLLMConfig(
                     model=config['configuration']['model'],
-                    temperature=config['configuration']['temperature'],
+                    temperature=0.4,
                     api_key=config['configuration']['apiKey'],
                     azure_endpoint=config['configuration']['endpoint'],
                     azure_api_version=AzureOpenAILLM.AZURE_OPENAI_VERSION.value,
@@ -65,7 +66,7 @@ class AppContainer(containers.DeclarativeContainer):
             elif provider == LLMProvider.OPENAI_PROVIDER.value:
                 return OpenAILLMConfig(
                     model=config['configuration']['model'],
-                    temperature=config['configuration']['temperature'],
+                    temperature=0.4,
                     api_key=config['configuration']['apiKey'],
                 )
         
@@ -108,10 +109,11 @@ class AppContainer(containers.DeclarativeContainer):
         """Async factory method to get Qdrant configuration."""
         qdrant_config = await config_service.get_config(config_node_constants.QDRANT.value)
         return {
-            'collection_name': qdrant_config['collection_name'],
-            'api_key': qdrant_config['api_key'],
+            'collectionName': QdrantCollectionNames.RECORDS.value,
+            'apiKey': qdrant_config['apiKey'],
             'host': qdrant_config['host'],
             'port': qdrant_config['port'],
+            'grpcPort': qdrant_config['grpcPort']
         }
 
     qdrant_config = providers.Resource(
@@ -124,11 +126,11 @@ class AppContainer(containers.DeclarativeContainer):
         """Async factory for IndexingPipeline"""
         pipeline = IndexingPipeline(
             arango_service=arango_service,
-            collection_name=config['collection_name'],
-            qdrant_api_key=config['api_key'],
-            qdrant_host=config['host']
+            collection_name=config['collectionName'],
+            qdrant_api_key=config['apiKey'],
+            qdrant_host=config['host'],
+            grpc_port=config['grpcPort']
         )
-        # Add any async initialization if needed
         return pipeline
 
     indexing_pipeline = providers.Resource(
@@ -207,14 +209,15 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     # Kafka consumer with async initialization
-    async def _create_kafka_consumer(event_processor):
+    async def _create_kafka_consumer(config_service, event_processor):
         """Async factory for KafkaConsumerManager"""
-        consumer = KafkaConsumerManager(event_processor=event_processor)
+        consumer = KafkaConsumerManager(config_service=config_service, event_processor=event_processor)
         # Add any necessary async initialization
         return consumer
 
     kafka_consumer = providers.Resource(
         _create_kafka_consumer,
+        config_service=config_service,
         event_processor=event_processor
     )
 
@@ -266,7 +269,7 @@ async def health_check_arango(container):
         # Get the config_service instance first, then call get_config
         config_service = container.config_service()
         arangodb_config = await config_service.get_config(config_node_constants.ARANGODB.value)
-        username = arangodb_config['user']
+        username = arangodb_config['username']
         password = arangodb_config['password']
         
         logger.debug("Checking ArangoDB connection using ArangoClient")
@@ -293,14 +296,14 @@ async def health_check_kafka(container):
     logger.info("🔍 Starting Kafka health check...")
     try:
         kafka_config = await container.config_service().get_config(config_node_constants.KAFKA.value)
-        kafka_servers = kafka_config['servers']
-        logger.debug(f"Checking Kafka connection at: {kafka_servers}")
+        brokers = kafka_config['brokers']
+        logger.debug(f"Checking Kafka connection at: {brokers}")
         
         
         # Try to create a consumer with a short timeout
         try:
             config = {
-                'bootstrap.servers': kafka_servers,
+                'bootstrap.servers': ",".join(brokers),
                 'group.id': 'test',
                 'auto.offset.reset': 'earliest',
                 'enable.auto.commit': True,  # Disable auto-commit for exactly-once semantics
@@ -331,7 +334,7 @@ async def health_check_redis(container):
     logger.info("🔍 Starting Redis health check...")
     try:
         redis_config = await container.config_service().get_config(config_node_constants.REDIS.value)
-        redis_url = redis_config['url']
+        redis_url = f"redis://{redis_config['host']}:{redis_config['port']}/{redis_config['db']}"
         logger.debug(f"Checking Redis connection at: {redis_url}")        
         # Create Redis client and attempt to ping
         redis_client = Redis.from_url(redis_url, socket_timeout=5.0)
@@ -356,7 +359,9 @@ async def health_check_qdrant(container):
     logger.info("🔍 Starting Qdrant health check...")
     try:
         qdrant_config = await container.config_service().get_config(config_node_constants.QDRANT.value)
-        qdrant_url = qdrant_config['url']
+        print("qdrant_config", qdrant_config)
+        qdrant_url = f"http://{qdrant_config['host']}:{qdrant_config['port']}"
+        
         logger.debug(f"Checking Qdrant health at endpoint: {qdrant_url}/healthz")
         
         async with aiohttp.ClientSession() as session:
@@ -423,7 +428,7 @@ async def initialize_container(container: AppContainer) -> bool:
         # Initialize Kafka consumer
         logger.info("Initializing Kafka consumer")
         consumer = await container.kafka_consumer()
-        consumer.start()
+        await consumer.start()
         logger.info("✅ Kafka consumer initialized")
         
         await health_check(container)

@@ -16,7 +16,7 @@ from app.connectors.google.gmail.core.gmail_admin_service import GmailAdminServi
 from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
 from app.connectors.google.gmail.handlers.change_handler import GmailChangeHandler
 from app.connectors.core.kafka_service import KafkaService
-from app.config.configuration_service import ConfigurationService
+from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 class GmailSyncProgress:
@@ -40,7 +40,7 @@ class BaseGmailSyncService(ABC):
         kafka_service: KafkaService,
         celery_app
     ):
-        self.config = config
+        self.config_service = config
         self.arango_service = arango_service
         self.kafka_service = kafka_service
         self.celery_app = celery_app
@@ -1001,6 +1001,9 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                         logger.warning(
                             "Failed to process batch starting at index %s", i)
                         continue
+                    
+                    connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+                    connector_endpoint = connector_config.get('endpoint')
 
                     # Send events to Kafka for the batch
                     for metadata in batch_metadata:
@@ -1008,7 +1011,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             message = message_data['message']
                             message_key = await self.arango_service.get_key_by_external_message_id(message['id'])
                             user_id = user['userId']
-                            
+                                                        
                             headers = message.get('headers', {})
                             message_event = {
                                 "orgId": org_id,
@@ -1018,7 +1021,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                                 "recordVersion": 0,
                                 "eventType": EventTypes.NEW_RECORD.value,
                                 "body": message.get('body', ''),
-                                "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
+                                "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
                                 "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
                                 "origin": OriginTypes.CONNECTOR.value,
@@ -1040,7 +1043,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             "recordVersion": 0,
                             'eventType': EventTypes.NEW_RECORD.value,
                             "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
+                            "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
                             "mimeType": attachment.get('mimeType', 'application/octet-stream'),
@@ -1203,6 +1206,9 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                 if not await self.process_batch(batch_metadata, org_id):
                     logger.warning("Failed to process batch starting at index %s", i)
                     continue
+                
+                connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+                connector_endpoint = connector_config.get('endpoint')
 
                 # Send events to Kafka
                 for metadata in batch_metadata:
@@ -1220,7 +1226,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             "recordVersion": 0,
                             "eventType": EventTypes.NEW_RECORD.value,
                             "body": message.get('body', ''),
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
+                            "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
@@ -1242,7 +1248,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             "recordVersion": 0,
                             'eventType': EventTypes.NEW_RECORD.value,
                             "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
+                            "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
                             "mimeType": attachment.get('mimeType', 'application/octet-stream'),
@@ -1466,6 +1472,10 @@ class GmailSyncIndividualService(BaseGmailSyncService):
 
                 # Send events to Kafka for threads, messages and attachments
                 logger.info("🚀 Preparing events for Kafka for batch %s", i)
+                                
+                connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+                connector_endpoint = connector_config.get('endpoint')
+
                 for metadata in batch_metadata:   
                     # Message events
                     for message_data in metadata['messages']:
@@ -1483,7 +1493,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                             "recordVersion": 0,
                             "eventType": EventTypes.NEW_RECORD.value,
                             "body": message.get('body', ''),
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
+                            "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{message_key}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_key}/metadata",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
@@ -1505,7 +1515,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                             "recordVersion": 0,
                             'eventType': EventTypes.NEW_RECORD.value,
                             "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
+                            "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
                             "mimeType": attachment.get('mimeType', 'application/octet-stream'),

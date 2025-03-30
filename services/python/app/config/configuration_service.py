@@ -17,34 +17,27 @@ class config_node_constants(Enum):
     """Constants for ETCD configuration paths"""
     
     # Service paths
-    STORAGE_SERVICE = "services/storage_service"
-    AUTH = "services/auth"
-    SMTP = "services/smtp"
-    MONGODB = "services/mongodb"
-    ARANGODB = "services/arangodb"
-    QDRANT = "services/qdrant"
-    NODEJS = "services/nodejs"
-    REDIS = "services/redis"
-    WEBHOOK = "services/webhook"
-    AI_MODELS = "services/aiModels"
-    KAFKA = "services/kafka"
+    STORAGE_SERVICE = "/services/storageService"
+    AUTH = "/services/auth"
+    SMTP = "/services/smtp"
+    ARANGODB = "/services/arangodb"
+    QDRANT = "/services/qdrant"
+    NODEJS = "/services/nodejs"
+    REDIS = "/services/redis"
+    WEBHOOK = "/services/webhook"
+    AI_MODELS = "/services/aiModels"
+    KAFKA = "/services/kafka"
+
+    CONNECTORS_COMMON = "/connectors/common"
+    CONNECTORS_GOOGLE_WORKSPACE = "/connectors/googleWorkspace"
+    FRONTEND = "/services/frontend"
     
     # Non-service paths
-    LOG_LEVEL = "log_level"
-    MAX_WORKERS = "max_workers"
-            
-    # Retry related constants
-    RETRY_MAX_ATTEMPTS = "retry/max_attempts"
-    RETRY_DELAY_SECONDS = "retry/delay_seconds"
-    
-    # Sync related constants
-    SYNC_SCHEDULE = "/services/sync"
-    
-    # Metadata related constants
-    METADATA_CACHE_SIZE = "metadata/cache_size"
+    LOG_LEVEL = "/logLevel"
+    MAX_WORKERS = "/maxWorkers"
     
     # Celery related constants
-    CELERY = "services/celery"
+    CELERY = "/services/celery"
     
 class TokenScopes(Enum):
     """Constants for token scopes"""
@@ -56,10 +49,10 @@ class TokenScopes(Enum):
     
 class Routes(Enum):
     """Constants for routes"""
-    INDIVIDUAL_CREDENTIALS = "http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials"
-    INDIVIDUAL_REFRESH_TOKEN = "http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken"
-    BUSINESS_CREDENTIALS = "http://localhost:3000/api/v1/configurationManager/internal/connectors/business/googleWorkspaceCredentials"
-    LLM_CONFIG = "http://localhost:3000/api/v1/configurationManager/internal/aiModelsConfig"
+    INDIVIDUAL_CREDENTIALS = "/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials"
+    INDIVIDUAL_REFRESH_TOKEN = "/api/v1/connectors/internal/refreshIndividualConnectorToken"
+    BUSINESS_CREDENTIALS = "/api/v1/configurationManager/internal/connectors/business/googleWorkspaceCredentials"
+    LLM_CONFIG = "/api/v1/configurationManager/internal/aiModelsConfig"
 
 class ConfigurationService:
     """Service to manage configuration using etcd store"""
@@ -115,18 +108,18 @@ class ConfigurationService:
             try:
                 # First try to decode as a JSON string
                 decoded = value.decode('utf-8')
-                logger.debug("📋 Decoded UTF-8 string: %s", decoded)
+                # logger.debug("📋 Decoded UTF-8 string: %s", decoded)
 
                 try:
                     # Try parsing as JSON
                     result = json.loads(decoded)
                     logger.debug(
-                        "✅ Deserialized JSON value: %s (type: %s)", result, type(result))
+                        "✅ Deserialized JSON value: (type: %s)", type(result))
                     return result
                 except json.JSONDecodeError:
                     # If JSON parsing fails, return the string directly
-                    logger.debug(
-                        "📋 Not JSON, returning string directly: %s", decoded)
+                    # logger.debug(
+                    #     "📋 Not JSON, returning string directly")
                     return decoded
 
             except UnicodeDecodeError as e:
@@ -150,7 +143,7 @@ class ConfigurationService:
         with open('default_config.json', 'r') as f:
             default_config = json.load(f)
             logger.debug("📋 Default config loaded: %s", default_config)
-        
+
         # Process and store configuration
         for key, value in default_config.items():
             if isinstance(value, dict):

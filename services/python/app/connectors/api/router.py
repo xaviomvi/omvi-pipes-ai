@@ -13,8 +13,8 @@ from fastapi.responses import StreamingResponse
 import os
 import aiohttp
 from app.core.signed_url import TokenPayload
-from app.config.configuration_service import Routes, TokenScopes
-from app.config.arangodb_constants import CollectionNames, RecordRelations, Connectors
+from app.config.configuration_service import Routes, TokenScopes, config_node_constants
+from app.config.arangodb_constants import CollectionNames, RecordRelations, Connectors, RecordTypes
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from typing import Optional, Any
 import google.oauth2.credentials
@@ -451,7 +451,7 @@ async def get_signed_url(
             'purpose': 'file_processing'
         }
 
-        signed_url = signed_url_handler.create_signed_url(
+        signed_url = await signed_url_handler.create_signed_url(
             record_id,
             org_id,
             user_id,
@@ -472,6 +472,7 @@ async def download_file(
     record_id: str,
     connector: str,
     token: str,
+    config_service=Depends(Provide[AppContainer.config_service]),
     arango_service=Depends(Provide[AppContainer.arango_service]),
     signed_url_handler=Depends(Provide[AppContainer.signed_url_handler]),
 ):
@@ -498,11 +499,14 @@ async def download_file(
                 "Authorization": f"Bearer {jwt_token}"
             }
             
+            nodejs_config = await config_service.get_config(config_node_constants.NODEJS.value)
+            nodejs_endpoint = nodejs_config.get('common', {}).get('endpoint')
+            
             user = await arango_service.get_user_by_user_id(user_id)
             # Call credentials API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    Routes.BUSINESS_CREDENTIALS.value,
+                    f"{nodejs_endpoint}{Routes.BUSINESS_CREDENTIALS.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -538,7 +542,6 @@ async def download_file(
                 "userId": user_id,
                 "scopes": [TokenScopes.FETCH_CONFIG.value]
             }
-            print("payload", payload)
 
             # Create JWT token
             jwt_token = jwt.encode(
@@ -546,15 +549,18 @@ async def download_file(
                 os.getenv('SCOPED_JWT_SECRET'),
                 algorithm='HS256'
             )
-            print("jwt_token", jwt_token)
+
             headers = {
                 "Authorization": f"Bearer {jwt_token}"
             }
-            print("headers", headers)
+            
+            nodejs_config = await config_service.get_config(config_node_constants.NODEJS.value)
+            nodejs_endpoint = nodejs_config.get('common', {}).get('endpoint')
+
             # Fetch credentials from API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    f"{nodejs_endpoint}{Routes.INDIVIDUAL_CREDENTIALS.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -681,8 +687,8 @@ async def download_file(
                     """
                     cursor = arango_service.db.aql.execute(aql_query)
                     messages = list(cursor)
-                    logger.info(f"🚀 Reverse query results: {messages}")
-                    
+                    logger.info(f"🚀 Query results: {messages}")
+
                 if not messages or not messages[0]:
                     record_details = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
                     logger.error(f"Record details: {record_details}")
@@ -760,6 +766,7 @@ async def download_file(
 async def stream_record(
     request: Request,
     record_id: str,
+    config_service=Depends(Provide[AppContainer.config_service]),
     arango_service=Depends(Provide[AppContainer.arango_service]),
 ):
     async def get_service_account_credentials(user_id):
@@ -784,11 +791,14 @@ async def stream_record(
                 "Authorization": f"Bearer {jwt_token}"
             }
             
+            nodejs_config = await config_service.get_config(config_node_constants.NODEJS.value)
+            nodejs_endpoint = nodejs_config.get('common', {}).get('endpoint')
+
             user = await arango_service.get_user_by_user_id(user_id)
             # Call credentials API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    Routes.BUSINESS_CREDENTIALS.value,
+                    f"{nodejs_endpoint}{Routes.BUSINESS_CREDENTIALS.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -835,10 +845,14 @@ async def stream_record(
             headers = {
                 "Authorization": f"Bearer {jwt_token}"
             }
+            
+            nodejs_config = await config_service.get_config(config_node_constants.NODEJS.value)
+            nodejs_endpoint = nodejs_config.get('common', {}).get('endpoint')
+
             # Fetch credentials from API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    f"{nodejs_endpoint}{Routes.INDIVIDUAL_CREDENTIALS.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -913,6 +927,7 @@ async def stream_record(
         
         file_id = record.get('externalRecordId')
         connector = record.get('connectorName')
+        recordType = record.get('recordType')
         
         # Different auth handling based on account type
         if org['accountType'] in ['enterprise', 'business']:
@@ -950,8 +965,60 @@ async def stream_record(
                 )
 
             elif connector == Connectors.GOOGLE_MAIL.value:
-                logger.info(f"Downloading Gmail attachment for record_id: {record_id}")
+                logger.info(f"Handling Gmail request for record_id: {record_id}, type: {recordType}")
                 gmail_service = build('gmail', 'v1', credentials=creds)
+                
+                if recordType == RecordTypes.MAIL.value:
+                    try:
+                        # Fetch the full message from Gmail
+                        message = gmail_service.users().messages().get(
+                            userId='me',
+                            id=file_id,
+                            format='full'
+                        ).execute()
+
+                        def extract_body(payload):
+                            # If there are no parts, return the direct body data
+                            if 'parts' not in payload:
+                                return payload.get('body', {}).get('data', '')
+                            
+                            # Search for a text/html part that isn't an attachment (empty filename)
+                            for part in payload.get('parts', []):
+                                if part.get('mimeType') == 'text/html' and part.get('filename', '') == '':
+                                    content = part.get('body', {}).get('data', '')
+                                    return content
+
+                            # Fallback: if no html text, try to use text/plain
+                            for part in payload.get('parts', []):
+                                if part.get('mimeType') == 'text/plain' and part.get('filename', '') == '':
+                                    content = part.get('body', {}).get('data', '')
+                                    return content
+                            return ''
+
+                        # Extract the encoded body content
+                        mail_content_base64 = extract_body(message.get('payload', {}))
+                        import base64
+                        # Decode the Gmail URL-safe base64 encoded content; errors are replaced to avoid issues with malformed text
+                        mail_content = base64.urlsafe_b64decode(mail_content_base64.encode('ASCII')).decode('utf-8', errors='replace')
+
+                        # Async generator to stream only the mail content
+                        async def message_stream():
+                            yield mail_content.encode('utf-8')
+
+                        # Return the streaming response with only the mail body
+                        return StreamingResponse(
+                            message_stream(),
+                            media_type='text/plain'
+                        )
+                    except Exception as mail_error:
+                        logger.error(f"Failed to fetch mail content: {str(mail_error)}")
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Failed to fetch mail content"
+                        )
+                
+                # Handle attachment download (existing logic)
+                logger.info(f"Downloading Gmail attachment for record_id: {record_id}")
                 
                 # Get the related message's externalRecordId using AQL
                 aql_query = f"""
@@ -982,7 +1049,7 @@ async def stream_record(
                     """
                     cursor = arango_service.db.aql.execute(aql_query)
                     messages = list(cursor)
-                    logger.info(f"🚀 Reverse query results: {messages}")
+                    logger.info(f"🚀 Query results: {messages}")
 
                 if not messages or not messages[0]:
                     record_details = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)

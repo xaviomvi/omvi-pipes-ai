@@ -21,7 +21,7 @@ class GCalAdminService:
     """GCalAdminService class for interacting with Google Calendar API"""
 
     def __init__(self, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter):
-        self.config = config
+        self.config_service = config
         self.rate_limiter = rate_limiter
         self.google_limiter = self.rate_limiter.google_limiter
         self.admin_service = None
@@ -49,10 +49,13 @@ class GCalAdminService:
                 "Authorization": f"Bearer {jwt_token}"
             }
             
+            nodejs_config = await self.config_service.get_config(config_node_constants.NODEJS.value)
+            nodejs_endpoint = nodejs_config.get('common', {}).get('endpoint')
+            
             # Call credentials API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    Routes.BUSINESS_CREDENTIALS.value,
+                    f"{nodejs_endpoint}{Routes.BUSINESS_CREDENTIALS.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -90,7 +93,7 @@ class GCalAdminService:
 
             # Create new user service
             user_service = GCalUserService(
-                config=self.config,
+                config=self.config_service,
                 rate_limiter=self.rate_limiter,
                 credentials=user_credentials
             )

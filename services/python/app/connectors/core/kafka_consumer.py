@@ -13,26 +13,14 @@ from app.setups.connector_setup import initialize_individual_account_services_fn
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 # Import required services
-from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
-from app.config.configuration_service import ConfigurationService
+from app.config.configuration_service import config_node_constants
 
-# Initialize common services
-config_service = ConfigurationService()
-rate_limiter = GoogleAPIRateLimiter()
-
-KAFKA_CONFIG = {
-    'bootstrap.servers': 'localhost:9092',
-    'group.id': 'record_consumer_group',
-    'auto.offset.reset': 'earliest',
-    'enable.auto.commit': True,  # Disable auto-commit for exactly-once semantics
-    'isolation.level': 'read_committed',  # Ensure we only read committed messages
-    'enable.partition.eof': False,
-}
 
 class KafkaRouteConsumer:
-    def __init__(self, arango_service, routes=[], app_container=None):
+    def __init__(self, config_service, arango_service, routes=[], app_container=None):
         self.consumer = None
         self.running = False
+        self.config_service = config_service
         self.arango_service = arango_service
         self.routes = routes
         self.processed_messages: Dict[str, List[int]] = {}
@@ -62,9 +50,26 @@ class KafkaRouteConsumer:
             }
         }
 
-    def create_consumer(self):
+    async def create_consumer(self):
         """Initialize the Kafka consumer"""
         try:
+            async def get_kafka_config():
+                kafka_config = await self.config_service.get_config(config_node_constants.KAFKA.value)
+                
+                brokers = kafka_config['brokers']
+    
+                return {
+                    'bootstrap.servers': ",".join(brokers),
+                    'group.id': 'record_consumer_group',
+                    'auto.offset.reset': 'earliest',
+                    'enable.auto.commit': True,
+                    'isolation.level': 'read_committed',
+                    'enable.partition.eof': False,
+                    'client.id': kafka_config['clientIdRecords']
+                }
+
+            KAFKA_CONFIG = await get_kafka_config()
+            
             self.consumer = Consumer(KAFKA_CONFIG)
             # Add a small delay to allow for topic creation
             time.sleep(2)
@@ -162,6 +167,9 @@ class KafkaRouteConsumer:
             path_params = value.get('path_params', {})
             formatted_path = route_handler.format(**path_params)
             
+            connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+            connector_endpoint = connector_config.get('endpoint')
+            
             print(formatted_path)
             
             # Make HTTP request to the route
@@ -169,7 +177,7 @@ class KafkaRouteConsumer:
                 try:
                     response = await client.request(
                         method=method,
-                        url=f"http://localhost:8080{formatted_path}"
+                        url=f"{connector_endpoint}{formatted_path}"
                     )
                     response.raise_for_status()
                 except Exception as e:
@@ -698,10 +706,10 @@ class KafkaRouteConsumer:
                 self.consumer.close()
                 logger.info("Kafka consumer closed")
 
-    def start(self):
+    async def start(self):
         """Start the consumer."""
         self.running = True
-        self.create_consumer()
+        await self.create_consumer()
 
     def stop(self):
         """Stop the consumer."""
