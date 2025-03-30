@@ -17,8 +17,7 @@ export type ConfigValue = {
     skip: boolean;
     redirectPath: string;
   };
-  mapboxApiKey: string;
-  aiBackend : string;
+  aiBackend: string;
 };
 
 // ----------------------------------------------------------------------
@@ -31,7 +30,7 @@ export const CONFIG: ConfigValue = {
   authUrl: import.meta.env.VITE_AUTH_URL ?? '',
   assetsDir: import.meta.env.VITE_ASSETS_DIR ?? '',
   iamUrl: import.meta.env.VITE_IAM_URL ?? '',
-  aiBackend : import.meta.env.VITE_AI_BACKEND ?? '',
+  aiBackend: import.meta.env.VITE_AI_BACKEND ?? '',
   /**
    * Auth
    * @method jwt
@@ -41,8 +40,4 @@ export const CONFIG: ConfigValue = {
     skip: false,
     redirectPath: paths.dashboard.root,
   },
-  /**
-   * Mapbox
-   */
-  mapboxApiKey: import.meta.env.VITE_MAPBOX_API_KEY ?? '',
 };
