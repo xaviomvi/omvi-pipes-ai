@@ -38,6 +38,12 @@ import { StorageContainer } from './modules/storage/container/storage.container'
 import { NotificationContainer } from './modules/notification/container/notification.container';
 import { loadAppConfig } from './modules/tokens_manager/config/config';
 import { NotificationService } from './modules/notification/service/notification.service';
+import {
+  createSwaggerContainer,
+  SwaggerConfig,
+  SwaggerService,
+} from './modules/docs/swagger.container';
+import { registerStorageSwagger } from './modules/storage/docs/swagger';
 const loggerConfig = {
   service: 'Application',
 };
@@ -152,6 +158,7 @@ export class Application {
       // Configure Express
       this.configureMiddleware();
       this.configureRoutes();
+      this.setupSwagger();
       this.configureErrorHandling();
 
       this.notificationContainer
@@ -318,6 +325,44 @@ export class Application {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
+    }
+  }
+
+  private setupSwagger() {
+    try {
+      // Create the Swagger configuration
+      const swaggerConfig: SwaggerConfig = {
+        title: 'PipesHub API',
+        version: '1.0.0',
+        description: 'RESTful API for PipesHub services',
+        contact: {
+          name: 'API Support',
+          email: 'contact@pipeshub.com',
+        },
+        basePath: '/api-docs',
+      };
+
+      // Create container
+      const swaggerContainer = createSwaggerContainer();
+
+      // Get SwaggerService from container - IMPORTANT: Use the class directly, not as a string token
+      const swaggerService = swaggerContainer.get(SwaggerService);
+
+      // Initialize with app and config
+      swaggerService.initialize(this.app, swaggerConfig);
+
+      // Register module documentation
+      registerStorageSwagger(swaggerService);
+      // Register other modules as needed
+
+      // Setup the Swagger UI routes
+      swaggerService.setupSwaggerRoutes();
+
+      this.logger.info('Swagger documentation initialized successfully');
+    } catch (error) {
+      this.logger.error('Failed to initialize Swagger documentation', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 }

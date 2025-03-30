@@ -28,6 +28,7 @@
     "@types/passport": "^1.0.17",
     "@types/sinon": "^17.0.3",
     "@types/slug": "^5.0.9",
+    "@types/swagger-jsdoc": "^6.0.4",
     "@typescript-eslint/eslint-plugin": "^8.18.1",
     "@typescript-eslint/parser": "^8.18.1",
     "chai": "^5.1.2",
@@ -52,6 +53,8 @@
     "@types/mongodb": "^4.0.6",
     "@types/multer": "^1.4.12",
     "@types/nodemailer": "^6.4.17",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/yamljs": "^0.2.34",
     "arangojs": "^10.1.1",
     "aws-sdk": "^2.1534.0",
     "axios": "^1.7.9",
@@ -86,8 +89,11 @@
     "sharp": "^0.33.5",
     "slug": "^4.1.0",
     "socket.io": "^4.8.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^11.0.3",
     "winston": "^3.17.0",
+    "yamljs": "^0.3.0",
     "zod": "^3.24.1"
   }
 }
