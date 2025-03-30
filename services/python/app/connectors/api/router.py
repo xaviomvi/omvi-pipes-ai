@@ -23,7 +23,7 @@ from googleapiclient.http import MediaIoBaseDownload
 import io
 from jose import JWTError
 from pydantic import ValidationError
-from app.middlewares.auth import authMiddleware
+from app.connectors.api.middleware import WebhookAuthVerifier
 
 router = APIRouter()
 
@@ -35,7 +35,7 @@ async def get_drive_webhook_handler(request: Request) -> Optional[Any]:
     except Exception as e:
         logger.warning(f"Failed to get drive webhook handler: {str(e)}")
         return None
-
+    
 @router.post("/drive/webhook")
 @inject
 async def handle_drive_webhook(
@@ -44,6 +44,11 @@ async def handle_drive_webhook(
 ):
     """Handle incoming webhook notifications from Google Drive"""
     try:
+        
+        verifier = WebhookAuthVerifier()
+        if not await verifier.verify_request(request):
+            raise HTTPException(status_code=401, detail="Unauthorized webhook request")
+
         drive_webhook_handler = await get_drive_webhook_handler(request)
         
         if drive_webhook_handler is None:
