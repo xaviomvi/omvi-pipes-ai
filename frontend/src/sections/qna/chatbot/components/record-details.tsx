@@ -1,5 +1,8 @@
 import type { CustomCitation } from 'src/types/chat-bot';
-import type { Permissions, RecordDetailsResponse } from 'src/sections/knowledgebase/types/record-details';
+import type {
+  Permissions,
+  RecordDetailsResponse,
+} from 'src/sections/knowledgebase/types/record-details';
 
 import { Icon } from '@iconify/react';
 import React, { useState, useEffect } from 'react';
@@ -65,7 +68,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
     if (record?.origin === ORIGIN.UPLOAD) {
       if (record?.externalRecordId) {
         try {
-          const {externalRecordId} = record;
+          const { externalRecordId } = record;
           const response = await axios.get(`/api/v1/document/${externalRecordId}/download`, {
             responseType: 'blob',
           });
@@ -207,7 +210,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
     return null;
   }
 
-  const {record} = recordData;
+  const { record } = recordData;
   const webUrl = record.fileRecord?.webUrl;
 
   return (
@@ -319,7 +322,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             Knowledge Base
           </Typography>
           <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
-            {recordData.knowledgeBase.name}
+            {recordData.knowledgeBase?.name ? recordData.knowledgeBase.name : 'Default'}
           </Typography>
         </Box>
 

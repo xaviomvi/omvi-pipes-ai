@@ -305,7 +305,7 @@ export default function RecordDetails() {
                       sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                     >
                       <Icon icon="mdi:database" style={{ fontSize: '16px' }} />
-                      KB: {knowledgeBase.name}
+                      KB: {knowledgeBase?.name ? knowledgeBase.name : "Default"}
                     </Typography>
                   </Grid>
                 )}

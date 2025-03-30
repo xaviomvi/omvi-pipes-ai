@@ -8,7 +8,7 @@ import KnowledgeBaseSearch from 'src/sections/knowledgebase/knowledge-base-searc
 
 // ----------------------------------------------------------------------
 
-const metadata = { title: `KnowledgeBase Search | Dashboard - ${CONFIG.appName}` };
+const metadata = { title: `Knowledge Search | ${CONFIG.appName}` };
 
 export default function Page() {
   return (
