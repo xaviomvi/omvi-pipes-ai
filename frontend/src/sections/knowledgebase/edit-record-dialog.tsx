@@ -221,7 +221,7 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
       formData.append('recordName', name.trim() || (file ? file.name : initialName));
 
       // Send the file to the API
-      const response = await axios.put(`/api/v1/knowledgeBase/${recordId}`, formData,config);
+      const response = await axios.put(`/api/v1/knowledgeBase/record/${recordId}`, formData,config);
 
       if (!response) {
         throw new Error(`Upload failed with status: ${response}`);

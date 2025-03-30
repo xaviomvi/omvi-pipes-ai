@@ -24,6 +24,7 @@ import {
 import { useUsers } from 'src/context/UserContext';
 
 import type { SearchResult, KnowledgeSearchProps } from './types/search-response';
+import { ORIGIN } from './constants/knowledge-search';
 
 // Helper function to get file icon based on extension
 const getFileIcon = (extension: string): string => {
@@ -255,9 +256,9 @@ const KnowledgeSearch = ({
   };
 
   const handleRecordClick = (record: SearchResult): void => {
-    const {recordId} = record.metadata;
+    const { recordId } = record.metadata;
     const recordMeta = recordsMap[recordId];
-    const {webUrl} = recordMeta;
+    const { webUrl } = recordMeta;
     window.open(webUrl, '_blank'); // Opens in a new tab/window
   };
 
@@ -597,20 +598,27 @@ const KnowledgeSearch = ({
                               width: 40,
                               height: 40,
                               borderRadius: '6px',
-                              bgcolor: alpha(
-                                getFileIconColor(result.metadata.extension || ''),
-                                0.1
-                              ),
+                              // bgcolor: alpha(
+                              //   getFileIconColor(result.metadata.extension || ''),
+                              //   0.1
+                              // ),
                               flexShrink: 0,
                             }}
                           >
-                            <Icon
-                              icon={getFileIcon(result.metadata.extension || '')}
-                              style={{
-                                fontSize: 24,
-                                color: getFileIconColor(result.metadata.extension || ''),
-                              }}
-                            />
+                            <Tooltip
+                              title={
+                                result.metadata.origin === ORIGIN.UPLOAD
+                                  ? 'Local KB'
+                                  : result.metadata.connector ||
+                                    result.metadata.origin ||
+                                    'Document'
+                              }
+                            >
+                              <Icon
+                                icon={sourceInfo.icon}
+                                style={{ fontSize: 26, color: sourceInfo.color }}
+                              />
+                            </Tooltip>
                           </Box>
 
                           {/* Content */}
@@ -655,7 +663,7 @@ const KnowledgeSearch = ({
                                   </Button>
                                 )}
 
-                                <Tooltip
+                                {/* <Tooltip
                                   title={
                                     result.metadata.connector ||
                                     result.metadata.origin ||
@@ -666,7 +674,7 @@ const KnowledgeSearch = ({
                                     icon={sourceInfo.icon}
                                     style={{ fontSize: 18, color: sourceInfo.color }}
                                   />
-                                </Tooltip>
+                                </Tooltip> */}
 
                                 <Chip
                                   label={fileType}

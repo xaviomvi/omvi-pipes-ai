@@ -1,5 +1,5 @@
 import type { Record } from 'src/types/chat-message';
-import type { CustomCitation } from 'src/types/chat-bot';
+import type { CustomCitation, Metadata } from 'src/types/chat-bot';
 
 import React from 'react';
 import { Icon } from '@iconify/react';
@@ -19,9 +19,10 @@ interface CitationHoverCardProps {
   onClose: () => void;
   onViewPdf: (
     url: string,
+    citationMeta : Metadata,
     citations: CustomCitation[],
     isExcelFile?: boolean,
-    buffer?: ArrayBuffer
+    buffer?: ArrayBuffer,
   ) => Promise<void>;
   aggregatedCitations: CustomCitation[];
 }
@@ -77,112 +78,112 @@ const CitationHoverCard = ({
 
   const handleOpenPdf = async () => {
     if (citation?.metadata?.recordId) {
-      if (citation.metadata.origin === 'UPLOAD') {
-        try {
-          const isExcelOrCSV = ['CSV', 'xlsx', 'xls'].includes(citation.metadata?.extension);
-          const recordId = citation.metadata?.recordId;
-          const response = await axios.get(`/api/v1/knowledgebase/${recordId}`);
-          const {record} = response.data;
-          const { externalRecordId } = record;
-          const fileName = record.recordName;
-          // const downloadResponse = await axios.get(`/api/v1/document/${externalRecordId}/download`);
-          // const url = downloadResponse.data.signedUrl;
-          // onViewPdf(url, aggregatedCitations, isExcelOrCSV);
+      
+      try {
+        const isExcelOrCSV = ['CSV', 'xlsx', 'xls'].includes(citation.metadata?.extension);
+        // const recordId = citation.metadata?.recordId;
+        // const response = await axios.get(`/api/v1/knowledgebase/record/${recordId}`);
+        // const { record } = response.data;
+        // const { externalRecordId } = record;
+        // const fileName = record.recordName;
+        // const downloadResponse = await axios.get(`/api/v1/document/${externalRecordId}/download`);
+        // const url = downloadResponse.data.signedUrl;
+        // onViewPdf(url, aggregatedCitations, isExcelOrCSV);
+        const citationMeta = citation.metadata;
+        onViewPdf('', citationMeta, aggregatedCitations, isExcelOrCSV);
+        // if (record.origin === ORIGIN.UPLOAD) {
+        //   try {
+        //     const downloadResponse = await axios.get(
+        //       `/api/v1/document/${externalRecordId}/download`,
+        //       { responseType: 'blob' }
+        //     );
 
-          if (record.origin === ORIGIN.UPLOAD) {
-            try {
-              const downloadResponse = await axios.get(
-                `/api/v1/document/${externalRecordId}/download`,
-                { responseType: 'blob' }
-              );
+        //     // Read the blob response as text to check if it's JSON with signedUrl
+        //     const reader = new FileReader();
+        //     const textPromise = new Promise<string>((resolve) => {
+        //       reader.onload = () => {
+        //         resolve(reader.result?.toString() || '');
+        //       };
+        //     });
 
-              // Read the blob response as text to check if it's JSON with signedUrl
-              const reader = new FileReader();
-              const textPromise = new Promise<string>((resolve) => {
-                reader.onload = () => {
-                  resolve(reader.result?.toString() || '');
-                };
-              });
+        //     reader.readAsText(downloadResponse.data);
+        //     const text = await textPromise;
 
-              reader.readAsText(downloadResponse.data);
-              const text = await textPromise;
+        //     let filename = fileName || `document-${externalRecordId}`;
+        //     const contentDisposition = downloadResponse.headers['content-disposition'];
+        //     if (contentDisposition) {
+        //       const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+        //       if (filenameMatch && filenameMatch[1]) {
+        //         filename = filenameMatch[1];
+        //       }
+        //     }
 
-              let filename = fileName || `document-${externalRecordId}`;
-              const contentDisposition = downloadResponse.headers['content-disposition'];
-              if (contentDisposition) {
-                const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
-                if (filenameMatch && filenameMatch[1]) {
-                  filename = filenameMatch[1];
-                }
-              }
+        //     try {
+        //       // Try to parse as JSON to check for signedUrl property
+        //       const jsonData = JSON.parse(text);
+        //       if (jsonData && jsonData.signedUrl) {
+        //         onViewPdf(jsonData.signedUrl, aggregatedCitations, isExcelOrCSV);
+        //       }
+        //     } catch (e) {
+        //       // Case 2: Local storage - Return buffer
+        //       const bufferReader = new FileReader();
+        //       const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
+        //         bufferReader.onload = () => {
+        //           resolve(bufferReader.result as ArrayBuffer);
+        //         };
+        //         bufferReader.readAsArrayBuffer(downloadResponse.data);
+        //       });
 
-              try {
-                // Try to parse as JSON to check for signedUrl property
-                const jsonData = JSON.parse(text);
-                if (jsonData && jsonData.signedUrl) {
-                  onViewPdf(jsonData.signedUrl, aggregatedCitations, isExcelOrCSV);
-                }
-              } catch (e) {
-                // Case 2: Local storage - Return buffer
-                const bufferReader = new FileReader();
-                const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
-                  bufferReader.onload = () => {
-                    resolve(bufferReader.result as ArrayBuffer);
-                  };
-                  bufferReader.readAsArrayBuffer(downloadResponse.data);
-                });
+        //       const buffer = await arrayBufferPromise;
+        //       onViewPdf('', aggregatedCitations, isExcelOrCSV, buffer);
+        //     }
+        //   } catch (error) {
+        //     console.error('Error downloading document:', error);
+        //     throw new Error('Failed to download document');
+        //   }
+        // } else if (record.origin === ORIGIN.CONNECTOR) {
+        //   try {
+        //     const connectorResponse = await axios.get(
+        //       `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
+        //       {
+        //         responseType: 'blob',
+        //       }
+        //     );
 
-                const buffer = await arrayBufferPromise;
-                onViewPdf('', aggregatedCitations, isExcelOrCSV, buffer);
-              }
-            } catch (error) {
-              console.error('Error downloading document:', error);
-              throw new Error('Failed to download document');
-            }
-          } else if (record.origin === ORIGIN.CONNECTOR) {
-            try {
-              const connectorResponse = await axios.get(
-                `${CONFIG.aiBackend}/api/v1/stream/record/${recordId}`,
-                {
-                  responseType: 'blob',
-                }
-              );
+        //     // Extract filename from content-disposition header
+        //     let filename = record.recordName || `document-${recordId}`;
+        //     const contentDisposition = connectorResponse.headers['content-disposition'];
+        //     if (contentDisposition) {
+        //       const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+        //       if (filenameMatch && filenameMatch[1]) {
+        //         filename = filenameMatch[1];
+        //       }
+        //     }
 
-              // Extract filename from content-disposition header
-              let filename = record.recordName || `document-${recordId}`;
-              const contentDisposition = connectorResponse.headers['content-disposition'];
-              if (contentDisposition) {
-                const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
-                if (filenameMatch && filenameMatch[1]) {
-                  filename = filenameMatch[1];
-                }
-              }
+        //     // Convert blob directly to ArrayBuffer
+        //     const bufferReader = new FileReader();
+        //     const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
+        //       bufferReader.onload = () => {
+        //         // Create a copy of the buffer to prevent detachment issues
+        //         const originalBuffer = bufferReader.result as ArrayBuffer;
+        //         const bufferCopy = originalBuffer.slice(0);
+        //         resolve(bufferCopy);
+        //       };
+        //       bufferReader.onerror = () => {
+        //         reject(new Error('Failed to read blob as array buffer'));
+        //       };
+        //       bufferReader.readAsArrayBuffer(connectorResponse.data);
+        //     });
 
-              // Convert blob directly to ArrayBuffer
-              const bufferReader = new FileReader();
-              const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
-                bufferReader.onload = () => {
-                  // Create a copy of the buffer to prevent detachment issues
-                  const originalBuffer = bufferReader.result as ArrayBuffer;
-                  const bufferCopy = originalBuffer.slice(0);
-                  resolve(bufferCopy);
-                };
-                bufferReader.onerror = () => {
-                  reject(new Error('Failed to read blob as array buffer'));
-                };
-                bufferReader.readAsArrayBuffer(connectorResponse.data);
-              });
-
-              const buffer = await arrayBufferPromise;
-              onViewPdf('', aggregatedCitations, isExcelOrCSV, buffer);
-            } catch (err) {
-              console.error('Error downloading document:', err);
-              throw new Error(`Failed to download document: ${err.message}`);
-            }
-          }
-        } catch (err) {
-          console.error('Failed to fetch document:', err);
-        }
+        //     const buffer = await arrayBufferPromise;
+        //     onViewPdf('', aggregatedCitations, isExcelOrCSV, buffer);
+        //   } catch (err) {
+        //     console.error('Error downloading document:', err);
+        //     throw new Error(`Failed to download document: ${err.message}`);
+        //   }
+        // }
+      } catch (err) {
+        console.error('Failed to fetch document:', err);
       }
     }
   };

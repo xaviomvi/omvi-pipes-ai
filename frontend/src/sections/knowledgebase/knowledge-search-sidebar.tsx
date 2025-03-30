@@ -22,7 +22,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import { fetchModules, fetchDepartments, fetchRecordCategories } from './utils';
+// import { fetchModules, fetchDepartments, fetchRecordCategories } from './utils';
 
 import type { Modules } from './types/modules';
 import type { Departments } from './types/departments';
@@ -355,14 +355,14 @@ export default function KnowledgeSearchSideBar({
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [deptData, catData, moduleData] = await Promise.all([
-          fetchDepartments(),
-          fetchRecordCategories(),
-          fetchModules(),
-        ]);
-        setDepartments(deptData);
-        setRecordCategories(catData);
-        setModules(moduleData);
+        // const [deptData, catData, moduleData] = await Promise.all([
+        //   // fetchDepartments(),
+        //   // fetchRecordCategories(),
+        //   // fetchModules(),
+        // ]);
+        // setDepartments();
+        // setRecordCategories();
+        // setModules();
       } catch (error) {
         console.error('Error fetching filter data:', error);
         // Use fallback mock data in case of API error

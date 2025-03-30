@@ -50,7 +50,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
 
       try {
         const response = await axios.get<RecordDetailsResponse>(
-          `/api/v1/knowledgebase/${recordId}`
+          `/api/v1/knowledgebase/record/${recordId}`
         );
         setRecordData(response.data);
       } catch (err) {
@@ -125,7 +125,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
       }
     } else if (record?.origin === ORIGIN.CONNECTOR) {
       try {
-        const response = await axios.get(`${CONFIG.aiBackend}/api/v1/stream/record/${recordId}`, {
+        const response = await axios.get(`${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`, {
           responseType: 'blob',
         });
 

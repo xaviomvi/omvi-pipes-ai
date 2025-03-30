@@ -5,21 +5,24 @@ import type {
   CustomCitation,
   FormattedMessage,
   ExpandedCitationsState,
+  Metadata,
 } from 'src/types/chat-bot';
-
+import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
+import { CONFIG } from 'src/config-global';
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router';
 import React, { useState, useEffect, useCallback } from 'react';
 
-import { Box, Button, styled, Tooltip, IconButton,CircularProgress } from '@mui/material';
+import { Box, Button, styled, Tooltip, IconButton, CircularProgress } from '@mui/material';
 
-import axiosInstance from 'src/utils/axios';
+import axios from 'src/utils/axios';
 
 import ChatInput from './components/chat-input';
 import ChatSidebar from './components/chat-sidebar';
 import ExcelViewer from './components/excel-highlighter';
 import ChatMessagesArea from './components/chat-message-area';
 import PdfHighlighterComp from './components/pdf-highlighter';
+
 
 const DRAWER_WIDTH = 300;
 
@@ -84,7 +87,8 @@ const ChatInterface = () => {
   const [isExcel, setIsExcel] = useState<boolean>(false);
   const [isViewerReady, setIsViewerReady] = useState<boolean>(false);
   const [transitioning, setTransitioning] = useState<boolean>(false);
-  const [fileBuffer,setFileBuffer] = useState<ArrayBuffer>();
+  const [fileBuffer, setFileBuffer] = useState<ArrayBuffer>();
+  const [isPdf, setIsPdf] = useState<boolean>(false);
 
   const formatMessage = useCallback((apiMessage: Message): FormattedMessage | null => {
     if (!apiMessage) return null;
@@ -126,7 +130,7 @@ const ChatInterface = () => {
           citationType: citation.citationType,
           createdAt: citation.citationData?.createdAt || new Date().toISOString(),
           updatedAt: citation.citationData?.updatedAt || new Date().toISOString(),
-          recordIndex : citation.citationData.recordIndex || 1,
+          recordIndex: citation.citationData.recordIndex || 1,
         })),
       };
     }
@@ -149,9 +153,10 @@ const ChatInterface = () => {
 
   const onViewPdf = async (
     url: string,
+    citationMeta: Metadata,
     citations: CustomCitation[],
     isExcelFile: boolean = false,
-    buffer?: ArrayBuffer
+    bufferData?: ArrayBuffer
   ): Promise<void> => {
     // setAggregatedCitations(citations);
     // setPdfUrl(url);
@@ -162,6 +167,112 @@ const ChatInterface = () => {
     setTransitioning(true);
     setIsViewerReady(false);
     setDrawerOpen(false);
+    setOpenPdfView(true);
+    setAggregatedCitations(citations);
+
+    try {
+      const isExcelOrCSV = ['CSV', 'xlsx', 'xls'].includes(citationMeta?.extension);
+      setIsExcel(isExcelOrCSV);
+      setIsPdf(citationMeta?.extension === 'pdf');
+      const recordId = citationMeta?.recordId;
+      const response = await axios.get(`/api/v1/knowledgebase/record/${recordId}`);
+      const { record } = response.data;
+      const { externalRecordId } = record;
+      const fileName = record.recordName;
+      if (record.origin === ORIGIN.UPLOAD) {
+        try {
+          const downloadResponse = await axios.get(
+            `/api/v1/document/${externalRecordId}/download`,
+            { responseType: 'blob' }
+          );
+
+          // Read the blob response as text to check if it's JSON with signedUrl
+          const reader = new FileReader();
+          const textPromise = new Promise<string>((resolve) => {
+            reader.onload = () => {
+              resolve(reader.result?.toString() || '');
+            };
+          });
+
+          reader.readAsText(downloadResponse.data);
+          const text = await textPromise;
+
+          let filename = fileName || `document-${externalRecordId}`;
+          const contentDisposition = downloadResponse.headers['content-disposition'];
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+              filename = filenameMatch[1];
+            }
+          }
+
+          try {
+            // Try to parse as JSON to check for signedUrl property
+            const jsonData = JSON.parse(text);
+            if (jsonData && jsonData.signedUrl) {
+              setPdfUrl(jsonData.signedUrl);
+            }
+          } catch (e) {
+            // Case 2: Local storage - Return buffer
+            const bufferReader = new FileReader();
+            const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
+              bufferReader.onload = () => {
+                resolve(bufferReader.result as ArrayBuffer);
+              };
+              bufferReader.readAsArrayBuffer(downloadResponse.data);
+            });
+
+            const buffer = await arrayBufferPromise;
+            setFileBuffer(buffer);
+          }
+        } catch (error) {
+          console.error('Error downloading document:', error);
+          throw new Error('Failed to download document');
+        }
+      } else if (record.origin === ORIGIN.CONNECTOR) {
+        try {
+          const connectorResponse = await axios.get(
+            `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
+            {
+              responseType: 'blob',
+            }
+          );
+
+          // Extract filename from content-disposition header
+          let filename = record.recordName || `document-${recordId}`;
+          const contentDisposition = connectorResponse.headers['content-disposition'];
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
+            if (filenameMatch && filenameMatch[1]) {
+              filename = filenameMatch[1];
+            }
+          }
+
+          // Convert blob directly to ArrayBuffer
+          const bufferReader = new FileReader();
+          const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
+            bufferReader.onload = () => {
+              // Create a copy of the buffer to prevent detachment issues
+              const originalBuffer = bufferReader.result as ArrayBuffer;
+              const bufferCopy = originalBuffer.slice(0);
+              resolve(bufferCopy);
+            };
+            bufferReader.onerror = () => {
+              reject(new Error('Failed to read blob as array buffer'));
+            };
+            bufferReader.readAsArrayBuffer(connectorResponse.data);
+          });
+
+          const buffer = await arrayBufferPromise;
+          setFileBuffer(buffer);
+        } catch (err) {
+          console.error('Error downloading document:', err);
+          throw new Error(`Failed to download document: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch document:', err);
+    }
 
     if (openPdfView && isExcel !== isExcelFile) {
       setPdfUrl(null);
@@ -172,11 +283,9 @@ const ChatInterface = () => {
     }
 
     // Set new viewer states
-    setIsExcel(isExcelFile);
-    setPdfUrl(url);
-    setAggregatedCitations(citations);
-    setOpenPdfView(true);
-    setFileBuffer(buffer);
+    // setIsExcel(isExcelFile);
+    // setPdfUrl(url);
+    // setFileBuffer(buffer);
 
     // Allow component to mount
     setTimeout(() => {
@@ -253,7 +362,7 @@ const ChatInterface = () => {
       let response;
       if (!currentConversationId) {
         // Create new conversation
-        response = await axiosInstance.post<{ conversation: Conversation }>(
+        response = await axios.post<{ conversation: Conversation }>(
           '/api/v1/conversations/create',
           {
             query: trimmedInput,
@@ -280,7 +389,7 @@ const ChatInterface = () => {
         setMessages((prev) => [...prev, tempUserMessage]);
 
         // Continue existing conversation
-        response = await axiosInstance.post<{ conversation: Conversation }>(
+        response = await axios.post<{ conversation: Conversation }>(
           `/api/v1/conversations/${currentConversationId}/messages`,
           { query: trimmedInput }
         );
@@ -336,7 +445,7 @@ const ChatInterface = () => {
 
       try {
         setIsLoading(true);
-        const response = await axiosInstance.post<{ conversation: Conversation }>(
+        const response = await axios.post<{ conversation: Conversation }>(
           `/api/v1/conversations/${currentConversationId}/message/${messageId}/regenerate`,
           { instruction: 'Improve writing style and clarity' }
         );
@@ -414,7 +523,7 @@ const ChatInterface = () => {
         setMessages([]);
         setExpandedCitations({});
         navigate(`/${chat._id}`);
-        const response = await axiosInstance.get(`/api/v1/conversations/${chat._id}`);
+        const response = await axios.get(`/api/v1/conversations/${chat._id}`);
         const { conversation } = response.data;
 
         if (!conversation || !Array.isArray(conversation.messages)) {
@@ -463,7 +572,7 @@ const ChatInterface = () => {
       if (!currentConversationId || !messageId) return;
 
       try {
-        await axiosInstance.post(
+        await axios.post(
           `/api/v1/conversations/${currentConversationId}/message/${messageId}/feedback`,
           feedback
         );
@@ -544,7 +653,7 @@ const ChatInterface = () => {
             height: '90vh',
             borderRight: openPdfView ? 1 : 0,
             borderColor: 'divider',
-            marginLeft : isDrawerOpen ? 0 : 4,
+            marginLeft: isDrawerOpen ? 0 : 4,
           }}
         >
           {/* <Box sx={{ flexShrink: 0 }}>
@@ -619,12 +728,18 @@ const ChatInterface = () => {
             )}
 
             {/* Render viewer with citations */}
-            {isViewerReady &&
+            {
+            isViewerReady &&
               (pdfUrl || fileBuffer) &&
               aggregatedCitations &&
-              !transitioning &&
+              // !transitioning &&
               (isExcel ? (
-                <ExcelViewer key="excel-viewer" citations={aggregatedCitations} fileUrl={pdfUrl} excelBuffer={fileBuffer} />
+                <ExcelViewer
+                  key="excel-viewer"
+                  citations={aggregatedCitations}
+                  fileUrl={pdfUrl}
+                  excelBuffer={fileBuffer}
+                />
               ) : (
                 <PdfHighlighterComp
                   key="pdf-viewer"

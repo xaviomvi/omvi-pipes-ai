@@ -1,4 +1,4 @@
-import type { CustomCitation } from 'src/types/chat-bot';
+import type { CustomCitation, Metadata } from 'src/types/chat-bot';
 import type {
   Record,
   ChatMessageProps,
@@ -397,12 +397,13 @@ const ChatMessage = ({
 
   const handleViewPdf = async (
     url: string,
+    citationMeta : Metadata,
     citations: CustomCitation[],
     isExcelFile?: boolean,
     buffer?: ArrayBuffer
   ): Promise<void> =>
     new Promise<void>((resolve) => {
-      onViewPdf(url, citations, isExcelFile,buffer);
+      onViewPdf(url,citationMeta, citations, isExcelFile,buffer);
       resolve();
     });
 

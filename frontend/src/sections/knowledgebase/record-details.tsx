@@ -179,7 +179,7 @@ export default function RecordDetails() {
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <IconButton
-                  onClick={() => navigate(-1)}
+                  onClick={() => navigate('/knowledge-base/details')}
                   size="small"
                   sx={{
                     borderRadius: 1,

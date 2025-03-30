@@ -30,6 +30,7 @@ import { HttpMethod } from '../../../libs/enums/http-methods.enum';
 import { AIServiceCommand } from '../../../libs/commands/ai_service/ai.service.command';
 import { AIServiceResponse } from '../../enterprise_search/types/conversation.interfaces';
 import { IServiceRecordsResponse } from '../types/service.records.response';
+import axios from 'axios';
 
 const logger = Logger.getInstance({
   service: 'Knowledge Base Controller',
@@ -283,6 +284,67 @@ export const getRecordById =
       });
       next(error);
       return; // Added return statement
+    }
+  };
+
+export const getRecordBuffer =
+  () =>
+  async (
+    req: AuthenticatedUserRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const { recordId } = req.params as { recordId: string };
+      const { userId, orgId } = req.user || {};
+
+      if (!userId || !orgId) {
+        throw new BadRequestError('User authentication is required');
+      }
+
+      // Make request to FastAPI backend
+      const response = await axios.get(
+        `http://127.0.0.1:8080/api/v1/stream/record/${recordId}`,
+        {
+          responseType: 'stream',
+          headers: {
+            // Include any necessary headers, such as authentication
+            Authorization: req.headers.authorization,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      // Set appropriate headers from the FastAPI response
+      res.set('Content-Type', response.headers['content-type']);
+      if (response.headers['content-disposition']) {
+        res.set('Content-Disposition', response.headers['content-disposition']);
+      }
+
+      // Pipe the streaming response directly to the client
+      response.data.pipe(res);
+
+      // Handle any errors in the stream
+      response.data.on('error', (error : any) => {
+        console.error('Stream error:', error);
+        // Only send error if headers haven't been sent yet
+        if (!res.headersSent) {
+          throw new InternalServerError('Error streaming data');
+        }
+      });
+    } catch (error : any) {
+      console.error('Error fetching record buffer:', error);
+      if (!res.headersSent) {
+        if (error.response) {
+          // Forward status code and error from FastAPI
+          res.status(error.response.status).json({
+            error: error.response.data || 'Error from AI backend',
+          });
+        } else {
+          throw new InternalServerError('Failed to retrieve record data' );
+        }
+      }
+      next(error);
     }
   };
 

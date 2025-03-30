@@ -712,7 +712,6 @@ export default function KnowledgeBaseDetails({
       setUploading(true);
       await uploadKnowledgeBaseFiles(formData);
 
-      console.log('Files uploaded successfully!');
       handleUploadDialogClose();
       // Trigger a refresh of the knowledge base data
       onSearchChange('');
