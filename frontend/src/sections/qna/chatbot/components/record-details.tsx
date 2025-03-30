@@ -310,53 +310,57 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
         ))}
 
         {/* Knowledge Base */}
-        <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
-          <Typography
-            variant="body2"
-            sx={{
-              mb: 1,
-              fontWeight: 600,
-              color: 'text.secondary',
-            }}
-          >
-            Knowledge Base
-          </Typography>
-          <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
-            {recordData.knowledgeBase?.name ? recordData.knowledgeBase.name : 'Default'}
-          </Typography>
-        </Box>
+        {recordData.knowledgeBase && (
+          <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+            <Typography
+              variant="body2"
+              sx={{
+                mb: 1,
+                fontWeight: 600,
+                color: 'text.secondary',
+              }}
+            >
+              Knowledge Base
+            </Typography>
+            <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
+              {recordData.knowledgeBase.name}
+            </Typography>
+          </Box>
+        )}
 
         {/* Permissions */}
-        <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
-          <Typography
-            variant="body2"
-            sx={{
-              mb: 1,
-              fontWeight: 600,
-              color: 'text.secondary',
-            }}
-          >
-            Permissions
-          </Typography>
-          <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
-            {recordData.permissions.length > 0 ? (
-              recordData.permissions.map((permission: Permissions) => (
-                <Chip
-                  key={permission.relationship} // Add a key to avoid React warnings
-                  label={permission.relationship}
-                  size="small"
-                  sx={{
-                    height: 22,
-                    fontSize: '0.75rem',
-                    fontWeight: 500,
-                  }}
-                />
-              ))
-            ) : (
-              <Typography variant="body2">No permissions assigned</Typography>
-            )}
-          </Typography>
-        </Box>
+        {recordData.permissions && (
+          <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+            <Typography
+              variant="body2"
+              sx={{
+                mb: 1,
+                fontWeight: 600,
+                color: 'text.secondary',
+              }}
+            >
+              Permissions
+            </Typography>
+            <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
+              {recordData.permissions.length > 0 ? (
+                recordData.permissions.map((permission: Permissions) => (
+                  <Chip
+                    key={permission.relationship} // Add a key to avoid React warnings
+                    label={permission.relationship}
+                    size="small"
+                    sx={{
+                      height: 22,
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                    }}
+                  />
+                ))
+              ) : (
+                <Typography variant="body2">No permissions assigned</Typography>
+              )}
+            </Typography>
+          </Box>
+        )}
 
         {/* File Record Details */}
         {record.fileRecord && (
