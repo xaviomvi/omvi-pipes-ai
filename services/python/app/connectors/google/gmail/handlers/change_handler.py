@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from app.utils.logger import logger
 import uuid
+from app.config.configuration_service import config_node_constants
 from app.config.arangodb_constants import (CollectionNames, Connectors, 
                                            RecordTypes, OriginTypes, EventTypes)
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
@@ -234,6 +235,10 @@ class GmailChangeHandler:
                                 f"❌ Error processing message addition: {str(e)}")
                             continue
                         
+                        connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+                        connector_endpoint = connector_config.get('endpoint')
+
+                        
                         message_event = {
                             "orgId": org_id,
                             "recordId": message_record['_key'],
@@ -242,7 +247,7 @@ class GmailChangeHandler:
                             "recordVersion": 0,
                             "eventType": EventTypes.NEW_RECORD.value,
                             "body": message.get('body', ''),
-                            "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{message_record['_key']}/signedUrl",
+                            "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{message_record['_key']}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_record['_key']}/metadata",
                             "connectorName": Connectors.GOOGLE_MAIL.value,
                             "origin": OriginTypes.CONNECTOR.value,
@@ -266,7 +271,7 @@ class GmailChangeHandler:
                                     "recordVersion": 0,
                                     'eventType': EventTypes.NEW_RECORD.value,
                                     "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
-                                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
+                                    "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
                                     "connectorName": Connectors.GOOGLE_MAIL.value,
                                     "origin": OriginTypes.CONNECTOR.value,
                                     "mimeType": attachment.get('mimeType', 'application/octet-stream'),

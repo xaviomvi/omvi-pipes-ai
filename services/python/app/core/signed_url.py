@@ -7,11 +7,11 @@ from pydantic import BaseModel, ValidationError
 from app.utils.logger import create_logger
 import os
 from dotenv import load_dotenv
+from app.config.configuration_service import ConfigurationService, config_node_constants
 
 load_dotenv()
 
 logger = create_logger('signed_url')
-
 
 class SignedUrlConfig(BaseModel):
     private_key: str = os.getenv("SCOPED_JWT_SECRET")
@@ -32,22 +32,26 @@ class TokenPayload(BaseModel):
         }
 
 class SignedUrlHandler:
-    def __init__(self, config: SignedUrlConfig):
-        self.config = config
+    def __init__(self, config: SignedUrlConfig, configuration_service: ConfigurationService):
+        self.signed_url_config = config
+        self.config_service = configuration_service
         self._validate_config()
 
     def _validate_config(self) -> None:
         """Validate handler configuration"""
-        if not self.config.private_key:
+        if not self.signed_url_config.private_key:
             raise ValueError("Private key is required")
-        if self.config.expiration_minutes <= 0:
+        if self.signed_url_config.expiration_minutes <= 0:
             raise ValueError("Expiration minutes must be positive")
 
-    def create_signed_url(self, record_id: str, org_id: str, user_id: str, additional_claims: Dict[str, Any] = None, connector: str = None) -> str:
+    async def create_signed_url(self, record_id: str, org_id: str, user_id: str, additional_claims: Dict[str, Any] = None, connector: str = None) -> str:
         """Create a signed URL with optional additional claims"""
         try:
             expiration = datetime.now(timezone(timedelta(
-                hours=5, minutes=30))) + timedelta(minutes=self.config.expiration_minutes)
+                hours=5, minutes=30))) + timedelta(minutes=self.signed_url_config.expiration_minutes)
+            
+            connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+            connector_endpoint = connector_config.get('endpoint')
 
             payload = TokenPayload(
                 record_id=record_id,
@@ -68,14 +72,14 @@ class SignedUrlHandler:
 
             token = jwt.encode(
                 payload_dict,
-                self.config.private_key,
-                algorithm=self.config.algorithm
+                self.signed_url_config.private_key,
+                algorithm=self.signed_url_config.algorithm
             )
 
             logger.info(
                 "Created signed URL for record %s with connector %s", record_id, connector)
 
-            return f"http://localhost:8080{self.config.url_prefix}/{org_id}/{connector}/record/{record_id}?token={token}"
+            return f"{connector_endpoint}{self.signed_url_config.url_prefix}/{org_id}/{connector}/record/{record_id}?token={token}"
 
         except ValidationError as e:
             logger.error("Payload validation error: %s", str(e))
@@ -91,8 +95,8 @@ class SignedUrlHandler:
             logger.info(f"Validating token: {token}")
             payload = jwt.decode(
                 token,
-                self.config.private_key,
-                algorithms=[self.config.algorithm]
+                self.signed_url_config.private_key,
+                algorithms=[self.signed_url_config.algorithm]
             )
             logger.info(f"Payload: {payload}")
 

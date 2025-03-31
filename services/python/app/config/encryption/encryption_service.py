@@ -84,17 +84,9 @@ if __name__ == "__main__":
     secret_key = "47eabdd76483a14975e4f6349cbd6812992f9d10cdac3c388a147206e69bed3b"
     service = EncryptionService.get_instance("aes-256-gcm", secret_key)
 
-    # Encrypt a sample message
-    message = "Hello, Secure World!"
-    encrypted = service.encrypt(message)
-    print("Encrypted:", encrypted)
-    
-    decrypted = service.decrypt(encrypted)
-    print("Decrypted:", decrypted)
-
     # Decrypt the message back
     try:
-        encrypted = "387db511587a354c3dc1b444:a7cd5200d1b1424e92ae129c528ac8656b2ed49af5a4400d7ff741151cbb9b4686824ced62bffc25eb6d8379639eb1111872507d3d86b174bee82d5c37ba073708bbe8508ad01628a9498e0b4bd144f5d395acd8f4547dc5c7895d2b9dd8408d32c658414dbd1956dbbe7c7aa2a02e706c1b05c90e9d843f1cd800e775c49c3370f1207a23b6db9b0193bda5724226d16de14107352b1f5d5754c2745e884fe5:d6c0a7ea920842ba40ad2c78867f804b"
+        encrypted = "7525cb77eb4fbb88c58ea2e7:e3b434cb193b8634be0b93c2f19ecf2a046cc361c8865d9638b4dc682d6aea24a643be00c71cf95864ef69187af4658170c70bb96efdeadce2db2ec1b0d251ecd4c0d74111af7c300593a3b9fb5ce5f47661794695f092d21b3457a4bf031f083d37769edd6a17117222922589bc5cf4a819c971d83115159d9302c2c5d21385a68c4cd7b0500b18bb815dc0dfc5383a7a6b7145b7a7c457a8a3e1aa4418bc77441b06e2eed9c3fef55d9579824951969257990e5d8087539c7b77487dcd0938af71730bb864937d3b25b341cd24407fb8b0655e70c94d2e4ffd6718424c3bc6b0cdc07c89ad8d8f9455d18cd5ba8b87dfe9f159207720ffb6b708:30d1449d53d08732cadd9220c2fcb583"
         decrypted = service.decrypt(encrypted)
         print("Decrypted:", decrypted)
     except Exception as error:

@@ -34,7 +34,7 @@ class DriveUserService:
             rate_limiter (DriveAPIRateLimiter): Rate limiter for Drive API
         """
         logger.info("🚀 Initializing DriveService")
-        self.config = config
+        self.config_service = config
         self.service = None
 
         self.credentials = credentials
@@ -73,20 +73,21 @@ class DriveUserService:
             headers = {
                 "Authorization": f"Bearer {jwt_token}"
             }
+            
+            nodejs_config = await self.config_service.get_config(config_node_constants.NODEJS.value)
+            nodejs_endpoint = nodejs_config.get('common', {}).get('endpoint')
 
             # Fetch credentials from API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    f"{nodejs_endpoint}{Routes.INDIVIDUAL_CREDENTIALS.value}",
                     json=payload,
                     headers=headers
                 ) as response:
                     if response.status != 200:
                         raise Exception(f"Failed to fetch credentials: {await response.json()}")
                     creds_data = await response.json()
-                    for key, value in creds_data.items():
-                        print(f"{key}: {value}")
-                    
+                    logger.info("🚀 Fetch refreshed access token response: %s", creds_data)
 
             # Create credentials object from the response using google.oauth2.credentials.Credentials
             creds = google.oauth2.credentials.Credentials(
@@ -162,10 +163,13 @@ class DriveUserService:
             headers = {
                 "Authorization": f"Bearer {jwt_token}"
             }
+            
+            nodejs_config = await self.config_service.get_config(config_node_constants.NODEJS.value)
+            nodejs_endpoint = nodejs_config.get('common', {}).get('endpoint')
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    Routes.INDIVIDUAL_REFRESH_TOKEN.value,
+                    f"{nodejs_endpoint}{Routes.INDIVIDUAL_REFRESH_TOKEN.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -174,11 +178,11 @@ class DriveUserService:
                     
                     creds_data = await response.json()
                     logger.info("🚀 Access Token Refresh response: %s", creds_data)
-                                
+                        
             # Fetch credentials from API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    f"{nodejs_endpoint}{Routes.INDIVIDUAL_CREDENTIALS.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -390,11 +394,11 @@ class DriveUserService:
             async with self.google_limiter:
                 # await self.stop_webhook_channels(channels_log_path='logs/channels_log.json')
                 channel_id = str(uuid.uuid4())
-                webhook_config = await self.config.get_config(config_node_constants.WEBHOOK.value)
-                webhook_expiration_days = webhook_config['expiration_days']
-                webhook_expiration_hours = webhook_config['expiration_hours']
-                webhook_expiration_minutes = webhook_config['expiration_minutes']
-                webhook_base_url = webhook_config['base_url']
+                webhook_config = await self.config_service.get_config(config_node_constants.WEBHOOK.value)
+                webhook_expiration_days = webhook_config['expirationDays']
+                webhook_expiration_hours = webhook_config['expirationHours']
+                webhook_expiration_minutes = webhook_config['expirationMinutes']
+                webhook_base_url = webhook_config['baseUrl']
 
                 webhook_url = f"{webhook_base_url.rstrip('/')}/drive/webhook"
 

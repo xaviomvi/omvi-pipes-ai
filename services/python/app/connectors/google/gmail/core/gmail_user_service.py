@@ -26,12 +26,12 @@ class GmailUserService:
         """Initialize GmailUserService"""
 
         logger.info("🚀 Initializing GmailUserService")
-        self.config = config
+        self.config_service = config
         self.service = None
 
         self.credentials = credentials
         self.gmail_drive_interface = GmailDriveInterface(
-            config=self.config,
+            config=self.config_service,
             rate_limiter=rate_limiter
         )
 
@@ -68,11 +68,14 @@ class GmailUserService:
             headers = {
                 "Authorization": f"Bearer {jwt_token}"
             }
+            
+            nodejs_config = await self.config_service.get_config(config_node_constants.NODEJS.value)
+            nodejs_endpoint = nodejs_config.get('common', {}).get('endpoint')
 
             # Fetch credentials from API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    f"{nodejs_endpoint}{Routes.INDIVIDUAL_CREDENTIALS.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -154,10 +157,13 @@ class GmailUserService:
             headers = {
                 "Authorization": f"Bearer {jwt_token}"
             }
+            
+            nodejs_config = await self.config_service.get_config(config_node_constants.NODEJS.value)
+            nodejs_endpoint = nodejs_config.get('common', {}).get('endpoint')
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    Routes.INDIVIDUAL_REFRESH_TOKEN.value,
+                    f"{nodejs_endpoint}{Routes.INDIVIDUAL_REFRESH_TOKEN.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -166,11 +172,11 @@ class GmailUserService:
                     
                     creds_data = await response.json()
                     logger.info("🚀 Access Token Refresh response: %s", creds_data)
-                                
+                        
             # Fetch credentials from API
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    Routes.INDIVIDUAL_CREDENTIALS.value,
+                    f"{nodejs_endpoint}{Routes.INDIVIDUAL_CREDENTIALS.value}",
                     json=payload,
                     headers=headers
                 ) as response:
@@ -359,7 +365,6 @@ class GmailUserService:
                     if 'data' in payload.get('body', {}):
                         try:
                             decoded_content = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
-                            logger.info(f"🚀 Decoded {payload['mimeType']} content: {decoded_content[:100]}...")
                             return decoded_content
                         except Exception as e:
                             logger.error(f"❌ Error decoding content: {str(e)}")
@@ -369,9 +374,9 @@ class GmailUserService:
 
             # Extract message content
             payload = message.get('payload', {})
-            logger.info("🚀 Payload: %s", payload)
+            # logger.info("🚀 Payload: %s", payload)
             message_content = get_message_content(payload)
-            logger.info("🚀 Message content: %s", message_content)
+            # logger.info("🚀 Message content: %s", message_content)
 
             message['body'] = message_content
             message['headers'] = header_dict

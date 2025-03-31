@@ -17,7 +17,7 @@ class GmailDriveInterface:
         drive_service=None,
         credentials=None
     ):
-        self.config = config
+        self.config_service = config
         self.rate_limiter = rate_limiter
         self.drive_service = drive_service
         self.credentials = credentials
@@ -44,7 +44,7 @@ class GmailDriveInterface:
                 # Create admin service if not provided
                 if not isinstance(self.drive_service, DriveAdminService):
                     self.drive_service = DriveAdminService(
-                        config=self.config,
+                        config=self.config_service,
                         rate_limiter=self.rate_limiter
                     )
                     if not await self.drive_service.connect_admin(org_id):
@@ -67,7 +67,7 @@ class GmailDriveInterface:
                 # Create user service if not provided
                 if not isinstance(self.drive_service, DriveUserService):
                     self.drive_service = DriveUserService(
-                        config=self.config,
+                        config=self.config_service,
                         rate_limiter=self.rate_limiter,
                         credentials=self.credentials
                     )

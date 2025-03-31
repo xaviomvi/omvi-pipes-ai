@@ -10,7 +10,7 @@ from app.utils.logger import logger
 
 class AbstractDriveWebhookHandler(ABC):
     def __init__(self, config: ConfigurationService, arango_service, change_handler):
-        self.config = config
+        self.config_service = config
         self.arango_service = arango_service
         self.change_handler = change_handler
 
@@ -111,8 +111,8 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
     async def _delayed_process_notifications(self, user_email: str = None):
         """Process notifications for a specific user"""
         try:
-            webhook_config = await self.config.get_config(config_node_constants.WEBHOOK.value)
-            coalesce_delay = webhook_config['coalesce_delay']
+            webhook_config = await self.config_service.get_config(config_node_constants.WEBHOOK.value)
+            coalesce_delay = webhook_config['coalesceDelay']
             await asyncio.sleep(coalesce_delay)
 
             async with self.processing_lock:
@@ -235,8 +235,8 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
     async def _delayed_process_notifications(self):
         """Process notifications for the entire organization"""
         try:
-            webhook_config = await self.config.get_config(config_node_constants.WEBHOOK.value)
-            coalesce_delay = webhook_config['coalesce_delay']
+            webhook_config = await self.config_service.get_config(config_node_constants.WEBHOOK.value)
+            coalesce_delay = webhook_config['coalesceDelay']
             await asyncio.sleep(coalesce_delay)
 
             async with self.processing_lock:

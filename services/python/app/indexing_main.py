@@ -5,7 +5,6 @@ from app.utils.logger import logger
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from app.setups.indexing_setup import AppContainer, initialize_container
-from app.api.search.routes import router
 
 container = AppContainer()
 container_lock = asyncio.Lock()
@@ -50,8 +49,6 @@ app = FastAPI(
     description="API for semantic search and document retrieval with Kafka consumer",
     version="1.0.0"
 )
-
-app.include_router(router)
 
 def run(host: str = "0.0.0.0", port: int = 8091, reload: bool = True):
     """Run the application"""

@@ -55,7 +55,8 @@ async def get_config_service(request: Request) -> ConfigurationService:
 async def search(request: Request, body: SearchQuery, 
                 retrieval_service: RetrievalService = Depends(get_retrieval_service),
                 arango_service: ArangoService = Depends(get_arango_service),
-                config_service: ConfigurationService = Depends(get_config_service)):
+                config_service: ConfigurationService = Depends(get_config_service)
+                ):
     """Perform semantic search across documents"""
     try:
         print("orgId is ", request.state.user.get('orgId'))
@@ -72,7 +73,7 @@ async def search(request: Request, body: SearchQuery,
             if provider == LLMProvider.AZURE_OPENAI_PROVIDER.value:
                 llm_config = AzureLLMConfig(
                     model=config['configuration']['model'],
-                    temperature=config['configuration']['temperature'],
+                    temperature=0.6,
                     api_key=config['configuration']['apiKey'],
                     azure_endpoint=config['configuration']['endpoint'],
                     azure_api_version=AzureOpenAILLM.AZURE_OPENAI_VERSION.value,
@@ -82,7 +83,7 @@ async def search(request: Request, body: SearchQuery,
             elif provider == LLMProvider.OPENAI_PROVIDER.value:
                 llm_config = OpenAILLMConfig(
                     model=config['configuration']['model'],
-                    temperature=config['configuration']['temperature'],
+                    temperature=0.6,
                     api_key=config['configuration']['apiKey'],
                 )
                 break

@@ -7,6 +7,7 @@ from app.config.arangodb_constants import (CollectionNames, Connectors,
                                            RecordTypes, RecordRelations, 
                                            OriginTypes, EventTypes)
 from app.utils.time_conversion import get_epoch_timestamp_in_ms, parse_timestamp
+from app.config.configuration_service import config_node_constants
 
 class DriveChangeHandler:
     def __init__(self, config_service, arango_service):
@@ -116,6 +117,9 @@ class DriveChangeHandler:
             record_version = 0  # Initial version for new files
             extension = file.get('extension')
             mime_type = file.get('mimeType')
+            
+            connector_config = await self.config_service.get_config(config_node_constants.CONNECTORS_COMMON.value)
+            connector_endpoint = connector_config.get('endpoint')
 
             # INSERTION
             if change == EventTypes.NEW_RECORD.value:
@@ -125,7 +129,7 @@ class DriveChangeHandler:
                     "recordVersion": 0,
                     "recordType": record.get('recordType'),
                     'eventType': change,
-                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
+                    "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                     "origin": OriginTypes.CONNECTOR.value,
@@ -143,7 +147,7 @@ class DriveChangeHandler:
                     'recordVersion': 0,
                     'recordType': record.get('recordType'),
                     'eventType': change,
-                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
+                    "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                     "origin": OriginTypes.CONNECTOR.value,
@@ -161,7 +165,7 @@ class DriveChangeHandler:
                     'recordVersion': 0,
                     'recordType': record.get('recordType'),
                     'eventType': change,
-                    "signedUrlRoute": f"http://localhost:8080/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
+                    "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/drive/record/{file_key}/signedUrl",
                     "metadataRoute": f"/api/v1/drive/files/{file_key}/metadata",
                     "connectorName": Connectors.GOOGLE_DRIVE.value,
                     "origin": OriginTypes.CONNECTOR.value,
@@ -174,9 +178,10 @@ class DriveChangeHandler:
             else:
                 logger.info("NO CHANGE DETECTED. NO KAFKA EVENT SENT")
 
-            await self.arango_service.kafka_service.send_event_to_kafka(
-                reindex_event)
-            logger.info("📨 Sent Kafka reindexing event for file %s", file_id)
+            if reindex_event:
+                await self.arango_service.kafka_service.send_event_to_kafka(
+                    reindex_event)
+                logger.info("📨 Sent Kafka reindexing event for file %s", file_id)
 
         except Exception as e:
             if txn:

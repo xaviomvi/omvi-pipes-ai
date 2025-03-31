@@ -11,7 +11,7 @@ from app.utils.logger import logger
 
 class AbstractGmailWebhookHandler(ABC):
     def __init__(self, config: ConfigurationService, arango_service, change_handler):
-        self.config = config
+        self.config_service = config
         self.arango_service = arango_service
         self.change_handler = change_handler
         self.processing_lock = asyncio.Lock()

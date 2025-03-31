@@ -8,7 +8,7 @@ from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 class KafkaService:
     def __init__(self, config: ConfigurationService):
-        self.config = config
+        self.config_service = config
         self.producer = None
 
     def delivery_report(self, err, msg):
@@ -25,7 +25,7 @@ class KafkaService:
         :param event_data: Dictionary containing file processing details
         """
         try:
-            kafka_config = await self.config.get_config(config_node_constants.KAFKA.value)
+            kafka_config = await self.config_service.get_config(config_node_constants.KAFKA.value)
             if not isinstance(kafka_config, dict):
                 raise ValueError("Kafka configuration must be a dictionary")
 

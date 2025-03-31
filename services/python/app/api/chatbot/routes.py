@@ -65,7 +65,7 @@ async def askAI(request: Request, query_info: ChatQuery,
             if provider == LLMProvider.AZURE_OPENAI_PROVIDER.value:
                 llm_config = AzureLLMConfig(
                     model=config['configuration']['model'],
-                    temperature=config['configuration']['temperature'],
+                    temperature=0.6,
                     api_key=config['configuration']['apiKey'],
                     azure_endpoint=config['configuration']['endpoint'],
                     azure_api_version=AzureOpenAILLM.AZURE_OPENAI_VERSION.value,
@@ -75,7 +75,7 @@ async def askAI(request: Request, query_info: ChatQuery,
             elif provider == LLMProvider.OPENAI_PROVIDER.value:
                 llm_config = OpenAILLMConfig(
                     model=config['configuration']['model'],
-                    temperature=config['configuration']['temperature'],
+                    temperature=0.6,
                     api_key=config['configuration']['apiKey'],
                 )
                 break

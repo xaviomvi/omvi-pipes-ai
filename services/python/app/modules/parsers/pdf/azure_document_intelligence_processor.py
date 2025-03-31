@@ -59,8 +59,8 @@ class AzureOCRStrategy(OCRStrategy):
                     self.doc = await poller.result()
 
                     # Create searchable PDF after successful OCR
-                    logger.info("📄 Creating searchable PDF...")
-                    self.ocr_pdf_content = await self._create_searchable_pdf(content)
+                    # logger.info("📄 Creating searchable PDF...")
+                    # self.ocr_pdf_content = await self._create_searchable_pdf(content)
                     logger.info("✅ Searchable PDF created successfully")
 
                 logger.info("✅ Azure document analysis completed successfully")

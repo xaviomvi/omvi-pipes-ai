@@ -33,7 +33,7 @@ class BaseArangoService():
 
     def __init__(self, arango_client: ArangoClient, config: ConfigurationService):
         logger.info("🚀 Initializing ArangoService")
-        self.config = config
+        self.config_service = config
         self.client = arango_client
         self.db = None
 
@@ -98,9 +98,9 @@ class BaseArangoService():
         """Connect to ArangoDB and initialize collections"""
         try:
             logger.info("🚀 Connecting to ArangoDB...")
-            arangodb_config = await self.config.get_config(config_node_constants.ARANGODB.value)
+            arangodb_config = await self.config_service.get_config(config_node_constants.ARANGODB.value)
             arango_url = arangodb_config['url']
-            arango_user = arangodb_config['user']
+            arango_user = arangodb_config['username']
             arango_password = arangodb_config['password']
             arango_db = arangodb_config['db']
             

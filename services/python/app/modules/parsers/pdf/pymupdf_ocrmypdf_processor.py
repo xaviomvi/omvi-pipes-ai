@@ -78,11 +78,11 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                         output_filename = f"ocr_processed_{timestamp}.pdf"
                         output_path = os.path.join(output_dir, output_filename)
 
-                        # Save the PDF to file
-                        logger.info(
-                            f"💾 Saving OCR-processed PDF to: {output_path}")
-                        with open(output_path, "wb") as ocr_file:
-                            ocr_file.write(ocr_content)
+                        # # Save the PDF to file
+                        # logger.info(
+                        #     f"💾 Saving OCR-processed PDF to: {output_path}")
+                        # with open(output_path, "wb") as ocr_file:
+                        #     ocr_file.write(ocr_content)
 
                 logger.info("✅ OCR processing completed successfully")
                 self.doc = processed_doc
