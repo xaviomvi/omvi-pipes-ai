@@ -53,7 +53,6 @@ class AppContainer(containers.DeclarativeContainer):
             'collectionName': QdrantCollectionNames.RECORDS.value,    
             'apiKey': qdrant_config['apiKey'],
             'host': qdrant_config['host'],
-            'port': qdrant_config['port'],
             'grpcPort': qdrant_config['grpcPort']
         }
 
