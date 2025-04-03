@@ -81,7 +81,7 @@ class EncryptionService:
 # Example usage:
 if __name__ == "__main__":
     # Replace these with your actual values.
-    secret_key = "47eabdd76483a14975e4f6349cbd6812992f9d10cdac3c388a147206e69bed3b"
+    secret_key = "89f6d3a5a0ab94d2d8d0b13cac3fe3c94a6c234bd5016f33ef83829f87f6c44f"
     service = EncryptionService.get_instance("aes-256-gcm", secret_key)
 
     # Decrypt the message back
