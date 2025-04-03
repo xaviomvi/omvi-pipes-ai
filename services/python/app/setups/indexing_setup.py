@@ -11,21 +11,20 @@ from arango import ArangoClient
 from dependency_injector import containers, providers
 from app.config.configuration_service import ConfigurationService, config_node_constants, RedisConfig
 from app.config.arangodb_constants import QdrantCollectionNames
-from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
 from app.core.ai_arango_service import ArangoService
 from app.services.kafka_consumer import KafkaConsumerManager
 from app.modules.extraction.domain_extraction import DomainExtractor
 from app.utils.logger import create_logger
-from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig
 from app.events.events import EventProcessor
 from app.events.processor import Processor
 from app.modules.indexing.run import IndexingPipeline
 from qdrant_client import QdrantClient
 
 
-from app.modules.parsers.docx.docling_docx import DocxParser
-from app.modules.parsers.doc.docparser import DocParser
+from app.modules.parsers.docx.docx_parser import DocxParser
+from app.modules.parsers.docx.docparser import DocParser
 from app.modules.parsers.excel.excel_parser import ExcelParser
+from app.modules.parsers.excel.xls_parser import XLSParser
 from app.modules.parsers.csv.csv_parser import CSVParser
 from app.modules.parsers.html_parser.html_parser import HTMLParser
 from app.modules.parsers.google_files.google_docs_parser import GoogleDocsParser
@@ -48,36 +47,6 @@ class AppContainer(containers.DeclarativeContainer):
     # Initialize ConfigurationService first
     config_service = providers.Singleton(
         ConfigurationService
-    )
-
-    async def _create_llm_config(config_service):
-        """Async factory method to create LLMConfig."""
-        ai_models = await config_service.get_config(config_node_constants.AI_MODELS.value)
-        llm_configs = ai_models['llm']
-        # Iterate through available LLM configurations
-        for config in llm_configs:
-            provider = config['provider']
-            if provider == LLMProvider.AZURE_OPENAI_PROVIDER.value:
-                return AzureLLMConfig(
-                    model=config['configuration']['model'],
-                    temperature=0.4,
-                    api_key=config['configuration']['apiKey'],
-                    azure_endpoint=config['configuration']['endpoint'],
-                    azure_api_version=AzureOpenAILLM.AZURE_OPENAI_VERSION.value,
-                    azure_deployment=config['configuration']['deploymentName'],                
-                )
-            elif provider == LLMProvider.OPENAI_PROVIDER.value:
-                return OpenAILLMConfig(
-                    model=config['configuration']['model'],
-                    temperature=0.4,
-                    api_key=config['configuration']['apiKey'],
-                )
-        
-        raise ValueError("No supported LLM provider found in configuration")
-
-    llm_config = providers.Resource(
-        _create_llm_config,
-        config_service=config_service
     )
 
     async def _fetch_arango_host(config_service):
@@ -142,29 +111,30 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     # Domain extraction service - depends on arango_service
-    async def _create_domain_extractor(arango_service, llm_config):
+    async def _create_domain_extractor(arango_service, config_service):
         """Async factory for DomainExtractor"""
-        extractor = DomainExtractor(arango_service, llm_config)
+        extractor = DomainExtractor(arango_service, config_service)
         # Add any necessary async initialization
         return extractor
 
     domain_extractor = providers.Resource(
         _create_domain_extractor,
         arango_service=arango_service,
-        llm_config=llm_config
+        config_service=config_service
     )
 
     # Parsers
-    async def _create_parsers(llm_config):
+    async def _create_parsers():
         """Async factory for Parsers"""
         parsers = {
             'docx': DocxParser(),
+            'doc': DocParser(),
             'pptx': PPTXParser(),
             'html': HTMLParser(),
             'md': MarkdownParser(),
-            'csv': CSVParser(llm_config),
-            'excel': ExcelParser(llm_config),
-            'doc': DocParser(),
+            'csv': CSVParser(),
+            'excel': ExcelParser(),
+            'xls': XLSParser(),
             'google_docs': GoogleDocsParser(),
             'google_slides': GoogleSlidesParser(),
             'google_sheets': GoogleSheetsParser()
@@ -173,7 +143,6 @@ class AppContainer(containers.DeclarativeContainer):
 
     parsers = providers.Resource(
         _create_parsers,
-        llm_config=llm_config
     )
 
     # Processor - depends on domain_extractor, indexing_pipeline, and arango_service
