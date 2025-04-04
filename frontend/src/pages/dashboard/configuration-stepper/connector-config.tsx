@@ -912,6 +912,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                   <TextField
                     {...field}
                     label="Client Secret"
+
                     placeholder="e.g., GOCSPX-1234abcdef"
                     fullWidth
                     size="small"
