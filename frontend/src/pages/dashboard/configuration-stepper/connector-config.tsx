@@ -912,20 +912,21 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                   <TextField
                     {...field}
                     label="Client Secret"
-                    placeholder="e.g., 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"
+
+                    placeholder="e.g., GOCSPX-1234abcdef"
                     fullWidth
                     size="small"
-                    type="password"
-                    error={!!fieldState.error}
+                    error={validationAttempted && !!fieldState.error}
                     helperText={
                       validationAttempted && fieldState.error
                         ? fieldState.error.message
-                        : 'Required - Client secret from Google Developer Console'
-                    }                    InputProps={{
+                        : 'Required - Client Secret from Google Developer Console'
+                    }
+                    InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
                           <Iconify
-                            icon="ri:key-2-line"
+                            icon="ri:lock-password-line"
                             width={20}
                             height={20}
                             sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
