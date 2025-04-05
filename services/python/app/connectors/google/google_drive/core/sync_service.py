@@ -19,7 +19,7 @@ from app.connectors.core.kafka_service import KafkaService
 from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.utils.time_conversion import get_epoch_timestamp_in_ms, parse_timestamp
 
-logger = create_logger("google_drive_sync_service")
+logger = create_logger(__name__)
 
 class DriveSyncProgress:
     """Class to track sync progress"""
@@ -311,6 +311,7 @@ class BaseDriveSyncService(ABC):
 
             # Get user ID for relationships
             user_id = await self.arango_service.get_entity_id_by_email(user['email'])
+            logger.info("user_id: %s", user_id)
             
             # Create user-drive relationship
             user_drive_relation = {
@@ -318,7 +319,7 @@ class BaseDriveSyncService(ABC):
                 '_to': f'drives/{drive_info["drive"]["_key"]}',
                 'access_level': drive_info['drive']['access_level']
             }
-            print("user_drive_relation: ", user_drive_relation)
+            logger.info("user_drive_relation: %s", user_drive_relation)
 
             await self.arango_service.batch_create_edges(
                 [user_drive_relation],
@@ -717,9 +718,8 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
             # Phase 1: Set up changes.watch for each user
             logger.info("👀 Setting up changes watch for all users...")
-            logger.debug("🚀 Users: %s", users)
             
-            for user in users:
+            for user in active_users:
                 try:
                     user_service = await self.drive_admin_service.create_user_service(user['email'])
                     if not user_service:
@@ -770,7 +770,59 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
             users = await self.arango_service.get_users(org_id)
 
-            for user in users:
+            for user in users: 
+                sync_state = await self.arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_DRIVE.value)
+                current_state = sync_state.get('syncState')
+                if current_state == 'COMPLETED':
+                    logger.warning("💥 Drive sync is already completed for user %s", user['email'])
+                    
+                    try:
+                        page_token = await self.arango_service.get_page_token_db(
+                            user_email=user['email']
+                        )
+
+                        if not page_token:
+                            logger.error(
+                                "No page token found for user %s", user['email'])
+                            continue
+                        
+                        user_service = await self.drive_admin_service.create_user_service(page_token['userEmail'])
+
+                        changes, new_token = await user_service.get_changes(
+                            page_token=page_token['token']
+                        )
+                        
+                        user_id = user['userId']
+
+                        if changes:
+                            logger.info("Processing %s changes for user %s",
+                                        len(changes), user['email'])
+                            for change in changes:
+                                try:
+                                    await self.change_handler.process_change(change, user_service, org_id, user_id)
+                                except Exception as e:
+                                    logger.error("Error processing change: %s", str(e))
+                                    continue
+
+                            if new_token and new_token != page_token['token']:
+                                await self.arango_service.store_page_token(
+                                    channel_id=page_token['channel_id'],
+                                    resource_id=page_token['resource_id'],
+                                    user_email=user['email'],
+                                    token=new_token
+                                )
+                                logger.info(
+                                    "✅ Updated token for user %s", user['email'])
+
+                        else:
+                            logger.info(
+                                "ℹ️ No changes found for user %s", user['email'])
+                        continue
+                    
+                    except Exception as e:
+                        logger.error(f"Error processing user {user['email']}: {str(e)}")
+                        continue
+
                 # Update user sync state to RUNNING
                 await self.arango_service.update_user_sync_state(
                     user['email'],
@@ -947,7 +999,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                 return False
             
             user_id = await self.arango_service.get_entity_id_by_email(user_email)
-            user = self.arango_service.get_document(user_id, CollectionNames.USERS.value)
+            user = await self.arango_service.get_document(user_id, CollectionNames.USERS.value)
             # Get org_id from belongsTo relation for this user
             query = f"""
             FOR edge IN belongsTo
@@ -1242,6 +1294,49 @@ class DriveSyncIndividualService(BaseDriveSyncService):
 
             user = await self.arango_service.get_users(org_id, active=True)
             user = user[0]
+            
+            sync_state = await self.arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_DRIVE.value)
+            current_state = sync_state.get('syncState')
+            if current_state == 'COMPLETED':
+                logger.warning("💥 Drive sync is already completed for user %s", user['email'])
+                
+                try:
+                    
+                    user_service = self.drive_user_service
+
+                    page_token = await self.arango_service.get_page_token_db(
+                        user_email=user['email']
+                    )
+
+                    if not page_token:
+                        return
+
+                    changes, new_token = await user_service.get_changes(
+                        page_token=page_token['token']
+                    )
+                    user_id = user['userId']
+
+                    if changes:
+                        for change in changes:
+                            try:
+                                await self.change_handler.process_change(change, user_service, org_id, user_id)
+                            except Exception as e:
+                                logger.error(f"Error processing change: {str(e)}")
+                                continue
+
+                    if new_token and new_token != page_token['token']:
+                        await self.arango_service.store_page_token(
+                            channel_id=page_token['channel_id'],
+                            resource_id=page_token['resource_id'],
+                            user_email=user['email'],
+                            token=new_token
+                        )
+                        logger.info(f"🚀 Updated token for user {user['email']}")
+                    return True
+                
+                except Exception as e:
+                    logger.error(f"Error getting changes for user {user['email']}: {str(e)}")
+                    return False
 
             # Update user sync state to RUNNING
             await self.arango_service.update_user_sync_state(

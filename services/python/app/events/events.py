@@ -1,8 +1,10 @@
-from app.utils.logger import logger
+from app.utils.logger import create_logger
 import aiohttp
 from io import BytesIO
 from app.config.arangodb_constants import EventTypes
 from app.config.arangodb_constants import CollectionNames
+
+logger = create_logger(__name__)
 
 class EventProcessor:
     def __init__(self, processor, arango_service):
@@ -53,7 +55,7 @@ class EventProcessor:
 
             # Update with new metadata fields
             doc.update({
-                "indexingStatus": "IN_PROGRESS"
+                "indexingStatus": "IN_PROGRESS",
             })
 
             docs = [doc]
@@ -66,8 +68,12 @@ class EventProcessor:
             extension = event_data.get('extension', 'unknown')
             mime_type = event_data.get('mimeType', 'unknown')
             
+            if extension is None:
+                extension = event_data['recordName'].split('.')[-1]
+            
             logger.info("🚀 Checking for mime_type")
             logger.info("🚀 mime_type: %s", mime_type)
+            logger.info("🚀 extension: %s", extension)
 
             if mime_type == "application/vnd.google-apps.presentation":
                 logger.info("🚀 Processing Google Slides")
@@ -192,6 +198,7 @@ class EventProcessor:
                 doc = docs[0]
                 doc.update({
                     "indexingStatus": "FILE_TYPE_NOT_SUPPORTED"
+                    
                 })
                 docs = [doc]
                 await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)
@@ -204,6 +211,7 @@ class EventProcessor:
             return result
 
         except Exception as e:
-            logger.error(f"❌ Error processing event: {str(e)}")
+            # Let the error bubble up to Kafka consumer
+            logger.error(f"❌ Error in event processor: {str(e)}")
             raise
 

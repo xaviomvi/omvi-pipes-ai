@@ -2,7 +2,7 @@ import asyncio
 import json
 from confluent_kafka import Consumer, KafkaError
 import httpx
-from app.utils.logger import logger
+from app.utils.logger import create_logger
 from dependency_injector.wiring import inject
 from typing import Dict, List
 from app.config.arangodb_constants import CollectionNames, Connectors
@@ -15,6 +15,7 @@ from app.utils.time_conversion import get_epoch_timestamp_in_ms
 # Import required services
 from app.config.configuration_service import config_node_constants
 
+logger = create_logger(__name__)
 
 class KafkaRouteConsumer:
     def __init__(self, config_service, arango_service, routes=[], app_container=None):
@@ -370,13 +371,13 @@ class KafkaRouteConsumer:
                         CollectionNames.USER_APP_RELATION.value,
                     )
                     
-                    if app['name'] in ['calendar']:
+                    if app['name'].lower() in ['calendar']:
                             logger.info("Skipping init")
                             continue
 
                     # Start sync for the specific user
                     await self._handle_sync_event(
-                        f'{app["name"]}.user',
+                        f'{app["name"].lower()}.user',
                         {'path_params': {'user_email': payload['email']}}
                     )
 
@@ -465,8 +466,6 @@ class KafkaRouteConsumer:
             if not org:
                 logger.error(f"Organization not found: {org_id}")
                 return False
-            
-            
 
             # Create app entities
             app_docs = []
@@ -511,9 +510,9 @@ class KafkaRouteConsumer:
                     accountType = org['accountType']
                     # Use the existing app container to initialize services
                     if accountType == 'enterprise' or accountType == 'business':
-                        await initialize_enterprise_account_services_fn(self.app_container)
+                        await initialize_enterprise_account_services_fn(org_id, self.app_container)
                     elif accountType == 'individual':
-                        await initialize_individual_account_services_fn(self.app_container)
+                        await initialize_individual_account_services_fn(org_id, self.app_container)
                     else:
                         logger.error("Account Type not valid")
                         return False
@@ -532,18 +531,31 @@ class KafkaRouteConsumer:
                     for user in active_users:
                         for app in app_docs:
                             if app['name'] in enabled_apps:
-                                edge_data = {
-                                    '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
-                                    '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
-                                    'syncState': 'NOT_STARTED',
-                                    'lastSyncUpdate':  get_epoch_timestamp_in_ms()
-                                }
+                                # Check if relation already exists
+                                query = f"""
+                                    FOR r IN {CollectionNames.USER_APP_RELATION.value}
+                                    FILTER r._from == "{CollectionNames.USERS.value}/{user['_key']}"
+                                    AND r._to == "{CollectionNames.APPS.value}/{app['_key']}"
+                                    RETURN r
+                                """
+                                cursor = self.arango_service.db.aql.execute(query)
+                                existing_relation = list(cursor)
 
-                                user_app_edges.append(edge_data)
-                                await self.arango_service.batch_create_edges(
-                                    user_app_edges,
-                                    CollectionNames.USER_APP_RELATION.value,
-                                )
+                                if not existing_relation:
+                                    edge_data = {
+                                        '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
+                                        '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
+                                        'syncState': 'NOT_STARTED',
+                                        'lastSyncUpdate': get_epoch_timestamp_in_ms()
+                                    }
+                                    
+                                    user_app_edges.append(edge_data)
+                
+                                if user_app_edges:  # Only create edges if there are new relations to create
+                                    await self.arango_service.batch_create_edges(
+                                        user_app_edges,
+                                        CollectionNames.USER_APP_RELATION.value,
+                                    )
 
                     for app_name in enabled_apps:
                         if app_name in [Connectors.GOOGLE_CALENDAR.value]:
@@ -574,19 +586,31 @@ class KafkaRouteConsumer:
                     for user in active_users:
                         for app in app_docs:
                             if app['name'] in enabled_apps:
-                                edge_data = {
-                                    '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
-                                    '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
-                                    'syncState': 'NOT_STARTED',
-                                    'lastSyncUpdate':  get_epoch_timestamp_in_ms()
-                                }
-                                
-                                user_app_edges.append(edge_data)
-                                
-                                await self.arango_service.batch_create_edges(
-                                    user_app_edges,
-                                    CollectionNames.USER_APP_RELATION.value,
-                                )
+                                # Check if relation already exists
+                                query = f"""
+                                    FOR r IN {CollectionNames.USER_APP_RELATION.value}
+                                    FILTER r._from == "{CollectionNames.USERS.value}/{user['_key']}"
+                                    AND r._to == "{CollectionNames.APPS.value}/{app['_key']}"
+                                    RETURN r
+                                """
+                                cursor = self.arango_service.db.aql.execute(query)
+                                existing_relation = list(cursor)
+
+                                if not existing_relation:
+                                    edge_data = {
+                                        '_from': f"{CollectionNames.USERS.value}/{user['_key']}",
+                                        '_to': f"{CollectionNames.APPS.value}/{app['_key']}",
+                                        'syncState': 'NOT_STARTED',
+                                        'lastSyncUpdate': get_epoch_timestamp_in_ms()
+                                    }
+                                    
+                                    user_app_edges.append(edge_data)
+                
+                                if user_app_edges:  # Only create edges if there are new relations to create
+                                    await self.arango_service.batch_create_edges(
+                                        user_app_edges,
+                                        CollectionNames.USER_APP_RELATION.value,
+                                    )
 
                     # First initialize each app
                     for app_name in enabled_apps:

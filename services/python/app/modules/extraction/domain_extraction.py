@@ -15,7 +15,8 @@ import numpy as np
 from app.core.llm_service import LLMFactory
 from app.config.arangodb_constants import CollectionNames, DepartmentNames
 from app.utils.llm import get_llm
-logger = create_logger("domain_extraction")
+
+logger = create_logger(__name__)
 
 # Update the Literal types
 SentimentType = Literal["Positive", "Neutral", "Negative"]
@@ -280,7 +281,8 @@ class DomainExtractor:
             doc = dict(record)
             doc.update({
                 "_key": document_id,
-                "extractionStatus": "COMPLETED"
+                "extractionStatus": "COMPLETED",
+                "lastExtractionTimestamp": int(datetime.now(timezone.utc).timestamp())
             })
             docs = [doc]
 
