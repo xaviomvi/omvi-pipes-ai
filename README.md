@@ -3,7 +3,7 @@
 
 <h2 align="center">
 <a href="https://www.pipeshub.com/">
-<img width="50%" src="https://mintlify.s3.us-west-1.amazonaws.com/pipeshub/logo/pipeshub-logo.svg"/> 
+<img width="50%" src="https://raw.githubusercontent.com/pipeshub-ai/media-assets/refs/heads/main/images/pipeshub-logo.svg"/> 
 </a>
 </h2>
 
@@ -26,7 +26,7 @@ Beyond search, our platform allows enterprises to create custom apps and AI agen
   <img
     width="700"
     height="500"
-    src="https://raw.githubusercontent.com/rish231294/pipeshub-ai/refs/heads/work/assets/architecture.svg"
+    src="https://raw.githubusercontent.com/pipeshub-ai/media-assets/refs/heads/main/images/Architecture%20Diagram.svg"
     alt="PipesHub System Architecture"
   />
 
