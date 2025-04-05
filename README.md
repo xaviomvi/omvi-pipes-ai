@@ -24,9 +24,9 @@ It can answer questions, provide insights, and more. The platform not only deliv
 Beyond search, our platform allows enterprises to create custom apps and AI agents using a No-Code interface.
 <h2>High Level Architecture Diagram</h2>
   <img
-    width="800"
-    height="450"
-    src="https://mintlify.s3.us-west-1.amazonaws.com/pipeshub/images/system-architecture/pipeshub-system-architecture.png"
+    width="700"
+    height="500"
+    src="https://raw.githubusercontent.com/rish231294/pipeshub-ai/refs/heads/work/assets/architecture.svg"
     alt="PipesHub System Architecture"
   />
 
