@@ -359,7 +359,7 @@ class KafkaConsumerManager:
             })
 
             if error_details:
-                doc["processingError"] = error_details
+                doc["reason"] = error_details
 
             docs = [doc]
             await self.event_processor.arango_service.batch_upsert_nodes(

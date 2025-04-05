@@ -191,6 +191,16 @@ class EventProcessor:
                     orgId="default",
                     pptx_binary=file_content
                 )
+                
+            elif extension == "md":
+                result = await self.processor.process_md_document(
+                    recordName=f"Record-{record_id}",
+                    recordId=record_id,
+                    version=record_version,
+                    source=connector,
+                    orgId="default",
+                    md_binary=file_content
+                )
 
             else:
                 logger.warning(f"""🔴🔴🔴 Unsupported file extension: {
