@@ -59,7 +59,9 @@ dependencies = [
     "cryptography==44.0.1",
     "sentence-transformers==3.4.1",
    "langchain-google-genai==2.1.2",
-   "langchain-google-vertexai==2.0.18"
+   "langchain-google-vertexai==2.0.18",
+   "langchain-ollama==0.3.0",
+   "langchain-aws==0.2.18"
 ]
 
 [tool.setuptools.packages.find]

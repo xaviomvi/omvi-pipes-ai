@@ -6,6 +6,7 @@ class LLMProvider(Enum):
     GEMINI_PROVIDER = "gemini"
     VERTEX_AI_PROVIDER = "vertexAI"
     ANTHROPIC_PROVIDER = "anthropic"
+    AWS_BEDROCK_PROVIDER = "bedrock"
     
 class OCRProvider(Enum):
     AZURE_PROVIDER = "azureDI"

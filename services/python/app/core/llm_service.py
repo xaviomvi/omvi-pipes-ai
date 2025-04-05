@@ -8,7 +8,7 @@ from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
 from app.config.ai_models_named_constants import AzureOpenAILLM
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_anthropic import ChatAnthropic
-
+from langchain_aws import ChatBedrock
 
 logger = create_logger(__name__)
 
@@ -33,6 +33,13 @@ class AnthropicLLMConfig(BaseLLMConfig):
 class OpenAILLMConfig(BaseLLMConfig):
     """OpenAI-specific configuration"""
     organization_id: Optional[str] = None
+
+class AwsBedrockLLMConfig(BaseLLMConfig):
+    """OpenAI-specific configuration"""
+    region: str
+    access_key: str
+    access_secret: str
+
 
 class CostTrackingCallback(BaseCallbackHandler):
     """Callback handler for tracking LLM usage and costs"""
@@ -118,6 +125,16 @@ class LLMFactory:
                 timeout=None,
                 max_retries=2,
                 api_key=config.api_key,
+                callbacks=[cost_callback]
+            )
+        elif isinstance(config, AwsBedrockLLMConfig):
+            print(config, "bedrock")
+            return ChatBedrock(
+                model=config.model,
+                temperature=0.3,
+                aws_access_key_id=config.access_key,
+                aws_secret_access_key=config.access_secret,
+                region_name=config.region,
                 callbacks=[cost_callback]
             )
         
