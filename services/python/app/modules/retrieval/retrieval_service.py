@@ -6,7 +6,7 @@ from qdrant_client.http.models import Filter, FieldCondition, MatchValue
 from langchain_qdrant import QdrantVectorStore, FastEmbedSparse, RetrievalMode
 from app.modules.retrieval.retrieval_arango import ArangoService
 from app.config.arangodb_constants import CollectionNames,RecordTypes
-from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig, GeminiLLMConfig, AnthropicLLMConfig, LLMFactory
+from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig, GeminiLLMConfig, AnthropicLLMConfig, AwsBedrockLLMConfig, LLMFactory
 from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
 from app.utils.logger import create_logger
 
@@ -106,7 +106,15 @@ class RetrievalService:
                         temperature=0.2,
                         api_key=config['configuration']['apiKey'],
                     )
-                
+                elif provider == LLMProvider.AWS_BEDROCK_PROVIDER.value:
+                    llm_config = AwsBedrockLLMConfig(
+                        model=config['configuration']['model'],
+                        temperature=0.2,
+                        region=config['configuration']['region'],
+                        access_key=config['configuration']['aws_access_key_id'],
+                        access_secret=config['configuration']['aws_access_secret_key'],
+                        api_key=config['configuration']['aws_access_secret_key'],
+                    )
             if not llm_config:
                 raise ValueError("No supported LLM provider found in configuration")
 
