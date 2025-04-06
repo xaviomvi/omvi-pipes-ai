@@ -47,6 +47,20 @@ Beyond search, our platform allows enterprises to create custom apps and AI agen
 - **Enterprise-Grade Connectors** – Scalable, reliable, and built for secure access across your organization.
 - **Modular & Scalable Architecture** – Every service is loosely coupled to scale independently and adapt to your needs.
 
+## Connectors
+- Google Drive
+- Gmail
+- Google Calendar
+- Onedrive(Release coming this month)
+- Sharepoint Online(Release coming this month)
+- Outlook(Release coming this month)
+- Outlook Calendar(Release coming this month)
+- Slack(Release coming this month)
+- Notion(Release coming this month)
+- Jira(Release coming this month)
+- Confluence(Release coming this month)
+- MS Teams(Release coming this month)
+
 ## RoadMap
 - Code Search
 - Workplace AI Agents
