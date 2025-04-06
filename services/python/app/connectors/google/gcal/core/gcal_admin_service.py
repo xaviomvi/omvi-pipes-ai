@@ -56,29 +56,6 @@ class GCalAdminService:
                 "❌ Failed to connect to Calendar Admin Service: %s", str(e))
             return False
 
-    async def create_user_service(self, user_email: str) -> Optional[GCalUserService]:
-        """Get or create a GCalUserService for a specific user"""
-        try:
-            # Create delegated credentials for the user
-            user_credentials = self.credentials.with_subject(user_email)
-
-            # Create new user service
-            user_service = GCalUserService(
-                config=self.config_service,
-                rate_limiter=self.rate_limiter,
-                credentials=user_credentials
-            )
-
-            # Connect the user service
-            if not await user_service.connect_enterprise_user():
-                return None
-
-            return user_service
-
-        except Exception as e:
-            logger.error(f"❌ Failed to create user service for {
-                         user_email}: {str(e)}")
-            return None
 
     @exponential_backoff()
     async def list_enterprise_users(self, org_id: str) -> List[Dict]:

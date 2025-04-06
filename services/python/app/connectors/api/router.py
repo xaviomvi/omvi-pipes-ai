@@ -639,7 +639,7 @@ async def download_file(
                     )
                     
                 except Exception as gmail_error:
-                    logger.warning(f"Failed to get attachment from Gmail: {str(gmail_error)}, trying Drive...")
+                    logger.info(f"Failed to get attachment from Gmail: {str(gmail_error)}, trying Drive...")
                     
                     # Try to get the file from Drive as fallback
                     try:

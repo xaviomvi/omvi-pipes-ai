@@ -167,7 +167,7 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
             # Set up calendar watch for each user
             for user in users:
                 try:
-                    user_service = await self.gcal_admin_service.create_user_service(user['email'])
+                    user_service = await self.gcal_admin_service.create_gcal_user_service(user['email'])
                     if not user_service:
                         logger.warning(f"❌ Failed to create user service for: {
                                        user['email']}")

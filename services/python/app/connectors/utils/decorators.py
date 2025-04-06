@@ -18,7 +18,7 @@ def token_refresh(func):
             return await func(self, *args, **kwargs)
         except Exception as e:
             raise GoogleAuthError(
-                "Token refresh failed",
+                "Token refresh failed: " + str(e),
                 details={
                     "function": func.__name__,
                     "error": str(e)
@@ -63,7 +63,7 @@ def exponential_backoff(max_retries: int = 5, initial_delay: float = 1.0, max_de
                     if not should_retry or retries >= max_retries:
                         if status_code in [429, 403]:
                             raise AdminQuotaError(
-                                "API quota exceeded",
+                                "API quota exceeded: " + str(e),
                                 details={
                                     **error_details,
                                     "error": str(e)
@@ -71,7 +71,7 @@ def exponential_backoff(max_retries: int = 5, initial_delay: float = 1.0, max_de
                             )
                         else:
                             raise GoogleConnectorError(
-                                f"HTTP error {status_code}",
+                                f"HTTP error {status_code}: " + str(e),
                                 details={
                                     **error_details,
                                     "error": str(e)
@@ -102,7 +102,7 @@ def exponential_backoff(max_retries: int = 5, initial_delay: float = 1.0, max_de
 
                 except Exception as e:
                     raise GoogleConnectorError(
-                        "Unexpected error in Google API call",
+                        "Unexpected error in Google API call: " + str(e),
                         details={
                             "function": func.__name__,
                             "error": str(e)

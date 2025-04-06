@@ -29,7 +29,7 @@ logger = create_logger(__name__)
 class GmailUserService:
     """GmailUserService class for interacting with Google Gmail API"""
 
-    def __init__(self, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter, google_token_handler, credentials=None):
+    def __init__(self, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter, google_token_handler, credentials=None, admin_service=None):
         """Initialize GmailUserService"""
         try:
             logger.info("🚀 Initializing GmailUserService")
@@ -40,7 +40,8 @@ class GmailUserService:
             self.gmail_drive_interface = GmailDriveInterface(
                 config=self.config_service,
                 google_token_handler=self.google_token_handler,
-                rate_limiter=rate_limiter
+                rate_limiter=rate_limiter,
+                admin_service=admin_service
             )
 
             # Rate limiters
@@ -69,7 +70,7 @@ class GmailUserService:
                 creds_data = await self.google_token_handler.get_individual_token(org_id, user_id)
                 if not creds_data:
                     raise GoogleAuthError(
-                        "Failed to get individual token",
+                        "Failed to get individual token: " + str(e),
                         details={
                             "org_id": org_id,
                             "user_id": user_id
@@ -77,7 +78,7 @@ class GmailUserService:
                     )
             except Exception as e:
                 raise GoogleAuthError(
-                    "Error getting individual token",
+                    "Error getting individual token: " + str(e),
                     details={
                         "org_id": org_id,
                         "user_id": user_id,
@@ -97,7 +98,7 @@ class GmailUserService:
                 )
             except Exception as e:
                 raise GoogleAuthError(
-                    "Failed to create credentials object",
+                    "Failed to create credentials object: " + str(e),
                     details={
                         "org_id": org_id,
                         "user_id": user_id,
@@ -114,7 +115,7 @@ class GmailUserService:
                 logger.info("✅ Token expiry time: %s", self.token_expiry)
             except Exception as e:
                 raise GoogleAuthError(
-                    "Failed to set token expiry",
+                    "Failed to set token expiry: " + str(e),
                     details={
                         "org_id": org_id,
                         "user_id": user_id,
@@ -127,7 +128,7 @@ class GmailUserService:
                 self.service = build('gmail', 'v1', credentials=creds)
             except Exception as e:
                 raise MailOperationError(
-                    "Failed to build Gmail service",
+                    "Failed to build Gmail service: " + str(e),
                     details={
                         "org_id": org_id,
                         "user_id": user_id,
@@ -142,7 +143,7 @@ class GmailUserService:
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error connecting individual user",
+                "Unexpected error connecting individual user: " + str(e),
                 details={
                     "org_id": org_id,
                     "user_id": user_id,
@@ -193,7 +194,7 @@ class GmailUserService:
         try:
             if not self.credentials:
                 raise GoogleAuthError(
-                    "No credentials provided for enterprise connection"
+                    "No credentials provided for enterprise connection: " + str(e)
                 )
 
             try:
@@ -205,7 +206,7 @@ class GmailUserService:
                 )
             except Exception as e:
                 raise MailOperationError(
-                    "Failed to build Gmail service",
+                    "Failed to build Gmail service: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -216,7 +217,7 @@ class GmailUserService:
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error connecting enterprise user",
+                "Unexpected error connecting enterprise user: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -231,7 +232,7 @@ class GmailUserService:
                     self.service = None
             except Exception as e:
                 raise MailOperationError(
-                    "Failed to close Gmail service",
+                    "Failed to close Gmail service: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -244,7 +245,7 @@ class GmailUserService:
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error disconnecting Gmail service",
+                "Unexpected error disconnecting Gmail service: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -262,14 +263,14 @@ class GmailUserService:
             except HttpError as e:
                 if e.resp.status == 403:
                     raise GoogleAuthError(
-                        "Permission denied getting user profile",
+                        "Permission denied getting user profile: " + str(e),
                         details={
                             "org_id": org_id,
                             "error": str(e)
                         }
                     )
                 raise MailOperationError(
-                    "Failed to get user profile",
+                    "Failed to get user profile: " + str(e),
                     details={
                         "org_id": org_id,
                         "error": str(e)
@@ -296,7 +297,7 @@ class GmailUserService:
                 }]
             except Exception as e:
                 raise MailOperationError(
-                    "Failed to process user info",
+                    "Failed to process user info: " + str(e),
                     details={
                         "org_id": org_id,
                         "error": str(e)
@@ -307,7 +308,7 @@ class GmailUserService:
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error getting individual user info",
+                "Unexpected error getting individual user info: " + str(e),
                 details={
                     "org_id": org_id,
                     "error": str(e)
@@ -334,14 +335,14 @@ class GmailUserService:
                 except HttpError as e:
                     if e.resp.status == 403:
                         raise GoogleAuthError(
-                            "Permission denied listing messages",
+                            "Permission denied listing messages: " + str(e),
                             details={
                                 "query": query,
                                 "error": str(e)
                             }
                         )
                     raise MailOperationError(
-                        "Failed to list messages",
+                        "Failed to list messages: " + str(e),
                         details={
                             "query": query,
                             "error": str(e)
@@ -351,7 +352,7 @@ class GmailUserService:
                 current_messages = results.get('messages', [])
                 if not isinstance(current_messages, list):
                     raise MailOperationError(
-                        "Invalid response format for messages",
+                        "Invalid response format for messages: " + str(e),
                         details={
                             "query": query,
                             "response_type": type(current_messages)
@@ -371,7 +372,7 @@ class GmailUserService:
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error listing messages",
+                "Unexpected error listing messages: " + str(e),
                 details={
                     "query": query,
                     "error": str(e)
@@ -431,16 +432,16 @@ class GmailUserService:
             except HttpError as e:
                 if e.resp.status == 404:
                     raise MailOperationError(
-                        "Message not found",
+                        "Message not found: " + str(e),
                         details={"message_id": message_id}
                     )
                 elif e.resp.status == 403:
                     raise GoogleAuthError(
-                        "Permission denied accessing message",
+                        "Permission denied accessing message: " + str(e),
                         details={"message_id": message_id}
                     )
                 raise MailOperationError(
-                    "Failed to get message",
+                    "Failed to get message: " + str(e),
                     details={
                         "message_id": message_id,
                         "error": str(e)
@@ -468,7 +469,7 @@ class GmailUserService:
 
             except Exception as e:
                 raise MailOperationError(
-                    "Failed to process message content",
+                    "Failed to process message content: " + str(e),
                     details={
                         "message_id": message_id,
                         "error": str(e)
@@ -482,7 +483,7 @@ class GmailUserService:
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error getting message",
+                "Unexpected error getting message: " + str(e),
                 details={
                     "message_id": message_id,
                     "error": str(e)
@@ -509,14 +510,14 @@ class GmailUserService:
                 except HttpError as e:
                     if e.resp.status == 403:
                         raise GoogleAuthError(
-                            "Permission denied listing threads",
+                            "Permission denied listing threads: " + str(e),
                             details={
                                 "query": query,
                                 "error": str(e)
                             }
                         )
                     raise MailOperationError(
-                        "Failed to list threads",
+                        "Failed to list threads: " + str(e),
                         details={
                             "query": query,
                             "error": str(e)
@@ -526,7 +527,7 @@ class GmailUserService:
                 current_threads = results.get('threads', [])
                 if not isinstance(current_threads, list):
                     raise MailOperationError(
-                        "Invalid response format for threads",
+                        "Invalid response format for threads: " + str(e),
                         details={
                             "query": query,
                             "response_type": type(current_threads)
@@ -546,7 +547,7 @@ class GmailUserService:
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error listing threads",
+                "Unexpected error listing threads: " + str(e),
                 details={
                     "query": query,
                     "error": str(e)
@@ -555,17 +556,23 @@ class GmailUserService:
 
     @exponential_backoff()
     @token_refresh
-    async def list_attachments(self, message, org_id: str, user_id: str, account_type: str) -> List[Dict]:
+    async def list_attachments(self, message, org_id: str, user, account_type: str) -> List[Dict]:
         """Get list of attachments for a message"""
         try:
             if not isinstance(message, dict):
                 raise MailOperationError(
-                    "Invalid message format",
+                    "Invalid message format: " + str(e),
                     details={"type": type(message)}
                 )
+                
+            user_id = user.get('userId')
+            user_email = user.get('email')
 
             attachments = []
             failed_items = []
+
+            logger.info(f"🎯 Processing attachments for message: {message['id']}")
+            logger.info(f"🎯 Message: {message}")
 
             # Process regular attachments
             if 'payload' in message and 'parts' in message['payload']:
@@ -592,13 +599,15 @@ class GmailUserService:
 
             # Process Drive attachments
             try:
+                logger.info(f"🎯 Processing Drive attachments for message: {message['id']}")
+                
                 file_ids = await self.get_file_ids(message)
                 if file_ids:
                     for file_id in file_ids:
                         try:
                             file_metadata = await self.gmail_drive_interface.get_drive_file(
                                 file_id=file_id,
-                                user_email=message.get('user_email'),
+                                user_email=user_email,
                                 org_id=org_id,
                                 user_id=user_id,
                                 account_type=account_type
@@ -639,7 +648,7 @@ class GmailUserService:
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error listing attachments",
+                "Unexpected error listing attachments: " + str(e),
                 details={
                     "message_id": message.get('id', 'unknown'),
                     "error": str(e)
@@ -705,7 +714,7 @@ class GmailUserService:
 
     @exponential_backoff()
     @token_refresh
-    async def create_user_watch(self, user_id="me") -> Dict:
+    async def create_gmail_user_watch(self, user_id="me") -> Dict:
         """Create user watch"""
         try:
             logger.info("🚀 Creating user watch for user %s", user_id)
@@ -725,7 +734,7 @@ class GmailUserService:
             except HttpError as e:
                 if e.resp.status == 403:
                     raise GoogleAuthError(
-                        "Permission denied creating user watch",
+                        "Permission denied creating user watch: " + str(e),
                         details={
                             "user_id": user_id,
                             "error": str(e)
@@ -733,7 +742,7 @@ class GmailUserService:
                     )
                 elif e.resp.status == 400:
                     raise MailOperationError(
-                        "Invalid request creating user watch",
+                        "Invalid request creating user watch: " + str(e),
                         details={
                             "user_id": user_id,
                             "topic": topic,
@@ -741,7 +750,7 @@ class GmailUserService:
                         }
                     )
                 raise MailOperationError(
-                    "Failed to create user watch",
+                    "Failed to create user watch: " + str(e),
                     details={
                         "user_id": user_id,
                         "error": str(e)
@@ -750,7 +759,7 @@ class GmailUserService:
 
             if not isinstance(response, dict):
                 raise MailOperationError(
-                    "Invalid response format for user watch",
+                    "Invalid response format for user watch: " + str(e),
                     details={
                         "user_id": user_id,
                         "response_type": type(response)
@@ -764,7 +773,7 @@ class GmailUserService:
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error creating user watch",
+                "Unexpected error creating user watch: " + str(e),
                 details={
                     "user_id": user_id,
                     "error": str(e)
@@ -786,15 +795,25 @@ class GmailUserService:
 
             try:
                 async with self.google_limiter:
-                    response = self.service.users().history().list(
+                    # Fetch both inbox and sent changes
+                    inbox_response = self.service.users().history().list(
                         userId=user_email,
                         startHistoryId=history_id,
+                        labelId='INBOX',
                         historyTypes=['messageAdded', 'messageDeleted']
                     ).execute()
+                    
+                    sent_response = self.service.users().history().list(
+                        userId=user_email,
+                        startHistoryId=history_id,
+                        labelId='SENT',
+                        historyTypes=['messageAdded', 'messageDeleted']
+                    ).execute()
+                    
             except HttpError as e:
                 if e.resp.status == 404:
                     raise MailOperationError(
-                        "Invalid history ID",
+                        "Invalid history ID: " + str(e),
                         details={
                             "user_email": user_email,
                             "history_id": history_id,
@@ -803,14 +822,14 @@ class GmailUserService:
                     )
                 elif e.resp.status == 403:
                     raise GoogleAuthError(
-                        "Permission denied fetching changes",
+                        "Permission denied fetching changes: " + str(e),
                         details={
                             "user_email": user_email,
                             "error": str(e)
                         }
                     )
                 raise MailOperationError(
-                    "Failed to fetch changes",
+                    "Failed to fetch changes: " + str(e),
                     details={
                         "user_email": user_email,
                         "history_id": history_id,
@@ -818,23 +837,31 @@ class GmailUserService:
                     }
                 )
 
-            if not isinstance(response, dict):
+            if not isinstance(inbox_response, dict) or not isinstance(sent_response, dict):
                 raise MailOperationError(
                     "Invalid response format for history",
                     details={
                         "user_email": user_email,
-                        "response_type": type(response)
+                        "response_type": f"inbox: {type(inbox_response)}, sent: {type(sent_response)}"
                     }
                 )
 
+            # Combine the history lists from both responses
+            combined_response = inbox_response.copy()
+            if 'history' in sent_response:
+                if 'history' not in combined_response:
+                    combined_response['history'] = []
+                combined_response['history'].extend(sent_response.get('history', []))
+
             logger.info("✅ Fetched changes successfully for user %s", user_email)
-            return response
+            logger.info(f"Combined response: {combined_response}")
+            return combined_response
 
         except (GoogleAuthError, MailOperationError):
             raise
         except Exception as e:
             raise GoogleMailError(
-                "Unexpected error fetching changes",
+                "Unexpected error fetching changes: " + str(e),
                 details={
                     "user_email": user_email,
                     "history_id": history_id,

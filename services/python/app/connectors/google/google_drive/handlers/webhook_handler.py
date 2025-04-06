@@ -91,7 +91,7 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
                 channel_id=channel_id
             )
             if not token:
-                logger.error(f"No user found for channel {channel_id}")
+                logger.info(f"No user found for channel {channel_id}")
                 return False
 
             user_email = token['userEmail']
@@ -285,7 +285,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                     logger.error(
                         "No page token found for channel %s", channel_id)
                     continue
-                user_service = await self.drive_admin_service.create_user_service(page_token['userEmail'])
+                user_service = await self.drive_admin_service.create_drive_user_service(page_token['userEmail'])
 
                 changes, new_token = await user_service.get_changes(
                     page_token=page_token['token']
@@ -343,7 +343,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
             for user in users:
                 try:
                     user_id = user['userId']
-                    user_service = await self.drive_admin_service.create_user_service(user['email'])
+                    user_service = await self.drive_admin_service.create_drive_user_service(user['email'])
                     page_token = await self.arango_service.get_page_token_db(
                         user['channel_id'],
                         user['resource_id']

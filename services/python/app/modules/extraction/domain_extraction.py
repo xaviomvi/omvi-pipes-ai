@@ -34,7 +34,7 @@ class SubCategories(BaseModel):
     )
 
 class DocumentClassification(BaseModel):
-    departments: List[DepartmentNames] = Field(
+    departments: List[str] = Field(
         description="The list of departments this document belongs to",
         max_items=3
     )
@@ -70,14 +70,6 @@ class DomainExtractor:
         self.parser = PydanticOutputParser(
             pydantic_object=DocumentClassification)
 
-        # Format department list for the prompt
-        department_list = "\n".join(
-            f"     - \"{dept.value}\"" for dept in DepartmentNames)
-
-        # Format sentiment list for the prompt
-        sentiment_list = "\n".join(
-            f"     - \"{sentiment}\"" for sentiment in SentimentType.__args__)
-
         # Initialize topics storage
         self.topics_store = set()  # Store all accepted topics
 
@@ -90,13 +82,6 @@ class DomainExtractor:
             n_components=10,  # Adjust based on your needs
             random_state=42
         )
-
-        # Update prompt with department and sentiment lists
-        filled_prompt = prompt.replace("{department_list}", department_list).replace(
-            "{sentiment_list}", sentiment_list)
-        self.prompt_template = PromptTemplate.from_template(filled_prompt)
-
-        logger.info(f"🎯 Prompt template: {self.prompt_template}")
 
     async def find_similar_topics(self, new_topic: str) -> str:
         """
@@ -175,7 +160,7 @@ class DomainExtractor:
 
         return list(set(processed_topics))
 
-    async def extract_metadata(self, content: str) -> DocumentClassification:
+    async def extract_metadata(self, content: str, org_id: str) -> DocumentClassification:
         """
         Extract metadata from document content using Azure OpenAI.
         Includes reflection logic to attempt recovery from parsing failures.
@@ -184,6 +169,26 @@ class DomainExtractor:
         self.llm = await get_llm(self.config_service)
         
         try:
+            logger.info(f"🎯 Extracting departments for org_id: {org_id}")
+            departments = await self.arango_service.get_departments(org_id)
+            logger.info(f"🎯 Departments: {departments}")
+            if not departments:
+                departments = [dept.value for dept in DepartmentNames]
+
+            # Format department list for the prompt
+            department_list = "\n".join(
+                f"     - \"{dept}\"" for dept in departments)
+            
+            # Format sentiment list for the prompt
+            sentiment_list = "\n".join(
+                f"     - \"{sentiment}\"" for sentiment in SentimentType.__args__)
+
+            filled_prompt = prompt.replace("{department_list}", department_list).replace(
+            "{sentiment_list}", sentiment_list)
+            self.prompt_template = PromptTemplate.from_template(filled_prompt)
+
+            logger.info(f"🎯 Prompt template: {self.prompt_template}")
+
             formatted_prompt = self.prompt_template.format(content=content)
             logger.info(f"🎯 Prompt formatted successfully {formatted_prompt}")
 
@@ -295,7 +300,7 @@ class DomainExtractor:
                     dept_query = f'FOR d IN {CollectionNames.DEPARTMENTS.value} FILTER d.departmentName == @department RETURN d'
                     cursor = self.arango_service.db.aql.execute(
                         dept_query,
-                        bind_vars={'department': department.value}
+                        bind_vars={'department': department}
                     )
                     dept_doc = cursor.next()
                     logger.info(f"🚀 Department: {dept_doc}")
@@ -307,13 +312,13 @@ class DomainExtractor:
                             "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
                         }
                         await self.arango_service.batch_create_edges([edge], CollectionNames.BELONGS_TO_DEPARTMENT.value)
-                        logger.info(f"🔗 Created relationship between document {document_id} and department {department.value}")
+                        logger.info(f"🔗 Created relationship between document {document_id} and department {department}")
 
                 except StopIteration:
-                    logger.warning(f"⚠️ No department found for: {department.value}")
+                    logger.warning(f"⚠️ No department found for: {department}")
                     continue
                 except Exception as e:
-                    logger.error(f"❌ Error creating relationship with department {department.value}: {str(e)}")
+                    logger.error(f"❌ Error creating relationship with department {department}: {str(e)}")
                     continue
                 
             # Handle single category
@@ -477,7 +482,7 @@ class DomainExtractor:
             
             # Add metadata fields to doc
             doc.update({
-                "departments": [dept.value for dept in metadata.departments],
+                "departments": [dept for dept in metadata.departments],
                 "categories": metadata.categories,
                 "subcategoryLevel1": metadata.subcategories.level1,
                 "subcategoryLevel2": metadata.subcategories.level2,

@@ -62,7 +62,7 @@ class DriveUserService:
                 creds_data = await self.google_token_handler.get_individual_token(org_id, user_id)
             except Exception as e:
                 raise GoogleAuthError(
-                    "Failed to get individual token",
+                    "Failed to get individual token: " + str(e),
                     details={
                         "org_id": org_id,
                         "user_id": user_id,
@@ -82,7 +82,7 @@ class DriveUserService:
                 )
             except Exception as e:
                 raise GoogleAuthError(
-                    "Failed to create credentials object",
+                    "Failed to create credentials object: " + str(e),
                     details={
                         "org_id": org_id,
                         "user_id": user_id,
@@ -100,7 +100,7 @@ class DriveUserService:
                 self.service = build('drive', 'v3', credentials=creds)
             except Exception as e:
                 raise DriveOperationError(
-                    "Failed to build Drive service",
+                    "Failed to build Drive service: " + str(e),
                     details={
                         "org_id": org_id,
                         "user_id": user_id,
@@ -115,7 +115,7 @@ class DriveUserService:
             raise
         except Exception as e:
             raise GoogleDriveError(
-                "Failed to connect individual Drive service",
+                "Failed to connect individual Drive service: " + str(e),
                 details={
                     "org_id": org_id,
                     "user_id": user_id,
@@ -267,14 +267,14 @@ class DriveUserService:
                     except HttpError as e:
                         if e.resp.status == 403:
                             raise DrivePermissionError(
-                                "Permission denied for folder",
+                                "Permission denied for folder: " + str(e),
                                 details={
                                     "folder_id": current_folder,
                                     "error": str(e)
                                 }
                             )
                         raise DriveOperationError(
-                            "Failed to list files",
+                            "Failed to list files: " + str(e),
                             details={
                                 "folder_id": current_folder,
                                 "error": str(e)
@@ -303,7 +303,7 @@ class DriveUserService:
             raise
         except Exception as e:
             raise GoogleDriveError(
-                "Unexpected error listing files",
+                "Unexpected error listing files: " + str(e),
                 details={
                     "folder_id": folder_id,
                     "error": str(e)
@@ -330,11 +330,11 @@ class DriveUserService:
                     except HttpError as e:
                         if e.resp.status == 403:
                             raise DrivePermissionError(
-                                "Permission denied listing shared drives",
+                                "Permission denied listing shared drives: " + str(e),
                                 details={"error": str(e)}
                             )
                         raise DriveOperationError(
-                            "Failed to list shared drives",
+                            "Failed to list shared drives: " + str(e),
                             details={"error": str(e)}
                         )
 
@@ -351,7 +351,7 @@ class DriveUserService:
             raise
         except Exception as e:
             raise GoogleDriveError(
-                "Unexpected error listing shared drives",
+                "Unexpected error listing shared drives: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -369,12 +369,12 @@ class DriveUserService:
                     webhook_endpoint = endpoints.get('connectors', {}).get('publicEndpoint')
                     if not webhook_endpoint:
                         raise DriveOperationError(
-                            "Missing webhook endpoint configuration",
+                            "Missing webhook endpoint configuration: " + str(e),
                             details={"endpoints": endpoints}
                         )
                 except Exception as e:
                     raise DriveOperationError(
-                        "Failed to get webhook configuration",
+                        "Failed to get webhook configuration: " + str(e),
                         details={"error": str(e)}
                     )
 
@@ -394,7 +394,7 @@ class DriveUserService:
                 page_token = await self.get_start_page_token_api()
                 if not page_token:
                     raise DriveOperationError(
-                        "Failed to get start page token",
+                        "Failed to get start page token: " + str(e),
                         details={"channel_id": channel_id}
                     )
 
@@ -409,14 +409,14 @@ class DriveUserService:
                 except HttpError as e:
                     if e.resp.status == 403:
                         raise DrivePermissionError(
-                            "Permission denied creating changes watch",
+                            "Permission denied creating changes watch: " + str(e),
                             details={
                                 "channel_id": channel_id,
                                 "error": str(e)
                             }
                         )
                     raise DriveOperationError(
-                        "Failed to create changes watch",
+                        "Failed to create changes watch: " + str(e),
                         details={
                             "channel_id": channel_id,
                             "error": str(e)
@@ -425,7 +425,7 @@ class DriveUserService:
 
                 if not response or not response.get('resourceId'):
                     raise DriveOperationError(
-                        "Invalid response from changes.watch",
+                        "Invalid response from changes.watch: " + str(e),
                         details={
                             "channel_id": channel_id,
                             "response": response
@@ -466,7 +466,7 @@ class DriveUserService:
             raise
         except Exception as e:
             raise GoogleDriveError(
-                "Unexpected error creating changes watch",
+                "Unexpected error creating changes watch: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -495,20 +495,20 @@ class DriveUserService:
                         new_token = await self.get_start_page_token_api()
                         if not new_token:
                             raise DriveOperationError(
-                                "Failed to get new start token after invalid token",
+                                "Failed to get new start token after invalid token: " + str(e),
                                 details={"page_token": page_token}
                             )
                         return [], new_token
                     elif e.resp.status == 403:
                         raise DrivePermissionError(
-                            "Permission denied getting changes",
+                            "Permission denied getting changes: " + str(e),
                             details={
                                 "page_token": page_token,
                                 "error": str(e)
                             }
                         )
                     raise DriveOperationError(
-                        "Failed to list changes",
+                        "Failed to list changes: " + str(e),
                         details={
                             "page_token": page_token,
                             "error": str(e)
@@ -532,7 +532,7 @@ class DriveUserService:
             raise
         except Exception as e:
             raise GoogleDriveError(
-                "Unexpected error getting changes",
+                "Unexpected error getting changes: " + str(e),
                 details={
                     "page_token": page_token,
                     "error": str(e)
@@ -553,11 +553,11 @@ class DriveUserService:
                 except HttpError as e:
                     if e.resp.status == 403:
                         raise DrivePermissionError(
-                            "Permission denied getting start page token",
+                            "Permission denied getting start page token: " + str(e),
                             details={"error": str(e)}
                         )
                     raise DriveOperationError(
-                        "Failed to get start page token",
+                        "Failed to get start page token: " + str(e),
                         details={"error": str(e)}
                     )
 
@@ -575,7 +575,7 @@ class DriveUserService:
             raise
         except Exception as e:
             raise GoogleDriveError(
-                "Unexpected error getting start page token",
+                "Unexpected error getting start page token: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -614,24 +614,34 @@ class DriveUserService:
                         'request_type': req_type,
                         'error': str(exception)
                     }
-                    failed_items.append(error_details)
+                    
                     if isinstance(exception, HttpError):
                         if exception.resp.status == 403:
-                            logger.error(
+                            logger.info(
                                 "⚠️ Permission denied for %s request on file %s: %s",
                                 req_type, file_id, str(exception)
                             )
+                            # For permission requests, just set empty permissions and continue
+                            if req_type == 'perm':
+                                if file_id in metadata_results:
+                                    metadata_results[file_id]['permissions'] = []
+                                return
+                            failed_items.append(error_details)
                         else:
                             logger.error(
                                 "❌ HTTP error for %s request on file %s: %s",
                                 req_type, file_id, str(exception)
                             )
+                            failed_items.append(error_details)
                     else:
                         logger.error(
                             "❌ Unexpected error for %s request on file %s: %s",
                             req_type, file_id, str(exception)
                         )
-                    metadata_results[file_id] = None
+                        failed_items.append(error_details)
+                    
+                    if req_type == 'meta':
+                        metadata_results[file_id] = None
 
             # Add requests to batch
             for file_id in file_ids:
@@ -661,7 +671,7 @@ class DriveUserService:
                     await asyncio.to_thread(basic_batch.execute)
             except Exception as e:
                 raise DriveOperationError(
-                    "Failed to execute batch request",
+                    "Failed to execute batch request: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -695,7 +705,7 @@ class DriveUserService:
                             })
                         else:
                             raise DriveOperationError(
-                                "Failed to fetch revisions",
+                                "Failed to fetch revisions: " + str(e),
                                 details={
                                     "file_id": file_id,
                                     "error": str(e)
@@ -721,7 +731,7 @@ class DriveUserService:
             raise
         except Exception as e:
             raise GoogleDriveError(
-                "Unexpected error in batch fetch",
+                "Unexpected error in batch fetch: " + str(e),
                 details={
                     "total_files": len(file_ids),
                     "error": str(e)
@@ -742,11 +752,11 @@ class DriveUserService:
                 except HttpError as e:
                     if e.resp.status == 403:
                         raise DrivePermissionError(
-                            "Permission denied accessing root drive",
+                            "Permission denied accessing root drive: " + str(e),
                             details={"error": str(e)}
                         )
                     raise DriveOperationError(
-                        "Failed to get root drive info",
+                        "Failed to get root drive info: " + str(e),
                         details={"error": str(e)}
                     )
 
@@ -796,14 +806,14 @@ class DriveUserService:
                 except HttpError as e:
                     if e.resp.status == 403:
                         raise DrivePermissionError(
-                            "Permission denied accessing shared drive",
+                            "Permission denied accessing shared drive: " + str(e),
                             details={
                                 "drive_id": drive_id,
                                 "error": str(e)
                             }
                         )
                     raise DriveOperationError(
-                        "Failed to get shared drive info",
+                        "Failed to get shared drive info: " + str(e),
                         details={
                             "drive_id": drive_id,
                             "error": str(e)}
@@ -848,7 +858,7 @@ class DriveUserService:
             raise
         except Exception as e:
             raise GoogleDriveError(
-                "Unexpected error getting drive info",
+                "Unexpected error getting drive info: " + str(e),
                 details={
                     "drive_id": drive_id,
                     "error": str(e)

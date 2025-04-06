@@ -52,7 +52,7 @@ class CustomChunker(SemanticChunker):
                 )
             except Exception as e:
                 raise ChunkingError(
-                    "Failed to calculate sentence distances",
+                    "Failed to calculate sentence distances: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -66,7 +66,7 @@ class CustomChunker(SemanticChunker):
                         distances)
             except Exception as e:
                 raise ChunkingError(
-                    "Failed to calculate breakpoint threshold",
+                    "Failed to calculate breakpoint threshold: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -131,19 +131,19 @@ class CustomChunker(SemanticChunker):
                         ))
                     except MetadataProcessingError as e:
                         raise ChunkingError(
-                            "Failed to process metadata during document merge",
+                            "Failed to process metadata during document merge: " + str(e),
                             details={"error": str(e)}
                         )
                     except Exception as e:
                         raise ChunkingError(
-                            "Failed to merge document groups",
+                            "Failed to merge document groups: " + str(e),
                             details={"error": str(e)}
                         )
 
                 return merged_documents
             except Exception as e:
                 raise ChunkingError(
-                    "Failed to merge document groups",
+                    "Failed to merge document groups: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -151,7 +151,7 @@ class CustomChunker(SemanticChunker):
             raise
         except Exception as e:
             raise ChunkingError(
-                "Unexpected error during document splitting",
+                "Unexpected error during document splitting: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -163,7 +163,7 @@ class CustomChunker(SemanticChunker):
 
             if not all(isinstance(bbox, list) for bbox in bboxes):
                 raise MetadataProcessingError(
-                    "Invalid bounding box format",
+                    "Invalid bounding box format: " + str(e),
                     details={"bboxes": bboxes}
                 )
 
@@ -176,7 +176,7 @@ class CustomChunker(SemanticChunker):
 
             except (KeyError, TypeError) as e:
                 raise MetadataProcessingError(
-                    "Invalid bounding box coordinate format",
+                    "Invalid bounding box coordinate format: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -192,7 +192,7 @@ class CustomChunker(SemanticChunker):
             raise
         except Exception as e:
             raise MetadataProcessingError(
-                "Failed to merge bounding boxes",
+                "Failed to merge bounding boxes: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -206,7 +206,7 @@ class CustomChunker(SemanticChunker):
         try:
             if not isinstance(metadata_list, list):
                 raise MetadataProcessingError(
-                    "Invalid metadata_list format",
+                    "Invalid metadata_list format: " + str(e),
                     details={"received_type": type(metadata_list).__name__}
                 )
 
@@ -264,7 +264,7 @@ class CustomChunker(SemanticChunker):
                 return merged_metadata
             except Exception as e:
                 raise MetadataProcessingError(
-                    "Failed to merge metadata",
+                    "Failed to merge metadata: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -272,7 +272,7 @@ class CustomChunker(SemanticChunker):
             raise
         except Exception as e:
             raise MetadataProcessingError(
-                "Unexpected error during metadata merging",
+                "Unexpected error during metadata merging: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -316,7 +316,7 @@ class IndexingPipeline:
                 )
             except Exception as e:
                 raise IndexingError(
-                    "Failed to initialize dense embeddings",
+                    "Failed to initialize dense embeddings: " + str(e),
                     details={"error": str(e)}
                 )
             
@@ -331,7 +331,7 @@ class IndexingPipeline:
                 )
             except Exception as e:
                 raise IndexingError(
-                    "Failed to initialize text splitter",
+                    "Failed to initialize text splitter: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -340,7 +340,7 @@ class IndexingPipeline:
                 self.sparse_embeddings = FastEmbedSparse(model_name="Qdrant/BM25")
             except Exception as e:
                 raise IndexingError(
-                    "Failed to initialize sparse embeddings",
+                    "Failed to initialize sparse embeddings: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -355,7 +355,7 @@ class IndexingPipeline:
                 )
             except Exception as e:
                 raise VectorStoreError(
-                    "Failed to initialize Qdrant client",
+                    "Failed to initialize Qdrant client: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -375,7 +375,7 @@ class IndexingPipeline:
                 )
             except Exception as e:
                 raise VectorStoreError(
-                    "Failed to initialize vector store",
+                    "Failed to initialize vector store: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -383,7 +383,7 @@ class IndexingPipeline:
             raise
         except Exception as e:
             raise IndexingError(
-                "Failed to initialize indexing pipeline",
+                "Failed to initialize indexing pipeline: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -448,7 +448,7 @@ class IndexingPipeline:
                         
                 except Exception as e:
                     raise MetadataProcessingError(
-                        f"Failed to process metadata for chunk",
+                        f"Failed to process metadata for chunk: " + str(e),
                         details={"error": str(e), "metadata": meta}
                     )
 
@@ -457,7 +457,7 @@ class IndexingPipeline:
                 await self.vector_store.aadd_documents(chunks)
             except Exception as e:
                 raise VectorStoreError(
-                    "Failed to store documents in vector store",
+                    "Failed to store documents in vector store: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -468,7 +468,7 @@ class IndexingPipeline:
                 record = await self.arango_service.get_document(meta['recordId'], CollectionNames.RECORDS.value)
                 if not record:
                     raise DocumentProcessingError(
-                        "Record not found in database",
+                        "Record not found in database: " + str(e),
                         doc_id=meta['recordId']
                     )
                 
@@ -488,7 +488,7 @@ class IndexingPipeline:
                 raise
             except Exception as e:
                 raise DocumentProcessingError(
-                    "Error updating record status",
+                    "Error updating record status: " + str(e),
                     doc_id=meta.get('recordId'),
                     details={"error": str(e)}
                 )
@@ -497,7 +497,7 @@ class IndexingPipeline:
             raise
         except Exception as e:
             raise IndexingError(
-                "Unexpected error during embedding creation",
+                "Unexpected error during embedding creation: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -547,7 +547,7 @@ class IndexingPipeline:
                 
             except Exception as e:
                 raise EmbeddingDeletionError(
-                    "Failed to delete embeddings from vector store",
+                    "Failed to delete embeddings from vector store: " + str(e),
                     record_id=record_id,
                     details={"error": str(e)}
                 )
@@ -556,7 +556,7 @@ class IndexingPipeline:
             raise
         except Exception as e:
             raise EmbeddingDeletionError(
-                "Unexpected error during embedding deletion",
+                "Unexpected error during embedding deletion: " + str(e),
                 record_id=record_id,
                 details={"error": str(e)}
             )
@@ -590,7 +590,7 @@ class IndexingPipeline:
                 ]
             except Exception as e:
                 raise DocumentProcessingError(
-                    "Failed to create document objects",
+                    "Failed to create document objects: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -601,7 +601,7 @@ class IndexingPipeline:
                     raise ChunkingError("No chunks were generated from the documents")
             except Exception as e:
                 raise ChunkingError(
-                    "Failed to split documents into chunks",
+                    "Failed to split documents into chunks: " + str(e),
                     details={"error": str(e)}
                 )
 
@@ -610,7 +610,7 @@ class IndexingPipeline:
                 await self._create_embeddings(chunks)
             except Exception as e:
                 raise EmbeddingError(
-                    "Failed to create or store embeddings",
+                    "Failed to create or store embeddings: " + str(e),
                     details={"error": str(e)}
                 )
 

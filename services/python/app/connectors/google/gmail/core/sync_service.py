@@ -12,7 +12,7 @@ from app.config.arangodb_constants import (CollectionNames, Connectors,
 
 from app.utils.logger import create_logger
 from app.connectors.google.core.arango_service import ArangoService
-from app.connectors.google.gmail.core.gmail_admin_service import GmailAdminService
+from app.connectors.google.admin.google_admin_service import GoogleAdminService
 from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
 from app.connectors.google.gmail.handlers.change_handler import GmailChangeHandler
 from app.connectors.core.kafka_service import KafkaService
@@ -428,7 +428,7 @@ class BaseGmailSyncService(ABC):
                             record = {
                                 "_key": attachment_record['_key'],
                                 "orgId": org_id,
-                                "recordName": "placeholder",
+                                "recordName": attachment.get('filename'),
                                 "recordType": RecordTypes.FILE.value,
                                 "version": 0,
                                 
@@ -442,7 +442,6 @@ class BaseGmailSyncService(ABC):
                                 
                                 "origin": OriginTypes.CONNECTOR.value,
                                 "connectorName": Connectors.GOOGLE_MAIL.value,
-                                "isArchived": False,
                                 "lastSyncTimestamp": get_epoch_timestamp_in_ms(),                                
                                 "isDeleted": False,
                                 "isArchived": False,
@@ -702,7 +701,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
     def __init__(
         self,
         config: ConfigurationService,
-        gmail_admin_service: GmailAdminService,
+        gmail_admin_service: GoogleAdminService,
         arango_service: ArangoService,
         change_handler: GmailChangeHandler,
         kafka_service: KafkaService,
@@ -834,7 +833,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
 
                     # Set up changes watch for the user
                     logger.info("👀 Setting up changes watch for all users...")
-                    channel_data = await self.gmail_admin_service.create_user_watch(user['email'])
+                    channel_data = await self.gmail_admin_service.create_gmail_user_watch(user['email'])
                     if not channel_data:
                         logger.warning(
                             "❌ Failed to set up changes watch for user: %s", user['email'])
@@ -894,7 +893,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                     return False
 
                 # Initialize user service
-                user_service = await self.gmail_admin_service.create_user_service(user['email'])
+                user_service = await self.gmail_admin_service.create_gmail_user_service(user['email'])
                 if not user_service:
                     logger.warning(
                         "❌ Failed to create user service for user: %s", user['email'])
@@ -911,7 +910,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                     messages_full.append(message_data)
 
                 for message in messages_full:
-                    attachments_for_message = await user_service.list_attachments(message, org_id, user['userId'], account_type)
+                    attachments_for_message = await user_service.list_attachments(message, org_id, user, account_type)
                     attachments.extend(attachments_for_message)
                     attachment_ids = [attachment['attachment_id']
                                       for attachment in attachments_for_message]
@@ -976,7 +975,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
 
                         # Process each message
                         for message in current_thread_messages:
-                            message_attachments = await user_service.list_attachments(message, org_id, user['userId'], account_type)
+                            message_attachments = await user_service.list_attachments(message, org_id, user, account_type)
                             if message_attachments:
                                 logger.debug("📎 Found %s attachments in message %s", len(
                                     message_attachments), message['id'])
@@ -1115,14 +1114,14 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
 
 
             # Create user service instance
-            user_service = await self.gmail_admin_service.create_user_service(user_email)
+            user_service = await self.gmail_admin_service.create_gmail_user_service(user_email)
             if not user_service:
                 logger.error("❌ Failed to create Gmail service for user %s", user_email)
                 await self.arango_service.update_user_sync_state(user_email, 'FAILED', Connectors.GOOGLE_MAIL.value)
                 return False
 
             # Set up changes watch for the user
-            channel_data = await self.gmail_admin_service.create_user_watch(user_email)
+            channel_data = await self.gmail_admin_service.create_gmail_user_watch(user_email)
             if not channel_data:
                 logger.error("❌ Failed to set up changes watch for user: %s", user_email)
                 await self.arango_service.update_user_sync_state(user_email, 'FAILED', Connectors.GOOGLE_MAIL.value)
@@ -1150,7 +1149,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                 messages_full.append(message_data)
 
                 # Get attachments for message
-                attachments_for_message = await user_service.list_attachments(message_data, org_id, user['userId'], account_type)
+                attachments_for_message = await user_service.list_attachments(message_data, org_id, user, account_type)
                 attachments.extend(attachments_for_message)
                 attachment_ids = [attachment['attachment_id'] for attachment in attachments_for_message]
                 
@@ -1195,7 +1194,7 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
 
                     # Process messages in thread
                     for message in current_thread_messages:
-                        message_attachments = await user_service.list_attachments(message, org_id, user['userId'], account_type)  
+                        message_attachments = await user_service.list_attachments(message, org_id, user, account_type)  
                         if message_attachments:
                             thread_attachments.extend(message_attachments)
                         thread_messages.append({'message': message})
@@ -1334,7 +1333,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                 user_info = user_info[0]
 
             # Create user watch
-            channel_data = await self.gmail_user_service.create_user_watch()
+            channel_data = await self.gmail_user_service.create_gmail_user_watch()
 
             # Initialize Celery
             await self.celery_app.setup_app()
@@ -1416,7 +1415,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                 messages_full.append(message_data)
 
             for message in messages_full:
-                attachments_for_message = await user_service.list_attachments(message, org_id, user['userId'], account_type)
+                attachments_for_message = await user_service.list_attachments(message, org_id, user, account_type)
                 attachments.extend(attachments_for_message)
                 attachment_ids = [attachment['attachment_id'] for attachment in attachments_for_message]
                 headers = message.get("headers", {})
@@ -1465,7 +1464,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
 
                     # Process messages in thread
                     for message in current_thread_messages:
-                        message_attachments = await user_service.list_attachments(message, org_id, user['userId'], account_type)
+                        message_attachments = await user_service.list_attachments(message, org_id, user, account_type)
                         if message_attachments:
                             thread_attachments.extend(message_attachments)
                         thread_messages.append({'message': message})

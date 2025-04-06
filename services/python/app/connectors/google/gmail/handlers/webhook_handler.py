@@ -219,11 +219,10 @@ class IndividualGmailWebhookHandler(AbstractGmailWebhookHandler):
 
                 if changes:
                     user = await self.arango_service.get_document(user_id, CollectionNames.USERS.value)
-                    user_id = user.get('userId')
 
                     logger.info("%s webhook: Found %s changes to process",
                                 self.handler_type, len(changes))
-                    await self.change_handler.process_changes(user_service, changes, org_id, user_id)
+                    await self.change_handler.process_changes(user_service, changes, org_id, user)
                 else:
                     logger.info("%s webhook: No changes to process",
                                 self.handler_type)
@@ -295,7 +294,7 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
 
                 logger.info("%s webhook: Fetching changes for %s",
                             self.handler_type, email_address)
-                user_service = await self.gmail_admin_service.create_user_service(email_address)
+                user_service = await self.gmail_admin_service.create_gmail_user_service(email_address)
 
                 if not user_service:
                     logger.error(
@@ -336,9 +335,8 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                     logger.info("%s webhook: Found %s changes to process",
                                 self.handler_type, len(changes))
                     user = await self.arango_service.get_document(user_id, CollectionNames.USERS.value)
-                    user_id = user.get('userId')
 
-                    await self.change_handler.process_changes(user_service, changes, org_id, user_id)
+                    await self.change_handler.process_changes(user_service, changes, org_id, user)
                 else:
                     logger.info("%s webhook: No changes to process",
                                 self.handler_type)
@@ -358,11 +356,11 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
 
             for user in users:
                 try:
-                    user_service = await self.drive_admin_service.create_user_service(user['email'])
+                    user_service = await self.gmail_admin_service.create_gmail_user_service(user['email'])
                     changes = await user_service.get_changes()
                     if changes:
                         for change in changes:
-                            await self.change_handler.process_changes(user_service, change, org_id, user['userId'])
+                            await self.change_handler.process_changes(user_service, change, org_id, user)
                         success_count += 1
                 except Exception as e:
                     logger.error("Error processing user %s: %s",
