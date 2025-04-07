@@ -474,6 +474,7 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
           backgroundColor: 'background.paper',
           padding: 2,
         },
+        
       }}
     >
       {/* Rest of the component remains the same */}

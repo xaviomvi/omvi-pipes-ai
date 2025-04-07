@@ -16,13 +16,14 @@ import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
 
 import type { Filters } from './types/knowledge-base';
 import type { PipesHub, SearchResult, AggregatedDocument } from './types/search-response';
+import DocxViewer from '../qna/chatbot/components/docx-highlighter';
 
 // Constants for sidebar widths - must match with the sidebar component
 const SIDEBAR_EXPANDED_WIDTH = 300;
 const SIDEBAR_COLLAPSED_WIDTH = 64;
 
 // Styled Close Button for the citation viewer
-const StyledCloseButton = styled(Button)(({ theme }) => ({
+export const StyledCloseButton = styled(Button)(({ theme }) => ({
   position: 'absolute',
   top: 15,
   right: 15,
@@ -57,6 +58,7 @@ export default function KnowledgeBaseSearch() {
   const [openSidebar, setOpenSidebar] = useState<boolean>(true);
   const [isPdf, setIsPdf] = useState<boolean>(false);
   const [isExcel, setIsExcel] = useState<boolean>(false);
+  const [isDocx, setIsDocx] = useState<boolean>(false);
   const [fileUrl, setFileUrl] = useState<string>('');
   const [recordCitations, setRecordCitations] = useState<AggregatedDocument | null>(null);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
@@ -168,15 +170,18 @@ export default function KnowledgeBaseSearch() {
     setTopK(callback);
   };
 
-  const viewCitations = async (recordId: string, isDocPdf: boolean, isDocExcel: boolean) => {
+  const viewCitations = async (recordId: string, isDocPdf: boolean, isDocExcel: boolean, isDocDocx : boolean) => {
     // Reset view states
     setIsPdf(false);
     setIsExcel(false);
+    setIsDocx(false);
 
     if (isDocPdf) {
       setIsPdf(true);
     } else if (isDocExcel) {
       setIsExcel(true);
+    } else if (isDocDocx) {
+      setIsDocx(true);
     } else {
       return; // If neither PDF nor Excel, don't proceed
     }
@@ -255,7 +260,6 @@ export default function KnowledgeBaseSearch() {
         }
       } else if (record.origin === ORIGIN.CONNECTOR) {
         try {
-
           const response = await axios.get(
             `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
             {
@@ -373,7 +377,7 @@ export default function KnowledgeBaseSearch() {
         <Divider orientation="vertical" flexItem sx={{ borderRightWidth: 3 }} />
 
         {/* PDF Viewer Container */}
-        {(isPdf || fileBuffer) && !isExcel && (
+        {(isPdf || fileBuffer) && !isExcel && !isDocx && (
           <Box
             sx={{
               width: '70%',
@@ -392,8 +396,32 @@ export default function KnowledgeBaseSearch() {
           </Box>
         )}
 
+        {(isDocx || fileBuffer) && !isExcel && !isPdf && (
+          <Box
+            sx={{
+              width: '70%',
+              // height: '100%',
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <DocxViewer
+              key="docx-viewer"
+              url={fileUrl}
+              buffer={fileBuffer}
+              citations={recordCitations?.documents || []}
+              renderOptions={{
+                breakPages: true,
+                renderHeaders: true,
+                renderFooters: true,
+              }}
+            />
+          </Box>
+        )}
+
         {/* Excel Viewer Container */}
-        {(isExcel || fileBuffer) && !isPdf && (
+        {(isExcel || fileBuffer) && !isPdf && !isDocx && (
           <Box
             sx={{
               width: '70%',
