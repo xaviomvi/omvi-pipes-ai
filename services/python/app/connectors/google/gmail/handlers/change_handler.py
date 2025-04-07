@@ -93,8 +93,8 @@ class GmailChangeHandler:
                         }
 
                         is_of_type_record = {
-                            '_from': f'records/{record["_key"]}',
-                            '_to': f'messages/{message_record["_key"]}',
+                            '_from': f'{CollectionNames.RECORDS.value}/{record["_key"]}',
+                            '_to': f'{CollectionNames.MAILS.value}/{message_record["_key"]}',
                             "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
                             "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
                         }
@@ -225,7 +225,7 @@ class GmailChangeHandler:
                                     if entity_id:
                                         permission_records.append({
                                             '_from': f'users/{entity_id}',
-                                            '_to': f'messages/{message_record["_key"]}',
+                                            '_to': f'records/{message_record["_key"]}',
                                             "externalPermissionId": None,
                                             "type": "USER",
                                             "role": "READER",
@@ -292,7 +292,7 @@ class GmailChangeHandler:
                                     "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
                                     "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
                                 }
-                                await self.kafka_service.send_event_to_kafka(attachment_event)
+                                await self.arango_service.kafka_service.send_event_to_kafka(attachment_event)
                                 logger.info(
                                     "📨 Sent Kafka Indexing event for attachment %s", attachment_key)
 
@@ -308,7 +308,7 @@ class GmailChangeHandler:
                         try:
                             # Find the message in ArangoDB
                             existing_message = next(self.arango_service.db.aql.execute(
-                                'FOR doc IN mails FILTER doc.externalMessageId == @message_id RETURN doc',
+                                f'FOR doc IN {CollectionNames.MAILS.value} FILTER doc.externalMessageId == @message_id RETURN doc',
                                 bind_vars={'message_id': message_id}
                             ), None)
 
@@ -337,7 +337,7 @@ class GmailChangeHandler:
                                 await self.arango_service.db.aql.execute(
                                     'FOR p IN permissions FILTER p._to == @message_id REMOVE p IN permissions',
                                     bind_vars={
-                                        'message_id': f'messages/{existing_message["_key"]}'},
+                                        'message_id': f'{CollectionNames.MAILS.value}/{existing_message["_key"]}'},
                                     transaction=txn
                                 )
 
@@ -350,7 +350,7 @@ class GmailChangeHandler:
 
                                 # Delete message
                                 await self.arango_service.db.aql.execute(
-                                    'REMOVE @key IN mails',
+                                    f'REMOVE @key IN {CollectionNames.MAILS.value}',
                                     bind_vars={
                                         'key': existing_message['_key']},
                                     transaction=txn

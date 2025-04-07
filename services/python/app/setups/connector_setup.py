@@ -238,7 +238,7 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         assert isinstance(google_admin_service, GoogleAdminService)
         
         await google_admin_service.connect_admin(org_id)
-        # await google_admin_service.create_admin_watch(org_id)  #! SHOULD NOT BE COMMENTED OUT
+        await google_admin_service.create_admin_watch(org_id)
 
         container.admin_webhook_handler.override(
             providers.Singleton(

@@ -582,7 +582,8 @@ async def download_file(
                 
                 done = False
                 while not done:
-                    _, done = downloader.next_chunk()
+                    status, done = downloader.next_chunk()
+                    logger.info(f"Download {int(status.progress() * 100)}%.")
                 
                 # Reset buffer position to start
                 file_buffer.seek(0)
@@ -612,17 +613,16 @@ async def download_file(
                 messages = list(cursor)
                 logger.info(f"🚀 Query results: {messages}")
 
-                if not messages or not messages[0]:
-                    record_details = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
-                    logger.error(f"Record details: {record_details}")
-                    raise HTTPException(status_code=404, detail="Related message not found")
-
-                message = messages[0]
-                message_id = message['messageId']
-                logger.info(f"Found message ID: {message_id}")
-
                 # First try getting the attachment from Gmail
                 try:
+                    message_id = None
+                    if messages and messages[0]:
+                        message = messages[0]
+                        message_id = message['messageId']
+                        logger.info(f"Found message ID: {message_id}")
+                    else:
+                        raise Exception("Related message not found")
+
                     attachment = gmail_service.users().messages().attachments().get(
                         userId='me',
                         messageId=message_id,
@@ -651,7 +651,8 @@ async def download_file(
                         
                         done = False
                         while not done:
-                            _, done = downloader.next_chunk()
+                            status, done = downloader.next_chunk()
+                            logger.info(f"Download {int(status.progress() * 100)}%.")
                         
                         file_buffer.seek(0)
                         
@@ -814,7 +815,8 @@ async def stream_record(
                 
                 done = False
                 while not done:
-                    _, done = downloader.next_chunk()
+                    status, done = downloader.next_chunk()
+                    logger.info(f"Download {int(status.progress() * 100)}%.")
                 
                 # Reset buffer position to start
                 file_buffer.seek(0)
@@ -858,7 +860,6 @@ async def stream_record(
 
                         # Extract the encoded body content
                         mail_content_base64 = extract_body(message.get('payload', {}))
-                        import base64
                         # Decode the Gmail URL-safe base64 encoded content; errors are replaced to avoid issues with malformed text
                         mail_content = base64.urlsafe_b64decode(mail_content_base64.encode('ASCII')).decode('utf-8', errors='replace')
 
@@ -897,17 +898,16 @@ async def stream_record(
                 messages = list(cursor)
                 logger.info(f"🚀 Query results: {messages}")
 
-                if not messages or not messages[0]:
-                    record_details = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
-                    logger.error(f"Record details: {record_details}")
-                    raise HTTPException(status_code=404, detail="Related message not found")
-
-                message = messages[0]
-                message_id = message['messageId']
-                logger.info(f"Found message ID: {message_id}")
-
                 # First try getting the attachment from Gmail
                 try:
+                    message_id = None
+                    if messages and messages[0]:
+                        message = messages[0]
+                        message_id = message['messageId']
+                        logger.info(f"Found message ID: {message_id}")
+                    else:
+                        raise Exception("Related message not found")
+
                     attachment = gmail_service.users().messages().attachments().get(
                         userId='me',
                         messageId=message_id,
@@ -924,7 +924,7 @@ async def stream_record(
                     )
                     
                 except Exception as gmail_error:
-                    logger.warning(f"Failed to get attachment from Gmail: {str(gmail_error)}, trying Drive...")
+                    logger.info(f"Failed to get attachment from Gmail: {str(gmail_error)}, trying Drive...")
                     
                     # Try to get the file from Drive as fallback
                     try:
@@ -936,7 +936,8 @@ async def stream_record(
 
                         done = False
                         while not done:
-                            _, done = downloader.next_chunk()
+                            status, done = downloader.next_chunk()
+                            logger.info(f"Download {int(status.progress() * 100)}%.")
 
                         file_buffer.seek(0)
 

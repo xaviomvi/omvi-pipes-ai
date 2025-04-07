@@ -81,23 +81,32 @@ class ArangoService(BaseArangoService):
             - User Email: %s
             """, channel_id, resource_id, user_email)
 
-            query = """
+            filters = []
+            bind_vars = {'@pageTokens': CollectionNames.PAGE_TOKENS.value}
+
+            if channel_id is not None:
+                filters.append("token.channelId == @channel_id")
+                bind_vars['channel_id'] = channel_id
+            if resource_id is not None:
+                filters.append("token.resourceId == @resource_id")
+                bind_vars['resource_id'] = resource_id
+            if user_email is not None:
+                filters.append("token.userEmail == @user_email")
+                bind_vars['user_email'] = user_email
+
+            if not filters:
+                logger.warning("⚠️ No filter params provided for page token query")
+                return None
+
+            filter_clause = " OR ".join(filters)
+
+            query = f"""
             FOR token IN @@pageTokens
-            FILTER token.channelId == @channel_id
-            or token.resourceId == @resource_id
-            or token.userEmail == @user_email
+            FILTER {filter_clause}
             RETURN token
             """
 
-            result = list(self.db.aql.execute(
-                query,
-                bind_vars={
-                    'channel_id': channel_id,
-                    'resource_id': resource_id,
-                    'user_email': user_email,
-                    '@pageTokens': CollectionNames.PAGE_TOKENS.value
-                }
-            ))
+            result = list(self.db.aql.execute(query, bind_vars=bind_vars))
 
             if result:
                 logger.info("✅ Found token for channel")
@@ -329,27 +338,27 @@ class ArangoService(BaseArangoService):
             )
             return False
 
-    async def remove_existing_edges(self, file_id: str) -> bool:
-        """Remove all existing edges for a record"""
-        try:
-            logger.info("🚀 Removing all existing edges for file %s", file_id)
-            query = """
-            FOR edge in @@recordRelations
-                FILTER edge._from == @@records/@file_id} OR edge._to == @@records/@file_id
-                REMOVE edge._key IN @@recordRelations
-            """
-            self.db.aql.execute(
-                query,
-                bind_vars={'file_id': file_id, '@records': CollectionNames.RECORDS.value, '@recordRelations': CollectionNames.RECORD_RELATIONS.value}
-            )
-            logger.info("✅ Removed all existing edges for file %s", file_id)
-            return True
-        except Exception as e:
-            logger.error(
-                "❌ Failed to remove existing edges: %s",
-                str(e)
-            )
-            return False
+    # async def remove_existing_edges(self, file_id: str) -> bool:
+    #     """Remove all existing edges for a record"""
+    #     try:
+    #         logger.info("🚀 Removing all existing edges for file %s", file_id)
+    #         query = """
+    #         FOR edge in @@recordRelations
+    #             FILTER edge._from == @@records/@file_id OR edge._to == @@records/@file_id
+    #             REMOVE edge._key IN @@recordRelations
+    #         """
+    #         self.db.aql.execute(
+    #             query,
+    #             bind_vars={'file_id': file_id, '@records': CollectionNames.RECORDS.value, '@recordRelations': CollectionNames.RECORD_RELATIONS.value}
+    #         )
+    #         logger.info("✅ Removed all existing edges for file %s", file_id)
+    #         return True
+    #     except Exception as e:
+    #         logger.error(
+    #             "❌ Failed to remove existing edges: %s",
+    #             str(e)
+    #         )
+    #         return False
 
     async def get_file_parents(self, file_key: str, transaction) -> List[Dict]:
         try:
@@ -522,7 +531,7 @@ class ArangoService(BaseArangoService):
             db = transaction if transaction else self.db
             cursor = db.aql.execute(
                 query,
-                bind_vars={'file_key': f'records/{file_key}', '@permissions': CollectionNames.PERMISSIONS.value}
+                bind_vars={'file_key': f'{CollectionNames.RECORDS.value}/{file_key}', '@permissions': CollectionNames.PERMISSIONS.value}
             )
             logger.info("✅ File permissions retrieved successfully")
             return list(cursor)
@@ -563,7 +572,7 @@ class ArangoService(BaseArangoService):
             # Create edge document with proper formatting
             edge = {
                 '_key': edge_key,
-                '_from': f'records/{file_key}',
+                '_from': f'{CollectionNames.RECORDS.value}/{file_key}',
                 '_to': f'{to_collection}/{entity_key}',
                 'type': permission_data.get('type').upper(),
                 'role': permission_data.get('role', 'READER').upper(),
