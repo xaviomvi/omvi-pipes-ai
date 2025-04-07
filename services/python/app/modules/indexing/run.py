@@ -206,7 +206,7 @@ class CustomChunker(SemanticChunker):
         try:
             if not isinstance(metadata_list, list):
                 raise MetadataProcessingError(
-                    "Invalid metadata_list format: " + str(e),
+                    "Invalid metadata_list format.",
                     details={"received_type": type(metadata_list).__name__}
                 )
 
