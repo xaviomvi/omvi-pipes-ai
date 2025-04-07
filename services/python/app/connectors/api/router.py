@@ -860,7 +860,6 @@ async def stream_record(
 
                         # Extract the encoded body content
                         mail_content_base64 = extract_body(message.get('payload', {}))
-                        import base64
                         # Decode the Gmail URL-safe base64 encoded content; errors are replaced to avoid issues with malformed text
                         mail_content = base64.urlsafe_b64decode(mail_content_base64.encode('ASCII')).decode('utf-8', errors='replace')
 

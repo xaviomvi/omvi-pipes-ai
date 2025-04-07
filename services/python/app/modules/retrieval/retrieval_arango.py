@@ -115,7 +115,8 @@ class ArangoService():
                     'topics': [topic_ids]
                 }
         """
-
+        logger.info(f"Getting accessible records for user {user_id} in org {org_id} with filters {filters}")
+        
         try:
             # First get counts separately
             query = f"""
@@ -168,7 +169,6 @@ class ArangoService():
             # Add filter conditions if provided
             filter_conditions = []
             if filters:
-                print("filters: ", filters)
                 if filters.get('departments'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -247,7 +247,6 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-                
             # Add filter conditions to main query
             if filter_conditions:
                 query += """
@@ -268,7 +267,6 @@ class ArangoService():
                 '@records': CollectionNames.RECORDS.value,
                 '@anyone': CollectionNames.ANYONE.value,
             }
-
             # Add filter bind variables
             if filters:
                 if filters.get('departments'):
@@ -288,7 +286,14 @@ class ArangoService():
                 if filters.get('apps'):
                     bind_vars['apps'] = [app.lower() for app in filters['apps']]  # Lowercase app names
                 
-            cursor = self.db.aql.execute(query, bind_vars=bind_vars)
+            # Execute with profiling enabled
+            cursor = self.db.aql.execute(
+                query,
+                bind_vars=bind_vars,
+                profile=2,
+                fail_on_warning=True,
+                stream=True
+            )
             result = list(cursor)
             if result:
                 if isinstance(result[0], dict):
