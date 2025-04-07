@@ -207,10 +207,10 @@ const KnowledgeSearch = ({
 
     const isPdf = extension.toLowerCase() === 'pdf';
     const isExcel = ['xlsx', 'xls', 'csv'].includes(extension.toLowerCase());
-
-    if (isPdf || isExcel) {
+    const isDocx = ['docx'].includes(extension.toLowerCase());
+    if (isPdf || isExcel || isDocx) {
       if (onViewCitations) {
-        onViewCitations(recordId, isPdf, isExcel);
+        onViewCitations(recordId, isPdf, isExcel, isDocx);
       }
     }
   };

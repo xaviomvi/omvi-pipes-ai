@@ -22,6 +22,7 @@ import ChatSidebar from './components/chat-sidebar';
 import ExcelViewer from './components/excel-highlighter';
 import ChatMessagesArea from './components/chat-message-area';
 import PdfHighlighterComp from './components/pdf-highlighter';
+import DocxHighlighterComp from './components/docx-highlighter';
 
 const DRAWER_WIDTH = 300;
 
@@ -88,6 +89,7 @@ const ChatInterface = () => {
   const [transitioning, setTransitioning] = useState<boolean>(false);
   const [fileBuffer, setFileBuffer] = useState<ArrayBuffer>();
   const [isPdf, setIsPdf] = useState<boolean>(false);
+  const [isDocx, setIsDocx] = useState<boolean>(false);
 
   const formatMessage = useCallback((apiMessage: Message): FormattedMessage | null => {
     if (!apiMessage) return null;
@@ -171,6 +173,9 @@ const ChatInterface = () => {
 
     try {
       const isExcelOrCSV = ['csv', 'xlsx', 'xls'].includes(citationMeta?.extension);
+      setIsDocx(['docx'].includes(citationMeta?.extension));
+      console.log(citationMeta);
+      console.log(isDocx);
       setIsExcel(isExcelOrCSV);
       setIsPdf(citationMeta?.extension === 'pdf');
       const recordId = citationMeta?.recordId;
@@ -737,6 +742,18 @@ const ChatInterface = () => {
                   citations={aggregatedCitations}
                   fileUrl={pdfUrl}
                   excelBuffer={fileBuffer}
+                />
+              ) : isDocx ? (
+                <DocxHighlighterComp
+                  key="docx-viewer"
+                  url={pdfUrl}
+                  buffer={fileBuffer}
+                  citations={aggregatedCitations}
+                  renderOptions={{
+                    breakPages: true,
+                    renderHeaders: true,
+                    renderFooters: true
+                  }}
                 />
               ) : (
                 <PdfHighlighterComp

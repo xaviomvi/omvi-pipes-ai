@@ -107,6 +107,6 @@ export interface KnowledgeSearchProps {
   loading: boolean;
   onSearchQueryChange: (query: string) => void;
   onTopKChange: (callback: (prevTopK: number) => number) => void;
-  onViewCitations: (recordId: string, isPdf: boolean, isExcel: boolean) => void;
+  onViewCitations: (recordId: string, isPdf: boolean, isExcel: boolean, isDocx : boolean) => void;
   recordsMap: Record<string, PipesHub.Record>;
 }
