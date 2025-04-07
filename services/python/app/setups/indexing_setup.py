@@ -332,9 +332,10 @@ async def health_check_qdrant(container):
     try:
         qdrant_config = await container.config_service().get_config(config_node_constants.QDRANT.value)
         host = qdrant_config['host']
-        grpc_port = qdrant_config['grpcPort']
+        port = qdrant_config['port']
+        api_key = qdrant_config['apiKey']
         
-        client = QdrantClient(host=host, grpc_port=grpc_port, prefer_grpc=True)
+        client = QdrantClient(host=host, port=port, prefer_grpc=True, api_key=api_key, https=False)
 
         try:
             # Fetch collections to check gRPC connectivity

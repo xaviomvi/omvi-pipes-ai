@@ -491,16 +491,17 @@ async def health_check_qdrant(container):
     try:
         qdrant_config = await container.config_service().get_config(config_node_constants.QDRANT.value)
         host = qdrant_config['host']
-        grpc_port = qdrant_config['grpcPort']
-        
-        client = QdrantClient(host=host, grpc_port=grpc_port, prefer_grpc=True)
-        logger.debug(f"Checking Qdrant health at endpoint: {host}:{grpc_port}")
+        port = qdrant_config['port']
+        api_key = qdrant_config['apiKey']
+ 
+        client = QdrantClient(host=host, port=port, api_key=api_key, https=False)
+        logger.debug(f"Checking Qdrant health at endpoint: {host}:{port}")
         try:
-            # Fetch collections to check gRPC connectivity
+            # Fetch collections to check connectivity
             collections = client.get_collections()
-            print("Qdrant gRPC is healthy!")
+            print("Qdrant is healthy!")
         except Exception as e:
-            error_msg = f"GRPC Qdrant health check failed: {str(e)}"
+            error_msg = f"Qdrant health check failed: {str(e)}"
             logger.error(f"❌ {error_msg}")
             raise
     except Exception as e:
