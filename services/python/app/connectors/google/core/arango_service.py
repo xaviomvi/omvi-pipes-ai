@@ -81,23 +81,32 @@ class ArangoService(BaseArangoService):
             - User Email: %s
             """, channel_id, resource_id, user_email)
 
-            query = """
+            filters = []
+            bind_vars = {'@pageTokens': CollectionNames.PAGE_TOKENS.value}
+
+            if channel_id is not None:
+                filters.append("token.channelId == @channel_id")
+                bind_vars['channel_id'] = channel_id
+            if resource_id is not None:
+                filters.append("token.resourceId == @resource_id")
+                bind_vars['resource_id'] = resource_id
+            if user_email is not None:
+                filters.append("token.userEmail == @user_email")
+                bind_vars['user_email'] = user_email
+
+            if not filters:
+                logger.warning("⚠️ No filter params provided for page token query")
+                return None
+
+            filter_clause = " OR ".join(filters)
+
+            query = f"""
             FOR token IN @@pageTokens
-            FILTER token.channelId == @channel_id
-            or token.resourceId == @resource_id
-            or token.userEmail == @user_email
+            FILTER {filter_clause}
             RETURN token
             """
 
-            result = list(self.db.aql.execute(
-                query,
-                bind_vars={
-                    'channel_id': channel_id,
-                    'resource_id': resource_id,
-                    'user_email': user_email,
-                    '@pageTokens': CollectionNames.PAGE_TOKENS.value
-                }
-            ))
+            result = list(self.db.aql.execute(query, bind_vars=bind_vars))
 
             if result:
                 logger.info("✅ Found token for channel")

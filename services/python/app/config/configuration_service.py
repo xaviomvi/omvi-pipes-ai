@@ -45,7 +45,7 @@ class Routes(Enum):
 class WebhookConfig(Enum):
     """Constants for webhook configuration"""
     EXPIRATION_DAYS = 5
-    EXPIRATION_HOURS = 11 #23
+    EXPIRATION_HOURS = 2 #23
     EXPIRATION_MINUTES = 59
     COALESCEDELAY = 30
     

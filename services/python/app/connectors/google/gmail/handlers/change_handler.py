@@ -292,7 +292,7 @@ class GmailChangeHandler:
                                     "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
                                     "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
                                 }
-                                await self.kafka_service.send_event_to_kafka(attachment_event)
+                                await self.arango_service.kafka_service.send_event_to_kafka(attachment_event)
                                 logger.info(
                                     "📨 Sent Kafka Indexing event for attachment %s", attachment_key)
 

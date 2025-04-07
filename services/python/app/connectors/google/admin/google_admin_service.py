@@ -693,7 +693,7 @@ class GoogleAdminService:
                 "type": "web_hook",
                 "address": webhook_url,
                 "token": channel_token,
-                # "expiration": str(expiration_time),  # Must be string of milliseconds timestamp
+                "expiration": str(expiration_time),  # Must be string of milliseconds timestamp
                 "payload": True
             }
             
