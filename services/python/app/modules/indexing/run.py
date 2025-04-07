@@ -163,7 +163,7 @@ class CustomChunker(SemanticChunker):
 
             if not all(isinstance(bbox, list) for bbox in bboxes):
                 raise MetadataProcessingError(
-                    "Invalid bounding box format: " + str(e),
+                    "Invalid bounding box format.",
                     details={"bboxes": bboxes}
                 )
 
