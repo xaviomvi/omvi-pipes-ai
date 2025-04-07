@@ -10,7 +10,6 @@ RUN python -m venv /venv
 ENV PATH="/venv/bin:$PATH"
 # Install dependencies
 COPY ./pyproject.toml ./
-COPY ./default_config.json ./
 RUN pip3 install --no-cache-dir -e . && \
     pip3 install --no-cache-dir pyinstaller
 
@@ -64,4 +63,4 @@ RUN chmod +x /app/query_main
 # Expose necessary ports
 EXPOSE 8000 8080 8091
 
-CMD sh -c "/app/main & /app/app & wait"
+CMD sh -c "/app/connectors_main & /app/indexing_main & /app/query_main & wait"
