@@ -32,6 +32,7 @@ class EventProcessor:
                 'eventType', EventTypes.NEW_RECORD.value)  # default to create
             event_data = event_data.get('payload')
             record_id = event_data.get('recordId')
+            org_id = event_data.get('orgId')
 
             if not record_id:
                 logger.error("❌ No record ID provided in event data")
@@ -68,7 +69,7 @@ class EventProcessor:
             extension = event_data.get('extension', 'unknown')
             mime_type = event_data.get('mimeType', 'unknown')
             
-            if extension is None:
+            if extension is None and mime_type != 'text/gmail_content':
                 extension = event_data['recordName'].split('.')[-1]
             
             logger.info("🚀 Checking for mime_type")
@@ -77,17 +78,17 @@ class EventProcessor:
 
             if mime_type == "application/vnd.google-apps.presentation":
                 logger.info("🚀 Processing Google Slides")
-                result = await self.processor.process_google_slides(record_id, record_version)
+                result = await self.processor.process_google_slides(record_id, record_version, org_id)
                 return result
 
             if mime_type == "application/vnd.google-apps.document":
                 logger.info("🚀 Processing Google Docs")
-                result = await self.processor.process_google_docs(record_id, record_version)
+                result = await self.processor.process_google_docs(record_id, record_version, org_id)
                 return result
 
             if mime_type == "application/vnd.google-apps.spreadsheet":
                 logger.info("🚀 Processing Google Sheets")
-                result = await self.processor.process_google_sheets(record_id, record_version)
+                result = await self.processor.process_google_sheets(record_id, record_version, org_id)
                 return result
             
             if mime_type == "text/gmail_content":
@@ -97,13 +98,13 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",
+                    orgId=org_id,
                     html_content=event_data.get('body'))
                 
                 logger.info(f"Content: {event_data.get('body')}")
                 return result
             
-            if  signed_url:
+            if signed_url:
                 logger.debug(f"Signed URL: {signed_url}")
                 # Download file using signed URL
                 async with aiohttp.ClientSession() as session:
@@ -121,8 +122,8 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",  # This should come from app.configuration or event data
-                    pdf_binary=file_content  # Pass the downloaded content directly
+                    orgId=org_id,
+                    pdf_binary=file_content
                 )
 
             elif extension == "docx":
@@ -131,7 +132,7 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",
+                    orgId=org_id,
                     docx_binary=BytesIO(file_content)
                 )
             
@@ -141,7 +142,7 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",
+                    orgId=org_id,
                     doc_binary=file_content
                 )
             elif extension in ['xlsx']:
@@ -150,7 +151,7 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",
+                    orgId=org_id,
                     excel_binary=file_content
                 )
             elif extension == "xls":
@@ -159,7 +160,7 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",
+                    orgId=org_id,
                     xls_binary=file_content
                 )
             elif extension == "csv":
@@ -168,7 +169,7 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",
+                    orgId=org_id,
                     csv_binary=file_content
                 )
                 
@@ -178,7 +179,7 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",
+                    orgId=org_id,
                     html_content=file_content
                 )
                 
@@ -188,7 +189,7 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",
+                    orgId=org_id,
                     pptx_binary=file_content
                 )
                 
@@ -198,12 +199,12 @@ class EventProcessor:
                     recordId=record_id,
                     version=record_version,
                     source=connector,
-                    orgId="default",
+                    orgId=org_id,
                     md_binary=file_content
                 )
 
             else:
-                logger.warning(f"""🔴🔴🔴 Unsupported file extension: {
+                logger.info(f"""🔴🔴🔴 Unsupported file extension: {
                                extension} 🔴🔴🔴""")
                 doc = docs[0]
                 doc.update({

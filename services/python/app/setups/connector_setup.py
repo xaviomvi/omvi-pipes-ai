@@ -10,10 +10,9 @@ from app.connectors.core.kafka_service import KafkaService
 from confluent_kafka import Consumer, KafkaError
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.admin.google_admin_service import GoogleAdminService
-from app.connectors.google.google_drive.core.drive_admin_service import DriveAdminService
+from app.connectors.google.admin.google_admin_service import GoogleAdminService
 from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
 from app.connectors.google.google_drive.core.sync_service import DriveSyncIndividualService, DriveSyncEnterpriseService
-from app.connectors.google.gmail.core.gmail_admin_service import GmailAdminService
 from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
 from app.connectors.google.gmail.core.sync_service import GmailSyncIndividualService, GmailSyncEnterpriseService
 from app.connectors.google.google_drive.handlers.change_handler import DriveChangeHandler
@@ -144,18 +143,20 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         # Initialize base services
         container.drive_service.override(
             providers.Singleton(
-                DriveAdminService, 
-                config=container.config_service, 
+                GoogleAdminService, 
+                config=container.config_service,
                 rate_limiter=container.rate_limiter,
-                google_token_handler = await container.google_token_handler()
+                google_token_handler=await container.google_token_handler(),
+                arango_service=await container.arango_service()
             )
         )
         container.gmail_service.override(
             providers.Singleton(
-                GmailAdminService, 
-                config=container.config_service, 
+                GoogleAdminService, 
+                config=container.config_service,
                 rate_limiter=container.rate_limiter,
-                google_token_handler = await container.google_token_handler()
+                google_token_handler=await container.google_token_handler(),
+                arango_service=await container.arango_service()
             )
         )
 
@@ -237,7 +238,7 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         assert isinstance(google_admin_service, GoogleAdminService)
         
         await google_admin_service.connect_admin(org_id)
-        await google_admin_service.create_admin_watch(org_id)
+        # await google_admin_service.create_admin_watch(org_id)  #! SHOULD NOT BE COMMENTED OUT
 
         container.admin_webhook_handler.override(
             providers.Singleton(

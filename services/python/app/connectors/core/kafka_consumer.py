@@ -151,7 +151,7 @@ class KafkaRouteConsumer:
             if not route_info:
                 logger.error(f"Unknown sync event type: {event_type}")
                 return False
-                            
+
             route_path, method = route_info
                         
             # Find the matching route handler
@@ -160,11 +160,11 @@ class KafkaRouteConsumer:
                 if route == route_path:
                     route_handler = route
                     break
-            
+
             if not route_handler:
                 logger.error(f"No handler found for route: {route} {method}")
                 return False
-                        
+
             # Format the route path with parameters from the value
             path_params = value.get('path_params', {})
             formatted_path = route_handler.format(**path_params)
@@ -172,7 +172,8 @@ class KafkaRouteConsumer:
             endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
             connector_endpoint = endpoints.get('connectors').get('endpoint')
             
-            print(formatted_path)
+            logger.info(f"connector_endpoint: {connector_endpoint}")
+            logger.info(f"formatted_path: {formatted_path}")
             
             # Make HTTP request to the route
             async with httpx.AsyncClient() as client:
@@ -191,6 +192,7 @@ class KafkaRouteConsumer:
         except Exception as e:
             logger.error(f"❌ Unable to handle sync properly: {str(e)}")
             return False
+
 
     async def _handle_entity_event(self, event_type: str, value: dict) -> bool:
         """Handle entity-related events by calling appropriate ArangoDB methods"""
@@ -692,7 +694,13 @@ class KafkaRouteConsumer:
             return False
         
     async def handle_llm_configured(self, payload: dict) -> bool:
-        pass
+        """Handle LLM configured event"""
+        try:
+            logger.info(f"📥 Processing LLM configured event in Query Service")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Error handling LLM configured event: {str(e)}")
+            return False
 
     async def consume_messages(self):
         """Main consumption loop."""

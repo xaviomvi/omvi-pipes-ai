@@ -24,12 +24,12 @@ class Processor:
         self.parsers = parsers
         self.config_service = config_service
         
-    async def process_google_slides(self, record_id, record_version):
+    async def process_google_slides(self, record_id, record_version, orgId):
         logger.info("🚀 Processing Google Slides")
 
         return {"status": "success", "message": "Google Slides processed successfully"}
 
-    async def process_google_docs(self, record_id, record_version):
+    async def process_google_docs(self, record_id, record_version, orgId):
         """Process Google Docs document and extract structured content
 
         Args:
@@ -57,7 +57,7 @@ class Processor:
                 # Extract metadata using domain extractor
                 try:
                     logger.info("🎯 Extracting metadata from content")
-                    metadata = await self.domain_extractor.extract_metadata(text_content)
+                    metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(record_id, metadata)
                     docs_result["metadata"] = record
@@ -140,7 +140,7 @@ class Processor:
             logger.error(f"❌ Error processing Google Docs document: {str(e)}")
             raise
 
-    async def process_google_sheets(self, record_id, record_version):
+    async def process_google_sheets(self, record_id, record_version, orgId):
         logger.info("🚀 Processing Google Sheets")
         # Implement Google Sheets processing logic here
         return {"status": "success", "message": "Google Sheets processed successfully"}
@@ -179,7 +179,7 @@ class Processor:
             if text_content:
                 try:
                     logger.info(f"🎯 Extracting metadata from HTML content {text_content}")
-                    metadata = await self.domain_extractor.extract_metadata(text_content)
+                    metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     mail = await self.arango_service.get_document(recordId, CollectionNames.MAILS.value)
@@ -340,7 +340,7 @@ class Processor:
                 try:
                     logger.info(f"""🎯 Extracting metadata from paragraphs: {
                                 paragraphs_text}""")
-                    metadata = await self.domain_extractor.extract_metadata(paragraphs_text)
+                    metadata = await self.domain_extractor.extract_metadata(paragraphs_text, orgId)
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
@@ -476,7 +476,7 @@ class Processor:
             if text_content:
                 try:
                     logger.info("🎯 Extracting metadata from DOCX content")
-                    metadata = await self.domain_extractor.extract_metadata(text_content)
+                    metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
@@ -588,7 +588,7 @@ class Processor:
             if excel_result['text_content']:
                 try:
                     logger.info(f"🎯 Extracting metadata from Excel content")
-                    metadata = await self.domain_extractor.extract_metadata(excel_result['text_content'])
+                    metadata = await self.domain_extractor.extract_metadata(excel_result['text_content'], orgId)
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
@@ -745,7 +745,7 @@ class Processor:
 
                     try:
                         logger.info("🎯 Extracting metadata from CSV content")
-                        metadata = await self.domain_extractor.extract_metadata(csv_text)
+                        metadata = await self.domain_extractor.extract_metadata(csv_text, orgId)
                         logger.info(f"✅ Extracted metadata: {metadata}")
                         record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                         file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
@@ -931,7 +931,7 @@ class Processor:
             if text_content:
                 try:
                     logger.info("🎯 Extracting metadata from HTML content")
-                    metadata = await self.domain_extractor.extract_metadata(text_content)
+                    metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
@@ -1054,7 +1054,7 @@ class Processor:
             domain_metadata = None
             if text_content:
                 try:
-                    metadata = await self.domain_extractor.extract_metadata(text_content)
+                    metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
@@ -1267,7 +1267,7 @@ class Processor:
             domain_metadata = None
             if text_content:
                 try:
-                    metadata = await self.domain_extractor.extract_metadata(text_content)
+                    metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
                     logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)

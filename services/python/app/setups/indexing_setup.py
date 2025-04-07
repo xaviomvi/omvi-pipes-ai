@@ -20,7 +20,6 @@ from app.events.processor import Processor
 from app.modules.indexing.run import IndexingPipeline
 from qdrant_client import QdrantClient
 
-
 from app.modules.parsers.docx.docx_parser import DocxParser
 from app.modules.parsers.docx.docparser import DocParser
 from app.modules.parsers.excel.excel_parser import ExcelParser

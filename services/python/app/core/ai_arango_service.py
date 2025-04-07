@@ -6,7 +6,7 @@ from app.config.configuration_service import ConfigurationService
 from app.utils.logger import create_logger
 import uuid
 from typing import Dict, List, Optional
-from app.config.arangodb_constants import CollectionNames, DepartmentNames
+from app.config.arangodb_constants import CollectionNames
 from arango.database import TransactionDatabase
 from app.config.configuration_service import config_node_constants
 
@@ -311,3 +311,20 @@ class ArangoService():
             logger.error(f"Error getting user by user ID: {str(e)}")
             return None
 
+    async def get_departments(self, org_id: Optional[str] = None) -> List[str]:
+        """
+        Get all departments that either have no org_id or match the given org_id
+        
+        Args:
+            org_id (Optional[str]): Organization ID to filter departments
+            
+        Returns:
+            List[str]: List of department names
+        """
+        query = f"""
+            FOR department IN {CollectionNames.DEPARTMENTS.value}
+                FILTER department.orgId == null OR department.orgId == '{org_id}'
+                RETURN department.departmentName
+        """
+        cursor = self.db.aql.execute(query)
+        return list(cursor)

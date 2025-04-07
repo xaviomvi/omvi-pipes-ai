@@ -14,10 +14,11 @@ class GmailChangeHandler:
         self.arango_service = arango_service
         
 
-    async def process_changes(self, user_service, changes, org_id, user_id) -> bool:
+    async def process_changes(self, user_service, changes, org_id, user) -> bool:
         """Process changes since last sync time"""
         logger.info("🚀 Processing changes")
         try:
+            user_id = user.get('userId')
             for change in changes.get('history', []):
                 logger.info(f"🚀 Processing change: {change}")
 
@@ -38,7 +39,7 @@ class GmailChangeHandler:
                             continue
 
                         # Get attachments for this message
-                        attachments = await user_service.list_attachments(message_data, org_id, user_id, account_type)
+                        attachments = await user_service.list_attachments(message_data, org_id, user, account_type)
 
                         # Extract headers
                         headers = message_data.get('headers', {})
@@ -139,12 +140,15 @@ class GmailChangeHandler:
                                 for attachment in attachments:
                                     attachment_record = {
                                         '_key': str(uuid.uuid4()),
-                                        'messageId': message_id,
+                                        "orgId": org_id,
+                                        'isFile': True,
                                         'mimeType': attachment.get('mimeType'),
-                                        'filename': attachment.get('filename'),
-                                        'size': attachment.get('size'),
-                                        'lastSyncTimestamp':  get_epoch_timestamp_in_ms()
+                                        'name': attachment.get('filename'),
+                                        'sizeInBytes': int(attachment.get('size')),
+                                        "extension": attachment.get('extension'),
+                                        'webUrl': f"https://mail.google.com/mail?authuser={{user.email}}#all/{message_id}",
                                     }
+
                                     attachment_records.append(
                                         attachment_record)
                                     
@@ -154,19 +158,27 @@ class GmailChangeHandler:
                                         "recordName": attachment.get('filename'),
                                         "recordType": RecordTypes.FILE.value,
                                         "version": 0,
-                                        "externalRecordId": attachment_record['_key'],
-                                        "externalRevisionId": None,
+                                        
                                         "createdAtTimestamp": get_epoch_timestamp_in_ms(),
                                         "updatedAtTimestamp": get_epoch_timestamp_in_ms(),
-                                        "lastSyncTimestamp": get_epoch_timestamp_in_ms(),
                                         "sourceCreatedAtTimestamp": message.get('internalDate'),
                                         "sourceLastModifiedTimestamp": message.get('internalDate'),
+                                        
+                                        "externalRecordId": attachment_record['_key'],
+                                        "externalRevisionId": None,
+                                        
+                                        "origin": OriginTypes.CONNECTOR.value,
+                                        "connectorName": Connectors.GOOGLE_MAIL.value,
+                                        
+                                        "lastSyncTimestamp": get_epoch_timestamp_in_ms(),
                                         "isDeleted": False,
                                         "isArchived": False,
+                                        
                                         "lastIndexTimestamp": None,
                                         "lastExtractionTimestamp": None,
                                         "indexingStatus": "NOT_STARTED",
                                         "extractionStatus": "NOT_STARTED",
+                                        
                                         "isLatestVersion": True,
                                         "isDirty": False,
                                         "reason": None
@@ -247,7 +259,7 @@ class GmailChangeHandler:
                             "recordType": RecordTypes.MAIL.value,
                             "recordVersion": 0,
                             "eventType": EventTypes.NEW_RECORD.value,
-                            "body": message.get('body', ''),
+                            "body": message_data.get('body', ''),
                             "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{message_record['_key']}/signedUrl",
                             "metadataRoute": f"/api/v1/gmail/record/{message_record['_key']}/metadata",
                             "connectorName": Connectors.GOOGLE_MAIL.value,

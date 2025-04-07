@@ -15,7 +15,6 @@ class AdminWebhookHandler:
     async def process_notification(self, event_type: str, body: Dict[str, Any]):
         """Process incoming admin webhook notifications"""
         try:
-            # Extract event details from the nested structure
             events = body.get('events', [])
             if not events:
                 logger.error("No events found in webhook notification")
@@ -27,6 +26,14 @@ class AdminWebhookHandler:
                     await self._handle_user_creation(event)
                 elif event_name == "DELETE_USER":
                     await self._handle_user_deletion(event)
+                elif event_name == "CREATE_GROUP":
+                    await self._handle_group_creation(event)
+                elif event_name == "DELETE_GROUP":
+                    await self._handle_group_deletion(event)
+                elif event_name == "ADD_GROUP_MEMBER":
+                    await self._handle_group_member_addition(event)
+                elif event_name == "REMOVE_GROUP_MEMBER":
+                    await self._handle_group_member_removal(event)
                 else:
                     logger.info(f"Unhandled admin event type: {event_name}")
 
@@ -89,4 +96,117 @@ class AdminWebhookHandler:
             
         except Exception as e:
             logger.error(f"Error handling user deletion: {str(e)}")
+            raise
+
+    async def _handle_group_creation(self, event: Dict[str, Any]):
+        """Handle group creation event"""
+        try:
+            group_email = None
+            for param in event.get('parameters', []):
+                if param.get('name') == 'GROUP_EMAIL':
+                    group_email = param.get('value')
+                    break
+
+            if not group_email:
+                logger.error("No group email found in CREATE_GROUP notification")
+                return
+            
+            orgs = await self.arango_service.get_all_orgs(active=True)
+            org = orgs[0]
+            org_id = org['_key']
+            
+            logger.info(f"Processing group creation for: {group_email}")
+            await self.admin_service.handle_new_group(org_id, group_email)
+
+        except Exception as e:
+            logger.error(f"Error handling group creation: {str(e)}")
+            raise
+
+    async def _handle_group_deletion(self, event: Dict[str, Any]):
+        """Handle group deletion event"""
+        try:
+            group_email = None
+            for param in event.get('parameters', []):
+                if param.get('name') == 'GROUP_EMAIL':
+                    group_email = param.get('value')
+                    break
+
+            if not group_email:
+                logger.warning("No group email found in DELETE_GROUP notification")
+                return
+            
+            group_key = await self.arango_service.get_entity_id_by_email(group_email)
+            if not group_key:
+                logger.warning(f"Group {group_email} not found in ArangoDB")
+                return
+            
+            group = await self.arango_service.get_document(group_key, CollectionNames.GROUPS.value)
+            org_id = group.get('orgId')
+            
+            logger.info(f"Processing group deletion for: {group_email}")
+            await self.admin_service.handle_deleted_group(org_id, group_email)
+
+        except Exception as e:
+            logger.error(f"Error handling group deletion: {str(e)}")
+            raise
+
+    async def _handle_group_member_addition(self, event: Dict[str, Any]):
+        """Handle group member addition event"""
+        try:
+            group_email = user_email = None
+            for param in event.get('parameters', []):
+                if param.get('name') == 'GROUP_EMAIL':
+                    group_email = param.get('value')
+                elif param.get('name') == 'USER_EMAIL':
+                    user_email = param.get('value')
+
+            if not group_email or not user_email:
+                logger.error("Missing email in ADD_GROUP_MEMBER notification")
+                return
+            
+            group_key = await self.arango_service.get_entity_id_by_email(
+                group_email
+            )
+            if not group_key:
+                logger.error(f"Group {group_email} not found in ArangoDB")
+                return
+            
+            group = await self.arango_service.get_document(group_key, CollectionNames.GROUPS.value)
+            
+            org_id = group.get('orgId')
+            logger.info(f"Processing member addition to group: {group_email}")
+            await self.admin_service.handle_group_member_added(org_id, group_email, user_email)
+
+        except Exception as e:
+            logger.error(f"Error handling group member addition: {str(e)}")
+            raise
+
+    async def _handle_group_member_removal(self, event: Dict[str, Any]):
+        """Handle group member removal event"""
+        try:
+            group_email = user_email = None
+            for param in event.get('parameters', []):
+                if param.get('name') == 'GROUP_EMAIL':
+                    group_email = param.get('value')
+                elif param.get('name') == 'USER_EMAIL':
+                    user_email = param.get('value')
+
+            if not group_email or not user_email:
+                logger.error("Missing email in REMOVE_GROUP_MEMBER notification")
+                return
+            
+            group_key = await self.arango_service.get_entity_id_by_email(
+                group_email
+            )
+            if not group_key:
+                logger.error(f"Group {group_email} not found in ArangoDB")
+                return
+            
+            group = await self.arango_service.get_document(group_key, CollectionNames.GROUPS.value)
+            org_id = group.get('orgId')
+            logger.info(f"Processing member removal from group: {group_email}")
+            await self.admin_service.handle_group_member_removed(org_id, group_email, user_email)
+
+        except Exception as e:
+            logger.error(f"Error handling group member removal: {str(e)}")
             raise

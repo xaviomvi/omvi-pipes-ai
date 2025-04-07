@@ -13,7 +13,7 @@ from app.config.arangodb_constants import (CollectionNames, Connectors,
 from app.connectors.utils.drive_worker import DriveWorker
 from app.utils.logger import create_logger
 from app.connectors.google.core.arango_service import ArangoService
-from app.connectors.google.google_drive.core.drive_admin_service import DriveAdminService
+from app.connectors.google.admin.google_admin_service import GoogleAdminService
 from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
 from app.connectors.core.kafka_service import KafkaService
 from app.config.configuration_service import ConfigurationService, config_node_constants
@@ -588,7 +588,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
     def __init__(
         self,
         config: ConfigurationService,
-        drive_admin_service: DriveAdminService,
+        drive_admin_service: GoogleAdminService,
         arango_service: ArangoService,
         change_handler,
         kafka_service: KafkaService,
@@ -721,7 +721,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
             
             for user in active_users:
                 try:
-                    user_service = await self.drive_admin_service.create_user_service(user['email'])
+                    user_service = await self.drive_admin_service.create_drive_user_service(user['email'])
                     if not user_service:
                         logger.warning(
                             "❌ Failed to create user service for user: %s", user['email'])
@@ -786,7 +786,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                                 "No page token found for user %s", user['email'])
                             continue
                         
-                        user_service = await self.drive_admin_service.create_user_service(page_token['userEmail'])
+                        user_service = await self.drive_admin_service.create_drive_user_service(page_token['userEmail'])
 
                         changes, new_token = await user_service.get_changes(
                             page_token=page_token['token']
@@ -840,7 +840,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                     return False
 
                 # Validate user access and get fresh token
-                user_service = await self.drive_admin_service.create_user_service(user['email'])
+                user_service = await self.drive_admin_service.create_drive_user_service(user['email'])
                 if not user_service:
                     logger.warning(
                         "❌ Failed to create user service for user: %s", user['email'])
@@ -1026,7 +1026,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
             )
 
             # Validate user access and get fresh token
-            user_service = await self.drive_admin_service.create_user_service(user_email)
+            user_service = await self.drive_admin_service.create_drive_user_service(user_email)
             if not user_service:
                 logger.error(f"❌ Failed to get drive service for user {user_email}")
                 await self.arango_service.update_user_sync_state(user_email, 'FAILED', service_type=Connectors.GOOGLE_DRIVE.value)
