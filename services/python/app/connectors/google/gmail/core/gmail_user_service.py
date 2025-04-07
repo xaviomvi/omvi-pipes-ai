@@ -194,7 +194,7 @@ class GmailUserService:
         try:
             if not self.credentials:
                 raise GoogleAuthError(
-                    "No credentials provided for enterprise connection: " + str(e)
+                    "No credentials provided for enterprise connection."
                 )
 
             try:
