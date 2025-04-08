@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 from app.config.arangodb_constants import Connectors
+from datetime import datetime, timezone, timedelta
 from app.api.middlewares.auth import authMiddleware
 
 print("Starting connector app")
@@ -277,6 +278,27 @@ async def authenticate_requests(request: Request, call_next):
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Internal server error"}
+        )
+        
+@router.get("/health")
+async def health_check():
+    """Basic health check endpoint"""
+    try:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "healthy",
+                "timestamp": datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "fail",
+                "error": str(e),
+                "timestamp": datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()
+            }
         )
 
 # Include routes
