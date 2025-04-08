@@ -15,11 +15,6 @@ services:
     depends_on:
       qdrant:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '3'
-          memory: 6G 
 
   mongodb:
     image: mongo:latest
