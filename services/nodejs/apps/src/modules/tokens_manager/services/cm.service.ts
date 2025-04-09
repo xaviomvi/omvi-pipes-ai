@@ -13,6 +13,16 @@ export interface SmtpConfig {
   fromEmail: string;
 }
 
+export const randomKeyGenerator = () => {
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < 20; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 export interface KafkaConfig {
   brokers: string[];
   sasl?: {
@@ -508,17 +518,56 @@ export class ConfigService {
   }
 
   // Get JWT Secret
-  public getJwtSecret(): string {
-    return process.env.JWT_SECRET!;
+  public async getJwtSecret(): Promise<string> {
+    const secretKeys =
+      (await this.keyValueStoreService.get<string>(configPaths.secretKeys)) ||
+      '{}';
+
+    let parsedKeys = JSON.parse(secretKeys);
+    if (!parsedKeys.jwtSecret) {
+      parsedKeys.jwtSecret = randomKeyGenerator();
+      await this.keyValueStoreService.set(
+        configPaths.secretKeys,
+        JSON.stringify(parsedKeys),
+      );
+    }
+
+    return parsedKeys.jwtSecret;
   }
 
   // Get Scoped JWT Secret
-  public getScopedJwtSecret(): string {
-    return process.env.SCOPED_JWT_SECRET!;
+  public async getScopedJwtSecret(): Promise<string> {
+    const secretKeys =
+      (await this.keyValueStoreService.get<string>(configPaths.secretKeys)) ||
+      '{}';
+
+    let parsedKeys = JSON.parse(secretKeys);
+    if (!parsedKeys.scopedJwtSecret) {
+      parsedKeys.scopedJwtSecret = randomKeyGenerator();
+      await this.keyValueStoreService.set(
+        configPaths.secretKeys,
+        JSON.stringify(parsedKeys),
+      );
+    }
+
+    return parsedKeys.scopedJwtSecret;
   }
 
-  public getCookieSecret(): string {
-    return process.env.COOKIE_SECRET_KEY!;
+  public async getCookieSecret(): Promise<string> {
+    const secretKeys =
+      (await this.keyValueStoreService.get<string>(configPaths.secretKeys)) ||
+      '{}';
+
+    let parsedKeys = JSON.parse(secretKeys);
+    if (!parsedKeys.cookieSecret) {
+      parsedKeys.cookieSecret = randomKeyGenerator();
+      await this.keyValueStoreService.set(
+        configPaths.secretKeys,
+        JSON.stringify(parsedKeys),
+      );
+    }
+
+    return parsedKeys.cookieSecret;
   }
 
   public async getRsAvailable(): Promise<string> {
