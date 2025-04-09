@@ -11,51 +11,56 @@ import {
   Typography,
   IconButton,
 } from '@mui/material';
-
-import { Iconify } from 'src/components/iconify';
-
+import { Icon } from '@iconify/react';
+import redisIcon from '@iconify-icons/logos/redis';
+import kafkaIcon from '@iconify-icons/logos/kafka-icon';
+import mongodbIcon from '@iconify-icons/logos/mongodb-icon';
+import arangodbIcon from '@iconify-icons/logos/arangodb-icon';
+import qdrantIcon from '@iconify-icons/logos/qdrant-icon';
+import storageIcon from '@iconify-icons/mdi/storage';
+import settingsIcon from '@iconify-icons/mdi/settings';
 import ConfigureServiceDialog from './configure-services-dialog';
 
 // Service configuration list
 const SERVICES_LIST = [
   {
     id: 'redis',
-    icon: 'logos:redis',
+    icon: redisIcon,
     title: 'Redis',
     description: 'In-memory data structure store used as a database, cache, and message broker',
     color: '#DC382D',
   },
   {
     id: 'kafka',
-    icon: 'mdi:apache-kafka',
+    icon: kafkaIcon,
     description: 'Distributed event streaming platform for high-performance data pipelines',
     title: 'Kafka',
     color: '#231F20',
   },
   {
     id: 'mongoDb',
-    icon: 'simple-icons:mongodb',
+    icon: mongodbIcon,
     description: 'NoSQL document database for modern applications',
     title: 'MongoDB',
     color: '#47A248',
   },
   {
     id: 'arangoDb',
-    icon: 'simple-icons:arangodb',
+    icon: arangodbIcon,
     description: 'Multi-model database system for graphs, documents and key-values',
     title: 'ArangoDB',
     color: '#D12C2F',
   },
   {
     id: 'qdrant',
-    icon: 'carbon:data-vis-4',
+    icon: qdrantIcon,
     description: 'Vector database for similarity search and machine learning',
     title: 'Qdrant',
     color: '#FF9800',
   },
   {
     id: 'storage',
-    icon: 'mdi:database',
+    icon: storageIcon,
     description: 'Configure storage options for your application (Local, S3, Azure Blob)',
     title: 'Storage Service',
     color: '#0078D4',
@@ -217,7 +222,7 @@ const ExternalServicesSettings = () => {
                       borderRadius: 1.5,
                     }}
                   >
-                    <Iconify icon={service.icon} width={26} height={26} />
+                    <Icon icon={service.icon} width="24" height="24" />
                   </Box>
 
                   <Box>
@@ -247,7 +252,7 @@ const ExternalServicesSettings = () => {
                   }}
                   aria-label={`Configure ${service.title}`}
                 >
-                  <Iconify icon="eva:settings-2-outline" width={20} height={20} />
+                  <Icon icon={settingsIcon} width="20" height="20" />
                 </IconButton>
               </Paper>
             </Grid>
