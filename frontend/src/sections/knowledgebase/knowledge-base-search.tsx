@@ -11,12 +11,12 @@ import { searchKnowledgeBase } from './utils';
 import KnowledgeSearch from './knowledge-search';
 import { ORIGIN } from './constants/knowledge-search';
 import KnowledgeSearchSideBar from './knowledge-search-sidebar';
+import DocxViewer from '../qna/chatbot/components/docx-highlighter';
 import ExcelViewer from '../qna/chatbot/components/excel-highlighter';
 import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
 
 import type { Filters } from './types/knowledge-base';
 import type { PipesHub, SearchResult, AggregatedDocument } from './types/search-response';
-import DocxViewer from '../qna/chatbot/components/docx-highlighter';
 
 // Constants for sidebar widths - must match with the sidebar component
 const SIDEBAR_EXPANDED_WIDTH = 300;

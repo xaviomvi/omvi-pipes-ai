@@ -1,14 +1,13 @@
 import type {
   Message,
   Citation,
+  Metadata,
   Conversation,
   CustomCitation,
   FormattedMessage,
   ExpandedCitationsState,
-  Metadata,
 } from 'src/types/chat-bot';
-import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
-import { CONFIG } from 'src/config-global';
+
 import { Icon } from '@iconify/react';
 import { useParams, useNavigate } from 'react-router';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -16,6 +15,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Button, styled, Tooltip, IconButton, CircularProgress } from '@mui/material';
 
 import axios from 'src/utils/axios';
+
+import { CONFIG } from 'src/config-global';
+
+import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
 
 import ChatInput from './components/chat-input';
 import ChatSidebar from './components/chat-sidebar';

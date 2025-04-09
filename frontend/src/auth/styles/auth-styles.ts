@@ -1,14 +1,16 @@
 import type { Theme } from '@mui/material/styles';
-import { alpha } from '@mui/material/styles';
-import type { StyleConfig } from '../types/auth';
 
+import googleIcon from '@iconify-icons/mdi/google';
+import microsoftIcon from '@iconify-icons/mdi/microsoft';
+import shieldAccountIcon from '@iconify-icons/mdi/shield-account';
 // Import specific Iconify icons
 import passwordIcon from '@iconify-icons/mdi/form-textbox-password';
 import phoneMessageIcon from '@iconify-icons/mdi/cellphone-message';
-import shieldAccountIcon from '@iconify-icons/mdi/shield-account';
-import googleIcon from '@iconify-icons/mdi/google';
-import microsoftIcon from '@iconify-icons/mdi/microsoft';
 import microsoftAzureIcon from '@iconify-icons/mdi/microsoft-azure';
+
+import { alpha } from '@mui/material/styles';
+
+import type { StyleConfig } from '../types/auth';
 
 export const CARD_STYLES = {
   width: '100%',

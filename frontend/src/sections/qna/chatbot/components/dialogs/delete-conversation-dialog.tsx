@@ -1,5 +1,7 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
+import deleteIcon from '@iconify-icons/mdi/delete';
+import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
 
 import {
   Box,
@@ -11,8 +13,7 @@ import {
   DialogActions,
   CircularProgress,
 } from '@mui/material';
-import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
-import deleteIcon from '@iconify-icons/mdi/delete';
+
 interface DeleteConversationDialogProps {
   open: boolean;
   onClose: () => void;

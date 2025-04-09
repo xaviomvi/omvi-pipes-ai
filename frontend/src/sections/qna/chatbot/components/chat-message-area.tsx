@@ -1,4 +1,4 @@
-import type { CustomCitation, FormattedMessage, ExpandedCitationsState, Metadata } from 'src/types/chat-bot';
+import type { Metadata, CustomCitation, FormattedMessage, ExpandedCitationsState } from 'src/types/chat-bot';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 

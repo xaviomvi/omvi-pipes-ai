@@ -1,11 +1,11 @@
 import type { LinkProps } from '@mui/material/Link';
 
+import { Icon } from '@iconify/react';
+import backIcon from '@iconify-icons/eva/arrow-ios-back-fill';
+
 import Link from '@mui/material/Link';
 
 import { RouterLink } from 'src/routes/components';
-
-import { Icon } from '@iconify/react';
-import backIcon from '@iconify-icons/eva/arrow-ios-back-fill';
 
 // ----------------------------------------------------------------------
 

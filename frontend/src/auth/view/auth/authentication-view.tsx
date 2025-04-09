@@ -5,10 +5,19 @@ import { z as zod } from 'zod';
 import PropTypes from 'prop-types';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
+// Import specific icons
+import emailIcon from '@iconify-icons/mdi/email';
+import googleIcon from '@iconify-icons/mdi/google';
 import { useRef, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useDispatch, useSelector } from 'react-redux';
+import microsoftIcon from '@iconify-icons/mdi/microsoft';
+import shieldAccountIcon from '@iconify-icons/mdi/shield-account';
+import arrowBackIcon from '@iconify-icons/eva/arrow-ios-back-fill';
+import passwordIcon from '@iconify-icons/mdi/form-textbox-password';
+import microsoftAzureIcon from '@iconify-icons/mdi/microsoft-azure';
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
+import cellphoneMessageIcon from '@iconify-icons/mdi/cellphone-message';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -42,16 +51,6 @@ import {
   SignInWithAzureAd,
   SignInWithMicrosoft,
 } from 'src/auth/context/jwt';
-import { Icon } from '@iconify/react';
-// Import specific icons
-import emailIcon from '@iconify-icons/mdi/email';
-import passwordIcon from '@iconify-icons/mdi/form-textbox-password';
-import cellphoneMessageIcon from '@iconify-icons/mdi/cellphone-message';
-import shieldAccountIcon from '@iconify-icons/mdi/shield-account';
-import googleIcon from '@iconify-icons/mdi/google';
-import microsoftIcon from '@iconify-icons/mdi/microsoft';
-import microsoftAzureIcon from '@iconify-icons/mdi/microsoft-azure';
-import arrowBackIcon from '@iconify-icons/eva/arrow-ios-back-fill';
 
 import OtpSignIn from './otp-sign-in';
 import SamlSignIn from './saml-sign-in';

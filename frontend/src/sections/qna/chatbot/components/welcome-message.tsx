@@ -1,12 +1,13 @@
 // WelcomeMessage.js
 import React from 'react';
 import { Icon } from '@iconify/react';
+import githubIcon from '@iconify-icons/mdi/github';
+import graphIcon from '@iconify-icons/mdi/graph-outline';
+import lightningBoltIcon from '@iconify-icons/mdi/lightning-bolt-outline';
+import databaseSearchIcon from '@iconify-icons/mdi/database-search-outline';
 
 import { Box, Grid, Fade, Zoom, Paper, useTheme, Typography } from '@mui/material';
-import githubIcon from '@iconify-icons/mdi/github';
-import databaseSearchIcon from '@iconify-icons/mdi/database-search-outline';
-import lightningBoltIcon from '@iconify-icons/mdi/lightning-bolt-outline';
-import graphIcon from '@iconify-icons/mdi/graph-outline';
+
 const WelcomeMessage = () => {
   const theme = useTheme();
 

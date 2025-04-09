@@ -3,13 +3,11 @@ import type { Conversation } from 'src/types/chat-bot';
 import type { SnackbarState } from 'src/types/chat-sidebar';
 
 import { Icon } from '@iconify/react';
+import closeIcon from '@iconify-icons/mdi/close';
 import React, { useState, useEffect } from 'react';
 import archiveIcon from '@iconify-icons/mdi/archive-off-outline';
 import archiveUpIcon from '@iconify-icons/mdi/archive-arrow-up-outline';
-import closeIcon from '@iconify-icons/mdi/close';
 
-('mdi:archive-arrow-up-outline');
-close;
 import {
   Box,
   List,

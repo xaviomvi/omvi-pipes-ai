@@ -3,7 +3,11 @@ import type { Theme, SxProps } from '@mui/material';
 import { z as zod } from 'zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import emailIcon from '@iconify-icons/mdi/email';
+import eyeIcon from '@iconify-icons/solar/eye-bold';
 import { zodResolver } from '@hookform/resolvers/zod';
+import eyeClosedIcon from '@iconify-icons/solar/eye-closed-bold';
+import lockPasswordIcon from '@iconify-icons/solar/lock-password-bold';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -15,18 +19,15 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import LoadingButton from '@mui/lab/LoadingButton';
 import InputAdornment from '@mui/material/InputAdornment';
-import eyeIcon from '@iconify-icons/solar/eye-bold';
-import eyeClosedIcon from '@iconify-icons/solar/eye-closed-bold';
-import lockPasswordIcon from '@iconify-icons/solar/lock-password-bold';
-import { paths } from 'src/routes/paths';
 
+import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
-import emailIcon from '@iconify-icons/mdi/email';
+
 import { useAuthContext } from 'src/auth/hooks';
 import { signInWithPassword } from 'src/auth/context/jwt';
 

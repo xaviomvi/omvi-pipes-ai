@@ -1,4 +1,4 @@
-import type { CustomCitation, Metadata } from 'src/types/chat-bot';
+import type { Metadata, CustomCitation } from 'src/types/chat-bot';
 import type {
   Record,
   ChatMessageProps,
@@ -6,10 +6,11 @@ import type {
   StyledCitationProps,
 } from 'src/types/chat-message';
 
-import { Icon } from '@iconify/react';
-import React, { useRef, useMemo, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Icon } from '@iconify/react';
+import ReactMarkdown from 'react-markdown';
+import React, { useRef, useMemo, useState } from 'react';
+
 import {
   Box,
   Chip,

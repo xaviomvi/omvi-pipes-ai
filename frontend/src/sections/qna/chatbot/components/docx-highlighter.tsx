@@ -1,11 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import * as docxPreview from 'docx-preview';
-import { Box, CircularProgress, Typography, Paper } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import type { CustomCitation } from 'src/types/chat-bot';
+import type { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
+import type { Position, HighlightType, ProcessedCitation } from 'src/types/pdf-highlighter';
+
 import { Icon } from '@iconify/react';
-import { HighlightType, Position, ProcessedCitation } from 'src/types/pdf-highlighter';
-import { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
-import { CustomCitation } from 'src/types/chat-bot';
+import * as docxPreview from 'docx-preview';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+
+import { styled } from '@mui/material/styles';
+import { Box, Paper, Typography, CircularProgress } from '@mui/material';
+
 import CitationSidebar from './highlighter-sidebar';
 
 type DocxViewerProps = {
@@ -730,7 +733,7 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
     citationsArray.forEach((citation) => {
       if (!citation.highlight) return;
 
-      const text = citation.highlight.content.text;
+      const {text} = citation.highlight.content;
       if (!text || text.length < 10) {
         return;
       }

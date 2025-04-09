@@ -3,8 +3,9 @@ import type { SnackbarState } from 'src/types/chat-sidebar';
 
 import { Icon } from '@iconify/react';
 import React, { useState } from 'react';
-import contentCopyIcon from '@iconify-icons/mdi/content-copy';
 import magnifyIcon from '@iconify-icons/mdi/magnify';
+import contentCopyIcon from '@iconify-icons/mdi/content-copy';
+
 import {
   Box,
   Paper,
