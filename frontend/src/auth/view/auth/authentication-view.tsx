@@ -42,6 +42,16 @@ import {
   SignInWithAzureAd,
   SignInWithMicrosoft,
 } from 'src/auth/context/jwt';
+import { Icon } from '@iconify/react';
+// Import specific icons
+import emailIcon from '@iconify-icons/mdi/email';
+import passwordIcon from '@iconify-icons/mdi/form-textbox-password';
+import cellphoneMessageIcon from '@iconify-icons/mdi/cellphone-message';
+import shieldAccountIcon from '@iconify-icons/mdi/shield-account';
+import googleIcon from '@iconify-icons/mdi/google';
+import microsoftIcon from '@iconify-icons/mdi/microsoft';
+import microsoftAzureIcon from '@iconify-icons/mdi/microsoft-azure';
+import arrowBackIcon from '@iconify-icons/eva/arrow-ios-back-fill';
 
 import OtpSignIn from './otp-sign-in';
 import SamlSignIn from './saml-sign-in';
@@ -78,17 +88,17 @@ interface AuthStep {
 // Tab configuration
 const tabConfig = {
   password: {
-    icon: 'mdi:form-textbox-password',
+    icon: passwordIcon,
     label: 'Password',
     component: PasswordSignIn,
   },
   otp: {
-    icon: 'mdi:cellphone-message',
+    icon: cellphoneMessageIcon,
     label: 'OTP',
     component: LazyOtpSignIn,
   },
   samlSso: {
-    icon: 'mdi:shield-account',
+    icon: shieldAccountIcon,
     label: 'SSO',
     component: SamlSignIn,
   },
@@ -168,17 +178,17 @@ function LazyOtpSignIn({ email, ...otherProps }: LazyOtpSignInProps) {
 // Social login configuration
 const socialConfig = {
   google: {
-    icon: 'mdi:google',
+    icon: googleIcon,
     label: 'Continue with Google',
     color: '#DB4437',
   },
   microsoft: {
-    icon: 'mdi:microsoft',
+    icon: microsoftIcon,
     label: 'Continue with Microsoft',
     color: '#00A4EF',
   },
   azureAd: {
-    icon: 'mdi:microsoft-azure',
+    icon: microsoftAzureIcon,
     label: 'Continue with Azure AD',
     color: '#0078D4',
   },
@@ -444,7 +454,7 @@ export const AuthenticationView = () => {
           <CardContent sx={{ pt: 5, pb: 5 }}>
             <Box sx={{ mb: 5, textAlign: 'center' }}>
               <Typography variant="h4" sx={{ mb: 1, fontWeight: 700 }}>
-                Welcome 
+                Welcome
               </Typography>
 
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -480,7 +490,7 @@ export const AuthenticationView = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Iconify icon="mdi:email" width={24} sx={{ color: 'text.secondary' }} />
+                      <Iconify icon={emailIcon} width={24} sx={{ color: 'text.secondary' }} />
                     </InputAdornment>
                   ),
                 }}
@@ -565,7 +575,7 @@ export const AuthenticationView = () => {
                   },
                 }}
               >
-                <Iconify icon="eva:arrow-ios-back-fill" />
+                <Iconify icon={arrowBackIcon} />
               </IconButton>
             </Tooltip>
 

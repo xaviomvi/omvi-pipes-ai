@@ -1,11 +1,15 @@
-import type {
-  AlertColor} from '@mui/material';
+import type { AlertColor } from '@mui/material';
 import type { Conversation } from 'src/types/chat-bot';
 import type { SnackbarState } from 'src/types/chat-sidebar';
 
 import { Icon } from '@iconify/react';
 import React, { useState, useEffect } from 'react';
+import archiveIcon from '@iconify-icons/mdi/archive-off-outline';
+import archiveUpIcon from '@iconify-icons/mdi/archive-arrow-up-outline';
+import closeIcon from '@iconify-icons/mdi/close';
 
+('mdi:archive-arrow-up-outline');
+close;
 import {
   Box,
   List,
@@ -24,23 +28,23 @@ import {
   DialogTitle,
   DialogContent,
   ListItemButton,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 
 import axiosInstance from 'src/utils/axios';
 
 type ArchivedChatsDialogProps = {
-  open : boolean;
-  onClose : () => void;
-  onSelectChat : (chat : Conversation)=> Promise<void>;
-  onUnarchive : () => Promise<void>;
-}
+  open: boolean;
+  onClose: () => void;
+  onSelectChat: (chat: Conversation) => Promise<void>;
+  onUnarchive: () => Promise<void>;
+};
 
 const formatDistanceToNow = (date: string): string => {
   const now = new Date();
   const pastDate = new Date(date);
   const diff = now.getTime() - pastDate.getTime();
-  
+
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
@@ -73,7 +77,7 @@ const EmptyState = () => (
           gap: 2,
         }}
       >
-        <Icon icon="mdi:archive-off-outline" width={48} height={48} color="text.secondary" />
+        <Icon icon={archiveIcon} width={48} height={48} color="text.secondary" />
         <Box textAlign="center">
           <Typography variant="subtitle1" color="text.secondary" gutterBottom>
             No Archived Conversations
@@ -100,7 +104,12 @@ const LoadingSkeleton = () => (
   </Box>
 );
 
-const ArchivedChatsDialog = ({ open, onClose, onSelectChat, onUnarchive } : ArchivedChatsDialogProps) => {
+const ArchivedChatsDialog = ({
+  open,
+  onClose,
+  onSelectChat,
+  onUnarchive,
+}: ArchivedChatsDialogProps) => {
   const theme = useTheme();
   const [archivedChats, setArchivedChats] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -121,10 +130,10 @@ const ArchivedChatsDialog = ({ open, onClose, onSelectChat, onUnarchive } : Arch
   const fetchArchivedChats = async () => {
     setIsLoading(true);
     try {
-      const response = await axiosInstance.get('/api/v1/conversations/show/archives',{
-        params:{
-          conversationSource:'sales',
-        }
+      const response = await axiosInstance.get('/api/v1/conversations/show/archives', {
+        params: {
+          conversationSource: 'sales',
+        },
       });
       setArchivedChats(response.data.conversations || []);
     } catch (error) {
@@ -138,7 +147,7 @@ const ArchivedChatsDialog = ({ open, onClose, onSelectChat, onUnarchive } : Arch
     }
   };
 
-  const handleUnarchive = async (chatId : string) => {
+  const handleUnarchive = async (chatId: string) => {
     setIsUnarchiving(true);
     setUnarchivingId(chatId);
     try {
@@ -189,12 +198,7 @@ const ArchivedChatsDialog = ({ open, onClose, onSelectChat, onUnarchive } : Arch
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Icon
-                icon="mdi:archive-outline"
-                width={28}
-                height={28}
-                color={theme.palette.primary.main}
-              />
+              <Icon icon={archiveIcon} width={28} height={28} color={theme.palette.primary.main} />
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 Archived Conversations
               </Typography>
@@ -207,7 +211,7 @@ const ArchivedChatsDialog = ({ open, onClose, onSelectChat, onUnarchive } : Arch
                 '&:hover': { bgcolor: 'action.hover' },
               }}
             >
-              <Icon icon="mdi:close" />
+              <Icon icon={closeIcon} />
             </IconButton>
           </Box>
         </DialogTitle>
@@ -249,7 +253,7 @@ const ArchivedChatsDialog = ({ open, onClose, onSelectChat, onUnarchive } : Arch
                           {isUnarchiving && unarchivingId === chat._id ? (
                             <CircularProgress size={20} color="inherit" />
                           ) : (
-                            <Icon icon="mdi:archive-arrow-up-outline" />
+                            <Icon icon={archiveUpIcon} />
                           )}
                         </IconButton>
                       </Tooltip>
@@ -342,6 +346,5 @@ const ArchivedChatsDialog = ({ open, onClose, onSelectChat, onUnarchive } : Arch
     </>
   );
 };
-
 
 export default ArchivedChatsDialog;

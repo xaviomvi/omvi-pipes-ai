@@ -19,7 +19,7 @@ import { useRouter } from 'src/routes/hooks';
 
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
-
+import otpIcon from '@iconify-icons/mdi/cellphone-message';
 import { useAuthContext } from 'src/auth/hooks';
 import { sendOtp, VerifyOtp } from 'src/auth/context/jwt';
 
@@ -223,11 +223,7 @@ export default function OtpSignIn({
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Iconify
-                    icon="mdi:cellphone-message"
-                    width={24}
-                    sx={{ color: 'text.secondary' }}
-                  />
+                  <Iconify icon={otpIcon} width={24} sx={{ color: 'text.secondary' }} />
                 </InputAdornment>
               ),
             }}

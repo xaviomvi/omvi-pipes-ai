@@ -5,7 +5,7 @@ import Alert from '@mui/material/Alert';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 import { Iconify } from 'src/components/iconify';
-
+import microsoftAzureIcon from '@iconify-icons/mdi/microsoft-azure';
 interface AzureAdSignInProps {
   email: string;
 }
@@ -40,7 +40,7 @@ export default function AzureAdSignIn({ email }: AzureAdSignInProps) {
         variant="outlined"
         loading={loading}
         onClick={handleAzureLogin}
-        startIcon={<Iconify icon="mdi:microsoft-azure" />}
+        startIcon={<Iconify icon={microsoftAzureIcon} />}
       >
         Continue with Azure AD
       </LoadingButton>

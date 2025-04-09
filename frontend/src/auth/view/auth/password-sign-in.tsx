@@ -15,15 +15,18 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import LoadingButton from '@mui/lab/LoadingButton';
 import InputAdornment from '@mui/material/InputAdornment';
-
+import eyeIcon from '@iconify-icons/solar/eye-bold';
+import eyeClosedIcon from '@iconify-icons/solar/eye-closed-bold';
+import lockPasswordIcon from '@iconify-icons/solar/lock-password-bold';
 import { paths } from 'src/routes/paths';
+
 import { useRouter } from 'src/routes/hooks';
 
 import { useBoolean } from 'src/hooks/use-boolean';
 
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
-
+import emailIcon from '@iconify-icons/mdi/email';
 import { useAuthContext } from 'src/auth/hooks';
 import { signInWithPassword } from 'src/auth/context/jwt';
 
@@ -68,19 +71,19 @@ const StyledRoot = styled(Box)(({ theme }) => ({
   borderRadius: theme.shape.borderRadius * 2,
 }));
 
-export default function PasswordSignIn({ 
-  email, 
+export default function PasswordSignIn({
+  email,
   onNextStep,
   onAuthComplete,
-  onForgotPassword, 
-  redirectPath = paths.dashboard.root, 
-  sx 
+  onForgotPassword,
+  redirectPath = paths.dashboard.root,
+  sx,
 }: PasswordSignInProps) {
   const router = useRouter();
   const { checkUserSession } = useAuthContext();
   const showPassword = useBoolean();
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   const methods = useForm<SignInSchemaType>({
     resolver: zodResolver(SignInSchema),
     defaultValues: {
@@ -99,9 +102,9 @@ export default function PasswordSignIn({
   const onSubmit = async (data: SignInSchemaType) => {
     setIsProcessing(true);
     try {
-      const response = await signInWithPassword({ 
-        email: data.email, 
-        password: data.password 
+      const response = await signInWithPassword({
+        email: data.email,
+        password: data.password,
       });
 
       // Check the response
@@ -123,20 +126,19 @@ export default function PasswordSignIn({
           }
         } else {
           // Unexpected response format
-          setError('root.serverError', { 
+          setError('root.serverError', {
             type: 'server',
-            message: 'Unexpected response from the server. Please try again.' 
+            message: 'Unexpected response from the server. Please try again.',
           });
         }
       }
     } catch (error) {
-      const errorMessage = typeof error === 'string' 
-        ? error 
-        : (error as ErrorResponse)?.errorMessage;
-        
-      setError('root.serverError', { 
+      const errorMessage =
+        typeof error === 'string' ? error : (error as ErrorResponse)?.errorMessage;
+
+      setError('root.serverError', {
         type: 'server',
-        message: errorMessage || 'Authentication failed. Please try again.'
+        message: errorMessage || 'Authentication failed. Please try again.',
       });
     } finally {
       setIsProcessing(false);
@@ -148,8 +150,8 @@ export default function PasswordSignIn({
       <Form methods={methods} onSubmit={handleSubmit(onSubmit)}>
         <Stack spacing={3}>
           {/* Show server error if any */}
-          {errors.root?.serverError && (    
-            <Alert 
+          {errors.root?.serverError && (
+            <Alert
               severity="error"
               variant="outlined"
               onClose={() => clearErrors('root.serverError')}
@@ -167,7 +169,7 @@ export default function PasswordSignIn({
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Iconify icon="mdi:email" width={24} sx={{ color: 'text.secondary' }} />
+                  <Iconify icon={emailIcon} width={24} sx={{ color: 'text.secondary' }} />
                 </InputAdornment>
               ),
             }}
@@ -183,16 +185,14 @@ export default function PasswordSignIn({
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Iconify icon="solar:lock-password-bold" width={24} sx={{ color: 'text.secondary' }} />
+                    <Iconify icon={lockPasswordIcon} width={24} sx={{ color: 'text.secondary' }} />
                   </InputAdornment>
                 ),
                 endAdornment: (
                   <InputAdornment position="end">
                     <Tooltip title={showPassword.value ? 'Hide password' : 'Show password'}>
                       <IconButton onClick={showPassword.onToggle} edge="end">
-                        <Iconify 
-                          icon={showPassword.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} 
-                        />
+                        <Iconify icon={showPassword.value ? eyeIcon : eyeClosedIcon} />
                       </IconButton>
                     </Tooltip>
                   </InputAdornment>
@@ -204,7 +204,7 @@ export default function PasswordSignIn({
               variant="body2"
               color="inherit"
               onClick={onForgotPassword}
-              sx={{ 
+              sx={{
                 mt: 1,
                 display: 'inline-block',
                 cursor: 'pointer',
@@ -214,9 +214,7 @@ export default function PasswordSignIn({
                 },
               }}
             >
-              <Typography variant="caption">
-                Forgot Password?
-              </Typography>
+              <Typography variant="caption">Forgot Password?</Typography>
             </Link>
           </Box>
 

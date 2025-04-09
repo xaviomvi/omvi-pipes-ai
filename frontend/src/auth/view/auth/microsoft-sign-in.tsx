@@ -5,7 +5,7 @@ import Alert from '@mui/material/Alert';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 import { Iconify } from 'src/components/iconify';
-
+import microsoftIcon from '@iconify-icons/mdi/microsoft';
 interface MicrosoftSignInProps {
   email: string;
 }
@@ -40,7 +40,7 @@ export default function MicrosoftSignIn({ email }: MicrosoftSignInProps) {
         variant="outlined"
         loading={loading}
         onClick={handleMicrosoftLogin}
-        startIcon={<Iconify icon="mdi:microsoft" />}
+        startIcon={<Iconify icon={microsoftIcon} />}
       >
         Continue with Microsoft
       </LoadingButton>

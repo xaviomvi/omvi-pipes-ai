@@ -11,16 +11,23 @@ import {
   DialogActions,
   CircularProgress,
 } from '@mui/material';
- 
+import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
+import deleteIcon from '@iconify-icons/mdi/delete';
 interface DeleteConversationDialogProps {
-  open : boolean;
-  onClose:  ()=> void;
-  onConfirm :   () => Promise<void>;
-  title ?: string ;
-  isDeleting : boolean;
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+  title?: string;
+  isDeleting: boolean;
 }
 
-const DeleteConversationDialog = ({ open, onClose, onConfirm, title, isDeleting } : DeleteConversationDialogProps) => (
+const DeleteConversationDialog = ({
+  open,
+  onClose,
+  onConfirm,
+  title,
+  isDeleting,
+}: DeleteConversationDialogProps) => (
   <Dialog
     open={open}
     onClose={!isDeleting ? onClose : undefined}
@@ -33,7 +40,7 @@ const DeleteConversationDialog = ({ open, onClose, onConfirm, title, isDeleting 
   >
     <DialogTitle sx={{ pb: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Icon icon="mdi:alert-circle-outline" color="#d32f2f" width={24} />
+        <Icon icon={alertCircleIcon} color="#d32f2f" width={24} />
         <Typography variant="h6">Delete Conversation</Typography>
       </Box>
     </DialogTitle>
@@ -55,7 +62,7 @@ const DeleteConversationDialog = ({ open, onClose, onConfirm, title, isDeleting 
         variant="contained"
         disabled={isDeleting}
         startIcon={
-          isDeleting ? <CircularProgress size={20} color="inherit" /> : <Icon icon="mdi:delete" />
+          isDeleting ? <CircularProgress size={20} color="inherit" /> : <Icon icon={deleteIcon} />
         }
       >
         {isDeleting ? 'Deleting...' : 'Delete'}
