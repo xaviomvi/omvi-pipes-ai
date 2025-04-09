@@ -4,6 +4,7 @@ import type { NavSectionProps } from 'src/components/nav-section';
 import { useState, useCallback } from 'react';
 import parse from 'autosuggest-highlight/parse';
 import match from 'autosuggest-highlight/match';
+import searchIcon from '@iconify-icons/eva/search-fill';
 
 import Box from '@mui/material/Box';
 import SvgIcon from '@mui/material/SvgIcon';
@@ -171,7 +172,7 @@ export function Searchbar({ data: navItems = [], sx, ...other }: SearchbarProps)
             onChange={handleSearch}
             startAdornment={
               <InputAdornment position="start">
-                <Iconify icon="eva:search-fill" width={24} sx={{ color: 'text.disabled' }} />
+                <Iconify icon={searchIcon} width={24} sx={{ color: 'text.disabled' }} />
               </InputAdornment>
             }
             endAdornment={<Label sx={{ letterSpacing: 1, color: 'text.secondary' }}>esc</Label>}

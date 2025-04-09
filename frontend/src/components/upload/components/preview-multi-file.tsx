@@ -1,3 +1,5 @@
+import closeIcon from '@iconify-icons/mingcute/close-line';
+
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import ListItemText from '@mui/material/ListItemText';
@@ -118,7 +120,7 @@ export function MultiFilePreview({
 
             {onRemove && (
               <IconButton size="small" onClick={() => onRemove(file)}>
-                <Iconify icon="mingcute:close-line" width={16} />
+                <Iconify icon={closeIcon} width={16} />
               </IconButton>
             )}
           </Box>

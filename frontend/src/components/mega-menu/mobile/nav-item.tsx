@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
 
 import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
@@ -8,7 +9,6 @@ import { Iconify } from '../../iconify';
 import { useNavItem, stateClasses, sharedStyles, navSectionClasses } from '../../nav-section';
 
 import type { NavItemProps, NavItemStateProps } from '../types';
-
 // ----------------------------------------------------------------------
 
 export const NavItem = forwardRef<HTMLButtonElement, NavItemProps>(
@@ -77,9 +77,7 @@ export const NavItem = forwardRef<HTMLButtonElement, NavItemProps>(
           </Box>
         )}
 
-        {hasChild && (
-          <Iconify icon="eva:arrow-ios-forward-fill" className={navSectionClasses.item.arrow} />
-        )}
+        {hasChild && <Iconify icon={arrowForwardIcon} className={navSectionClasses.item.arrow} />}
       </StyledNavItem>
     );
   }

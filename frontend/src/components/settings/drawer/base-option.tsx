@@ -1,5 +1,7 @@
 import type { ButtonBaseProps } from '@mui/material/ButtonBase';
 
+import infoIcon from '@iconify-icons/eva/info-outline';
+
 import Box from '@mui/material/Box';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
@@ -72,7 +74,7 @@ export function BaseOption({ icon, label, tooltip, selected, ...other }: Props) 
           >
             <Iconify
               width={16}
-              icon="eva:info-outline"
+              icon={infoIcon}
               sx={{ cursor: 'pointer', color: 'text.disabled' }}
             />
           </Tooltip>

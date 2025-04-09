@@ -1,7 +1,13 @@
 import { Icon } from '@iconify/react';
+import plusIcon from '@iconify-icons/mdi/plus';
+import minusIcon from '@iconify-icons/mdi/minus';
+import closeIcon from '@iconify-icons/mdi/close';
 import { Page, pdfjs, Document } from 'react-pdf';
+import refreshIcon from '@iconify-icons/mdi/refresh';
 import { useResizeObserver } from '@wojtekmaj/react-hooks';
 import { useMemo, useState, useEffect, useCallback } from 'react';
+import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
+import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
 
 import {
   Box,
@@ -228,7 +234,7 @@ export default function PDFViewer({ open, onClose, pdfUrl, pdfBuffer, fileName }
         }}
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <Icon icon="mdi:file-document-outline" style={{ fontSize: '24px' }} />
+          <Icon icon={fileDocIcon} style={{ fontSize: '24px' }} />
           <Typography variant="h6" noWrap>
             {fileName}
           </Typography>
@@ -237,7 +243,7 @@ export default function PDFViewer({ open, onClose, pdfUrl, pdfBuffer, fileName }
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <Tooltip title="Zoom out">
             <IconButton onClick={handleZoomOut} size="small" disabled={scale <= 0.5 || loading}>
-              <Icon icon="mdi:minus" />
+              <Icon icon={minusIcon} />
             </IconButton>
           </Tooltip>
           <Typography
@@ -252,12 +258,12 @@ export default function PDFViewer({ open, onClose, pdfUrl, pdfBuffer, fileName }
           </Typography>
           <Tooltip title="Zoom in">
             <IconButton onClick={handleZoomIn} size="small" disabled={scale >= 2 || loading}>
-              <Icon icon="mdi:plus" />
+              <Icon icon={plusIcon} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Close">
             <IconButton onClick={onClose} size="small" sx={{ ml: 1 }}>
-              <Icon icon="mdi:close" />
+              <Icon icon={closeIcon} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -285,7 +291,7 @@ export default function PDFViewer({ open, onClose, pdfUrl, pdfBuffer, fileName }
                 mt: 4,
               }}
             >
-              <Icon icon="mdi:alert-circle-outline" style={{ fontSize: '48px' }} />
+              <Icon icon={alertCircleIcon} style={{ fontSize: '48px' }} />
               <Typography variant="h6" sx={{ mt: 2, color: 'error.main' }}>
                 {error}
               </Typography>
@@ -303,7 +309,7 @@ export default function PDFViewer({ open, onClose, pdfUrl, pdfBuffer, fileName }
                     '&:hover': { bgcolor: 'background.paper' },
                   }}
                 >
-                  <Icon icon="mdi:refresh" />
+                  <Icon icon={refreshIcon} />
                 </IconButton>
               </Tooltip>
             </Box>

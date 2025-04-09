@@ -9,6 +9,8 @@ import type {
 } from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';
+import menuIcon from '@iconify-icons/mdi/menu';
+import closeIcon from '@iconify-icons/mdi/close';
 import { useParams, useNavigate } from 'react-router';
 import React, { useState, useEffect, useCallback } from 'react';
 
@@ -616,7 +618,7 @@ const ChatInterface = () => {
             size="small"
             aria-label="Open sidebar"
           >
-            <Icon icon="mdi:menu" fontSize="medium" />
+            <Icon icon={menuIcon} fontSize="medium" />
           </StyledOpenButton>
         </Tooltip>
       )}
@@ -755,7 +757,7 @@ const ChatInterface = () => {
                   renderOptions={{
                     breakPages: true,
                     renderHeaders: true,
-                    renderFooters: true
+                    renderFooters: true,
                   }}
                 />
               ) : (
@@ -768,7 +770,7 @@ const ChatInterface = () => {
               ))}
             <StyledCloseButton
               onClick={onClosePdf}
-              startIcon={<Icon icon="mdi:close" />}
+              startIcon={<Icon icon={closeIcon} />}
               size="small"
             >
               Close

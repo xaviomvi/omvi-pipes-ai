@@ -2,6 +2,9 @@ import type { BoxProps } from '@mui/material/Box';
 import type { CollapseProps } from '@mui/material/Collapse';
 import type { ListSubheaderProps } from '@mui/material/ListSubheader';
 
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
+
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
 import ListSubheader from '@mui/material/ListSubheader';
@@ -11,7 +14,6 @@ import { stylesMode } from 'src/theme/styles';
 import { navSectionClasses } from './classes';
 import { svgColorClasses } from '../svg-color';
 import { Iconify, iconifyClasses } from '../iconify';
-
 // ----------------------------------------------------------------------
 
 export function stateClasses({
@@ -114,7 +116,7 @@ export function Subheader({
     >
       <Iconify
         width={16}
-        icon={open ? 'eva:arrow-ios-downward-fill' : 'eva:arrow-ios-forward-fill'}
+        icon={open ? arrowDownIcon : arrowForwardIcon}
         sx={{
           left: -4,
           opacity: 0,

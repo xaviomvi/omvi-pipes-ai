@@ -1,3 +1,4 @@
+import closeIcon from '@iconify-icons/eva/close-outline';
 import React, { useRef, useState, useEffect } from 'react';
 
 import {
@@ -439,7 +440,11 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
                     : 'azureOpenAI',
             configuration: (() => {
               // For OpenAI config
-              if (llmValues!.modelType === 'openai' || llmValues!.modelType === 'gemini' || llmValues!.modelType === 'anthropic') {
+              if (
+                llmValues!.modelType === 'openai' ||
+                llmValues!.modelType === 'gemini' ||
+                llmValues!.modelType === 'anthropic'
+              ) {
                 const config: any = {
                   apiKey: llmValues!.apiKey,
                   model: llmValues!.model,
@@ -1066,7 +1071,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           disabled={isSubmitting}
           aria-label="close"
         >
-          <Iconify icon="eva:close-outline" />
+          <Iconify icon={closeIcon} />
         </IconButton>
       </DialogTitle>
 

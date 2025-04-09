@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import arrowBackIcon from '@iconify-icons/eva/arrow-ios-back-fill';
 
 import Stack from '@mui/material/Stack';
 import Drawer from '@mui/material/Drawer';
@@ -85,7 +86,7 @@ export function NavList({ data, render, cssVars, slotProps }: NavListProps) {
         >
           <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 1, py: 1.5 }}>
             <IconButton onClick={handleCloseMenu}>
-              <Iconify icon="eva:arrow-ios-back-fill" width={16} />
+              <Iconify icon={arrowBackIcon} width={16} />
             </IconButton>
 
             <Typography noWrap variant="subtitle1" sx={{ textTransform: 'capitalize' }}>

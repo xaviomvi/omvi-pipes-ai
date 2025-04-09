@@ -1,6 +1,7 @@
 import type { BoxProps } from '@mui/material/Box';
 
 import { forwardRef, useCallback } from 'react';
+import checkMarkIcon from '@iconify-icons/eva/checkmark-fill';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -90,7 +91,7 @@ export const ColorPicker = forwardRef<HTMLDivElement, BoxProps & ColorPickerProp
                 >
                   <Iconify
                     width={hasSelected ? 12 : 0}
-                    icon="eva:checkmark-fill"
+                    icon={checkMarkIcon}
                     sx={{
                       color: (theme) => theme.palette.getContrastText(color),
                       transition: (theme) =>

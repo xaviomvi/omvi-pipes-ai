@@ -1,5 +1,8 @@
 import type { Theme, SxProps } from '@mui/material/styles';
 
+import arrowUpIcon from '@iconify-icons/eva/arrow-ios-upward-fill';
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
+
 import MenuItem from '@mui/material/MenuItem';
 import MenuList from '@mui/material/MenuList';
 import ButtonBase from '@mui/material/ButtonBase';
@@ -43,10 +46,7 @@ export function ChartSelect({ options, value, onChange, slotProps, ...other }: P
       >
         {value}
 
-        <Iconify
-          width={16}
-          icon={popover.open ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-        />
+        <Iconify width={16} icon={popover.open ? arrowUpIcon : arrowDownIcon} />
       </ButtonBase>
 
       <CustomPopover open={popover.open} anchorEl={popover.anchorEl} onClose={popover.onClose}>

@@ -3,10 +3,10 @@ import type { Metadata, CustomCitation } from 'src/types/chat-bot';
 
 import React from 'react';
 import { Icon } from '@iconify/react';
+import eyeIcon from '@iconify-icons/mdi/eye-outline';
+import fileDocumentIcon from '@iconify-icons/mdi/file-document-outline';
 
 import { Box, Fade, Card, Chip, Stack, Button, Divider, Typography } from '@mui/material';
-
-
 
 interface CitationHoverCardProps {
   citation: CustomCitation;
@@ -236,12 +236,7 @@ const CitationHoverCard = ({
                   : {},
               }}
             >
-              <Icon
-                icon="mdi:file-document-outline"
-                width={16}
-                height={16}
-                style={{ flexShrink: 0 }}
-              />
+              <Icon icon={fileDocumentIcon} width={16} height={16} style={{ flexShrink: 0 }} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {citation.metadata?.recordName || 'Document'}
               </span>
@@ -266,7 +261,7 @@ const CitationHoverCard = ({
               }}
             >
               <Icon
-                icon="mdi:eye-outline"
+                icon={eyeIcon}
                 width={14}
                 height={14}
                 style={{ marginRight: '4px', flexShrink: 0 }}

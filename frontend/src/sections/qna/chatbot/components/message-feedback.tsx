@@ -1,10 +1,13 @@
 import { Icon } from '@iconify/react';
 import React, { useState } from 'react';
+import checkCircleIcon from '@iconify-icons/mdi/check-circle';
+import thumpUpIcon from '@iconify-icons/mdi/thumb-up-outline';
+import thumpDownIcon from '@iconify-icons/mdi/thumb-down-outline';
 
-import { 
-  Box, 
-  Chip, 
-  Fade, 
+import {
+  Box,
+  Chip,
+  Fade,
   Stack,
   Alert,
   Rating,
@@ -13,9 +16,8 @@ import {
   Collapse,
   Snackbar,
   IconButton,
-  Typography
+  Typography,
 } from '@mui/material';
-
 
 interface RatingsState {
   [key: string]: number;
@@ -34,7 +36,7 @@ interface MessageFeedbackProps {
 }
 
 type ValidRating = 'accuracy' | 'relevance' | 'completeness' | 'clarity';
-type ValidCategory = 
+type ValidCategory =
   | 'incorrect_information'
   | 'missing_information'
   | 'irrelevant_information'
@@ -55,8 +57,8 @@ const validCategories: ValidCategory[] = [
   'excellent_answer',
   'helpful_citations',
   'well_explained',
-  'other'
-];  
+  'other',
+];
 
 // Map for user-friendly category labels
 const categoryLabels: Record<ValidCategory, string> = {
@@ -68,10 +70,10 @@ const categoryLabels: Record<ValidCategory, string> = {
   excellent_answer: 'Excellent Answer',
   helpful_citations: 'Helpful Citations',
   well_explained: 'Well Explained',
-  other: 'Other'
+  other: 'Other',
 };
 
-const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : MessageFeedbackProps) => {
+const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit }: MessageFeedbackProps) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [selectedCategories, setSelectedCategories] = useState<ValidCategory[]>([]);
   const [ratings, setRatings] = useState<RatingsState>({});
@@ -102,12 +104,12 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
     });
   };
 
-  const handlePositiveFeedback = async () : Promise<void>=> {
+  const handlePositiveFeedback = async (): Promise<void> => {
     try {
       await onFeedbackSubmit(messageId, {
         isHelpful: true,
         ratings: { clarity: 5 },
-        categories: ["excellent_answer", "well_explained"]
+        categories: ['excellent_answer', 'well_explained'],
       });
       setIsSubmitted(true);
       showSuccessSnackbar('Thank you for your positive feedback');
@@ -126,14 +128,12 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
         }
       });
 
-      const validatedCategories = selectedCategories.filter(cat => 
-        validCategories.includes(cat)
-      );
-      
+      const validatedCategories = selectedCategories.filter((cat) => validCategories.includes(cat));
+
       await onFeedbackSubmit(messageId, {
         isHelpful: false,
         ratings: validatedRatings,
-        categories: validatedCategories
+        categories: validatedCategories,
       });
       setIsSubmitted(true);
       setIsExpanded(false);
@@ -144,19 +144,17 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
     }
   };
 
-  const handleCategoryToggle = (categoryId : ValidCategory) : void => {
-    setSelectedCategories(prev => 
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
+  const handleCategoryToggle = (categoryId: ValidCategory): void => {
+    setSelectedCategories((prev) =>
+      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
     );
   };
 
-  const handleRatingChange =  (type: string, value: number | null): void => {
+  const handleRatingChange = (type: string, value: number | null): void => {
     if (value && value >= 1 && value <= 5) {
-      setRatings(prev => ({
+      setRatings((prev) => ({
         ...prev,
-        [type]: value
+        [type]: value,
       }));
     }
   };
@@ -164,16 +162,16 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
   if (isSubmitted) {
     return (
       <Fade in>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 1,
-          color: 'success.main'
-        }}>
-          <Icon icon="mdi:check-circle" width={16} height={16} />
-          <Typography variant="caption">
-            Thank you for your feedback
-          </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            color: 'success.main',
+          }}
+        >
+          <Icon icon={checkCircleIcon} width={16} height={16} />
+          <Typography variant="caption">Thank you for your feedback</Typography>
         </Box>
       </Fade>
     );
@@ -185,29 +183,29 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
       {!isExpanded && (
         <Stack direction="row" spacing={1}>
           <Tooltip title="This was helpful">
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={handlePositiveFeedback}
               sx={{
                 '&:hover': {
                   color: 'success.main',
-                }
+                },
               }}
             >
-              <Icon icon="mdi:thumb-up-outline" width={16} height={16} />
+              <Icon icon={thumpUpIcon} width={16} height={16} />
             </IconButton>
           </Tooltip>
           <Tooltip title="This needs improvement">
-            <IconButton 
+            <IconButton
               size="small"
               onClick={() => setIsExpanded(true)}
               sx={{
                 '&:hover': {
                   color: 'error.main',
-                }
+                },
               }}
             >
-              <Icon icon="mdi:thumb-down-outline" width={16} height={16} />
+              <Icon icon={thumpDownIcon} width={16} height={16} />
             </IconButton>
           </Tooltip>
         </Stack>
@@ -215,14 +213,16 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
 
       {/* Detailed Negative Feedback Form */}
       <Collapse in={isExpanded}>
-        <Box sx={{ 
-          mt: 2, 
-          p: 2, 
-          bgcolor: 'background.paper', 
-          borderRadius: 1,
-          border: '1px solid',
-          borderColor: 'divider',
-        }}>
+        <Box
+          sx={{
+            mt: 2,
+            p: 2,
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
           <Typography variant="subtitle2" gutterBottom>
             What could be improved?
           </Typography>
@@ -251,24 +251,20 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
                 label={categoryLabels[categoryId]}
                 size="small"
                 onClick={() => handleCategoryToggle(categoryId)}
-                color={selectedCategories.includes(categoryId) ? "primary" : "default"}
-                variant={selectedCategories.includes(categoryId) ? "filled" : "outlined"}
+                color={selectedCategories.includes(categoryId) ? 'primary' : 'default'}
+                variant={selectedCategories.includes(categoryId) ? 'filled' : 'outlined'}
               />
             ))}
           </Box>
 
           {/* Action Buttons */}
           <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-            <Button 
-              size="small" 
-              variant="outlined" 
-              onClick={() => setIsExpanded(false)}
-            >
+            <Button size="small" variant="outlined" onClick={() => setIsExpanded(false)}>
               Cancel
             </Button>
-            <Button 
-              size="small" 
-              variant="contained" 
+            <Button
+              size="small"
+              variant="contained"
               onClick={handleNegativeFeedbackSubmit}
               disabled={Object.keys(ratings).length === 0 && selectedCategories.length === 0}
             >
@@ -285,11 +281,11 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Alert 
+        <Alert
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ 
+          sx={{
             width: '100%',
             boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.12)',
           }}
@@ -301,4 +297,4 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit } : Messa
   );
 };
 
-export default MessageFeedback; 
+export default MessageFeedback;

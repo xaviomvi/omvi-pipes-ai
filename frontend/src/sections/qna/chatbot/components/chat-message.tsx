@@ -9,7 +9,14 @@ import type {
 import remarkGfm from 'remark-gfm';
 import { Icon } from '@iconify/react';
 import ReactMarkdown from 'react-markdown';
+import refreshIcon from '@iconify-icons/mdi/refresh';
+import loadingIcon from '@iconify-icons/mdi/loading';
+import downIcon from '@iconify-icons/mdi/chevron-down';
 import React, { useRef, useMemo, useState } from 'react';
+import robotIcon from '@iconify-icons/mdi/robot-outline';
+import rightIcon from '@iconify-icons/mdi/chevron-right';
+import accountIcon from '@iconify-icons/mdi/account-outline';
+import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
 
 import {
   Box,
@@ -541,7 +548,7 @@ const ChatMessage = ({
           }}
         >
           <Icon
-            icon={message.type === 'user' ? 'mdi:account-circle' : 'mdi:robot-outline'}
+            icon={message.type === 'user' ? accountIcon : robotIcon}
             width={14}
             height={14}
             color={message.type === 'user' ? '#1976d2' : '#2e7d32'}
@@ -704,11 +711,7 @@ const ChatMessage = ({
                   size="small"
                   onClick={() => onToggleCitations(index)}
                   startIcon={
-                    <Icon
-                      icon={isExpanded ? 'mdi:chevron-down' : 'mdi:chevron-right'}
-                      width={16}
-                      height={16}
-                    />
+                    <Icon icon={isExpanded ? downIcon : rightIcon} width={16} height={16} />
                   }
                   sx={{
                     color: 'primary.main',
@@ -775,9 +778,7 @@ const ChatMessage = ({
                             <Button
                               size="small"
                               variant="text"
-                              startIcon={
-                                <Icon icon="mdi:file-document-outline" width={12} height={12} />
-                              }
+                              startIcon={<Icon icon={fileDocIcon} width={12} height={12} />}
                               onClick={() => {
                                 if (citation.metadata?.recordId) {
                                   const record: Record = {
@@ -832,7 +833,7 @@ const ChatMessage = ({
                       }}
                     >
                       <Icon
-                        icon={isRegenerating ? 'mdi:loading' : 'mdi:refresh'}
+                        icon={isRegenerating ? loadingIcon : refreshIcon}
                         width={16}
                         height={16}
                         className={isRegenerating ? 'spin' : ''}

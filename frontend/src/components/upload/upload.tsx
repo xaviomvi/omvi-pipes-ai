@@ -1,4 +1,5 @@
 import { useDropzone } from 'react-dropzone';
+import uploadIcon from '@iconify-icons/eva/cloud-upload-fill';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -63,7 +64,7 @@ export function Upload({
               size="small"
               variant="contained"
               onClick={onUpload}
-              startIcon={<Iconify icon="eva:cloud-upload-fill" />}
+              startIcon={<Iconify icon={uploadIcon} />}
             >
               Upload
             </Button>

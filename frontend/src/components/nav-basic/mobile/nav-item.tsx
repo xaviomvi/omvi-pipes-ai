@@ -1,4 +1,6 @@
 import { forwardRef } from 'react';
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
 
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
@@ -98,7 +100,7 @@ export const NavItem = forwardRef<HTMLButtonElement, NavItemProps>(
         {hasChild && (
           <Iconify
             width={16}
-            icon={open ? 'eva:arrow-ios-downward-fill' : 'eva:arrow-ios-forward-fill'}
+            icon={open ? arrowDownIcon : arrowForwardIcon}
             className={navSectionClasses.item.arrow}
           />
         )}

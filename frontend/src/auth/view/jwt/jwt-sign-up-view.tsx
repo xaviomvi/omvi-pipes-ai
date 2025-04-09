@@ -1,7 +1,9 @@
 import { z as zod } from 'zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import eyeIcon from '@iconify-icons/solar/eye-bold';
 import { zodResolver } from '@hookform/resolvers/zod';
+import eyeClosedIcon from '@iconify-icons/solar/eye-closed-bold';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -23,7 +25,6 @@ import { signUp } from '../../context/jwt';
 import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
 import { SignUpTerms } from '../../components/sign-up-terms';
-
 // ----------------------------------------------------------------------
 
 export const SignUpSchema = zod.object({
@@ -102,7 +103,7 @@ export function JwtSignUpView() {
           endAdornment: (
             <InputAdornment position="end">
               <IconButton onClick={password.onToggle} edge="end">
-                <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                <Iconify icon={password.value ? eyeIcon : eyeClosedIcon} />
               </IconButton>
             </InputAdornment>
           ),

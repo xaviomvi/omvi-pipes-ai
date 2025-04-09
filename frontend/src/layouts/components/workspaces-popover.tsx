@@ -1,6 +1,7 @@
 import type { ButtonBaseProps } from '@mui/material/ButtonBase';
 
 import { useState, useCallback } from 'react';
+import chevronSortIcon from '@iconify-icons/carbon/chevron-sort';
 
 import Box from '@mui/material/Box';
 import Avatar from '@mui/material/Avatar';
@@ -77,7 +78,7 @@ export function WorkspacesPopover({ data = [], sx, ...other }: WorkspacesPopover
           {workspace?.plan}
         </Label>
 
-        <Iconify width={16} icon="carbon:chevron-sort" sx={{ color: 'text.disabled' }} />
+        <Iconify width={16} icon={chevronSortIcon} sx={{ color: 'text.disabled' }} />
       </ButtonBase>
 
       <CustomPopover
