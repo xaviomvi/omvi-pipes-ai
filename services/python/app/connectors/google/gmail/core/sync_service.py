@@ -602,7 +602,6 @@ class BaseGmailSyncService(ABC):
                         )
 
                         if messages:
-                            print("messages: ", messages)
                             logger.debug(
                                 "📥 Upserting %d messages", len(messages))
                             if not await self.arango_service.batch_upsert_nodes(messages, collection=CollectionNames.MAILS.value, transaction=txn):
@@ -626,7 +625,7 @@ class BaseGmailSyncService(ABC):
                             logger.debug("✅ Attachments upserted successfully")
                             
                         if records:
-                            print("records: ", records)
+                            logger.debug(f"records: {records}")
                             logger.debug(
                                 "📥 Upserting %d records", len(records))
                             if not await self.arango_service.batch_upsert_nodes(records, collection=CollectionNames.RECORDS.value, transaction=txn):

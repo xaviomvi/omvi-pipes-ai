@@ -134,8 +134,7 @@ async def askAI(request: Request, query_info: ChatQuery,
         # Flatten and deduplicate results based on document ID or other unique identifier
         # This assumes each result has an 'id' field - adjust according to your data structure
         flattened_results = []
-        seen_ids = set()
-        print(all_search_results, "all search results")
+        # seen_ids = set()
         for result_set in all_search_results:
             for result in result_set:
                 print()

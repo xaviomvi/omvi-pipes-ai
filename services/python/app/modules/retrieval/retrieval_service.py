@@ -198,12 +198,6 @@ class RetrievalService:
             
             filter_groups = filter_groups or {}
             
-            print("org_id: ", org_id)
-            print("user_id: ", user_id)
-            print("query: ", queries)
-            print("limit: ", limit)
-            print("filter_groups: ", filter_groups)
-            
             # Convert filter_groups to format expected by get_accessible_records
             arango_filters = {}
             if filter_groups:  # Only process if filter_groups is not empty
@@ -217,7 +211,6 @@ class RetrievalService:
                 org_id=org_id,
                 filters=arango_filters
             )
-            print("accessible_records: ", accessible_records)
 
             if not accessible_records:
                 return []
@@ -239,14 +232,12 @@ class RetrievalService:
                     k=limit,
                     filter=qdrant_filter
                 )
-                print("results length", len(results))
                 # Add to results if content not already seen
                 for doc, score in results:
                    if doc.page_content not in seen_chunks:
                         all_results.append((doc, score))
                         seen_chunks.add(doc.page_content)
             
-            print("all results length", len(all_results))
 
             search_results = self._format_results(all_results)
             record_ids = list(set(result['metadata']['recordId'] for result in search_results))

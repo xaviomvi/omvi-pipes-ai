@@ -128,7 +128,6 @@ class LLMFactory:
                 callbacks=[cost_callback]
             )
         elif isinstance(config, AwsBedrockLLMConfig):
-            print(config, "bedrock")
             return ChatBedrock(
                 model=config.model,
                 temperature=0.3,
