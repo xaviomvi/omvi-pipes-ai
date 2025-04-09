@@ -76,6 +76,8 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
 
   kafka-1:
     image: confluentinc/cp-kafka:7.0.1
@@ -89,7 +91,8 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: ACCESS:PLAINTEXT # Define a single listener type
-    
+      KAFKA_META_PROPERTIES_FILE: /etc/kafka/meta.properties
+
       KAFKA_LISTENERS: ACCESS://0.0.0.0:9092
     
       KAFKA_ADVERTISED_LISTENERS: ACCESS://kafka-1:9092
@@ -106,6 +109,7 @@ services:
 
     volumes:
       - kafka_data:/var/lib/kafka/data
+      - ./kafka-meta.properties:/etc/kafka/meta.properties
 
   qdrant:
     image: qdrant/qdrant:v1.13.6
@@ -145,4 +149,6 @@ volumes:
   kafka_data:
     driver: local
   qdrant_storage:
+    driver: local
+  zookeeper_data:
     driver: local
