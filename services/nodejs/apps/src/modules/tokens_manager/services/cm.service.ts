@@ -519,34 +519,48 @@ export class ConfigService {
 
   // Get JWT Secret
   public async getJwtSecret(): Promise<string> {
-    const secretKeys =
-      (await this.keyValueStoreService.get<string>(configPaths.secretKeys)) ||
-      '{}';
-
-    let parsedKeys = JSON.parse(secretKeys);
-    if (!parsedKeys.jwtSecret) {
-      parsedKeys.jwtSecret = randomKeyGenerator();
-      await this.keyValueStoreService.set(
-        configPaths.secretKeys,
-        JSON.stringify(parsedKeys),
+    const encryptedSecretKeys = await this.keyValueStoreService.get<string>(
+      configPaths.secretKeys,
+    );
+    let parsedKeys: Record<string, string> = {};
+    if (encryptedSecretKeys) {
+      parsedKeys = JSON.parse(
+        this.encryptionService.decrypt(encryptedSecretKeys),
       );
     }
 
+    if (!parsedKeys || !parsedKeys.jwtSecret) {
+      parsedKeys.jwtSecret = randomKeyGenerator();
+      const encryptedKeys = this.encryptionService.encrypt(
+        JSON.stringify(parsedKeys),
+      );
+      await this.keyValueStoreService.set(
+        configPaths.secretKeys,
+        encryptedKeys,
+      );
+    }
     return parsedKeys.jwtSecret;
   }
 
   // Get Scoped JWT Secret
   public async getScopedJwtSecret(): Promise<string> {
-    const secretKeys =
-      (await this.keyValueStoreService.get<string>(configPaths.secretKeys)) ||
-      '{}';
-
-    let parsedKeys = JSON.parse(secretKeys);
+    const encryptedSecretKeys = await this.keyValueStoreService.get<string>(
+      configPaths.secretKeys,
+    );
+    let parsedKeys: Record<string, string> = {};
+    if (encryptedSecretKeys) {
+      parsedKeys = JSON.parse(
+        this.encryptionService.decrypt(encryptedSecretKeys),
+      );
+    }
     if (!parsedKeys.scopedJwtSecret) {
       parsedKeys.scopedJwtSecret = randomKeyGenerator();
+      const encryptedKeys = this.encryptionService.encrypt(
+        JSON.stringify(parsedKeys),
+      );
       await this.keyValueStoreService.set(
         configPaths.secretKeys,
-        JSON.stringify(parsedKeys),
+        encryptedKeys,
       );
     }
 
@@ -554,16 +568,23 @@ export class ConfigService {
   }
 
   public async getCookieSecret(): Promise<string> {
-    const secretKeys =
-      (await this.keyValueStoreService.get<string>(configPaths.secretKeys)) ||
-      '{}';
-
-    let parsedKeys = JSON.parse(secretKeys);
+    const encryptedSecretKeys = await this.keyValueStoreService.get<string>(
+      configPaths.secretKeys,
+    );
+    let parsedKeys: Record<string, string> = {};
+    if (encryptedSecretKeys) {
+      parsedKeys = JSON.parse(
+        this.encryptionService.decrypt(encryptedSecretKeys),
+      );
+    }
     if (!parsedKeys.cookieSecret) {
       parsedKeys.cookieSecret = randomKeyGenerator();
+      const encryptedKeys = this.encryptionService.encrypt(
+        JSON.stringify(parsedKeys),
+      );
       await this.keyValueStoreService.set(
         configPaths.secretKeys,
-        JSON.stringify(parsedKeys),
+        encryptedKeys,
       );
     }
 
