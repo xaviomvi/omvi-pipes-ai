@@ -55,14 +55,14 @@ class GoogleAdminService:
                 credentials_json = await self.google_token_handler.get_enterprise_token(org_id)
                 if not credentials_json:
                     raise AdminAuthError(
-                        "Failed to get enterprise credentials: " + str(e),
+                        "Failed to get enterprise credentials",
                         details={"org_id": org_id}
                     )
                 
                 admin_email = credentials_json.get('adminEmail')
                 if not admin_email:
                     raise AdminAuthError(
-                        "Admin email not found in credentials: " + str(e),
+                        "Admin email not found in credentials",
                         details={"org_id": org_id}
                     )
             except AdminAuthError:
@@ -726,7 +726,7 @@ class GoogleAdminService:
         """Create user watch by impersonating the user"""
         try:
             logger.info("🚀 Creating user watch for user %s", user_email)
-            topic = "projects/agile-seeker-447812-p3/topics/gmail-connector"
+            topic = "projects/enterprise-search-456115/topics/enterprise-search-pub-sub"
 
             try:
                 gmail_service = build(

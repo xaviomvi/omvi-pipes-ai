@@ -81,12 +81,12 @@ class EncryptionService:
 # Example usage:
 if __name__ == "__main__":
     # Replace these with your actual values.
-    secret_key = "89f6d3a5a0ab94d2d8d0b13cac3fe3c94a6c234bd5016f33ef83829f87f6c44f"
+    secret_key = "47eabdd76483a14975e4f6349cbd6812992f9d10cdac3c388a147206e69bed3b"
     service = EncryptionService.get_instance("aes-256-gcm", secret_key)
 
     # Decrypt the message back
     try:
-        encrypted = "111f6e3706bc5c46f0abdd79:b2825cb33a34c872b6b6bf4fabbc9be125b2c5da712bd9343b55aaed24ac7b15a203599270fd8940135753ba5da38b8dcd731bc1855328ce158f8d3781540e451c06e6a0cf06188be6a5351d5bd91c4ca97632ad853b5fbd98466d1964cf2ecfeb4e8859b6b9853bc8c112b05c8b28e9b81cce1fe4d8226fcfab66f45cb00c650162998af189d6a185a3d2b19ce8037effac50359b3f9d78fff3f7688c25bc386d2dfedcab39188965a83e142a21dfa7164a78325321e1e418093226d910d427908a9cf7b3bc2b1d3a9151ac4008234d5ddf59f4baf126c4ff6d4a582801f6bf8ecf490e2ac2a7da7ac29b65b2c9d9d6c73b4a3d6be86b1a4ddf0aebb43e7ed95bc902:9978472c487e066ae9c239c5864582cb"
+        encrypted = "b7c052033463ee7a10f3a376:79c8aed6f9f2e8c968640e3872572cbf7f29fdc06f9ade01b25098bc5980fc593df26e22c3e01279f9adaa6c5cececc2521fa399eaaa0fdb28ef6926146502c5b65f2727f8a3d32e8a50b3172c9254449a3597a6782c192f3a49279947ee5467b498c190e5a7e3:e114ea5d984fe197c6566ee60babb3ff"
         decrypted = service.decrypt(encrypted)
         print("Decrypted:", decrypted)
     except Exception as error:

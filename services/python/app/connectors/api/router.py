@@ -9,6 +9,7 @@ from app.setups.connector_setup import AppContainer
 from app.utils.logger import create_logger
 from fastapi.responses import StreamingResponse
 import os
+from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.config.arangodb_constants import CollectionNames, RecordRelations, Connectors, RecordTypes
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from typing import Optional, Any
@@ -677,6 +678,7 @@ async def stream_record(
     record_id: str,
     google_token_handler=Depends(Provide[AppContainer.google_token_handler]),
     arango_service=Depends(Provide[AppContainer.arango_service]),
+    config_service=Depends(Provide[AppContainer.config_service]),
 ):
     async def get_service_account_credentials(user_id):
         """Helper function to get service account credentials"""
@@ -740,10 +742,12 @@ async def stream_record(
                 )
             # Extract the token
             token = auth_header.split(" ")[1]
+            secret_keys = await config_service.get_config(config_node_constants.SECRET_KEYS.value)
+            jwt_secret = secret_keys.get('jwtSecret')
             logger.info(f"Token: {token}")
             payload = jwt.decode(
                 token,
-                os.getenv('JWT_SECRET'),
+                jwt_secret,
                 algorithms=['HS256']
             )
 

@@ -23,6 +23,7 @@ class config_node_constants(Enum):
     AI_MODELS = "/services/aiModels"
     KAFKA = "/services/kafka"
     ENDPOINTS = "/services/endpoints"
+    SECRET_KEYS = "/services/secretKeys"
     
     # Non-service paths
     LOG_LEVEL = "/logLevel"
