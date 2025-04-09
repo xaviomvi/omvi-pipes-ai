@@ -2,10 +2,6 @@ import axios from 'src/utils/axios';
 
 import { CONFIG } from 'src/config-global';
 
-import type { Modules } from './types/modules';
-import type { Departments } from './types/departments';
-import type { SearchTagsRecords } from './types/search-tags';
-import type { RecordCategories } from './types/record-categories';
 import type { RecordDetailsResponse } from './types/record-details';
 import type { KnowledgeBaseResponse } from './types/knowledge-base';
 import type { SearchFilters, SearchResponse } from './types/search-response';

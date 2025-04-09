@@ -5,13 +5,13 @@ import type {
 } from 'src/sections/knowledgebase/types/record-details';
 
 import { Icon } from '@iconify/react';
-import React, { useState, useEffect } from 'react';
 import linkIcon from '@iconify-icons/mdi/link';
+import React, { useState, useEffect } from 'react';
 import loadingIcon from '@iconify-icons/mdi/loading';
-import fileIcon from '@iconify-icons/mdi/file-text-outline';
-import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
 import openNewIcon from '@iconify-icons/mdi/open-in-new';
 import filePdfIcon from '@iconify-icons/mdi/file-pdf-box';
+import fileIcon from '@iconify-icons/mdi/file-text-outline';
+import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
 
 import {
   Box,

@@ -1,4 +1,4 @@
-import type { CustomCitation, FormattedMessage, Metadata } from './chat-bot';
+import type { Metadata, CustomCitation, FormattedMessage } from './chat-bot';
 
 export interface ChatMessageProps {
   message: FormattedMessage;

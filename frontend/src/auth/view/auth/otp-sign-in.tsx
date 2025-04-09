@@ -4,6 +4,7 @@ import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import { useRef, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import otpIcon from '@iconify-icons/mdi/cellphone-message';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
@@ -19,7 +20,7 @@ import { useRouter } from 'src/routes/hooks';
 
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
-import otpIcon from '@iconify-icons/mdi/cellphone-message';
+
 import { useAuthContext } from 'src/auth/hooks';
 import { sendOtp, VerifyOtp } from 'src/auth/context/jwt';
 

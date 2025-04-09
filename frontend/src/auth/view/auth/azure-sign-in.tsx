@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import microsoftAzureIcon from '@iconify-icons/mdi/microsoft-azure';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 import { Iconify } from 'src/components/iconify';
-import microsoftAzureIcon from '@iconify-icons/mdi/microsoft-azure';
+
 interface AzureAdSignInProps {
   email: string;
 }

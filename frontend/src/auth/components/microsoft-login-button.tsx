@@ -1,11 +1,12 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
+
+import { Icon  } from '@iconify/react';
 import React, { useRef, useState, useEffect } from 'react';
 import { PublicClientApplication } from '@azure/msal-browser';
 
 import Button from '@mui/material/Button';
 import { alpha } from '@mui/material/styles';
 import CircularProgress from '@mui/material/CircularProgress';
-import { Icon as IconifyIcon } from '@iconify/react';
-import { Icon } from '@iconify/react';
 
 // Define the interface for the config prop
 interface MicrosoftLoginConfig {

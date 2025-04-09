@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import googleIcon from '@iconify-icons/mdi/google';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 import { Iconify } from 'src/components/iconify';
-import googleIcon from '@iconify-icons/mdi/google';
+
 interface GoogleSignInProps {
   email: string;
 }

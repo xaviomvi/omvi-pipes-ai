@@ -1,4 +1,12 @@
 import { useState } from 'react';
+import { Icon } from '@iconify/react';
+import redisIcon from '@iconify-icons/logos/redis';
+import storageIcon from '@iconify-icons/mdi/storage';
+import settingsIcon from '@iconify-icons/mdi/settings';
+import kafkaIcon from '@iconify-icons/logos/kafka-icon';
+import qdrantIcon from '@iconify-icons/logos/qdrant-icon';
+import mongodbIcon from '@iconify-icons/logos/mongodb-icon';
+import arangodbIcon from '@iconify-icons/logos/arangodb-icon';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -11,14 +19,7 @@ import {
   Typography,
   IconButton,
 } from '@mui/material';
-import { Icon } from '@iconify/react';
-import redisIcon from '@iconify-icons/logos/redis';
-import kafkaIcon from '@iconify-icons/logos/kafka-icon';
-import mongodbIcon from '@iconify-icons/logos/mongodb-icon';
-import arangodbIcon from '@iconify-icons/logos/arangodb-icon';
-import qdrantIcon from '@iconify-icons/logos/qdrant-icon';
-import storageIcon from '@iconify-icons/mdi/storage';
-import settingsIcon from '@iconify-icons/mdi/settings';
+
 import ConfigureServiceDialog from './configure-services-dialog';
 
 // Service configuration list

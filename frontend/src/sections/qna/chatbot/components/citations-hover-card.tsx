@@ -1,16 +1,12 @@
 import type { Record } from 'src/types/chat-message';
-import type { CustomCitation, Metadata } from 'src/types/chat-bot';
+import type { Metadata, CustomCitation } from 'src/types/chat-bot';
 
 import React from 'react';
 import { Icon } from '@iconify/react';
 
 import { Box, Fade, Card, Chip, Stack, Button, Divider, Typography } from '@mui/material';
 
-import axios from 'src/utils/axios';
 
-import { CONFIG } from 'src/config-global';
-
-import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
 
 interface CitationHoverCardProps {
   citation: CustomCitation;
