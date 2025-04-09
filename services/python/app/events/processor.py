@@ -1171,6 +1171,129 @@ class Processor:
         except Exception as e:
             logger.error(f"❌ Error processing Markdown document: {str(e)}")
             raise
+        
+    async def process_txt_document(self, recordName, recordId, version, source, orgId, txt_binary):
+        """Process TXT document and extract structured content"""
+        logger.info(f"🚀 Starting TXT document processing for record: {recordName}")
+
+        try:
+            # Try different encodings to decode the binary content
+            encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'iso-8859-1']
+            text_content = None
+            
+            for encoding in encodings:
+                try:
+                    text_content = txt_binary.decode(encoding)
+                    logger.debug(f"Successfully decoded text with {encoding} encoding")
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            if text_content is None:
+                raise ValueError("Unable to decode text file with any supported encoding")
+
+            # Extract domain metadata
+            logger.info("🎯 Extracting domain metadata")
+            domain_metadata = None
+            try:
+                metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
+                logger.info(f"✅ Extracted metadata: {metadata}")
+                record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
+                file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
+                domain_metadata = {**record, **file}
+            except Exception as e:
+                logger.error(f"❌ Error extracting metadata: {str(e)}")
+                domain_metadata = None
+
+            # Split content into blocks (paragraphs)
+            blocks = [block.strip() for block in text_content.split('\n\n') if block.strip()]
+            
+            # Format content and create numbered items
+            formatted_content = ""
+            numbered_items = []
+            sentence_data = []
+            
+            # Keep track of previous blocks for context
+            context_window = []
+            context_window_size = 3
+
+            for idx, block in enumerate(blocks, 1):
+                # Create numbered item
+                item_entry = {
+                    "number": idx,
+                    "content": block,
+                    "type": "paragraph"
+                }
+                numbered_items.append(item_entry)
+                formatted_content += f"[{idx}] {block}\n\n"
+
+                # Create context from previous blocks
+                previous_context = " ".join([prev for prev in context_window])
+                
+                # Current block's context with previous blocks
+                full_context = {
+                    "previous": previous_context,
+                    "current": block
+                }
+
+                # Add to sentence data for indexing
+                sentence_data.append({
+                    'text': block,
+                    'bounding_box': None,
+                    'metadata': {
+                        **(domain_metadata or {}),
+                        "recordId": recordId,
+                        "blockType": "paragraph",
+                        "blockNum": idx,
+                        "blockText": json.dumps(full_context)
+                    }
+                })
+
+                # Update context window
+                context_window.append(block)
+                if len(context_window) > context_window_size:
+                    context_window.pop(0)
+
+            # Index sentences if available
+            if sentence_data:
+                logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
+                pipeline = self.indexing_pipeline
+                await pipeline.index_documents(sentence_data)
+
+            # Prepare metadata
+            metadata = {
+                "recordId": recordId,
+                "recordName": recordName,
+                "orgId": orgId,
+                "version": version,
+                "source": source,
+                "domain_metadata": domain_metadata,
+                "document_info": {
+                    "encoding": encoding,
+                    "size": len(text_content),
+                    "line_count": text_content.count('\n') + 1
+                },
+                "structure_info": {
+                    "paragraph_count": len(blocks),
+                    "character_count": len(text_content),
+                    "word_count": len(text_content.split())
+                }
+            }
+
+            logger.info("✅ TXT processing completed successfully")
+            return {
+                "txt_result": {
+                    "content": text_content,
+                    "metadata": domain_metadata
+                },
+                "formatted_content": formatted_content,
+                "numbered_items": numbered_items,
+                "metadata": metadata
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Error processing TXT document: {str(e)}")
+            raise
 
     async def process_pptx_document(self, recordName, recordId, version, source, orgId, pptx_binary):
         """Process PPTX document and extract structured content
@@ -1193,7 +1316,7 @@ class Processor:
 
             # Get the full document structure
             doc_dict = pptx_result.export_to_dict()
-            # logger.debug(f"📑 Full document structure: {doc_dict}")
+            logger.debug(f"📑 Full document structure: {doc_dict}")
 
             # Log structure counts
             logger.debug(f"📊 Document structure counts:")

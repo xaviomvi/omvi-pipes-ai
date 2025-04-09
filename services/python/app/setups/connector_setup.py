@@ -329,8 +329,10 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     # Signed URL Handler
-    signed_url_config = providers.Singleton(
-        SignedUrlConfig)
+    signed_url_config = providers.Resource(
+        SignedUrlConfig.create,
+        configuration_service=config_service
+    )
     signed_url_handler = providers.Singleton(
         SignedUrlHandler,
         config=signed_url_config,

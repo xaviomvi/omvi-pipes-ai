@@ -21,10 +21,12 @@ class GoogleTokenHandler:
             "scopes": [TokenScopes.FETCH_CONFIG.value]
         }
         
+        secret_keys = await self.config_service.get_config(config_node_constants.SECRET_KEYS.value)
+        scoped_jwt_secret = secret_keys.get('scopedJwtSecret')
         # Create JWT token
         jwt_token = jwt.encode(
             payload,
-            os.getenv('SCOPED_JWT_SECRET'),
+            scoped_jwt_secret,
             algorithm='HS256'
         )
         logger.info(f"🚀 JWT Token: {jwt_token}")
@@ -61,10 +63,12 @@ class GoogleTokenHandler:
                 "userId": user_id,
                 "scopes": [TokenScopes.FETCH_CONFIG.value]
             }
+            secret_keys = await self.config_service.get_config(config_node_constants.SECRET_KEYS.value)
+            scoped_jwt_secret = secret_keys.get('scopedJwtSecret')
             
             jwt_token = jwt.encode(
                 payload,
-                os.getenv('SCOPED_JWT_SECRET'),
+                scoped_jwt_secret,
                 algorithm='HS256'
             )
             
@@ -100,10 +104,13 @@ class GoogleTokenHandler:
             "scopes": [TokenScopes.FETCH_CONFIG.value]
         }
         
+        secret_keys = await self.config_service.get_config(config_node_constants.SECRET_KEYS.value)
+        scoped_jwt_secret = secret_keys.get('scopedJwtSecret')
+        
         # Create JWT token
         jwt_token = jwt.encode(
             payload,
-            os.getenv('SCOPED_JWT_SECRET'),
+            scoped_jwt_secret,
             algorithm='HS256'
         )
         

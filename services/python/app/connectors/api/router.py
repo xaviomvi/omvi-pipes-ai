@@ -1,19 +1,15 @@
 from fastapi import APIRouter
-import asyncio
 import base64
 import json
 import jwt
 from google.oauth2 import service_account
-from datetime import datetime, timezone, timedelta
 from dependency_injector.wiring import inject, Provide
 from fastapi import Request, Depends, HTTPException, BackgroundTasks, status
 from app.setups.connector_setup import AppContainer
 from app.utils.logger import create_logger
 from fastapi.responses import StreamingResponse
 import os
-import aiohttp
-from app.core.signed_url import TokenPayload
-from app.config.configuration_service import Routes, TokenScopes, config_node_constants
+from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.config.arangodb_constants import CollectionNames, RecordRelations, Connectors, RecordTypes
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from typing import Optional, Any
@@ -157,16 +153,6 @@ async def handle_gmail_webhook(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
-
-
-@router.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()
-    }
-
 
 @router.get("/drive/{org_id}")
 @router.post("/drive/{org_id}")
@@ -692,6 +678,7 @@ async def stream_record(
     record_id: str,
     google_token_handler=Depends(Provide[AppContainer.google_token_handler]),
     arango_service=Depends(Provide[AppContainer.arango_service]),
+    config_service=Depends(Provide[AppContainer.config_service]),
 ):
     async def get_service_account_credentials(user_id):
         """Helper function to get service account credentials"""
@@ -755,10 +742,12 @@ async def stream_record(
                 )
             # Extract the token
             token = auth_header.split(" ")[1]
+            secret_keys = await config_service.get_config(config_node_constants.SECRET_KEYS.value)
+            jwt_secret = secret_keys.get('jwtSecret')
             logger.info(f"Token: {token}")
             payload = jwt.decode(
                 token,
-                os.getenv('JWT_SECRET'),
+                jwt_secret,
                 algorithms=['HS256']
             )
 

@@ -202,6 +202,15 @@ class EventProcessor:
                     orgId=org_id,
                     md_binary=file_content
                 )
+            elif extension == "txt":
+                result = await self.processor.process_txt_document(
+                    recordName=f"Record-{record_id}",
+                    recordId=record_id,
+                    version=record_version,
+                    source=connector,
+                    orgId=org_id,
+                    txt_binary=file_content
+                )
 
             else:
                 logger.info(f"""🔴🔴🔴 Unsupported file extension: {

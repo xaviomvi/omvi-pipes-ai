@@ -9,15 +9,32 @@ import os
 from dotenv import load_dotenv
 from app.config.configuration_service import ConfigurationService, config_node_constants
 
-load_dotenv()
-
 logger = create_logger(__name__)
 
 class SignedUrlConfig(BaseModel):
-    private_key: str = os.getenv("SCOPED_JWT_SECRET")
+    private_key: str | None = None
     expiration_minutes: int = 30
     algorithm: str = "HS256"
     url_prefix: str = "/api/v1/index"
+
+    @classmethod
+    async def create(cls, configuration_service: ConfigurationService):
+        """Async factory method to create config using configuration service"""
+        try:
+            # Assuming there's a config node for JWT settings
+            secret_keys = await configuration_service.get_config(config_node_constants.SECRET_KEYS.value)
+            private_key = secret_keys.get('scopedJwtSecret')
+            if not private_key:
+                raise ValueError("Private key must be provided through configuration or environment")
+            return cls(private_key=private_key)
+        except Exception as e:
+            logger.error(f"Failed to create SignedUrlConfig: {str(e)}")
+            raise
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        if not self.private_key:
+            raise ValueError("Private key must be provided through configuration or environment")
 
 class TokenPayload(BaseModel):
     record_id: str

@@ -19,34 +19,6 @@ logger = logging.getLogger(__name__)
 MAX_CONCURRENT_TASKS = 5  # Maximum number of messages to process concurrently
 RATE_LIMIT_PER_SECOND = 2  # Maximum number of new tasks to start per second
 
-def generate_jwt(token_payload: dict) -> str:
-    """
-    Generate a JWT token using the jose library.
-    
-    Args:
-        token_payload (dict): The payload to include in the JWT
-        
-    Returns:
-        str: The generated JWT token
-    """
-    # Get the JWT secret from environment variable
-    jwt_secret = os.getenv('SCOPED_JWT_SECRET')
-    if not jwt_secret:
-        raise ValueError("SCOPED_JWT_SECRET environment variable is not set")
-    
-    # Add standard claims if not present
-    if 'exp' not in token_payload:
-        # Set expiration to 1 hour from now
-        token_payload['exp'] = datetime.now(timezone.utc) + timedelta(hours=1)
-    
-    if 'iat' not in token_payload:
-        # Set issued at to current time
-        token_payload['iat'] = datetime.now(timezone.utc)
-    
-    # Generate the JWT token using jose
-    token = jwt.encode(token_payload, jwt_secret, algorithm='HS256')
-    
-    return token
 
 async def make_api_call(signed_url_route: str, token: str) -> dict:
     """
@@ -186,7 +158,7 @@ class KafkaConsumerManager:
                         'scopes': ["storage:token"]
                     }
                     # Generate the JWT token
-                    token = generate_jwt(payload)
+                    token = await self.generate_jwt(payload)
 
                     # Make the API call with the token
                     response = await make_api_call(payload_data['signedUrlRoute'], token)
@@ -323,6 +295,36 @@ class KafkaConsumerManager:
             if self.consumer:
                 self.consumer.close()
                 logger.info("Kafka consumer closed")
+
+    async def generate_jwt(self, token_payload: dict) -> str:
+        """
+        Generate a JWT token using the jose library.
+        
+        Args:
+            token_payload (dict): The payload to include in the JWT
+            
+        Returns:
+            str: The generated JWT token
+        """
+        # Get the JWT secret from environment variable
+        secret_keys = await self.config_service.get_config(config_node_constants.SECRET_KEYS.value)
+        scoped_jwt_secret = secret_keys.get('scopedJwtSecret')
+        if not scoped_jwt_secret:
+            raise ValueError("SCOPED_JWT_SECRET environment variable is not set")
+        
+        # Add standard claims if not present
+        if 'exp' not in token_payload:
+            # Set expiration to 1 hour from now
+            token_payload['exp'] = datetime.now(timezone.utc) + timedelta(hours=1)
+        
+        if 'iat' not in token_payload:
+            # Set issued at to current time
+            token_payload['iat'] = datetime.now(timezone.utc)
+        
+        # Generate the JWT token using jose
+        token = jwt.encode(token_payload, scoped_jwt_secret, algorithm='HS256')
+        
+        return token
 
     async def start(self):
         """Start the consumer."""

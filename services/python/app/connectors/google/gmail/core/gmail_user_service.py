@@ -719,7 +719,7 @@ class GmailUserService:
         try:
             logger.info("🚀 Creating user watch for user %s", user_id)
             # topic = await self.config.get_config('google/auth/gmail_pub_topic')
-            topic = "projects/agile-seeker-447812-p3/topics/gmail-connector"
+            topic = "projects/enterprise-search-456115/topics/enterprise-search-pub-sub"
 
             try:
                 async with self.google_limiter:
