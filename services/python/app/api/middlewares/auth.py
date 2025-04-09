@@ -12,13 +12,14 @@ async def get_config_service(request: Request) -> ConfigurationService:
 
 # Authentication logic
 @inject
-async def isJwtTokenValid(request: Request, config_service: ConfigurationService = Depends(get_config_service)):
+async def isJwtTokenValid(request: Request):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"}
     )
     try:
+        config_service = await get_config_service(request)
         secret_keys = await config_service.get_config(config_node_constants.SECRET_KEYS.value)
         jwt_secret = secret_keys.get('jwtSecret')
         
