@@ -1,6 +1,7 @@
 import type { ButtonBaseProps } from '@mui/material/ButtonBase';
 
 import { useState, useCallback } from 'react';
+import chevronSortIcon from '@iconify-icons/carbon/chevron-sort';
 
 import Box from '@mui/material/Box';
 import Avatar from '@mui/material/Avatar';
@@ -10,7 +11,6 @@ import ButtonBase from '@mui/material/ButtonBase';
 
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
-import chevronSortIcon from '@iconify-icons/carbon/chevron-sort';
 import { usePopover, CustomPopover } from 'src/components/custom-popover';
 
 // ----------------------------------------------------------------------

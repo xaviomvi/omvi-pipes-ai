@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
 
 import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
@@ -8,7 +9,6 @@ import { Iconify } from '../../iconify';
 import { useNavItem, stateClasses, sharedStyles, navSectionClasses } from '../../nav-section';
 
 import type { NavItemProps, NavItemStateProps } from '../types';
-import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
 // ----------------------------------------------------------------------
 
 export const NavItem = forwardRef<HTMLButtonElement, NavItemProps>(

@@ -9,15 +9,15 @@ import type {
 import remarkGfm from 'remark-gfm';
 import { Icon } from '@iconify/react';
 import ReactMarkdown from 'react-markdown';
-import React, { useRef, useMemo, useState } from 'react';
-import accountIcon from '@iconify-icons/mdi/account-outline';
-import robotIcon from '@iconify-icons/mdi/robot-outline';
-import downIcon from '@iconify-icons/mdi/chevron-down';
-import rightIcon from '@iconify-icons/mdi/chevron-right';
-
-import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
 import refreshIcon from '@iconify-icons/mdi/refresh';
 import loadingIcon from '@iconify-icons/mdi/loading';
+import downIcon from '@iconify-icons/mdi/chevron-down';
+import React, { useRef, useMemo, useState } from 'react';
+import robotIcon from '@iconify-icons/mdi/robot-outline';
+import rightIcon from '@iconify-icons/mdi/chevron-right';
+import accountIcon from '@iconify-icons/mdi/account-outline';
+import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
+
 import {
   Box,
   Chip,

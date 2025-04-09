@@ -8,17 +8,17 @@ import type {
 } from 'src/types/chat-sidebar';
 
 import { Icon } from '@iconify/react';
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import archiveIcon from '@iconify-icons/mdi/archive-outline';
-import chatIcon from '@iconify-icons/mdi/chat-outline';
-import dotsIcon from '@iconify-icons/mdi/dots-vertical';
+import editIcon from '@iconify-icons/mdi/edit';
+import menuIcon from '@iconify-icons/mdi/menu';
 import checkIcon from '@iconify-icons/mdi/check';
 import closeIcon from '@iconify-icons/mdi/close';
-import messageIcon from '@iconify-icons/mdi/message-outline';
-import editIcon from '@iconify-icons/mdi/edit';
-import deleteIcon from '@iconify-icons/mdi/delete';
 import shareIcon from '@iconify-icons/mdi/share';
-import menuIcon from '@iconify-icons/mdi/menu';
+import deleteIcon from '@iconify-icons/mdi/delete';
+import chatIcon from '@iconify-icons/mdi/chat-outline';
+import dotsIcon from '@iconify-icons/mdi/dots-vertical';
+import archiveIcon from '@iconify-icons/mdi/archive-outline';
+import messageIcon from '@iconify-icons/mdi/message-outline';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
 import {
   Box,
@@ -73,52 +73,49 @@ const ChatSidebar = ({
 
   const [archiveDialogOpen, setArchiveDialogOpen] = useState<boolean>(false);
 
-  const fetchConversations = useCallback(
-    async (pageNum: number): Promise<void> => {
-      setIsLoading(true);
-      try {
-        const response = await axiosInstance.get<ConversationsResponse>('/api/v1/conversations/', {
-          // params: {
-          //   page: pageNum,
-          //   limit: 20,
-          //   shared: activeTab === 'shared'
-          // },
-        });
+  const fetchConversations = useCallback(async (pageNum: number): Promise<void> => {
+    setIsLoading(true);
+    try {
+      const response = await axiosInstance.get<ConversationsResponse>('/api/v1/conversations/', {
+        // params: {
+        //   page: pageNum,
+        //   limit: 20,
+        //   shared: activeTab === 'shared'
+        // },
+      });
 
-        const {
-          conversations: newConversations = [],
-          pagination = {
-            page: 1,
-            limit: 20,
-            totalCount: 0,
-            totalPages: 1,
-            hasNextPage: false,
-            hasPrevPage: false,
-          },
-        } = response.data;
+      const {
+        conversations: newConversations = [],
+        pagination = {
+          page: 1,
+          limit: 20,
+          totalCount: 0,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      } = response.data;
 
-        if (pageNum === 1) {
-          setConversations(newConversations);
-        } else {
-          setConversations((prev) => [...prev, ...newConversations]);
-        }
-
-        setHasMore(pagination.hasNextPage || false);
-        setPage(pageNum);
-      } catch (error) {
-        setHasMore(false);
-        setSnackbar({
-          open: true,
-          message: 'Failed to fetch conversations',
-          severity: 'error',
-        });
-      } finally {
-        setIsLoading(false);
+      if (pageNum === 1) {
+        setConversations(newConversations);
+      } else {
+        setConversations((prev) => [...prev, ...newConversations]);
       }
-      // eslint-disable-next-line
-    },
-    [activeTab]
-  );
+
+      setHasMore(pagination.hasNextPage || false);
+      setPage(pageNum);
+    } catch (error) {
+      setHasMore(false);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch conversations',
+        severity: 'error',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+    // eslint-disable-next-line
+  }, []);
 
   useEffect(() => {
     if (shouldRefresh) {

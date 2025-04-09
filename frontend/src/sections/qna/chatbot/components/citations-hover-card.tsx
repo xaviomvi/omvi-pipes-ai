@@ -3,12 +3,11 @@ import type { Metadata, CustomCitation } from 'src/types/chat-bot';
 
 import React from 'react';
 import { Icon } from '@iconify/react';
+import eyeIcon from '@iconify-icons/mdi/eye-outline';
+import fileDocumentIcon from '@iconify-icons/mdi/file-document-outline';
 
 import { Box, Fade, Card, Chip, Stack, Button, Divider, Typography } from '@mui/material';
 
-import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
-import fileDocumentIcon from '@iconify-icons/mdi/file-document-outline';
-import eyeIcon from '@iconify-icons/mdi/eye-outline';
 interface CitationHoverCardProps {
   citation: CustomCitation;
   isVisible: boolean;

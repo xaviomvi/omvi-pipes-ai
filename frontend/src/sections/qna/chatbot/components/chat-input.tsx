@@ -1,8 +1,9 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
+import sendIcon from '@iconify-icons/mdi/send';
 
 import { Box, Paper, TextField, IconButton } from '@mui/material';
-import sendIcon from '@iconify-icons/mdi/send';
+
 type ChatInputProps = {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;

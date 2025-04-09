@@ -2,6 +2,8 @@ import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
+import domainIcon from '@iconify-icons/mdi/domain';
+import accountIcon from '@iconify-icons/mdi/account';
 
 import {
   Card,
@@ -16,8 +18,6 @@ import {
 
 import { OrgExists } from 'src/auth/context/jwt';
 import AccountSetUpForm from 'src/auth/view/auth/account-setup';
-import accountIcon from '@iconify-icons/mdi/account';
-import domainIcon from '@iconify-icons/mdi/domain';
 // Account type interface
 export type AccountType = 'individual' | 'business';
 

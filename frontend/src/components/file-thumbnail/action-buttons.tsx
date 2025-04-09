@@ -1,6 +1,9 @@
 import type { ButtonBaseProps } from '@mui/material/ButtonBase';
 import type { IconButtonProps } from '@mui/material/IconButton';
 
+import closeLineIcon from '@iconify-icons/mingcute/close-line';
+import arrowCircleDownIcon from '@iconify-icons/eva/arrow-circle-down-fill';
+
 import { useTheme } from '@mui/material/styles';
 import ButtonBase from '@mui/material/ButtonBase';
 import IconButton from '@mui/material/IconButton';
@@ -8,8 +11,6 @@ import IconButton from '@mui/material/IconButton';
 import { bgBlur, varAlpha } from 'src/theme/styles';
 
 import { Iconify } from '../iconify';
-import closeLineIcon from '@iconify-icons/mingcute/close-line';
-import arrowCircleDownIcon from '@iconify-icons/eva/arrow-circle-down-fill';
 // ----------------------------------------------------------------------
 
 export function DownloadButton({ sx, ...other }: ButtonBaseProps) {

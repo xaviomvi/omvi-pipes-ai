@@ -1,13 +1,14 @@
 import { Icon } from '@iconify/react';
+import plusIcon from '@iconify-icons/mdi/plus';
+import minusIcon from '@iconify-icons/mdi/minus';
+import closeIcon from '@iconify-icons/mdi/close';
 import { Page, pdfjs, Document } from 'react-pdf';
+import refreshIcon from '@iconify-icons/mdi/refresh';
 import { useResizeObserver } from '@wojtekmaj/react-hooks';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
-import minusIcon from '@iconify-icons/mdi/minus';
-import plusIcon from '@iconify-icons/mdi/plus';
-import closeIcon from '@iconify-icons/mdi/close';
-import refreshIcon from '@iconify-icons/mdi/refresh';
 import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
+
 import {
   Box,
   Fade,

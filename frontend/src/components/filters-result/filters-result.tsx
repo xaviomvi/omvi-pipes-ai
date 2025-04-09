@@ -1,11 +1,12 @@
 import type { ChipProps } from '@mui/material/Chip';
 import type { Theme, SxProps } from '@mui/material/styles';
 
+import trashBinIcon from '@iconify-icons/solar/trash-bin-trash-bold';
+
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 
 import { Iconify } from 'src/components/iconify';
-import trashBinIcon from '@iconify-icons/solar/trash-bin-trash-bold';
 // ----------------------------------------------------------------------
 
 export const chipProps: ChipProps = {

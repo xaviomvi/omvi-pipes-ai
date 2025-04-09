@@ -9,10 +9,11 @@ import type {
 } from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';
-import { useParams, useNavigate } from 'react-router';
-import React, { useState, useEffect, useCallback } from 'react';
 import menuIcon from '@iconify-icons/mdi/menu';
 import closeIcon from '@iconify-icons/mdi/close';
+import { useParams, useNavigate } from 'react-router';
+import React, { useState, useEffect, useCallback } from 'react';
+
 import { Box, Button, styled, Tooltip, IconButton, CircularProgress } from '@mui/material';
 
 import axios from 'src/utils/axios';

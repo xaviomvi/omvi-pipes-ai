@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
+import fullScreenIcon from '@iconify-icons/solar/full-screen-square-outline';
+import quitFullScreenIcon from '@iconify-icons/solar/quit-full-screen-square-outline';
 
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 
 import { Iconify } from 'src/components/iconify';
-import quitFullScreenIcon from '@iconify-icons/solar/quit-full-screen-square-outline';
-import fullScreenIcon from '@iconify-icons/solar/full-screen-square-outline';
+
 import { svgColorClasses } from '../../svg-color';
 
 // ----------------------------------------------------------------------

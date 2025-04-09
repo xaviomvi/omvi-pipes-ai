@@ -1,9 +1,11 @@
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
+
 import Link from '@mui/material/Link';
 
 import { RouterLink } from 'src/routes/components';
 
 import { Iconify } from '../../iconify';
-import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
+
 import type { MenuLink } from '../types';
 
 // ----------------------------------------------------------------------

@@ -2,9 +2,10 @@ import type { ChatHeaderProps } from 'src/types/chat-bot';
 
 import React from 'react';
 import { Icon } from '@iconify/react';
+import menuIcon from '@iconify-icons/mdi/menu';
 
 import { Box, Typography, IconButton } from '@mui/material';
-import menuIcon from '@iconify-icons/mdi/menu';
+
 const ChatHeader = ({ isDrawerOpen, onDrawerOpen }: ChatHeaderProps) => (
   <Box
     sx={{

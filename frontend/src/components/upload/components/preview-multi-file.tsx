@@ -1,3 +1,5 @@
+import closeIcon from '@iconify-icons/mingcute/close-line';
+
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import ListItemText from '@mui/material/ListItemText';
@@ -9,7 +11,7 @@ import { varAlpha } from 'src/theme/styles';
 import { Iconify } from '../../iconify';
 import { uploadClasses } from '../classes';
 import { fileData, FileThumbnail } from '../../file-thumbnail';
-import closeIcon from '@iconify-icons/mingcute/close-line';
+
 import type { MultiFilePreviewProps } from '../types';
 
 // ----------------------------------------------------------------------

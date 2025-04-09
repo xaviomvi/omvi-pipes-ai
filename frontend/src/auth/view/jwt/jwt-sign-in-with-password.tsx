@@ -4,7 +4,9 @@ import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
 import { useState, useEffect } from 'react';
+import eyeIcon from '@iconify-icons/solar/eye-bold';
 import { zodResolver } from '@hookform/resolvers/zod';
+import eyeClosedIcon from '@iconify-icons/solar/eye-closed-bold';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -24,8 +26,6 @@ import { Form, Field } from 'src/components/hook-form';
 
 import { useAuthContext } from '../../hooks';
 import { signInWithPassword } from '../../context/jwt';
-import eyeIcon from '@iconify-icons/solar/eye-bold';
-import eyeClosedIcon from '@iconify-icons/solar/eye-closed-bold';
 // ----------------------------------------------------------------------
 
 export const SignInSchema = zod.object({

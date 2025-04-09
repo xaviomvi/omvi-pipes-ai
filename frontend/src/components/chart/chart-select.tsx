@@ -1,5 +1,8 @@
 import type { Theme, SxProps } from '@mui/material/styles';
 
+import arrowUpIcon from '@iconify-icons/eva/arrow-ios-upward-fill';
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
+
 import MenuItem from '@mui/material/MenuItem';
 import MenuList from '@mui/material/MenuList';
 import ButtonBase from '@mui/material/ButtonBase';
@@ -7,8 +10,6 @@ import ButtonBase from '@mui/material/ButtonBase';
 import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from 'src/components/iconify';
-import arrowUpIcon from '@iconify-icons/eva/arrow-ios-upward-fill';
-import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
 
 import { usePopover, CustomPopover } from '../custom-popover';
 

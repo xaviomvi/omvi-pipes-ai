@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import arrowUpIcon from '@iconify-icons/eva/arrow-ios-upward-fill';
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
 
 import Menu from '@mui/material/Menu';
 import { listClasses } from '@mui/material/List';
@@ -8,8 +10,7 @@ import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from '../../iconify';
 import { ToolbarItem } from './toolbar-item';
-import arrowUpIcon from '@iconify-icons/eva/arrow-ios-upward-fill';
-import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
+
 import type { EditorToolbarProps } from '../types';
 
 // ----------------------------------------------------------------------

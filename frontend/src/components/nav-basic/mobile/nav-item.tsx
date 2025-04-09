@@ -1,4 +1,6 @@
 import { forwardRef } from 'react';
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
 
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
@@ -9,8 +11,7 @@ import { stylesMode } from 'src/theme/styles';
 
 import { Iconify } from '../../iconify';
 import { useNavItem, stateClasses, sharedStyles, navSectionClasses } from '../../nav-section';
-import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
-import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
+
 import type { NavItemProps, NavItemStateProps } from '../types';
 
 // ----------------------------------------------------------------------

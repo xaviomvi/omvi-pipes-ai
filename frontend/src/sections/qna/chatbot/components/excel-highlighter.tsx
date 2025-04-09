@@ -5,9 +5,10 @@ import type { DocumentContent } from 'src/sections/knowledgebase/types/search-re
 
 import * as XLSX from 'xlsx';
 import { Icon } from '@iconify/react';
-import React, { useRef, useState, useEffect, useCallback } from 'react';
-import fullScreenExitIcon from '@iconify-icons/mdi/fullscreen-exit';
 import fullScreenIcon from '@iconify-icons/mdi/fullscreen';
+import fullScreenExitIcon from '@iconify-icons/mdi/fullscreen-exit';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+
 import {
   Box,
   List,

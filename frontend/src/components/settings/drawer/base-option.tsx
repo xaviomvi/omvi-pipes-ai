@@ -1,5 +1,7 @@
 import type { ButtonBaseProps } from '@mui/material/ButtonBase';
 
+import infoIcon from '@iconify-icons/eva/info-outline';
+
 import Box from '@mui/material/Box';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
@@ -9,7 +11,7 @@ import { CONFIG } from 'src/config-global';
 import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from 'src/components/iconify';
-import infoIcon from '@iconify-icons/eva/info-outline';
+
 import { SvgColor } from '../../svg-color';
 
 // ----------------------------------------------------------------------

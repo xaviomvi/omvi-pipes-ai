@@ -1,4 +1,5 @@
 import { useDropzone } from 'react-dropzone';
+import uploadIcon from '@iconify-icons/eva/cloud-upload-fill';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -12,7 +13,7 @@ import { UploadPlaceholder } from './components/placeholder';
 import { RejectionFiles } from './components/rejection-files';
 import { MultiFilePreview } from './components/preview-multi-file';
 import { DeleteButton, SingleFilePreview } from './components/preview-single-file';
-import uploadIcon from '@iconify-icons/eva/cloud-upload-fill';
+
 import type { UploadProps } from './types';
 
 // ----------------------------------------------------------------------

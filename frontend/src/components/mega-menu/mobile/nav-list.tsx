@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import arrowBackIcon from '@iconify-icons/eva/arrow-ios-back-fill';
 
 import Stack from '@mui/material/Stack';
 import Drawer from '@mui/material/Drawer';
@@ -15,7 +16,7 @@ import { NavItem } from './nav-item';
 import { Iconify } from '../../iconify';
 import { NavUl, NavLi } from '../../nav-section';
 import { NavSubList } from '../components/nav-sub-list';
-import arrowBackIcon from '@iconify-icons/eva/arrow-ios-back-fill';
+
 import type { NavListProps } from '../types';
 
 // ----------------------------------------------------------------------

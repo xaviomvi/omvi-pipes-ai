@@ -4,13 +4,14 @@ import type { Position, HighlightType, ProcessedCitation } from 'src/types/pdf-h
 
 import { Icon } from '@iconify/react';
 import * as docxPreview from 'docx-preview';
+import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 import { styled } from '@mui/material/styles';
 import { Box, Paper, Typography, CircularProgress } from '@mui/material';
 
 import CitationSidebar from './highlighter-sidebar';
-import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
+
 type DocxViewerProps = {
   citations: DocumentContent[] | CustomCitation[];
   url: string | null;
