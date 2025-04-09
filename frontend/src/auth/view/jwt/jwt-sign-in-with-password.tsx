@@ -24,7 +24,8 @@ import { Form, Field } from 'src/components/hook-form';
 
 import { useAuthContext } from '../../hooks';
 import { signInWithPassword } from '../../context/jwt';
-
+import eyeIcon from '@iconify-icons/solar/eye-bold';
+import eyeClosedIcon from '@iconify-icons/solar/eye-closed-bold';
 // ----------------------------------------------------------------------
 
 export const SignInSchema = zod.object({
@@ -42,17 +43,20 @@ interface ErrorResponse {
 }
 
 interface PasswordSignInProps {
-  defaultEmail?:string;
+  defaultEmail?: string;
   onForgotPassword: () => void;
   sx?: SxProps<Theme>;
 }
 
 // ----------------------------------------------------------------------
 
-export default function PasswordSignIn({ defaultEmail, onForgotPassword, sx } : PasswordSignInProps) {
+export default function PasswordSignIn({
+  defaultEmail,
+  onForgotPassword,
+  sx,
+}: PasswordSignInProps) {
   const router = useRouter();
   const dispatch = useDispatch();
-
 
   const { checkUserSession } = useAuthContext();
 
@@ -68,24 +72,23 @@ export default function PasswordSignIn({ defaultEmail, onForgotPassword, sx } : 
     },
   });
 
-
   const {
     handleSubmit,
     watch,
     formState: { isSubmitting },
   } = methods;
 
-    // Update Redux when email changes in form
-    useEffect(() => {
-      const subscription = watch((value, { name }) => {
-        if (name === 'email') {
-          dispatch(setEmail(value.email || ''));
-        }
-      });
-      return () => subscription.unsubscribe();
-    }, [watch, dispatch]);
+  // Update Redux when email changes in form
+  useEffect(() => {
+    const subscription = watch((value, { name }) => {
+      if (name === 'email') {
+        dispatch(setEmail(value.email || ''));
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, dispatch]);
 
-  const onSubmit = handleSubmit(async (data : SignInSchemaType) : Promise<void> => {
+  const onSubmit = handleSubmit(async (data: SignInSchemaType): Promise<void> => {
     try {
       await signInWithPassword({ email: data.email, password: data.password });
 
@@ -120,7 +123,7 @@ export default function PasswordSignIn({ defaultEmail, onForgotPassword, sx } : 
             endAdornment: (
               <InputAdornment position="end">
                 <IconButton onClick={password.onToggle} edge="end">
-                  <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                  <Iconify icon={password.value ? eyeIcon : eyeClosedIcon} />
                 </IconButton>
               </InputAdornment>
             ),

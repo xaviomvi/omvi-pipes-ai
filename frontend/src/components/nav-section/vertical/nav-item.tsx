@@ -11,7 +11,8 @@ import { useNavItem } from '../hooks';
 import { Iconify } from '../../iconify';
 import { navSectionClasses } from '../classes';
 import { stateClasses, sharedStyles } from '../styles';
-
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
 import type { NavItemProps, NavItemStateProps } from '../types';
 
 // ----------------------------------------------------------------------
@@ -100,7 +101,7 @@ export const NavItem = forwardRef<HTMLButtonElement, NavItemProps>(
 
         {hasChild && (
           <Iconify
-            icon={open ? 'eva:arrow-ios-downward-fill' : 'eva:arrow-ios-forward-fill'}
+            icon={open ? arrowDownIcon : arrowForwardIcon}
             className={navSectionClasses.item.arrow}
           />
         )}

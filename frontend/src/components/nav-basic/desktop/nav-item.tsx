@@ -5,6 +5,9 @@ import { styled } from '@mui/material/styles';
 import ButtonBase from '@mui/material/ButtonBase';
 
 import { Iconify } from '../../iconify';
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
+
 import { useNavItem, stateClasses, sharedStyles, navSectionClasses } from '../../nav-section';
 
 import type { NavItemProps, NavItemStateProps } from '../types';
@@ -93,7 +96,7 @@ export const NavItem = forwardRef<HTMLButtonElement, NavItemProps>(
         {hasChild && (
           <Iconify
             width={16}
-            icon={navItem.subItem ? 'eva:arrow-ios-forward-fill' : 'eva:arrow-ios-downward-fill'}
+            icon={navItem.subItem ? arrowForwardIcon : arrowDownIcon}
             className={navSectionClasses.item.arrow}
           />
         )}

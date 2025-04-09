@@ -25,7 +25,7 @@ import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
 import { SearchNotFound } from 'src/components/search-not-found';
-
+import searchIcon from '@iconify-icons/eva/search-fill';
 import { ResultItem } from './result-item';
 import { groupItems, applyFilter, getAllItems } from './utils';
 
@@ -171,7 +171,7 @@ export function Searchbar({ data: navItems = [], sx, ...other }: SearchbarProps)
             onChange={handleSearch}
             startAdornment={
               <InputAdornment position="start">
-                <Iconify icon="eva:search-fill" width={24} sx={{ color: 'text.disabled' }} />
+                <Iconify icon={searchIcon} width={24} sx={{ color: 'text.disabled' }} />
               </InputAdornment>
             }
             endAdornment={<Label sx={{ letterSpacing: 1, color: 'text.secondary' }}>esc</Label>}

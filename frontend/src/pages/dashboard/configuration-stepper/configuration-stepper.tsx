@@ -26,7 +26,7 @@ import { Iconify } from 'src/components/iconify';
 import scrollableContainerStyle from 'src/sections/qna/chatbot/utils/styles/scrollbar';
 
 import { useAuthContext } from 'src/auth/hooks';
-
+import closeIcon from '@iconify-icons/eva/close-outline';
 import { storageTypes } from './types';
 import LlmConfigStep from './llm-config';
 import SmtpConfigStep from './smtp-config';
@@ -439,7 +439,11 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
                     : 'azureOpenAI',
             configuration: (() => {
               // For OpenAI config
-              if (llmValues!.modelType === 'openai' || llmValues!.modelType === 'gemini' || llmValues!.modelType === 'anthropic') {
+              if (
+                llmValues!.modelType === 'openai' ||
+                llmValues!.modelType === 'gemini' ||
+                llmValues!.modelType === 'anthropic'
+              ) {
                 const config: any = {
                   apiKey: llmValues!.apiKey,
                   model: llmValues!.model,
@@ -1066,7 +1070,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           disabled={isSubmitting}
           aria-label="close"
         >
-          <Iconify icon="eva:close-outline" />
+          <Iconify icon={closeIcon} />
         </IconButton>
       </DialogTitle>
 

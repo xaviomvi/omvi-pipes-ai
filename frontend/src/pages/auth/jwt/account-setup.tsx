@@ -16,7 +16,8 @@ import {
 
 import { OrgExists } from 'src/auth/context/jwt';
 import AccountSetUpForm from 'src/auth/view/auth/account-setup';
-
+import accountIcon from '@iconify-icons/mdi/account';
+import domainIcon from '@iconify-icons/mdi/domain';
 // Account type interface
 export type AccountType = 'individual' | 'business';
 
@@ -118,7 +119,7 @@ export default function Page() {
                   p: 3,
                 }}
               >
-                <Icon icon="mdi:account" width={48} height={48} color="#0C4A6E" />
+                <Icon icon={accountIcon} width={48} height={48} color="#0C4A6E" />
                 <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                   Individual
                 </Typography>
@@ -151,7 +152,7 @@ export default function Page() {
                   p: 3,
                 }}
               >
-                <Icon icon="mdi:domain" width={48} height={48} color="#0C4A6E" />
+                <Icon icon={domainIcon} width={48} height={48} color="#0C4A6E" />
                 <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                   Organization
                 </Typography>

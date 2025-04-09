@@ -10,7 +10,7 @@ import { styled } from '@mui/material/styles';
 import { Box, Paper, Typography, CircularProgress } from '@mui/material';
 
 import CitationSidebar from './highlighter-sidebar';
-
+import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
 type DocxViewerProps = {
   citations: DocumentContent[] | CustomCitation[];
   url: string | null;
@@ -170,7 +170,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
       }
 
       try {
-
         // Clear container
         containerRef.current.innerHTML = '';
 
@@ -206,7 +205,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
 
         // Render document
         if (url) {
-
           try {
             // Use a timeout to prevent hanging on unresponsive URLs
             const fetchWithTimeout = async (fetchUrl: string, timeoutMs = 30000) => {
@@ -262,7 +260,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
         } else if (buffer) {
           await docxPreview.renderAsync(buffer, containerRef.current, undefined, options);
         }
-
 
         // Add IDs to elements for easier highlighting - Use a more efficient approach with a single pass
         if (containerRef.current) {
@@ -321,11 +318,11 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
         }
       }
     }, 500);
-// eslint-disable-next-line
+    // eslint-disable-next-line
     const cleanup = (): void => {
       clearInterval(checkInterval);
     };
-// eslint-disable-next-line
+    // eslint-disable-next-line
     return cleanup;
   }, [url, buffer, renderOptions, documentReady]);
 
@@ -723,7 +720,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
   const applyTextHighlights = (citationsArray: ProcessedCitation[]): void => {
     if (!containerRef.current) return;
 
-
     // Clear existing highlights
     clearHighlights();
 
@@ -900,7 +896,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
         console.error('Error applying highlight:', err);
       }
     });
-
   };
 
   // Clear all highlights
@@ -1013,7 +1008,7 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
 
       {error && (
         <ErrorOverlay>
-          <Icon icon="mdi:alert-circle-outline" style={{ fontSize: 40, marginBottom: 16 }} />
+          <Icon icon={alertCircleIcon} style={{ fontSize: 40, marginBottom: 16 }} />
           <Typography variant="body1">Error: {error}</Typography>
         </ErrorOverlay>
       )}

@@ -23,7 +23,8 @@ import { signUp } from '../../context/jwt';
 import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
 import { SignUpTerms } from '../../components/sign-up-terms';
-
+import eyeIcon from '@iconify-icons/solar/eye-bold';
+import eyeClosedIcon from '@iconify-icons/solar/eye-closed-bold';
 // ----------------------------------------------------------------------
 
 export const SignUpSchema = zod.object({
@@ -102,7 +103,7 @@ export function JwtSignUpView() {
           endAdornment: (
             <InputAdornment position="end">
               <IconButton onClick={password.onToggle} edge="end">
-                <Iconify icon={password.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'} />
+                <Iconify icon={password.value ? eyeIcon : eyeClosedIcon} />
               </IconButton>
             </InputAdornment>
           ),

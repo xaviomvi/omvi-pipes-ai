@@ -9,7 +9,7 @@ import { CONFIG } from 'src/config-global';
 import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from 'src/components/iconify';
-
+import infoIcon from '@iconify-icons/eva/info-outline';
 import { SvgColor } from '../../svg-color';
 
 // ----------------------------------------------------------------------
@@ -72,7 +72,7 @@ export function BaseOption({ icon, label, tooltip, selected, ...other }: Props) 
           >
             <Iconify
               width={16}
-              icon="eva:info-outline"
+              icon={infoIcon}
               sx={{ cursor: 'pointer', color: 'text.disabled' }}
             />
           </Tooltip>

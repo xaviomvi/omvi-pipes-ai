@@ -6,7 +6,8 @@ import type { DocumentContent } from 'src/sections/knowledgebase/types/search-re
 import * as XLSX from 'xlsx';
 import { Icon } from '@iconify/react';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-
+import fullScreenExitIcon from '@iconify-icons/mdi/fullscreen-exit';
+import fullScreenIcon from '@iconify-icons/mdi/fullscreen';
 import {
   Box,
   List,
@@ -474,7 +475,6 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
           backgroundColor: 'background.paper',
           padding: 2,
         },
-        
       }}
     >
       {/* Rest of the component remains the same */}
@@ -494,7 +494,7 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
             }}
           >
             <Icon
-              icon={isFullscreen ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'}
+              icon={isFullscreen ? fullScreenExitIcon : fullScreenIcon}
               width="24"
               height="24"
             />

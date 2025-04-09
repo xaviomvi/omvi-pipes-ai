@@ -10,6 +10,7 @@ import { alpha as hexAlpha } from '@mui/material/styles';
 import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from '../iconify';
+import checkMarkIcon from '@iconify-icons/eva/checkmark-fill';
 
 import type { ColorPickerProps } from './types';
 
@@ -90,7 +91,7 @@ export const ColorPicker = forwardRef<HTMLDivElement, BoxProps & ColorPickerProp
                 >
                   <Iconify
                     width={hasSelected ? 12 : 0}
-                    icon="eva:checkmark-fill"
+                    icon={checkMarkIcon}
                     sx={{
                       color: (theme) => theme.palette.getContrastText(color),
                       transition: (theme) =>

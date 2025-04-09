@@ -1,8 +1,24 @@
 import type { Conversation } from 'src/types/chat-bot';
-import type { SnackbarState, ChatSidebarProps, ConversationGroup, DeleteDialogState, ConversationsResponse } from 'src/types/chat-sidebar';
+import type {
+  SnackbarState,
+  ChatSidebarProps,
+  ConversationGroup,
+  DeleteDialogState,
+  ConversationsResponse,
+} from 'src/types/chat-sidebar';
 
 import { Icon } from '@iconify/react';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import archiveIcon from '@iconify-icons/mdi/archive-outline';
+import chatIcon from '@iconify-icons/mdi/chat-outline';
+import dotsIcon from '@iconify-icons/mdi/dots-vertical';
+import checkIcon from '@iconify-icons/mdi/check';
+import closeIcon from '@iconify-icons/mdi/close';
+import messageIcon from '@iconify-icons/mdi/message-outline';
+import editIcon from '@iconify-icons/mdi/edit';
+import deleteIcon from '@iconify-icons/mdi/delete';
+import shareIcon from '@iconify-icons/mdi/share';
+import menuIcon from '@iconify-icons/mdi/menu';
 
 import {
   Box,
@@ -26,9 +42,6 @@ import ArchivedChatsDialog from './dialogs/archieve-chat-dialog';
 import scrollableContainerStyle from '../utils/styles/scrollbar';
 import ShareConversationDialog from './dialogs/share-conversation-dialog';
 import DeleteConversationDialog from './dialogs/delete-conversation-dialog';
- 
-
-
 
 const ChatSidebar = ({
   onClose,
@@ -37,7 +50,7 @@ const ChatSidebar = ({
   selectedId,
   shouldRefresh,
   onRefreshComplete,
-} : ChatSidebarProps) => {
+}: ChatSidebarProps) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
@@ -51,7 +64,7 @@ const ChatSidebar = ({
   const [isShareDialogOpen, setIsShareDialogOpen] = useState<boolean>(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   // const [sharedConversations, setSharedConversations] = useState([]);
-  const [activeTab, setActiveTab] = useState<'my' | 'shared'>('my');;
+  const [activeTab, setActiveTab] = useState<'my' | 'shared'>('my');
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
     message: '',
@@ -60,46 +73,52 @@ const ChatSidebar = ({
 
   const [archiveDialogOpen, setArchiveDialogOpen] = useState<boolean>(false);
 
-  const fetchConversations = useCallback(async (pageNum: number) : Promise<void> => {
-    setIsLoading(true);
-    try {
-      const response = await axiosInstance.get<ConversationsResponse>('/api/v1/conversations/', {
-        // params: {
-        //   page: pageNum,
-        //   limit: 20,
-        //   shared: activeTab === 'shared'
-        // },
-      });
+  const fetchConversations = useCallback(
+    async (pageNum: number): Promise<void> => {
+      setIsLoading(true);
+      try {
+        const response = await axiosInstance.get<ConversationsResponse>('/api/v1/conversations/', {
+          // params: {
+          //   page: pageNum,
+          //   limit: 20,
+          //   shared: activeTab === 'shared'
+          // },
+        });
 
-      const { conversations: newConversations = [], pagination = {
-        page: 1,
-        limit: 20,
-        totalCount: 0,
-        totalPages: 1,
-        hasNextPage: false,
-        hasPrevPage: false
-      } } = response.data;
+        const {
+          conversations: newConversations = [],
+          pagination = {
+            page: 1,
+            limit: 20,
+            totalCount: 0,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
+        } = response.data;
 
-      if (pageNum === 1) {
-        setConversations(newConversations);
-      } else {
-        setConversations((prev) => [...prev, ...newConversations]);
+        if (pageNum === 1) {
+          setConversations(newConversations);
+        } else {
+          setConversations((prev) => [...prev, ...newConversations]);
+        }
+
+        setHasMore(pagination.hasNextPage || false);
+        setPage(pageNum);
+      } catch (error) {
+        setHasMore(false);
+        setSnackbar({
+          open: true,
+          message: 'Failed to fetch conversations',
+          severity: 'error',
+        });
+      } finally {
+        setIsLoading(false);
       }
-
-      setHasMore(pagination.hasNextPage || false);
-      setPage(pageNum);
-    } catch (error) {
-      setHasMore(false);
-      setSnackbar({
-        open: true,
-        message: 'Failed to fetch conversations',
-        severity: 'error',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line
-  }, [activeTab]);
+      // eslint-disable-next-line
+    },
+    [activeTab]
+  );
 
   useEffect(() => {
     if (shouldRefresh) {
@@ -123,7 +142,7 @@ const ChatSidebar = ({
 
   // Grouped conversations logic
   const groupedConversations = useMemo(() => {
-    const groups : ConversationGroup = {
+    const groups: ConversationGroup = {
       Today: [],
       Yesterday: [],
       'Previous 7 days': [],
@@ -167,19 +186,18 @@ const ChatSidebar = ({
     fetchConversations(1);
   }, [fetchConversations, activeTab]);
 
-  const handleListItemClick = (chat : Conversation) : void => {
+  const handleListItemClick = (chat: Conversation): void => {
     onChatSelect?.(chat);
   };
 
-  const handleNewChat = () : void => {
+  const handleNewChat = (): void => {
     handleMenuClose();
     onNewChat?.();
   };
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) : void => {
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>): void => {
     const target = e.target as HTMLDivElement;
     const bottom = Math.abs(target.scrollHeight - target.scrollTop - target.clientHeight) < 1;
-
 
     if (bottom && hasMore && !isLoading) {
       const nextPage = page + 1;
@@ -188,18 +206,18 @@ const ChatSidebar = ({
     }
   };
 
-  const handleEditStart = (chat : Conversation) : void => {
+  const handleEditStart = (chat: Conversation): void => {
     setEditingChat(chat);
     setEditTitle(chat.title || '');
     handleMenuClose();
   };
 
-  const handleEditCancel = () : void => {
+  const handleEditCancel = (): void => {
     setEditingChat(null);
     setEditTitle('');
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) : Promise<void>=> {
+  const handleEditSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     if (!editingChat || !editTitle.trim()) return;
 
@@ -229,12 +247,12 @@ const ChatSidebar = ({
     }
   };
 
-  const handleDeleteClick = (chat : Conversation) : void => {
+  const handleDeleteClick = (chat: Conversation): void => {
     setDeleteDialog({ open: true, chat });
     handleMenuClose();
   };
 
-  const handleDeleteConfirm = async () : Promise<void> => {
+  const handleDeleteConfirm = async (): Promise<void> => {
     if (!deleteDialog.chat) return;
     setIsDeleting(true);
 
@@ -264,14 +282,14 @@ const ChatSidebar = ({
     }
   };
 
-  const renderChatItem = (chat : Conversation) => (
+  const renderChatItem = (chat: Conversation) => (
     <ListItem
       key={chat._id}
       disablePadding
       secondaryAction={
         editingChat?._id !== chat._id && (
           <IconButton edge="end" size="small" onClick={(e) => handleMenuOpen(e, chat)}>
-            <Icon icon="mdi:dots-vertical" />
+            <Icon icon={dotsIcon} />
           </IconButton>
         )
       }
@@ -303,10 +321,10 @@ const ChatSidebar = ({
             }}
           />
           <IconButton size="small" color="primary" type="submit" disabled={!editTitle.trim()}>
-            <Icon icon="mdi:check" />
+            <Icon icon={checkIcon} />
           </IconButton>
           <IconButton size="small" onClick={handleEditCancel}>
-            <Icon icon="mdi:close" />
+            <Icon icon={closeIcon} />
           </IconButton>
         </Box>
       ) : (
@@ -325,7 +343,7 @@ const ChatSidebar = ({
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-            <Icon icon="mdi:message-outline" />
+            <Icon icon={messageIcon} />
             <Typography
               variant="body2"
               noWrap
@@ -337,13 +355,12 @@ const ChatSidebar = ({
               {chat.title || 'New conversation'}
             </Typography>
           </Box>
-         
         </ListItemButton>
       )}
     </ListItem>
   );
 
-  const handleArchive = async (chat : Conversation) : Promise<void> => {
+  const handleArchive = async (chat: Conversation): Promise<void> => {
     try {
       await axiosInstance.patch(`/api/v1/conversations/${chat._id}/archive`);
       await fetchConversations(1); // Refresh conversations after archiving
@@ -363,16 +380,16 @@ const ChatSidebar = ({
     }
   };
 
-  const handleUnarchive = useCallback(async () : Promise<void> => {
+  const handleUnarchive = useCallback(async (): Promise<void> => {
     await fetchConversations(1); // Refresh conversations after unarchiving
   }, [fetchConversations]);
 
-  const handleShareConversation = (conversationId : string ) : void => {
+  const handleShareConversation = (conversationId: string): void => {
     setSelectedConversationId(conversationId);
     setIsShareDialogOpen(true);
   };
 
-  const handleShareDialogClose = () : void  => {
+  const handleShareDialogClose = (): void => {
     setIsShareDialogOpen(false);
     setSelectedConversationId(null);
   };
@@ -380,30 +397,30 @@ const ChatSidebar = ({
   // Update menu items
   const menuItems = [
     {
-      icon: 'mdi:edit',
+      icon: editIcon,
       label: 'Rename',
       onClick: () => selectedChat && handleEditStart(selectedChat),
       show: activeTab === 'my',
     },
     {
-      icon: 'mdi:archive-outline',
+      icon: archiveIcon,
       label: 'Archive',
-      onClick: () =>selectedChat && handleArchive(selectedChat),
-      show: activeTab === 'my'
+      onClick: () => selectedChat && handleArchive(selectedChat),
+      show: activeTab === 'my',
     },
     {
-      icon: 'mdi:delete',
+      icon: deleteIcon,
       label: 'Delete',
       onClick: () => selectedChat && handleDeleteClick(selectedChat),
       color: 'error',
       show: activeTab === 'my',
     },
     {
-      icon: 'mdi:share',
+      icon: shareIcon,
       label: 'Share',
       onClick: () => selectedChat && handleShareConversation(selectedChat._id),
       color: 'error',
-      show: activeTab === 'my'
+      show: activeTab === 'my',
     },
   ];
 
@@ -420,7 +437,7 @@ const ChatSidebar = ({
       {/* Header */}
       <Box sx={{ p: 1.68, display: 'flex', alignItems: 'center', gap: 1 }}>
         <IconButton size="small" onClick={onClose}>
-          <Icon icon="mdi:menu" />
+          <Icon icon={menuIcon} />
         </IconButton>
         <Typography variant="h6" sx={{ flex: 1 }}>
           PipesHub Agent
@@ -429,18 +446,18 @@ const ChatSidebar = ({
           <>
             <Tooltip title="Archived Chats">
               <IconButton size="small" onClick={() => setArchiveDialogOpen(true)}>
-                <Icon icon="mdi:archive-outline" />
+                <Icon icon={archiveIcon} />
               </IconButton>
             </Tooltip>
             <Tooltip title="New Chat">
               <IconButton size="small">
-                <Icon icon="mdi:chat-outline" onClick={handleNewChat} />
+                <Icon icon={chatIcon} onClick={handleNewChat} />
               </IconButton>
             </Tooltip>
           </>
         )}
       </Box>
-      <Box >
+      <Box>
         <Box
           sx={{
             display: 'flex',
@@ -489,7 +506,6 @@ const ChatSidebar = ({
           </Box>
         </Box>
       </Box>
-
 
       {/* New Chat Button */}
       {/* <Box sx={{ p: 2 }}>

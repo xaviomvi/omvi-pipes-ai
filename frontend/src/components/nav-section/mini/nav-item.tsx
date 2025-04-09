@@ -11,7 +11,8 @@ import { useNavItem } from '../hooks';
 import { Iconify } from '../../iconify';
 import { navSectionClasses } from '../classes';
 import { stateClasses, sharedStyles } from '../styles';
-
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
+import infoIcon from '@iconify-icons/eva/info-outline';
 import type { NavItemProps, NavItemStateProps } from '../types';
 
 // ----------------------------------------------------------------------
@@ -83,7 +84,7 @@ export const NavItem = forwardRef<HTMLButtonElement, NavItemProps>(
 
         {caption && (
           <Tooltip title={caption} arrow placement="right">
-            <Iconify icon="eva:info-outline" className={navSectionClasses.item.caption} />
+            <Iconify icon={infoIcon} className={navSectionClasses.item.caption} />
           </Tooltip>
         )}
 
@@ -93,9 +94,7 @@ export const NavItem = forwardRef<HTMLButtonElement, NavItemProps>(
           </Box>
         )}
 
-        {hasChild && (
-          <Iconify icon="eva:arrow-ios-forward-fill" className={navSectionClasses.item.arrow} />
-        )}
+        {hasChild && <Iconify icon={arrowForwardIcon} className={navSectionClasses.item.arrow} />}
       </StyledNavItem>
     );
   }

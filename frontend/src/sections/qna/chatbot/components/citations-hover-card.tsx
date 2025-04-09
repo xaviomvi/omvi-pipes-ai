@@ -6,8 +6,9 @@ import { Icon } from '@iconify/react';
 
 import { Box, Fade, Card, Chip, Stack, Button, Divider, Typography } from '@mui/material';
 
-
-
+import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
+import fileDocumentIcon from '@iconify-icons/mdi/file-document-outline';
+import eyeIcon from '@iconify-icons/mdi/eye-outline';
 interface CitationHoverCardProps {
   citation: CustomCitation;
   isVisible: boolean;
@@ -236,12 +237,7 @@ const CitationHoverCard = ({
                   : {},
               }}
             >
-              <Icon
-                icon="mdi:file-document-outline"
-                width={16}
-                height={16}
-                style={{ flexShrink: 0 }}
-              />
+              <Icon icon={fileDocumentIcon} width={16} height={16} style={{ flexShrink: 0 }} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {citation.metadata?.recordName || 'Document'}
               </span>
@@ -266,7 +262,7 @@ const CitationHoverCard = ({
               }}
             >
               <Icon
-                icon="mdi:eye-outline"
+                icon={eyeIcon}
                 width={14}
                 height={14}
                 style={{ marginRight: '4px', flexShrink: 0 }}

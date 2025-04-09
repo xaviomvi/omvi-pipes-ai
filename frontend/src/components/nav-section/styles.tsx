@@ -11,7 +11,8 @@ import { stylesMode } from 'src/theme/styles';
 import { navSectionClasses } from './classes';
 import { svgColorClasses } from '../svg-color';
 import { Iconify, iconifyClasses } from '../iconify';
-
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
 // ----------------------------------------------------------------------
 
 export function stateClasses({
@@ -114,7 +115,7 @@ export function Subheader({
     >
       <Iconify
         width={16}
-        icon={open ? 'eva:arrow-ios-downward-fill' : 'eva:arrow-ios-forward-fill'}
+        icon={open ? arrowDownIcon : arrowForwardIcon}
         sx={{
           left: -4,
           opacity: 0,

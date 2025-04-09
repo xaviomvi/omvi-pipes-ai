@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 
 import { Iconify } from 'src/components/iconify';
-
+import trashBinIcon from '@iconify-icons/solar/trash-bin-trash-bold';
 // ----------------------------------------------------------------------
 
 export const chipProps: ChipProps = {
@@ -33,11 +33,7 @@ export function FiltersResult({ totalResults, onReset, sx, children }: FiltersRe
       <Box flexGrow={1} gap={1} display="flex" flexWrap="wrap" alignItems="center">
         {children}
 
-        <Button
-          color="error"
-          onClick={onReset}
-          startIcon={<Iconify icon="solar:trash-bin-trash-bold" />}
-        >
+        <Button color="error" onClick={onReset} startIcon={<Iconify icon={trashBinIcon} />}>
           Clear
         </Button>
       </Box>

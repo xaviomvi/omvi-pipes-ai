@@ -2,23 +2,23 @@ import React from 'react';
 import { Icon } from '@iconify/react';
 
 import { Box, Paper, TextField, IconButton } from '@mui/material';
-
+import sendIcon from '@iconify-icons/mdi/send';
 type ChatInputProps = {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: () => Promise<void>;
-  isLoading: boolean; 
+  isLoading: boolean;
   disabled?: boolean;
   placeholder?: string;
-}
+};
 
-const ChatInput: React.FC<ChatInputProps> = ({ 
-  value, 
-  onChange, 
-  onSubmit, 
-  isLoading ,
+const ChatInput: React.FC<ChatInputProps> = ({
+  value,
+  onChange,
+  onSubmit,
+  isLoading,
   disabled,
-  placeholder
+  placeholder,
 }) => {
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -30,14 +30,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <Box sx={{ p: 1.5, borderColor: 'divider', width: '70%', mx: "auto" }}>
+    <Box sx={{ p: 1.5, borderColor: 'divider', width: '70%', mx: 'auto' }}>
       <Paper
         elevation={3}
         sx={{
           display: 'flex',
           alignItems: 'center',
           p: '8px 16px',
-          borderRadius: 4
+          borderRadius: 4,
         }}
       >
         <TextField
@@ -45,7 +45,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           placeholder="Type your message..."
           variant="standard"
           InputProps={{
-            disableUnderline: true
+            disableUnderline: true,
           }}
           sx={{ mx: 2 }}
           value={value}
@@ -61,7 +61,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           disabled={!value.trim() || isLoading}
           size="small"
         >
-          <Icon icon="mdi:send" />
+          <Icon icon={sendIcon} />
         </IconButton>
       </Paper>
     </Box>

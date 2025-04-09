@@ -15,7 +15,7 @@ import { NavItem } from './nav-item';
 import { Iconify } from '../../iconify';
 import { NavUl, NavLi } from '../../nav-section';
 import { NavSubList } from '../components/nav-sub-list';
-
+import arrowBackIcon from '@iconify-icons/eva/arrow-ios-back-fill';
 import type { NavListProps } from '../types';
 
 // ----------------------------------------------------------------------
@@ -85,7 +85,7 @@ export function NavList({ data, render, cssVars, slotProps }: NavListProps) {
         >
           <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 1, py: 1.5 }}>
             <IconButton onClick={handleCloseMenu}>
-              <Iconify icon="eva:arrow-ios-back-fill" width={16} />
+              <Iconify icon={arrowBackIcon} width={16} />
             </IconButton>
 
             <Typography noWrap variant="subtitle1" sx={{ textTransform: 'capitalize' }}>

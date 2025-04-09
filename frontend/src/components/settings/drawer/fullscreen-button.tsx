@@ -4,7 +4,8 @@ import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 
 import { Iconify } from 'src/components/iconify';
-
+import quitFullScreenIcon from '@iconify-icons/solar/quit-full-screen-square-outline';
+import fullScreenIcon from '@iconify-icons/solar/full-screen-square-outline';
 import { svgColorClasses } from '../../svg-color';
 
 // ----------------------------------------------------------------------
@@ -37,13 +38,7 @@ export function FullScreenButton() {
           },
         }}
       >
-        <Iconify
-          icon={
-            fullscreen
-              ? 'solar:quit-full-screen-square-outline'
-              : 'solar:full-screen-square-outline'
-          }
-        />
+        <Iconify icon={fullscreen ? quitFullScreenIcon : fullScreenIcon} />
       </IconButton>
     </Tooltip>
   );

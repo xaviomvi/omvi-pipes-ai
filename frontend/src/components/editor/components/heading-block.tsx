@@ -8,7 +8,8 @@ import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from '../../iconify';
 import { ToolbarItem } from './toolbar-item';
-
+import arrowUpIcon from '@iconify-icons/eva/arrow-ios-upward-fill';
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
 import type { EditorToolbarProps } from '../types';
 
 // ----------------------------------------------------------------------
@@ -66,10 +67,7 @@ export function HeadingBlock({ editor }: Pick<EditorToolbarProps, 'editor'>) {
           (editor.isActive('heading', { level: 6 }) && 'Heading 6') ||
           'Paragraph'}
 
-        <Iconify
-          width={16}
-          icon={anchorEl ? 'eva:arrow-ios-upward-fill' : 'eva:arrow-ios-downward-fill'}
-        />
+        <Iconify width={16} icon={anchorEl ? arrowUpIcon : arrowDownIcon} />
       </ButtonBase>
 
       <Menu
