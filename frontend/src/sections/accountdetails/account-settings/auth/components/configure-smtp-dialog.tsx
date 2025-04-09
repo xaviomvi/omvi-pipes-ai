@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import closeIcon from '@iconify-icons/eva/close-outline';
 
 import {
   Box,
@@ -14,7 +15,7 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-import closeIcon from '@iconify-icons/eva/close-outline';
+
 import SmtpConfigForm from './smtp-config-form';
 
 import type { SmtpConfigFormRef } from './smtp-config-form';

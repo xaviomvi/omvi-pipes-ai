@@ -1,3 +1,6 @@
+import closeIcon from '@iconify-icons/mingcute/close-line';
+import restartIcon from '@iconify-icons/solar/restart-bold';
+
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Badge from '@mui/material/Badge';
@@ -20,8 +23,7 @@ import { useSettingsContext } from '../context';
 import { PresetsOptions } from './presets-options';
 import { defaultSettings } from '../config-settings';
 import { FullScreenButton } from './fullscreen-button';
-import closeIcon from '@iconify-icons/mingcute/close-line';
-import restartIcon from '@iconify-icons/solar/restart-bold';
+
 import type { SettingsDrawerProps } from '../types';
 
 // ----------------------------------------------------------------------

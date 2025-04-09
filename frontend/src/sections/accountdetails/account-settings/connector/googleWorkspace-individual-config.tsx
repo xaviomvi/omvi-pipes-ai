@@ -1,5 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
+import infoIcon from '@iconify-icons/eva/info-outline';
 import { useRef, useState, useEffect, useCallback } from 'react';
+import settingsIcon from '@iconify-icons/eva/settings-2-outline';
 
 import { alpha, useTheme } from '@mui/material/styles';
 // MUI Components
@@ -21,8 +23,7 @@ import {
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
-import infoIcon from '@iconify-icons/eva/info-outline';
-import settingsIcon from '@iconify-icons/eva/settings-2-outline';
+
 import { CONNECTORS_LIST, GOOGLE_WORKSPACE_SCOPE } from './components/connectors-list';
 import ConfigureConnectorDialog from './components/configure-connector-individual-dialog';
 

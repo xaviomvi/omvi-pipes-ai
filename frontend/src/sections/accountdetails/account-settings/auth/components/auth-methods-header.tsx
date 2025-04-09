@@ -1,11 +1,12 @@
 import React from 'react';
+import editIcon from '@iconify-icons/eva/edit-outline';
+import checkMarkIcon from '@iconify-icons/eva/checkmark-outline';
 
 import { useTheme } from '@mui/material/styles';
 import { Box, Button, Typography, CircularProgress } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-import editIcon from '@iconify-icons/eva/edit-outline';
-import checkMarkIcon from '@iconify-icons/eva/checkmark-outline';
+
 interface AuthMethodsHeaderProps {
   authMethods: Array<{
     type: string;

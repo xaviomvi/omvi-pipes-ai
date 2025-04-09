@@ -1,6 +1,8 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
 import { useState, useEffect, useCallback } from 'react';
+import closeIcon from '@iconify-icons/mingcute/close-line';
+import settingsIcon from '@iconify-icons/solar/settings-bold-duotone';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -27,8 +29,6 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { AccountButton } from './account-button';
 import { SignOutButton } from './sign-out-button';
-import closeIcon from '@iconify-icons/mingcute/close-line';
-import settingsIcon from '@iconify-icons/solar/settings-bold-duotone';
 // ----------------------------------------------------------------------
 
 // Base account menu items

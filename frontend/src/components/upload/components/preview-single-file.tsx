@@ -1,5 +1,7 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
+import closeIcon from '@iconify-icons/mingcute/close-line';
+
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 
@@ -9,7 +11,6 @@ import { Iconify } from '../../iconify';
 import { uploadClasses } from '../classes';
 
 import type { SingleFilePreviewProps } from '../types';
-import closeIcon from '@iconify-icons/mingcute/close-line';
 // ----------------------------------------------------------------------
 
 export function SingleFilePreview({ file, sx, className, ...other }: SingleFilePreviewProps) {

@@ -1,10 +1,10 @@
+import settingsIcon from '@iconify-icons/solar/settings-bold-duotone';
+
 import SvgIcon from '@mui/material/SvgIcon';
 
 import { Iconify } from 'src/components/iconify';
 
 import { useAuthContext } from 'src/auth/hooks';
-import settingsIcon from '@iconify-icons/solar/settings-bold-duotone';
-import { settings } from 'nprogress';
 // ----------------------------------------------------------------------
 
 // Business-specific menu items

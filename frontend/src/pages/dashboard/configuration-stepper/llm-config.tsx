@@ -1,9 +1,11 @@
 import type { SelectChangeEvent } from '@mui/material';
 
 import { z } from 'zod';
+import eyeIcon from '@iconify-icons/eva/eye-fill';
 import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 
 import {
   Box,
@@ -22,8 +24,7 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
-import eyeIcon from '@iconify-icons/eva/eye-fill';
+
 import type {
   LlmFormValues,
   AzureLlmFormValues,

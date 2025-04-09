@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import closeIcon from '@iconify-icons/eva/close-outline';
 
 import {
   Box,
@@ -14,7 +15,7 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-import closeIcon from '@iconify-icons/eva/close-outline';
+
 import LlmConfigForm from './llm-config-form';
 import { MODEL_TYPE_NAMES, MODEL_TYPE_ICONS } from '../utils/types';
 

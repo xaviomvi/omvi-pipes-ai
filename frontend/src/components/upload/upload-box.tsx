@@ -1,4 +1,5 @@
 import { useDropzone } from 'react-dropzone';
+import cloudIcon from '@iconify-icons/eva/cloud-upload-fill';
 
 import Box from '@mui/material/Box';
 
@@ -6,7 +7,7 @@ import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from '../iconify';
 import { uploadClasses } from './classes';
-import cloudIcon from '@iconify-icons/eva/cloud-upload-fill';
+
 import type { UploadProps } from './types';
 
 // ----------------------------------------------------------------------

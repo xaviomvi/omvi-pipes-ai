@@ -1,5 +1,7 @@
 import type { IChatParticipant } from 'src/types/chat';
 
+import closeIcon from '@iconify-icons/mingcute/close-line';
+
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Dialog from '@mui/material/Dialog';
@@ -10,7 +12,6 @@ import DialogContent from '@mui/material/DialogContent';
 import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from 'src/components/iconify';
-import closeIcon from '@iconify-icons/mingcute/close-line';
 // ----------------------------------------------------------------------
 
 type Props = {

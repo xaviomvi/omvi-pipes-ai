@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import settingsIcon from '@iconify-icons/eva/settings-2-outline';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -18,7 +19,6 @@ import { Iconify } from 'src/components/iconify';
 
 import ConfigureModelDialog from './components/configure-model-dialog';
 import { MODEL_TYPE_NAMES, MODEL_TYPE_ICONS, MODEL_TYPE_DESCRIPTIONS } from './utils/types';
-import settingsIcon from '@iconify-icons/eva/settings-2-outline';
 // AI model types
 const AI_MODEL_TYPES = ['llm'];
 

@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import eyeIcon from '@iconify-icons/eva/eye-fill';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 import React, { useState, useEffect, useCallback } from 'react';
 
 import {
@@ -19,8 +21,6 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
-import eyeIcon from '@iconify-icons/eva/eye-fill';
 // Storage types enum
 export const storageTypes = {
   LOCAL: 'local',

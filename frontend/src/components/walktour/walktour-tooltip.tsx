@@ -1,3 +1,5 @@
+import closeIcon from '@iconify-icons/mingcute/close-line';
+
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -9,7 +11,6 @@ import { varAlpha } from 'src/theme/styles';
 import { Iconify } from 'src/components/iconify';
 
 import type { WalktourTooltipProps } from './types';
-import closeIcon from '@iconify-icons/mingcute/close-line';
 // ----------------------------------------------------------------------
 
 export function WalktourTooltip({

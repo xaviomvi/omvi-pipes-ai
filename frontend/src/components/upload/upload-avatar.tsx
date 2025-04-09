@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
+import cameraIcon from '@iconify-icons/solar/camera-add-bold';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -10,7 +11,7 @@ import { Image } from '../image';
 import { Iconify } from '../iconify';
 import { uploadClasses } from './classes';
 import { RejectionFiles } from './components/rejection-files';
-import cameraIcon from '@iconify-icons/solar/camera-add-bold';
+
 import type { UploadProps } from './types';
 
 // ----------------------------------------------------------------------
