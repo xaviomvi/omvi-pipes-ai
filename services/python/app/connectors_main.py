@@ -13,7 +13,6 @@ from app.config.arangodb_constants import Connectors
 from datetime import datetime, timezone, timedelta
 from app.api.middlewares.auth import authMiddleware
 
-print("Starting connector app")
 
 logger = create_logger(__name__)
 
@@ -81,7 +80,7 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             logger.info("Found %d users for organization %s", len(users), org_id)
             
             enabled_apps = await arango_service.get_org_apps(org_id)
-            print(f"Enabled Apps: {enabled_apps}")
+            logger.info(f"Enabled Apps: {enabled_apps}")
             
             for app in enabled_apps:
                 if app['name'] == Connectors.GOOGLE_CALENDAR.value:
@@ -214,7 +213,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     consume_task = asyncio.create_task(consumer.consume_messages())
     
     # Resume sync services
-    print(f"App Container: {app.container}")
+    logger.debug(f"App Container: {app.container}")
     await resume_sync_services(app.container)
         
     yield

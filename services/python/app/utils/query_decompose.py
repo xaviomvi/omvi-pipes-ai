@@ -57,9 +57,7 @@ class QueryDecompositionService:
     def _parse_decomposition_response(self, response: str) -> Dict[str, Any]:
         """Parse the LLM response to extract the JSON structure with confidence scores"""
         # Extract JSON from the response
-        try:
-            print("decomposed response from llm", response)
-            
+        try:            
             # If response is an AIMessage object, access the content attribute directly
             if hasattr(response, 'content'):
                 json_str = response.content

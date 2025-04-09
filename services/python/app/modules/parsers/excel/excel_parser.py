@@ -605,30 +605,30 @@ async def main():
     try:
         parser = ExcelParser(file_path=test_file)
         parsed_data = parser.parse()
-        print("\nAvailable sheets:", parsed_data['sheet_names'])
+        logger.debug(f"\nAvailable sheets: {parsed_data['sheet_names']}")
 
         # Process each sheet
         for sheet_name in parsed_data['sheet_names']:
-            print(f"\n{'='*50}")
-            print(f"Processing sheet: {sheet_name}")
-            print(f"{'='*50}")
+            logger.debug(f"\n{'='*50}")
+            logger.debug(f"Processing sheet: {sheet_name}")
+            logger.debug(f"{'='*50}")
 
             sheet_data = await parser.process_sheet_with_summaries(sheet_name)
 
             for idx, table in enumerate(sheet_data['tables'], 1):
-                print(f"\nTable {idx} Summary:")
-                print(table['summary'])
+                logger.debug(f"\nTable {idx} Summary:")
+                logger.debug(table['summary'])
 
-                print("\nSample row texts:")
+                logger.debug("\nSample row texts:")
                 for row in table['rows'][:2]:  # Show first 2 rows
-                    print(f"\nRaw data: {row['raw_data']}")
-                    print(f"Natural text: {row['natural_language_text']}")
+                    logger.debug(f"\nRaw data: {row['raw_data']}")
+                    logger.debug(f"Natural text: {row['natural_language_text']}")
 
                 if len(table['rows']) > 2:
-                    print("...")
+                    logger.debug("...")
 
     except Exception as e:
-        print(f"Error processing Excel file: {str(e)}")
+        logger.error(f"Error processing Excel file: {str(e)}")
 
 if __name__ == "__main__":
     import asyncio

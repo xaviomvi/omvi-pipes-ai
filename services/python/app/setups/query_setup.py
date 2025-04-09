@@ -36,7 +36,6 @@ class AppContainer(containers.DeclarativeContainer):
     # First create an async factory for the connected ArangoService
     async def _create_arango_service(arango_client, config):
         """Async factory to create and connect ArangoService"""
-        print("arango client: ", arango_client)
         service = ArangoService(arango_client, config)
         await service.connect()
         return service

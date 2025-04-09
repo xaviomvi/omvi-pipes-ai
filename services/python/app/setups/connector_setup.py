@@ -500,8 +500,8 @@ async def health_check_qdrant(container):
         logger.debug(f"Checking Qdrant health at endpoint: {host}:{port}")
         try:
             # Fetch collections to check connectivity
-            collections = client.get_collections()
-            print("Qdrant is healthy!")
+            client.get_collections()
+            logger.info("Qdrant is healthy!")
         except Exception as e:
             error_msg = f"Qdrant health check failed: {str(e)}"
             logger.error(f"❌ {error_msg}")
