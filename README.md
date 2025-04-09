@@ -61,6 +61,20 @@ Beyond search, our platform allows enterprises to create custom apps and AI agen
 - Confluence(Release coming this month)
 - MS Teams(Release coming this month)
 
+## File Formats Supported
+- PDF(including scanned PDFs)
+- Docx/Doc
+- XLSX/XLS
+- PPTX/PPT
+- CSV
+- Markdown
+- HTML
+- Text
+- Google docs, slides, sheets
+- Images(Coming Soon)
+- Audio(Coming Soon)
+- Video(Coming Soon)
+
 ## RoadMap
 - Code Search
 - Workplace AI Agents
@@ -68,6 +82,7 @@ Beyond search, our platform allows enterprises to create custom apps and AI agen
 - APIs and SDKs
 - Personalized Search
 - Highly available and scalable Kubernetes deployment
+- PageRank
 
 ## Deployment
 PipesHub Workplace AI platform can be run locally on your machine or deployed on cloud with `docker compose`.
