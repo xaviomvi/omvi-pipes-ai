@@ -18,6 +18,11 @@ RUN apt-get update && apt-get install -y \
 COPY ./services/python/pyproject.toml /app/python/
 WORKDIR /app/python
 RUN pip3 install -e .
+
+# Download NLTK and spaCy models
+RUN python3 -m nltk.downloader punkt && \
+    python3 -m spacy download en_core_web_sm
+
 WORKDIR /app
 
 # Copy Python app files
