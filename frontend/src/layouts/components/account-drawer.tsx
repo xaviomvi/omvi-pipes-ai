@@ -27,7 +27,8 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { AccountButton } from './account-button';
 import { SignOutButton } from './sign-out-button';
-
+import closeIcon from '@iconify-icons/mingcute/close-line';
+import settingsIcon from '@iconify-icons/solar/settings-bold-duotone';
 // ----------------------------------------------------------------------
 
 // Base account menu items
@@ -55,7 +56,7 @@ const baseAccountItems = [
 const companySettingsItem = {
   label: 'Company Settings',
   href: '/account/company-settings/profile',
-  icon: <Iconify icon="solar:settings-bold-duotone" />,
+  icon: <Iconify icon={settingsIcon} />,
 };
 
 export type AccountDrawerProps = IconButtonProps & {
@@ -167,7 +168,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
           onClick={handleCloseDrawer}
           sx={{ top: 12, left: 12, zIndex: 9, position: 'absolute' }}
         >
-          <Iconify icon="mingcute:close-line" />
+          <Iconify icon={closeIcon} />
         </IconButton>
 
         <Scrollbar>

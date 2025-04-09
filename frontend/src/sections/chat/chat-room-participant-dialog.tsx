@@ -10,7 +10,7 @@ import DialogContent from '@mui/material/DialogContent';
 import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from 'src/components/iconify';
-
+import closeIcon from '@iconify-icons/mingcute/close-line';
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -23,7 +23,7 @@ export function ChatRoomParticipantDialog({ participant, open, onClose }: Props)
   return (
     <Dialog fullWidth maxWidth="xs" open={open} onClose={onClose}>
       <IconButton onClick={onClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
-        <Iconify icon="mingcute:close-line" />
+        <Iconify icon={closeIcon} />
       </IconButton>
 
       <DialogContent sx={{ py: 5, px: 3, display: 'flex' }}>

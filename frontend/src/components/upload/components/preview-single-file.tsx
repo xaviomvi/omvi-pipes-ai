@@ -9,7 +9,7 @@ import { Iconify } from '../../iconify';
 import { uploadClasses } from '../classes';
 
 import type { SingleFilePreviewProps } from '../types';
-
+import closeIcon from '@iconify-icons/mingcute/close-line';
 // ----------------------------------------------------------------------
 
 export function SingleFilePreview({ file, sx, className, ...other }: SingleFilePreviewProps) {
@@ -64,7 +64,7 @@ export function DeleteButton({ sx, ...other }: IconButtonProps) {
       }}
       {...other}
     >
-      <Iconify icon="mingcute:close-line" width={18} />
+      <Iconify icon={closeIcon} width={18} />
     </IconButton>
   );
 }

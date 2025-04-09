@@ -9,7 +9,7 @@ import { varAlpha, stylesMode } from 'src/theme/styles';
 
 import { Iconify } from '../../iconify';
 import { svgColorClasses } from '../../svg-color';
-
+import infoIcon from '@iconify-icons/eva/info-outline';
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -57,7 +57,7 @@ export function Block({ title, tooltip, children, sx }: Props) {
           <Tooltip title={tooltip} placement="right">
             <Iconify
               width={14}
-              icon="eva:info-outline"
+              icon={infoIcon}
               sx={{ ml: 0.5, mr: -0.5, opacity: 0.48, cursor: 'pointer' }}
             />
           </Tooltip>

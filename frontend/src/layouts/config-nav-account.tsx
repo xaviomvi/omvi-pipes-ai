@@ -3,7 +3,8 @@ import SvgIcon from '@mui/material/SvgIcon';
 import { Iconify } from 'src/components/iconify';
 
 import { useAuthContext } from 'src/auth/hooks';
-
+import settingsIcon from '@iconify-icons/solar/settings-bold-duotone';
+import { settings } from 'nprogress';
 // ----------------------------------------------------------------------
 
 // Business-specific menu items
@@ -45,7 +46,7 @@ const businessMenuItems = [
   {
     label: 'Settings',
     href: '/account/company-settings/settings/authentication',
-    icon: <Iconify icon="solar:settings-bold-duotone" />,
+    icon: <Iconify icon={settingsIcon} />,
   },
   // {
   //   label: 'Users & Groups',
@@ -86,8 +87,8 @@ const individualMenuItems = [
   {
     label: 'Settings',
     href: '/account/individual/settings/authentication',
-    icon: <Iconify icon="solar:settings-bold-duotone" />,
-  }
+    icon: <Iconify icon={settingsIcon} />,
+  },
 ];
 
 /**
@@ -96,17 +97,15 @@ const individualMenuItems = [
  */
 export const useAccountMenu = () => {
   const { user } = useAuthContext();
-    
+
   // Check for business account type
-  const isBusiness = 
-    user?.accountType === 'business' || 
-    user?.accountType === 'organization';
-    
+  const isBusiness = user?.accountType === 'business' || user?.accountType === 'organization';
+
   // Return different menu items based on account type
   if (isBusiness) {
     return businessMenuItems;
   }
-  
+
   // Default to individual menu items
   return individualMenuItems;
 };
@@ -123,9 +122,7 @@ export const accountRoutes = {
       { path: 'invites', element: '<UsersAndGroups />' },
       {
         path: 'settings',
-        children: [
-          { path: 'authentication', element: '<CompanyAuthenticationSettings />' }
-        ],
+        children: [{ path: 'authentication', element: '<CompanyAuthenticationSettings />' }],
       },
     ],
   },
@@ -136,12 +133,10 @@ export const accountRoutes = {
       { path: 'settings', element: '<IndividualSettings />' },
       {
         path: 'settings',
-        children: [
-          { path: 'authentication', element: '<IndividualAuthenticationSettings />' }
-        ],
+        children: [{ path: 'authentication', element: '<IndividualAuthenticationSettings />' }],
       },
     ],
-  }
+  },
 };
 
 // Static version as a fallback - Use individual menu by default

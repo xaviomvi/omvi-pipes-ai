@@ -6,7 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, Grid, Alert, TextField, Typography, IconButton, InputAdornment } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-
+import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
+import eyeIcon from '@iconify-icons/eva/eye-fill';
 import type { SmtpFormValues } from './types';
 
 // Very simple schema - all fields are optional by default
@@ -166,7 +167,7 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
       delete (window as any).hasSmtpInput;
       delete (window as any).getSmtpFormValues;
     };
-     // eslint-disable-next-line
+    // eslint-disable-next-line
   }, [handleSubmit, onSubmit, onSkip, getValues, trigger, formValues, displayPort]);
   return (
     <Box component="form" id="smtp-config-form" onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -306,7 +307,7 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
                         size="small"
                       >
                         <Iconify
-                          icon={showPassword ? 'eva:eye-off-fill' : 'eva:eye-fill'}
+                          icon={showPassword ? eyeOffIcon : eyeIcon}
                           width={16}
                           height={16}
                         />

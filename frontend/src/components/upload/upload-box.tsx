@@ -6,7 +6,7 @@ import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from '../iconify';
 import { uploadClasses } from './classes';
-
+import cloudIcon from '@iconify-icons/eva/cloud-upload-fill';
 import type { UploadProps } from './types';
 
 // ----------------------------------------------------------------------
@@ -48,7 +48,7 @@ export function UploadBox({ placeholder, error, disabled, className, sx, ...othe
     >
       <input {...getInputProps()} />
 
-      {placeholder || <Iconify icon="eva:cloud-upload-fill" width={28} />}
+      {placeholder || <Iconify icon={cloudIcon} width={28} />}
     </Box>
   );
 }

@@ -17,7 +17,8 @@ import {
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
-
+import infoIcon from '@iconify-icons/eva/info-outline';
+import settingsIcon from '@iconify-icons/eva/settings-2-outline';
 import { CONNECTORS_LIST } from './components/connectors-list';
 
 // Define connector types and interfaces
@@ -403,7 +404,7 @@ const ConnectorSettings = () => {
           }}
         >
           <Box sx={{ color: theme.palette.info.main, mt: 0.5 }}>
-            <Iconify icon="eva:info-outline" width={20} height={20} />
+            <Iconify icon={infoIcon} width={20} height={20} />
           </Box>
           <Box>
             <Typography variant="subtitle2" color="text.primary" sx={{ mb: 0.5, fontWeight: 500 }}>

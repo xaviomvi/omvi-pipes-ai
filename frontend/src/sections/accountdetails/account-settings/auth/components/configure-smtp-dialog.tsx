@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-
+import closeIcon from '@iconify-icons/eva/close-outline';
 import SmtpConfigForm from './smtp-config-form';
 
 import type { SmtpConfigFormRef } from './smtp-config-form';
@@ -64,7 +64,7 @@ const ConfigureSmtpDialog: React.FC<ConfigureSmtpDialogProps> = ({ open, onClose
             Configure SMTP
           </Typography>
           <IconButton edge="end" color="inherit" onClick={onClose} aria-label="close">
-            <Iconify icon="eva:close-outline" />
+            <Iconify icon={closeIcon} />
           </IconButton>
         </Box>
       </DialogTitle>

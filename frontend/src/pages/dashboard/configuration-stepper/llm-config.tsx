@@ -22,7 +22,8 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-
+import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
+import eyeIcon from '@iconify-icons/eva/eye-fill';
 import type {
   LlmFormValues,
   AzureLlmFormValues,
@@ -353,7 +354,7 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
                         size="small"
                       >
                         <Iconify
-                          icon={showPassword ? 'eva:eye-off-fill' : 'eva:eye-fill'}
+                          icon={showPassword ? eyeOffIcon : eyeIcon}
                           width={16}
                           height={16}
                         />

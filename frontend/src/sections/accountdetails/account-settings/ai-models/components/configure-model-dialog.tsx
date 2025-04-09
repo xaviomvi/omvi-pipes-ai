@@ -13,8 +13,8 @@ import {
   DialogActions,
 } from '@mui/material';
 
-import { Iconify } from 'src/components/iconify'; 
-
+import { Iconify } from 'src/components/iconify';
+import closeIcon from '@iconify-icons/eva/close-outline';
 import LlmConfigForm from './llm-config-form';
 import { MODEL_TYPE_NAMES, MODEL_TYPE_ICONS } from '../utils/types';
 
@@ -53,12 +53,7 @@ type AnyFormRef = {
   handleSave: () => Promise<SaveResult | boolean>;
 };
 
-const ConfigureModelDialog = ({
-  open,
-  onClose,
-  onSave,
-  modelType,
-}: ConfigureModelDialogProps) => {
+const ConfigureModelDialog = ({ open, onClose, onSave, modelType }: ConfigureModelDialogProps) => {
   const theme = useTheme();
   const [isValid, setIsValid] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -66,25 +61,25 @@ const ConfigureModelDialog = ({
 
   // Form refs for different model types
   const llmConfigFormRef = useRef<LlmConfigFormRef>(null);
-//   const ocrConfigFormRef = useRef<OcrConfigFormRef>(null);
-//   const embeddingConfigFormRef = useRef<EmbeddingConfigFormRef>(null);
-//   const slmConfigFormRef = useRef<SlmConfigFormRef>(null);
-//   const reasoningConfigFormRef = useRef<ReasoningConfigFormRef>(null);
-//   const multiModalConfigFormRef = useRef<MultiModalConfigFormRef>(null);
+  //   const ocrConfigFormRef = useRef<OcrConfigFormRef>(null);
+  //   const embeddingConfigFormRef = useRef<EmbeddingConfigFormRef>(null);
+  //   const slmConfigFormRef = useRef<SlmConfigFormRef>(null);
+  //   const reasoningConfigFormRef = useRef<ReasoningConfigFormRef>(null);
+  //   const multiModalConfigFormRef = useRef<MultiModalConfigFormRef>(null);
 
   // Get model colors
   const getModelColor = (type: string | null) => {
     if (!type) return theme.palette.primary.main;
-    
+
     const colors: Record<string, string> = {
-      llm: '#4CAF50',     // Green
-      ocr: '#2196F3',     // Blue
+      llm: '#4CAF50', // Green
+      ocr: '#2196F3', // Blue
       embedding: '#9C27B0', // Purple
-      slm: '#FF9800',     // Orange
+      slm: '#FF9800', // Orange
       reasoning: '#E91E63', // Pink
-      multiModal: '#673AB7' // Deep Purple
+      multiModal: '#673AB7', // Deep Purple
     };
-    
+
     return colors[type] || theme.palette.primary.main;
   };
 
@@ -122,21 +117,21 @@ const ConfigureModelDialog = ({
       case 'llm':
         currentRef = llmConfigFormRef;
         break;
-    //   case 'ocr':
-    //     currentRef = ocrConfigFormRef;
-    //     break;
-    //   case 'embedding':
-    //     currentRef = embeddingConfigFormRef;
-    //     break;
-    //   case 'slm':
-    //     currentRef = slmConfigFormRef;
-    //     break;
-    //   case 'reasoning':
-    //     currentRef = reasoningConfigFormRef;
-    //     break;
-    //   case 'multiModal':
-    //     currentRef = multiModalConfigFormRef;
-    //     break;
+      //   case 'ocr':
+      //     currentRef = ocrConfigFormRef;
+      //     break;
+      //   case 'embedding':
+      //     currentRef = embeddingConfigFormRef;
+      //     break;
+      //   case 'slm':
+      //     currentRef = slmConfigFormRef;
+      //     break;
+      //   case 'reasoning':
+      //     currentRef = reasoningConfigFormRef;
+      //     break;
+      //   case 'multiModal':
+      //     currentRef = multiModalConfigFormRef;
+      //     break;
       default:
         currentRef = null;
     }
@@ -244,7 +239,7 @@ const ConfigureModelDialog = ({
           sx={{ color: theme.palette.text.secondary }}
           aria-label="close"
         >
-          <Iconify icon="eva:close-outline" width={20} height={20} />
+          <Iconify icon={closeIcon} width={20} height={20} />
         </IconButton>
       </DialogTitle>
 
@@ -272,10 +267,7 @@ const ConfigureModelDialog = ({
 
         <Box>
           {modelType === 'llm' && (
-            <LlmConfigForm
-              onValidationChange={handleValidationChange}
-              ref={llmConfigFormRef}
-            />
+            <LlmConfigForm onValidationChange={handleValidationChange} ref={llmConfigFormRef} />
           )}
           {/* {modelType === 'ocr' && (
             <OcrConfigForm

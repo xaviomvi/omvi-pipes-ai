@@ -9,7 +9,7 @@ import { varAlpha } from 'src/theme/styles';
 import { Iconify } from 'src/components/iconify';
 
 import type { WalktourTooltipProps } from './types';
-
+import closeIcon from '@iconify-icons/mingcute/close-line';
 // ----------------------------------------------------------------------
 
 export function WalktourTooltip({
@@ -75,7 +75,7 @@ export function WalktourTooltip({
       }}
       {...slotProps?.closeBtn}
     >
-      <Iconify icon="mingcute:close-line" width={16} />
+      <Iconify icon={closeIcon} width={16} />
     </IconButton>
   );
 
