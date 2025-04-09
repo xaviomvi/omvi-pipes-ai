@@ -1,4 +1,5 @@
 export const configPaths = {
+  secretKeys: '/services/secretKeys',
   storageService: '/services/storage',
   connectors: {
     googleWorkspace: {

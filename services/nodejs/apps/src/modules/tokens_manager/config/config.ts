@@ -75,9 +75,9 @@ export const loadAppConfig = async (): Promise<AppConfig> => {
   const configService = ConfigService.getInstance();
 
   return {
-    jwtSecret: configService.getJwtSecret(),
-    scopedJwtSecret: configService.getScopedJwtSecret(),
-    cookieSecret: configService.getCookieSecret(),
+    jwtSecret: await configService.getJwtSecret(),
+    scopedJwtSecret: await configService.getScopedJwtSecret(),
+    cookieSecret: await configService.getCookieSecret(),
     rsAvailable: await configService.getRsAvailable(),
     encryption: {
       key: process.env.SECRET_KEY!,

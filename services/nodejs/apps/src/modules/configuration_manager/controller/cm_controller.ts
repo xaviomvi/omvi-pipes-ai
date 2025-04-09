@@ -1252,9 +1252,6 @@ export const setConnectorPublicUrl =
         configPaths.endpoint,
         JSON.stringify(parsedUrls),
       );
-      res.status(200).json({
-        message: 'Frontend Url saved successfully',
-      });
 
       res.status(200).json({
         message: 'Connector Url saved successfully',
