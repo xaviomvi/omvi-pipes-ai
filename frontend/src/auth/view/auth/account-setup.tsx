@@ -7,7 +7,19 @@ import { useNavigate } from 'react-router';
 import React, { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller, FormProvider, useFormContext } from 'react-hook-form';
-
+import lockIcon from '@iconify-icons/mdi/lock';
+import eyeIcon from '@iconify-icons/mdi/eye';
+import eyeOffIcon from '@iconify-icons/mdi/eye-off';
+import lockCheckIcon from '@iconify-icons/mdi/lock-check';
+import buildingIcon from '@iconify-icons/mdi/building';
+import domainIcon from '@iconify-icons/mdi/domain';
+import tagIcon from '@iconify-icons/mdi/tag';
+import accountIcon from '@iconify-icons/mdi/account';
+import emailIcon from '@iconify-icons/mdi/email';
+import refreshIcon from '@iconify-icons/mdi/refresh';
+import checkIcon from '@iconify-icons/mdi/check';
+import mapMarkerIcon from '@iconify-icons/mdi/map-marker';
+import accountCircleIcon from '@iconify-icons/mdi/account-circle';
 import {
   Box,
   Grid,
@@ -161,13 +173,13 @@ const PasswordSection = ({ control }: PasswordSectionProps) => {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Icon icon="mdi:lock" />
+                    <Icon icon={lockIcon} />
                   </InputAdornment>
                 ),
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                      <Icon icon={showPassword ? 'mdi:eye' : 'mdi:eye-off'} />
+                      <Icon icon={showPassword ? eyeIcon : eyeOffIcon} />
                     </IconButton>
                   </InputAdornment>
                 ),
@@ -191,7 +203,7 @@ const PasswordSection = ({ control }: PasswordSectionProps) => {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Icon icon="mdi:lock-check" />
+                    <Icon icon={lockCheckIcon} />
                   </InputAdornment>
                 ),
                 endAdornment: (
@@ -200,7 +212,7 @@ const PasswordSection = ({ control }: PasswordSectionProps) => {
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       edge="end"
                     >
-                      <Icon icon={showConfirmPassword ? 'mdi:eye' : 'mdi:eye-off'} />
+                      <Icon icon={showConfirmPassword ? eyeIcon : eyeOffIcon} />
                     </IconButton>
                   </InputAdornment>
                 ),
@@ -221,7 +233,6 @@ interface AccountSetupFormProps {
 export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType }) => {
   const theme = useTheme();
   const [orgExists, setOrgExists] = useState(false);
-  
 
   // Get the correct validation schema based on account type
   const schema = getValidationSchema(accountType);
@@ -377,7 +388,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
                     <>
                       <Grid item xs={12}>
                         <SectionTitle>
-                          <Icon icon="mdi:building" />
+                          <Icon icon={buildingIcon} />
                           Organization Details
                         </SectionTitle>
                       </Grid>
@@ -396,7 +407,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
                               InputProps={{
                                 startAdornment: (
                                   <InputAdornment position="start">
-                                    <Icon icon="mdi:domain" />
+                                    <Icon icon={domainIcon} />
                                   </InputAdornment>
                                 ),
                               }}
@@ -419,7 +430,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
                               InputProps={{
                                 startAdornment: (
                                   <InputAdornment position="start">
-                                    <Icon icon="mdi:tag" />
+                                    <Icon icon={tagIcon} />
                                   </InputAdornment>
                                 ),
                               }}
@@ -433,7 +444,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
                   {/* Admin/User Details Section */}
                   <Grid item xs={12}>
                     <SectionTitle>
-                      <Icon icon="mdi:account-circle" />
+                      <Icon icon={accountCircleIcon} />
                       {accountType === 'business' ? 'Admin Details' : 'User Details'}
                     </SectionTitle>
                   </Grid>
@@ -452,7 +463,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
                           InputProps={{
                             startAdornment: (
                               <InputAdornment position="start">
-                                <Icon icon="mdi:account" />
+                                <Icon icon={accountIcon} />
                               </InputAdornment>
                             ),
                           }}
@@ -476,7 +487,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
                           InputProps={{
                             startAdornment: (
                               <InputAdornment position="start">
-                                <Icon icon="mdi:email" />
+                                <Icon icon={emailIcon} />
                               </InputAdornment>
                             ),
                           }}
@@ -492,7 +503,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
                     <>
                       <Grid item xs={12}>
                         <SectionTitle>
-                          <Icon icon="mdi:map-marker" />
+                          <Icon icon={mapMarkerIcon} />
                           Address Details
                         </SectionTitle>
                       </Grid>
@@ -596,7 +607,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
                       <StyledButton
                         variant="outlined"
                         onClick={() => reset(initialFormData)}
-                        startIcon={<Icon icon="mdi:refresh" />}
+                        startIcon={<Icon icon={refreshIcon} />}
                         sx={{
                           borderColor: theme.palette.divider,
                           color: theme.palette.text.secondary,
@@ -626,7 +637,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
                           </>
                         ) : (
                           <>
-                            <Icon icon="mdi:check" style={{ marginRight: 8 }} />
+                            <Icon icon={checkIcon} style={{ marginRight: 8 }} />
                             {accountType === 'business' ? 'Create Organization' : 'Create Account'}
                           </>
                         )}

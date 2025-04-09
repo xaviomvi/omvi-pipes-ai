@@ -1,19 +1,24 @@
-// styles/auth-styles.ts
 import type { Theme } from '@mui/material/styles';
-
 import { alpha } from '@mui/material/styles';
-
 import type { StyleConfig } from '../types/auth';
 
+// Import specific Iconify icons
+import passwordIcon from '@iconify-icons/mdi/form-textbox-password';
+import phoneMessageIcon from '@iconify-icons/mdi/cellphone-message';
+import shieldAccountIcon from '@iconify-icons/mdi/shield-account';
+import googleIcon from '@iconify-icons/mdi/google';
+import microsoftIcon from '@iconify-icons/mdi/microsoft';
+import microsoftAzureIcon from '@iconify-icons/mdi/microsoft-azure';
+
 export const CARD_STYLES = {
-  width: '100%', 
-  maxWidth: 480, 
-  mx: 'auto', 
+  width: '100%',
+  maxWidth: 480,
+  mx: 'auto',
   mt: 4,
   backdropFilter: 'blur(6px)',
   bgcolor: (theme: Theme) => alpha(theme.palette.background.paper, 0.9),
-  boxShadow: (theme: Theme) => `0 0 2px ${alpha(theme.palette.grey[500], 0.2)}, 
-                               0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
+  boxShadow: (theme: Theme) => `0 0 2px ${alpha(theme.palette.grey[500], 0.2)},
+                                 0 12px 24px -4px ${alpha(theme.palette.grey[500], 0.12)}`,
   borderRadius: 2,
   border: '1px solid',
   borderColor: 'divider',
@@ -55,34 +60,34 @@ export const TAB_STYLES = {
 export const METHOD_CONFIGS = {
   tabConfig: {
     password: {
-      icon: 'mdi:form-textbox-password',
+      icon: passwordIcon,
       label: 'Password',
       component: 'PasswordSignIn',
     },
     otp: {
-      icon: 'mdi:cellphone-message',
+      icon: phoneMessageIcon,
       label: 'OTP',
       component: 'OtpSignIn',
     },
     samlSso: {
-      icon: 'mdi:shield-account',
+      icon: shieldAccountIcon,
       label: 'SSO',
       component: 'SamlSignIn',
     },
   },
   socialConfig: {
     google: {
-      icon: 'mdi:google',
+      icon: googleIcon,
       label: 'Continue with Google',
       color: '#DB4437',
     },
     microsoft: {
-      icon: 'mdi:microsoft',
+      icon: microsoftIcon,
       label: 'Continue with Microsoft',
       color: '#00A4EF',
     },
     azureAd: {
-      icon: 'mdi:microsoft-azure',
+      icon: microsoftAzureIcon,
       label: 'Continue with Azure AD',
       color: '#0078D4',
     },

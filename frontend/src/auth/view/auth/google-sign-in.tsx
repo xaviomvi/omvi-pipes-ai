@@ -5,7 +5,7 @@ import Alert from '@mui/material/Alert';
 import LoadingButton from '@mui/lab/LoadingButton';
 
 import { Iconify } from 'src/components/iconify';
-
+import googleIcon from '@iconify-icons/mdi/google';
 interface GoogleSignInProps {
   email: string;
 }
@@ -62,7 +62,7 @@ export default function GoogleSignIn({ email }: GoogleSignInProps) {
         variant="outlined"
         loading={loading}
         onClick={handleGoogleLogin}
-        startIcon={<Iconify icon="mdi:google" />}
+        startIcon={<Iconify icon={googleIcon} />}
       >
         Continue with Google
       </LoadingButton>

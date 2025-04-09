@@ -6,6 +6,12 @@ import type {
 
 import { Icon } from '@iconify/react';
 import React, { useState, useEffect } from 'react';
+import linkIcon from '@iconify-icons/mdi/link';
+import loadingIcon from '@iconify-icons/mdi/loading';
+import fileIcon from '@iconify-icons/mdi/file-text-outline';
+import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
+import openNewIcon from '@iconify-icons/mdi/open-in-new';
+import filePdfIcon from '@iconify-icons/mdi/file-pdf-box';
 
 import {
   Box,
@@ -125,9 +131,12 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
       }
     } else if (record?.origin === ORIGIN.CONNECTOR) {
       try {
-        const response = await axios.get(`${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`, {
-          responseType: 'blob',
-        });
+        const response = await axios.get(
+          `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
+          {
+            responseType: 'blob',
+          }
+        );
 
         // Extract filename from content-disposition header
         let filename = record.recordName || `document-${recordId}`;
@@ -195,7 +204,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             fontWeight: 500,
           }}
         >
-          <Icon icon="mdi:loading" fontSize={16} />
+          <Icon icon={loadingIcon} fontSize={16} />
           Loading record details...
         </Typography>
       </Box>
@@ -235,12 +244,12 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             color: 'text.primary',
           }}
         >
-          <Icon icon="mdi:file-text-outline" width={24} height={24} />
+          <Icon icon={fileIcon} width={24} height={24} />
           Record Details
           {webUrl && (
             <Tooltip title="View document">
               <IconButton onClick={() => window.open(webUrl, '_blank', 'noopener,noreferrer')}>
-                <Icon icon="mdi:link" color="blue" width={24} height={24} />
+                <Icon icon={linkIcon} color="blue" width={24} height={24} />
               </IconButton>
             </Tooltip>
           )}
@@ -261,7 +270,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
                 },
               }}
             >
-              <Icon icon="mdi:open-in-new" width={20} height={20} />
+              <Icon icon={openNewIcon} width={20} height={20} />
             </IconButton>
           </Tooltip>
         )}
@@ -376,7 +385,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
                 color: 'text.primary',
               }}
             >
-              <Icon icon="mdi:file-document-outline" width={20} height={20} />
+              <Icon icon={fileDocIcon} width={20} height={20} />
               File Information
             </Typography>
             <Box
@@ -403,7 +412,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
                   <Button
                     variant="contained"
                     color="primary"
-                    startIcon={<Icon icon="mdi:file-pdf-box" />}
+                    startIcon={<Icon icon={filePdfIcon} />}
                     onClick={handleOpenPDFViewer}
                     sx={{
                       mt: 1,

@@ -4,12 +4,12 @@ import { PublicClientApplication } from '@azure/msal-browser';
 import Button from '@mui/material/Button';
 import { alpha } from '@mui/material/styles';
 import CircularProgress from '@mui/material/CircularProgress';
-
-import { Iconify } from 'src/components/iconify';
+import { Icon as IconifyIcon } from '@iconify/react';
+import { Icon } from '@iconify/react';
 
 // Define the interface for the config prop
 interface MicrosoftLoginConfig {
-  icon: string;
+  icon: React.ComponentProps<typeof IconifyIcon>['icon'];
   label: string;
   color: string;
 }
@@ -46,7 +46,7 @@ function MicrosoftLoginButton({
   // Initialize MSAL instance
   useEffect(() => {
     let mounted = true;
-    
+
     const initializeMsal = async () => {
       try {
         const msalConfig = {
@@ -72,10 +72,10 @@ function MicrosoftLoginButton({
 
         // Create a new instance
         const instance = new PublicClientApplication(msalConfig);
-        
+
         // Initialize it before setting the ref and state
         await instance.initialize();
-        
+
         // Only update state if component is still mounted
         if (mounted) {
           msalInstance.current = instance;
@@ -89,7 +89,7 @@ function MicrosoftLoginButton({
     };
 
     initializeMsal();
-    
+
     // Cleanup function to prevent state updates on unmounted component
     return () => {
       mounted = false;
@@ -116,7 +116,7 @@ function MicrosoftLoginButton({
       // Use account home_account_id as idToken if not present in response
       const idToken = response.idToken || response.account?.homeAccountId || '';
       const accessToken = response.accessToken || '';
-      
+
       await onSuccess({
         credential: { idToken, accessToken },
         method,
@@ -133,7 +133,9 @@ function MicrosoftLoginButton({
       fullWidth
       size="large"
       variant="outlined"
-      startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <Iconify icon={config.icon} />}
+      startIcon={
+        isLoading ? <CircularProgress size={20} color="inherit" /> : <Icon icon={config.icon} />
+      }
       onClick={handleLogin}
       disabled={!isInitialized || isLoading}
       sx={{

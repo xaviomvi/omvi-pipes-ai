@@ -1,9 +1,10 @@
-import type { User} from 'src/context/UserContext';
+import type { User } from 'src/context/UserContext';
 import type { SnackbarState } from 'src/types/chat-sidebar';
 
 import { Icon } from '@iconify/react';
 import React, { useState } from 'react';
-
+import contentCopyIcon from '@iconify-icons/mdi/content-copy';
+import magnifyIcon from '@iconify-icons/mdi/magnify';
 import {
   Box,
   Paper,
@@ -27,15 +28,19 @@ import axiosInstance from 'src/utils/axios';
 import { useUsers } from 'src/context/UserContext';
 
 interface ShareConversationDialogProps {
-  open : boolean;
-  onClose : () => void;
-  conversationId : string | null;
+  open: boolean;
+  onClose: () => void;
+  conversationId: string | null;
 }
 
-const ShareConversationDialog = ({ open, onClose, conversationId } : ShareConversationDialogProps) => {
+const ShareConversationDialog = ({
+  open,
+  onClose,
+  conversationId,
+}: ShareConversationDialogProps) => {
   const users = useUsers();
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
-  const [shareLink, setShareLink] = useState <string>('');
+  const [shareLink, setShareLink] = useState<string>('');
   const [isShared, setIsShared] = useState<boolean>(false);
   const [snackbarState, setSnackbarState] = useState<SnackbarState>({
     open: false,
@@ -136,7 +141,7 @@ const ShareConversationDialog = ({ open, onClose, conversationId } : ShareConver
                     },
                   }}
                 >
-                  <Icon icon="mdi:content-copy" />
+                  <Icon icon={contentCopyIcon} />
                 </IconButton>
               </Box>
             </Box>
@@ -174,7 +179,7 @@ const ShareConversationDialog = ({ open, onClose, conversationId } : ShareConver
                     startAdornment: (
                       <>
                         <Box mr={1} display="flex" alignItems="center">
-                          <Icon icon="mdi:magnify" />
+                          <Icon icon={magnifyIcon} />
                         </Box>
                         {params.InputProps.startAdornment}
                       </>
@@ -222,15 +227,15 @@ const ShareConversationDialog = ({ open, onClose, conversationId } : ShareConver
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDialogClose}>Close</Button>
-         { (!isShared || !shareLink) && (
-          <Button
-            onClick={handleShareConversation}
-            variant="contained"
-            color="primary"
-            disabled={selectedUsers.length === 0}
-          >
-            Share
-          </Button>
+          {(!isShared || !shareLink) && (
+            <Button
+              onClick={handleShareConversation}
+              variant="contained"
+              color="primary"
+              disabled={selectedUsers.length === 0}
+            >
+              Share
+            </Button>
           )}
         </DialogActions>
       </Dialog>
