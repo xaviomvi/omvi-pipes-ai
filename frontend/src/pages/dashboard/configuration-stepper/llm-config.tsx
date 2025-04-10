@@ -1,9 +1,11 @@
 import type { SelectChangeEvent } from '@mui/material';
 
 import { z } from 'zod';
+import eyeIcon from '@iconify-icons/eva/eye-fill';
 import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 
 import {
   Box,
@@ -353,7 +355,7 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
                         size="small"
                       >
                         <Iconify
-                          icon={showPassword ? 'eva:eye-off-fill' : 'eva:eye-fill'}
+                          icon={showPassword ? eyeOffIcon : eyeIcon}
                           width={16}
                           height={16}
                         />

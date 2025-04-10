@@ -1,4 +1,5 @@
 import { useDropzone } from 'react-dropzone';
+import cloudIcon from '@iconify-icons/eva/cloud-upload-fill';
 
 import Box from '@mui/material/Box';
 
@@ -48,7 +49,7 @@ export function UploadBox({ placeholder, error, disabled, className, sx, ...othe
     >
       <input {...getInputProps()} />
 
-      {placeholder || <Iconify icon="eva:cloud-upload-fill" width={28} />}
+      {placeholder || <Iconify icon={cloudIcon} width={28} />}
     </Box>
   );
 }

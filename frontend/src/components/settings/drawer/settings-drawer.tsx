@@ -1,3 +1,6 @@
+import closeIcon from '@iconify-icons/mingcute/close-line';
+import restartIcon from '@iconify-icons/solar/restart-bold';
+
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Badge from '@mui/material/Badge';
@@ -58,14 +61,14 @@ export function SettingsDrawer({
           }}
         >
           <Badge color="error" variant="dot" invisible={!settings.canReset}>
-            <Iconify icon="solar:restart-bold" />
+            <Iconify icon={restartIcon} />
           </Badge>
         </IconButton>
       </Tooltip>
 
       <Tooltip title="Close">
         <IconButton onClick={settings.onCloseDrawer}>
-          <Iconify icon="mingcute:close-line" />
+          <Iconify icon={closeIcon} />
         </IconButton>
       </Tooltip>
     </Box>
@@ -129,7 +132,6 @@ export function SettingsDrawer({
       ]}
     />
   );
-
 
   const renderFont = (
     <FontOptions

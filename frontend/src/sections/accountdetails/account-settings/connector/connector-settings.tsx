@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import infoIcon from '@iconify-icons/eva/info-outline';
 import { useState, useEffect, useCallback } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -403,7 +404,7 @@ const ConnectorSettings = () => {
           }}
         >
           <Box sx={{ color: theme.palette.info.main, mt: 0.5 }}>
-            <Iconify icon="eva:info-outline" width={20} height={20} />
+            <Iconify icon={infoIcon} width={20} height={20} />
           </Box>
           <Box>
             <Typography variant="subtitle2" color="text.primary" sx={{ mb: 0.5, fontWeight: 500 }}>

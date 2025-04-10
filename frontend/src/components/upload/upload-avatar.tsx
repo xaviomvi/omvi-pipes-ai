@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
+import cameraIcon from '@iconify-icons/solar/camera-add-bold';
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -82,7 +83,7 @@ export function UploadAvatar({
         }),
       }}
     >
-      <Iconify icon="solar:camera-add-bold" width={32} />
+      <Iconify icon={cameraIcon} width={32} />
 
       <Typography variant="caption">{hasFile ? 'Update photo' : 'Upload photo'}</Typography>
     </Box>

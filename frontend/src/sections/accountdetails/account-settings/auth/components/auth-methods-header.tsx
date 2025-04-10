@@ -1,4 +1,6 @@
 import React from 'react';
+import editIcon from '@iconify-icons/eva/edit-outline';
+import checkMarkIcon from '@iconify-icons/eva/checkmark-outline';
 
 import { useTheme } from '@mui/material/styles';
 import { Box, Button, Typography, CircularProgress } from '@mui/material';
@@ -26,7 +28,7 @@ const AuthMethodsHeader: React.FC<AuthMethodsHeaderProps> = ({
   isLoading,
 }) => {
   const theme = useTheme();
-  
+
   // Get the enabled method
   const enabledMethod = authMethods.find((m) => m.enabled);
 
@@ -43,13 +45,8 @@ const AuthMethodsHeader: React.FC<AuthMethodsHeaderProps> = ({
       }}
     >
       <Box>
-       
         {enabledMethod && (
-          <Typography 
-            variant="body2" 
-            color="text.secondary"
-           
-          >
+          <Typography variant="body2" color="text.secondary">
             Active: {getMethodName(enabledMethod.type)}
           </Typography>
         )}
@@ -60,7 +57,7 @@ const AuthMethodsHeader: React.FC<AuthMethodsHeaderProps> = ({
           <Button
             variant="outlined"
             size="small"
-            startIcon={<Iconify icon="eva:edit-outline" />}
+            startIcon={<Iconify icon={editIcon} />}
             onClick={() => setIsEditing(true)}
             disabled={isLoading}
             sx={{
@@ -69,7 +66,7 @@ const AuthMethodsHeader: React.FC<AuthMethodsHeaderProps> = ({
               color: theme.palette.text.primary,
               '&:hover': {
                 borderColor: theme.palette.text.primary,
-              }
+              },
             }}
           >
             Edit
@@ -97,7 +94,7 @@ const AuthMethodsHeader: React.FC<AuthMethodsHeaderProps> = ({
                 isLoading ? (
                   <CircularProgress size={16} color="inherit" />
                 ) : (
-                  <Iconify icon="eva:checkmark-outline" />
+                  <Iconify icon={checkMarkIcon} />
                 )
               }
               sx={{

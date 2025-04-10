@@ -1,5 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
+import infoIcon from '@iconify-icons/eva/info-outline';
 import { useRef, useState, useEffect, useCallback } from 'react';
+import settingsIcon from '@iconify-icons/eva/settings-2-outline';
 
 import { alpha, useTheme } from '@mui/material/styles';
 // MUI Components
@@ -486,7 +488,7 @@ const GoogleWorkspaceIndividualPage = () => {
                     }}
                     aria-label={`Configure ${connector.title}`}
                   >
-                    <Iconify icon="eva:settings-2-outline" width={20} height={20} />
+                    <Iconify icon={settingsIcon} width={20} height={20} />
                   </IconButton>
 
                   <Tooltip
@@ -537,7 +539,7 @@ const GoogleWorkspaceIndividualPage = () => {
           }}
         >
           <Box sx={{ color: theme.palette.info.main, mt: 0.5 }}>
-            <Iconify icon="eva:info-outline" width={20} height={20} />
+            <Iconify icon={infoIcon} width={20} height={20} />
           </Box>
           <Box>
             <Typography variant="subtitle2" color="text.primary" sx={{ mb: 0.5, fontWeight: 500 }}>
