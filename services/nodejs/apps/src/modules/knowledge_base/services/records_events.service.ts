@@ -8,6 +8,7 @@ export enum EventType {
   NewRecordEvent = 'newRecord',
   UpdateRecordEvent = 'updateRecord',
   DeletedRecordEvent = 'deletedRecord',
+  ReindexRecordEvent = 'reindexRecord'
 }
 
 export interface Event {
@@ -16,7 +17,8 @@ export interface Event {
   payload:
     | NewRecordEvent
     | UpdateRecordEvent
-    | DeletedRecordEvent;
+    | DeletedRecordEvent
+    | ReindexRecordEvent;
 }
 
 export interface NewRecordEvent {
@@ -40,6 +42,19 @@ export interface UpdateRecordEvent {
     signedUrlRoute : string;
     updatedAtTimestamp : string;
     sourceLastModifiedTimestamp : string;
+}
+export interface ReindexRecordEvent {
+  orgId: string;
+  recordId : string;
+  recordName : string;
+  recordType : string;
+  version : number;
+  signedUrlRoute : string;
+  origin : string;
+  extension : string;
+  createdAtTimestamp : string;
+  updatedAtTimestamp : string;
+  sourceCreatedAtTimestamp : string;
 }
 
 export interface DeletedRecordEvent {

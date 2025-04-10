@@ -299,7 +299,7 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
     if (containerRef.current) {
       attemptRender();
       // eslint-disable-next-line
-      return undefined;
+      return;
     }
 
     // If container not available yet, set up a limited retry mechanism

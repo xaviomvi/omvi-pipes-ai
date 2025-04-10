@@ -146,6 +146,11 @@ export const highlightText = (text: string, query: string, theme: any) => {
   }
 };
 
+function isDocViewable(extension: string) {
+  const viewableExtensions = ['pdf', 'xlsx', 'xls', 'csv', 'docx', 'html', 'txt','md'];
+  return viewableExtensions.includes(extension);
+}
+
 // Main KnowledgeSearch component
 const KnowledgeSearch = ({
   searchResults,
@@ -185,9 +190,12 @@ const KnowledgeSearch = ({
     const isPdf = extension.toLowerCase() === 'pdf';
     const isExcel = ['xlsx', 'xls', 'csv'].includes(extension.toLowerCase());
     const isDocx = ['docx'].includes(extension.toLowerCase());
-    if (isPdf || isExcel || isDocx) {
+    const isHtml = ['html'].includes(extension.toLowerCase());
+    const isTextFile = ['txt'].includes(extension.toLowerCase());
+    const isMarkdown = ['md'].includes(extension.toLowerCase());
+    if (isPdf || isExcel || isDocx || isHtml || isTextFile || isMarkdown) {
       if (onViewCitations) {
-        onViewCitations(recordId, isPdf, isExcel, isDocx);
+        onViewCitations(recordId, extension);
       }
     }
   };
@@ -539,9 +547,9 @@ const KnowledgeSearch = ({
 
                   const sourceInfo = getSourceIcon(result, theme);
                   const fileType = result.metadata.extension?.toUpperCase() || 'DOC';
-                  const isViewable =
-                    result.metadata.extension === 'pdf' ||
-                    ['xlsx', 'xls', 'csv'].includes(result.metadata.extension?.toLowerCase() || '');
+                  const isViewable = isDocViewable(result.metadata.extension);
+                  // result.metadata.extension === 'pdf' ||
+                  // ['xlsx', 'xls', 'csv'].includes(result.metadata.extension?.toLowerCase() || '');
 
                   return (
                     <Card
@@ -605,20 +613,33 @@ const KnowledgeSearch = ({
                               sx={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
-                                alignItems: 'flex-start',
+                                alignItems: 'center', // Center align items vertically
+                                width: '100%',
+                                gap: 1, // Ensure some gap between elements
                               }}
                             >
-                              <Typography variant="subtitle1" fontWeight={500} sx={{ pr: 2 }}>
+                              {/* Record name with ellipsis for overflow */}
+                              <Typography
+                                variant="subtitle1"
+                                fontWeight={500}
+                                sx={{
+                                  flexGrow: 1, // Allow text to take available space
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap', // Prevent text wrapping
+                                  minWidth: 0, // Allow text to shrink below its content size
+                                }}
+                              >
                                 {result.metadata.recordName || 'Untitled Document'}
                               </Typography>
 
-                              {/* Meta Icons */}
+                              {/* Meta Icons with fixed width */}
                               <Box
                                 sx={{
                                   display: 'flex',
                                   gap: 1,
                                   alignItems: 'center',
-                                  flexShrink: 0,
+                                  flexShrink: 0, // Prevent shrinking
                                 }}
                               >
                                 {isViewable && (
@@ -631,7 +652,7 @@ const KnowledgeSearch = ({
                                       fontSize: '0.75rem',
                                       py: 0.5,
                                       height: 24,
-                                      minWidth: 0,
+                                      whiteSpace: 'nowrap', // Prevent button text wrapping
                                       textTransform: 'none',
                                       borderRadius: '4px',
                                     }}
@@ -639,19 +660,6 @@ const KnowledgeSearch = ({
                                     View Citations
                                   </Button>
                                 )}
-
-                                {/* <Tooltip
-                                  title={
-                                    result.metadata.connector ||
-                                    result.metadata.origin ||
-                                    'Document'
-                                  }
-                                >
-                                  <Icon
-                                    icon={sourceInfo.icon}
-                                    style={{ fontSize: 18, color: sourceInfo.color }}
-                                  />
-                                </Tooltip> */}
 
                                 <Chip
                                   label={fileType}
@@ -767,9 +775,6 @@ const KnowledgeSearch = ({
           </Box>
 
           {/* Details Column - This would be where DetailPanel is rendered */}
-          {detailsOpen && selectedRecord && (
-            <Box sx={{ width: '45%', position: 'relative' }}>{/* DetailPanel would go here */}</Box>
-          )}
         </Box>
       </Box>
     </Box>

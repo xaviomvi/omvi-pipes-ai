@@ -2,7 +2,16 @@ import { Icon } from '@iconify/react';
 import closeIcon from '@iconify-icons/mdi/close';
 import { useState, useEffect, useCallback } from 'react';
 
-import { Box, alpha, Button, styled, Divider, useTheme } from '@mui/material';
+import { 
+  Box, 
+  alpha, 
+  Button, 
+  styled, 
+  Divider, 
+  useTheme, 
+  Snackbar,
+  Alert
+} from '@mui/material';
 
 import axios from 'src/utils/axios';
 
@@ -18,6 +27,9 @@ import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
 
 import type { Filters } from './types/knowledge-base';
 import type { PipesHub, SearchResult, AggregatedDocument } from './types/search-response';
+import HtmlViewer from '../qna/chatbot/components/html-highlighter';
+import TextViewer from '../qna/chatbot/components/text-highlighter';
+import MarkdownViewer from '../qna/chatbot/components/markdown-highlighter';
 
 // Constants for sidebar widths - must match with the sidebar component
 const SIDEBAR_EXPANDED_WIDTH = 300;
@@ -44,6 +56,16 @@ export const StyledCloseButton = styled(Button)(({ theme }) => ({
   },
 }));
 
+function getDocumentType(extension: string) {
+  if (extension === 'pdf') return 'pdf';
+  if (['xlsx', 'xls', 'csv'].includes(extension)) return 'excel';
+  if (extension === 'docx') return 'docx';
+  if (extension === 'html') return 'html';
+  if (extension === 'txt') return 'text';
+  if (extension === 'md') return 'md';
+  return 'other';
+}
+
 export default function KnowledgeBaseSearch() {
   const theme = useTheme();
   const [filters, setFilters] = useState<Filters>({
@@ -60,13 +82,24 @@ export default function KnowledgeBaseSearch() {
   const [isPdf, setIsPdf] = useState<boolean>(false);
   const [isExcel, setIsExcel] = useState<boolean>(false);
   const [isDocx, setIsDocx] = useState<boolean>(false);
+  const [isHtml, setIsHtml] = useState<boolean>(false);
+  const [isMarkdown, setIsMarkdown] = useState<boolean>(false);
+  const [isTextFile, setIsTextFile] = useState<boolean>(false);
   const [fileUrl, setFileUrl] = useState<string>('');
   const [recordCitations, setRecordCitations] = useState<AggregatedDocument | null>(null);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [recordsMap, setRecordsMap] = useState<Record<string, PipesHub.Record>>({});
   const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
+  
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'error' as 'error' | 'warning' | 'info' | 'success'
+  });
+  
   // Add a state to track if citation viewer is open
-  const isCitationViewerOpen = isPdf || isExcel;
+  const isCitationViewerOpen = isPdf || isExcel || isDocx || isHtml || isTextFile || isMarkdown;
 
   const handleFilterChange = (newFilters: Filters) => {
     setFilters(newFilters);
@@ -147,6 +180,11 @@ export default function KnowledgeBaseSearch() {
       console.error('Search failed:', error);
       setSearchResults([]);
       setAggregatedCitations([]);
+      setSnackbar({
+        open: true,
+        message: 'Failed to search knowledge base. Please try again.',
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -171,25 +209,23 @@ export default function KnowledgeBaseSearch() {
     setTopK(callback);
   };
 
-  const viewCitations = async (
-    recordId: string,
-    isDocPdf: boolean,
-    isDocExcel: boolean,
-    isDocDocx: boolean
-  ) => {
-    // Reset view states
+  const viewCitations = async (recordId: string, extension: string) => {
+    // Reset view states;
+
+    // Reset all document type states
     setIsPdf(false);
     setIsExcel(false);
     setIsDocx(false);
+    setIsHtml(false);
+    setIsTextFile(false);
+    setIsMarkdown(false);
+    setFileBuffer(null);
+    setRecordCitations(null);
+    setFileUrl('');
 
-    if (isDocPdf) {
-      setIsPdf(true);
-    } else if (isDocExcel) {
-      setIsExcel(true);
-    } else if (isDocDocx) {
-      setIsDocx(true);
-    } else {
-      return; // If neither PDF nor Excel, don't proceed
+    const documentContainer = document.querySelector('#document-container');
+    if (documentContainer) {
+      documentContainer.innerHTML = '';
     }
 
     // Close sidebar when showing citation viewer
@@ -202,6 +238,11 @@ export default function KnowledgeBaseSearch() {
       // If record doesn't exist, use fallback or show error
       if (!record) {
         console.error('Record not found for ID:', recordId);
+        setSnackbar({
+          open: true,
+          message: 'Record not found. Please try again.',
+          severity: 'error'
+        });
         return;
       }
       // Find the correct citation from the aggregated data
@@ -209,10 +250,18 @@ export default function KnowledgeBaseSearch() {
       if (citation) {
         setRecordCitations(citation);
       }
+      
+      let fileDataLoaded = false;
+      
       if (record.origin === ORIGIN.UPLOAD) {
         const fetchRecordId = record.externalRecordId || '';
         if (!fetchRecordId) {
           console.error('No external record ID available');
+          setSnackbar({
+            open: true,
+            message: 'External record ID not available.',
+            severity: 'error'
+          });
           return;
         }
 
@@ -246,6 +295,7 @@ export default function KnowledgeBaseSearch() {
             const jsonData = JSON.parse(text);
             if (jsonData && jsonData.signedUrl) {
               setFileUrl(jsonData.signedUrl);
+              fileDataLoaded = true;
             }
           } catch (e) {
             // Case 2: Local storage - Return buffer
@@ -258,11 +308,21 @@ export default function KnowledgeBaseSearch() {
             });
 
             const buffer = await arrayBufferPromise;
-            setFileBuffer(buffer);
+            if (buffer && buffer.byteLength > 0) {
+              setFileBuffer(buffer);
+              fileDataLoaded = true;
+            } else {
+              throw new Error('Empty buffer received');
+            }
           }
         } catch (error) {
           console.error('Error downloading document:', error);
-          throw new Error('Failed to download document');
+          setSnackbar({
+            open: true,
+            message: 'Failed to download document. Please try again.',
+            severity: 'error'
+          });
+          return;
         }
       } else if (record.origin === ORIGIN.CONNECTOR) {
         try {
@@ -299,14 +359,67 @@ export default function KnowledgeBaseSearch() {
           });
 
           const buffer = await arrayBufferPromise;
-          setFileBuffer(buffer);
+          if (buffer && buffer.byteLength > 0) {
+            setFileBuffer(buffer);
+            fileDataLoaded = true;
+          } else {
+            throw new Error('Empty buffer received');
+          }
         } catch (err) {
           console.error('Error downloading document:', err);
-          throw new Error(`Failed to download document: ${err.message}`);
+          setSnackbar({
+            open: true,
+            message: `Failed to download document: ${err.message}`,
+            severity: 'error'
+          });
+          return;
         }
+      }
+
+      // Only set the document type if file data was successfully loaded
+      if (fileDataLoaded) {
+        const documentType = getDocumentType(extension);
+        // Set only the relevant state based on document type
+        switch (documentType) {
+          case 'pdf':
+            setIsPdf(true);
+            break;
+          case 'excel':
+            setIsExcel(true);
+            break;
+          case 'docx':
+            setIsDocx(true);
+            break;
+          case 'html':
+            setIsHtml(true);
+            break;
+          case 'text':
+            setIsTextFile(true);
+            break;
+          case 'md':
+            setIsMarkdown(true);
+            break;  
+          default:
+            setSnackbar({
+              open: true,
+              message: `Unsupported document type: ${extension}`,
+              severity: 'warning'
+            });
+        }
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'No document data was loaded. Please try again.',
+          severity: 'error'
+        });
       }
     } catch (error) {
       console.error('Error fetching document:', error);
+      setSnackbar({
+        open: true,
+        message: `Error fetching document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      });
     }
   };
 
@@ -317,7 +430,93 @@ export default function KnowledgeBaseSearch() {
   const handleCloseViewer = () => {
     setIsPdf(false);
     setIsExcel(false);
+    setIsHtml(false);
+    setIsDocx(false);
+    setIsTextFile(false);
+    setIsMarkdown(false);
     setFileBuffer(null);
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({
+      ...snackbar,
+      open: false
+    });
+  };
+
+  // Helper function to decide which viewer to render
+  const renderDocumentViewer = () => {
+    if (isPdf && (fileUrl || fileBuffer)) {
+      return (
+        <PdfHighlighterComp
+          key={`pdf-viewer-${recordCitations?.recordId || 'new'}`}
+          pdfUrl={fileUrl}
+          pdfBuffer={fileBuffer}
+          citations={recordCitations?.documents || []}
+        />
+      );
+    }
+
+    if (isDocx && (fileUrl || fileBuffer)) {
+      return (
+        <DocxViewer
+          key={`docx-viewer-${recordCitations?.recordId || 'new'}`}
+          url={fileUrl}
+          buffer={fileBuffer}
+          citations={recordCitations?.documents || []}
+          renderOptions={{
+            breakPages: true,
+            renderHeaders: true,
+            renderFooters: true,
+          }}
+        />
+      );
+    }
+
+    if (isExcel && (fileUrl || fileBuffer)) {
+      return (
+        <ExcelViewer
+          key={`excel-viewer-${recordCitations?.recordId || 'new'}`}
+          fileUrl={fileUrl}
+          citations={recordCitations?.documents || []}
+          excelBuffer={fileBuffer}
+        />
+      );
+    }
+
+    if (isHtml && (fileUrl || fileBuffer)) {
+      return (
+        <HtmlViewer
+          key={`html-viewer-${recordCitations?.recordId || 'new'}`}
+          url={fileUrl}
+          citations={recordCitations?.documents || []}
+          buffer={fileBuffer}
+        />
+      );
+    }
+
+    if (isTextFile && (fileUrl || fileBuffer)) {
+      return (
+        <TextViewer
+          key={`text-viewer-${recordCitations?.recordId || 'new'}`}
+          url={fileUrl}
+          citations={recordCitations?.documents || []}
+          buffer={fileBuffer}
+        />
+      );
+    }
+    if (isMarkdown && (fileUrl || fileBuffer)) {
+      return (
+        <MarkdownViewer
+          key={`markdown-viewer-${recordCitations?.recordId || 'new'}`}
+          url={fileUrl}
+          citations={recordCitations?.documents || []}
+          buffer={fileBuffer}
+        />
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -380,69 +579,24 @@ export default function KnowledgeBaseSearch() {
             recordsMap={recordsMap}
           />
         </Box>
-        <Divider orientation="vertical" flexItem sx={{ borderRightWidth: 3 }} />
-
-        {/* PDF Viewer Container */}
-        {(isPdf || fileBuffer) && !isExcel && !isDocx && (
-          <Box
-            sx={{
-              width: '70%',
-              // height: '100%',
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <PdfHighlighterComp
-              key="pdf-viewer"
-              pdfUrl={fileUrl}
-              pdfBuffer={fileBuffer || null}
-              citations={recordCitations?.documents || []}
-            />
-          </Box>
+        {(isPdf || isExcel || isTextFile || isHtml || isDocx || isMarkdown) && (
+          <Divider orientation="vertical" flexItem sx={{ borderRightWidth: 3 }} />
         )}
 
-        {(isDocx || fileBuffer) && !isExcel && !isPdf && (
+        {/* Document Viewer Container */}
+        {(isPdf || isExcel || isTextFile || isHtml || isDocx || isMarkdown) && (
           <Box
+            id="document-container"
             sx={{
-              width: '70%',
-              // height: '100%',
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <DocxViewer
-              key="docx-viewer"
-              url={fileUrl}
-              buffer={fileBuffer}
-              citations={recordCitations?.documents || []}
-              renderOptions={{
-                breakPages: true,
-                renderHeaders: true,
-                renderFooters: true,
-              }}
-            />
-          </Box>
-        )}
-
-        {/* Excel Viewer Container */}
-        {(isExcel || fileBuffer) && !isPdf && !isDocx && (
-          <Box
-            sx={{
-              width: '70%',
+              width: '80%',
               height: '100%',
               position: 'relative',
               display: 'flex',
               flexDirection: 'column',
             }}
           >
-            <ExcelViewer
-              key="excel-viewer"
-              fileUrl={fileUrl}
-              citations={recordCitations?.documents || []}
-              excelBuffer={fileBuffer}
-            />
+            {/* Conditionally render the appropriate viewer */}
+            {renderDocumentViewer()}
           </Box>
         )}
 
@@ -457,6 +611,23 @@ export default function KnowledgeBaseSearch() {
           </StyledCloseButton>
         )}
       </Box>
+
+      {/* Error Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -894,10 +894,10 @@
   resolved "https://registry.npmjs.org/@emotion/weak-memoize/-/weak-memoize-0.4.0.tgz"
   integrity sha512-snKqtPW01tN0ui7yu9rGv69aJXr/a/Ywvl11sUjNtEcRc+ng/mQriFL0wLXMef74iHa/EkftbDzU9F8iFbH+zg==
 
-"@esbuild/linux-x64@0.25.1":
+"@esbuild/win32-x64@0.25.1":
   version "0.25.1"
-  resolved "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.25.1.tgz"
-  integrity sha512-xbfUhu/gnvSEg+EGovRc+kjBAkrvtk38RlerAzQxvMzlB4fXpCFCeUAYzJvrnhFtdeyVCDANSjJvOvGYoeKzFA==
+  resolved "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.25.1.tgz"
+  integrity sha512-Y1EQdcfwMSeQN/ujR5VayLOJ1BHaK+ssyk0AEzPjC+t1lITgsnccPqFjb6V+LsTp/9Iov4ysfjxLaGJ9RPtkVg==
 
 "@eslint-community/eslint-utils@^4.2.0", "@eslint-community/eslint-utils@^4.4.0":
   version "4.4.0"
@@ -1071,14 +1071,105 @@
   resolved "https://registry.npmjs.org/@humanwhocodes/object-schema/-/object-schema-2.0.3.tgz"
   integrity sha512-93zYdMES/c1D69yZiKDBj0V24vqNzB/koF26KPaagAfd3P/4gUlh3Dys5ogAK+Exi9QyzlD8x/08Zt7wIKcDcA==
 
-"@iconify/react@^5.0.2":
-  version "5.0.2"
-  resolved "https://registry.npmjs.org/@iconify/react/-/react-5.0.2.tgz"
-  integrity sha512-wtmstbYlEbo4NDxFxBJkhkf9gJBDqMGr7FaqLrAUMneRV3Z+fVHLJjOhWbkAF8xDQNFC/wcTYdrWo1lnRhmagQ==
+"@iconify-icons/carbon@^1.2.20":
+  version "1.2.20"
+  resolved "https://registry.npmjs.org/@iconify-icons/carbon/-/carbon-1.2.20.tgz"
+  integrity sha512-QCsqNX5VRK8ZqAnwDhUHdJFdRIDCHM3bF+72DUCIi1bQ6L8n5amOP4ZND2q1TadtAjP7g6DEnS2a6780iPjx9Q==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/ep@^1.2.12":
+  version "1.2.12"
+  resolved "https://registry.npmjs.org/@iconify-icons/ep/-/ep-1.2.12.tgz"
+  integrity sha512-8EJULn048sQq3fvytpQ5j40omnVOdBKpo+sXdYM35NRrqCe1BihxBesMcCOLWaocqkWia6uTQ3cnRHff4ZA11w==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/eva@^1.2.6":
+  version "1.2.6"
+  resolved "https://registry.npmjs.org/@iconify-icons/eva/-/eva-1.2.6.tgz"
+  integrity sha512-5/6q2lEHk6W0qF5kgyDhhKLATOxciLVS3f0Vh++GyHyAlFcz+ftBsvGuFU1/t+UaoOXKiyGZuqm6QA1rL3/BSw==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/fluent@^1.2.38":
+  version "1.2.38"
+  resolved "https://registry.npmjs.org/@iconify-icons/fluent/-/fluent-1.2.38.tgz"
+  integrity sha512-5GaGNLxFZfzc82+vyH+SYdDgNJgni99qUFsvc0B7TLxrpXO4jlqhiGDBFQRVm4V2zNvyEsXdpjTa9qNSda2iKQ==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/ic@^1.2.13":
+  version "1.2.13"
+  resolved "https://registry.npmjs.org/@iconify-icons/ic/-/ic-1.2.13.tgz"
+  integrity sha512-9Y3DLark8PYGtsHuWqbYxo2xAquL9vFQBZKRkpHuntyQJxBDLsfm3OO8mRbj2EmaAQR65pecH77DqQaLnN7yJQ==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/logos@^1.2.36":
+  version "1.2.36"
+  resolved "https://registry.npmjs.org/@iconify-icons/logos/-/logos-1.2.36.tgz"
+  integrity sha512-VzF299ubR4SKCZzLJoAawxeSjszJV1Q6y+4chCIPQuAafqfjtDjZxagZxL3ILKCsRLNN/z3zmCOOAL83tC8kLw==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/mdi@^1.2.48":
+  version "1.2.48"
+  resolved "https://registry.npmjs.org/@iconify-icons/mdi/-/mdi-1.2.48.tgz"
+  integrity sha512-51bfNoRLhYDfxSu0Nyi/uRVq6q/tP4TyEc0vvuNwImrXpxrRJUAWJF2A36CfBkXm3hO9IBlph/CD/XNDJKgG6w==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/mingcute@^1.2.9":
+  version "1.2.9"
+  resolved "https://registry.npmjs.org/@iconify-icons/mingcute/-/mingcute-1.2.9.tgz"
+  integrity sha512-u+hX7mh7amKlWFHOTi52tnJ52NWQVAFevjDcQkZvK4Zj2UyVVKZ45yKBsFHo4OTJDzBkIafJh4C4fkPJsvCtOA==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/ri@^1.2.10":
+  version "1.2.10"
+  resolved "https://registry.npmjs.org/@iconify-icons/ri/-/ri-1.2.10.tgz"
+  integrity sha512-wNaXsQYK55WDUWCbcjvnwnODV4Jtsp+VC0duPanibEVu876TUYf6kdgTGtH7/GErBCNdJuJJbncG7vbOaeQi7w==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/simple-icons@^1.2.74":
+  version "1.2.74"
+  resolved "https://registry.npmjs.org/@iconify-icons/simple-icons/-/simple-icons-1.2.74.tgz"
+  integrity sha512-FWmuSbg+KDUreysuaE8DYu/jbv4+FtSY+ppAi8w8sgX9CKTP6watB+PLeMbklOL/G5PnBlHnvM/ihkZ+n96OZw==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/solar@^1.2.3":
+  version "1.2.3"
+  resolved "https://registry.npmjs.org/@iconify-icons/solar/-/solar-1.2.3.tgz"
+  integrity sha512-yGLhu8oggEEGI63UG7y24+mzNytp+0pIc9+7AYRBlYzaQuThqVmAYj4d79Gif+pIrLfv+y+d0HFl9miQAPUj/Q==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-icons/vscode-icons@^1.2.29":
+  version "1.2.29"
+  resolved "https://registry.npmjs.org/@iconify-icons/vscode-icons/-/vscode-icons-1.2.29.tgz"
+  integrity sha512-RlFypCiWBpfh0QWo37KpG65iehgzRRvEkIjVnyL8FLPowcadWfUgmqrCfgcI1YoAce3Rg/ARW1c6JNSYBjWSZw==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-json/mdi@^1.2.3":
+  version "1.2.3"
+  resolved "https://registry.npmjs.org/@iconify-json/mdi/-/mdi-1.2.3.tgz"
+  integrity sha512-O3cLwbDOK7NNDf2ihaQOH5F9JglnulNDFV7WprU2dSoZu3h3cWH//h74uQAB87brHmvFVxIOkuBX2sZSzYhScg==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify/react@^5.2.1":
+  version "5.2.1"
+  resolved "https://registry.npmjs.org/@iconify/react/-/react-5.2.1.tgz"
+  integrity sha512-37GDR3fYDZmnmUn9RagyaX+zca24jfVOMY8E1IXTqJuE8pxNtN51KWPQe3VODOWvuUurq7q9uUu3CFrpqj5Iqg==
   dependencies:
     "@iconify/types" "^2.0.0"
 
-"@iconify/types@^2.0.0":
+"@iconify/types@*", "@iconify/types@^2.0.0":
   version "2.0.0"
   resolved "https://registry.npmjs.org/@iconify/types/-/types-2.0.0.tgz"
   integrity sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==
@@ -1477,15 +1568,10 @@
   resolved "https://registry.npmjs.org/@remix-run/router/-/router-1.19.1.tgz"
   integrity sha512-S45oynt/WH19bHbIXjtli6QmwNYvaz+vtnubvNpNDvUOoA/OWh6j1OikIP3G+v5GHdxyC6EXoChG3HgYGEUfcg==
 
-"@rollup/rollup-linux-x64-gnu@4.36.0":
+"@rollup/rollup-win32-x64-msvc@4.36.0":
   version "4.36.0"
-  resolved "https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.36.0.tgz"
-  integrity sha512-5KtoW8UWmwFKQ96aQL3LlRXX16IMwyzMq/jSSVIIyAANiE1doaQsx/KRyhAvpHlPjPiSU/AYX/8m+lQ9VToxFQ==
-
-"@rollup/rollup-linux-x64-musl@4.36.0":
-  version "4.36.0"
-  resolved "https://registry.npmjs.org/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.36.0.tgz"
-  integrity sha512-sycrYZPrv2ag4OCvaN5js+f01eoZ2U+RmT5as8vhxiFz+kxwlHrsxOwKPSA8WyS+Wc6Epid9QeI/IkQ9NkgYyQ==
+  resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.36.0.tgz"
+  integrity sha512-aRXd7tRZkWLqGbChgcMMDEHjOKudo1kChb1Jt1IfR8cY/KIpgNviLeJy5FUb9IpSuQj8dU2fAYNMPW/hLKOSTw==
 
 "@smithy/abort-controller@^3.1.1":
   version "3.1.1"
@@ -2026,15 +2112,10 @@
     "@supabase/realtime-js" "2.10.2"
     "@supabase/storage-js" "2.6.0"
 
-"@swc/core-linux-x64-gnu@1.11.13":
+"@swc/core-win32-x64-msvc@1.11.13":
   version "1.11.13"
-  resolved "https://registry.npmjs.org/@swc/core-linux-x64-gnu/-/core-linux-x64-gnu-1.11.13.tgz"
-  integrity sha512-q9H3WI3U3dfJ34tdv60zc8oTuWvSd5fOxytyAO9Pc5M82Hic3jjWaf2xBekUg07ubnMZpyfnv+MlD+EbUI3Llw==
-
-"@swc/core-linux-x64-musl@1.11.13":
-  version "1.11.13"
-  resolved "https://registry.npmjs.org/@swc/core-linux-x64-musl/-/core-linux-x64-musl-1.11.13.tgz"
-  integrity sha512-9aaZnnq2pLdTbAzTSzy/q8dr7Woy3aYIcQISmw1+Q2/xHJg5y80ZzbWSWKYca/hKonDMjIbGR6dp299I5J0aeA==
+  resolved "https://registry.npmjs.org/@swc/core-win32-x64-msvc/-/core-win32-x64-msvc-1.11.13.tgz"
+  integrity sha512-+X5/uW3s1L5gK7wAo0E27YaAoidJDo51dnfKSfU7gF3mlEUuWH8H1bAy5OTt2mU4eXtfsdUMEVXSwhDlLtQkuA==
 
 "@swc/core@^1.11.11":
   version "1.11.13"
@@ -2400,6 +2481,11 @@
   version "4.2.6"
   resolved "https://registry.npmjs.org/@types/stylis/-/stylis-4.2.6.tgz"
   integrity sha512-4nebF2ZJGzQk0ka0O6+FZUWceyFv4vWq/0dXBMmrSeAwzOuOd/GxE5Pa64d/ndeNLG73dXoBsRzvtsVsYUv6Uw==
+
+"@types/trusted-types@^2.0.7":
+  version "2.0.7"
+  resolved "https://registry.npmjs.org/@types/trusted-types/-/trusted-types-2.0.7.tgz"
+  integrity sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==
 
 "@types/turndown@^5.0.5":
   version "5.0.5"
@@ -3349,6 +3435,13 @@ dommatrix@^1.0.3:
   resolved "https://registry.npmjs.org/dommatrix/-/dommatrix-1.0.3.tgz"
   integrity sha512-l32Xp/TLgWb8ReqbVJAFIvXmY7go4nTxxlWiAFyhoQw9RKEOHBZNnyGvJWqDVSPmq3Y9HlM4npqF/T6VMOXhww==
 
+dompurify@^3.2.5:
+  version "3.2.5"
+  resolved "https://registry.npmjs.org/dompurify/-/dompurify-3.2.5.tgz"
+  integrity sha512-mLPd29uoRe9HpvwP2TxClGQBzGXeEC/we/q+bFlmPPmj2p2Ugl3r6ATu/UU1v77DXNcehiBg9zsr1dREyA/dJQ==
+  optionalDependencies:
+    "@types/trusted-types" "^2.0.7"
+
 earcut@^2.2.4:
   version "2.2.4"
   resolved "https://registry.npmjs.org/earcut/-/earcut-2.2.4.tgz"
@@ -3558,7 +3651,7 @@ es-to-primitive@^1.2.1:
     is-date-object "^1.0.1"
     is-symbol "^1.0.2"
 
-esbuild@^0.25.0:
+esbuild@^0.25.0, esbuild@0.25.1:
   version "0.25.1"
   resolved "https://registry.npmjs.org/esbuild/-/esbuild-0.25.1.tgz"
   integrity sha512-BGO5LtrGC7vxnqucAe/rmvKdJllfGaYWdyABvyMoXQlfYMb2bbRuReWR5tEGE//4LcNJj9XrkovTqNYRFZHAMQ==

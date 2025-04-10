@@ -24,6 +24,7 @@ import {
   EventType,
   NewRecordEvent,
   RecordsEventProducer,
+  ReindexRecordEvent,
   UpdateRecordEvent,
 } from './records_events.service';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
@@ -1745,6 +1746,69 @@ export class RecordRelationService {
       logger.error('Error updating record', { recordId, error });
       throw error;
     }
+  }
+
+  async reindexRecord(
+    recordId: string,
+    record: any,
+    keyValueStoreService: KeyValueStoreService,
+  ): Promise<any> {
+    try {
+      try {
+        const reindexEventPayload = await this.createReindexRecordEventPayload(
+          record,
+          keyValueStoreService,
+        );
+
+        const event: Event = {
+          eventType: EventType.ReindexRecordEvent, // Changed to ReindexRecordEvent
+          timestamp: Date.now(),
+          payload: reindexEventPayload,
+        };
+
+        await this.eventProducer.publishEvent(event);
+        logger.info(`Published reindex event for record ${recordId}`);
+
+        return { success: true, recordId };
+      } catch (eventError: any) {
+        logger.error('Failed to publish reindex record event', {
+          recordId,
+          error: eventError,
+        });
+        // Don't throw the error to avoid affecting the main operation
+        return { success: false, error: eventError.message };
+      }
+    } catch (error) {
+      logger.error('Error reindexing record', { recordId, error });
+      throw error;
+    }
+  }
+
+  // New method for creating reindex event payload
+  private async createReindexRecordEventPayload(
+    record: any,
+    keyValueStoreService: KeyValueStoreService,
+  ): Promise<ReindexRecordEvent> {
+    // Generate signed URL route based on record information
+    const url = (await keyValueStoreService.get<string>('endpoint')) || '{}';
+
+    const storageUrl =
+      JSON.parse(url).storage?.endpoint || this.defaultConfig.endpoint;
+    const signedUrlRoute = `${storageUrl}/api/v1/document/internal/${record.externalRecordId}/download`;
+
+    return {
+      orgId: record.orgId,
+      recordId: record._key,
+      version: record.version || 1,
+      signedUrlRoute: signedUrlRoute,
+      recordName: record.recordName,
+      recordType: record.recordType,
+      origin: record.origin,
+      extension: record.fileRecord.extension,
+      createdAtTimestamp: Date.now().toString(),
+      updatedAtTimestamp: Date.now().toString(),
+      sourceCreatedAtTimestamp: Date.now().toString(),
+    };
   }
 
   /**
