@@ -70,14 +70,13 @@ async def askAI(request: Request, query_info: ChatQuery,
                     detail="Failed to initialize LLM service. LLM configuration is missing."
                 )
                 
-        print("useDecomposition", query_info.useDecomposition)
+        logger.debug("useDecomposition", query_info.useDecomposition)
         if query_info.useDecomposition:
-            print("calling query decomposition")
             decomposition_service = QueryDecompositionService(llm)
             decomposition_result = await decomposition_service.decompose_query(query_info.query)
             decomposed_queries = decomposition_result["queries"]
             
-            print("decomposed_queries", decomposed_queries)
+            logger.debug("decomposed_queries", decomposed_queries)
             if not decomposed_queries:
                 all_queries = [{'query': query_info.query}]
             else:
@@ -119,7 +118,7 @@ async def askAI(request: Request, query_info: ChatQuery,
             )
             logger.info("Results from the AI service received")
             # Format conversation history
-            print(results, "formatted_results")
+            logger.debug(f"formatted_results: {results}")
             # Get raw search results
             search_results = results.get('searchResults', [])
 
@@ -134,15 +133,18 @@ async def askAI(request: Request, query_info: ChatQuery,
         # Flatten and deduplicate results based on document ID or other unique identifier
         # This assumes each result has an 'id' field - adjust according to your data structure
         flattened_results = []
-        # seen_ids = set()
+        seen_ids = set()
         for result_set in all_search_results:
             for result in result_set:
-                print()
-                flattened_results.append(result)
-                # result_id = result.get('_id')
-                # if result_id not in seen_ids:
-                #     seen_ids.add(result_id)
-                #     flattened_results.append(result)
+                logger.debug("==================")
+                logger.debug("==================")
+                logger.debug(f'result: {result}')
+                logger.debug("==================")
+                logger.debug("==================")
+                result_id = result['metadata'].get('_id')
+                if result_id not in seen_ids:
+                    seen_ids.add(result_id)
+                    flattened_results.append(result)
         
         # Re-rank the combined results with the original query for better relevance
         if len(flattened_results) > 1:
@@ -154,7 +156,7 @@ async def askAI(request: Request, query_info: ChatQuery,
         else:
             final_results = flattened_results
         
-        print(final_results, "final_results")
+        logger.debug(f"final_results: {final_results}")
         # Prepare the template with the final results
         template = Template(qna_prompt)
         rendered_form = template.render(
@@ -180,7 +182,7 @@ async def askAI(request: Request, query_info: ChatQuery,
         
         # Make async LLM call
         response = await llm.ainvoke(messages)
-        print(response, "llm response")
+        logger.debug(f"llm response: {response}")
         # Process citations and return response
         return process_citations(response, final_results)
         

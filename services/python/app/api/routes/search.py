@@ -67,7 +67,7 @@ async def search(request: Request, body: SearchQuery,
         rewrite_chain, expansion_chain = setup_query_transformation(llm)
 
         # Run query transformations in parallel
-        print("body ", body)
+        logger.debug("body ", body)
         rewritten_query, expanded_queries = await asyncio.gather(
             rewrite_chain.ainvoke(body.query),
             expansion_chain.ainvoke(body.query)
