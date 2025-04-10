@@ -599,7 +599,10 @@ export class ConfigService {
           db: MONGO_DB_NAME,
         })
       ).uri;
-      if (mongoUri.includes('localhost')) {
+      if (
+        mongoUri.includes('localhost') ||
+        mongoUri.includes('@mongodb:27017')
+      ) {
         return 'false';
       } else {
         return 'true';

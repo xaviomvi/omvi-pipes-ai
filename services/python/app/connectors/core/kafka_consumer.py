@@ -118,13 +118,12 @@ class KafkaRouteConsumer:
 
                     if isinstance(value, str):
                         value = json.loads(value)
-                    print(value, "value....")
-                    print(f"Type of value: {type(value)}")
+                    logger.debug(f"Type of value: {type(value)}")
                     event_type = value.get('eventType')
                 except json.JSONDecodeError as e:
-                    print(f"Failed to parse JSON: {e}")
+                    logger.error(f"Failed to parse JSON: {e}")
             else:
-                print(f"Unexpected message value type: {type(message_value)}")
+                logger.error(f"Unexpected message value type: {type(message_value)}")
             
             if not event_type or topic not in self.route_mapping:
                 logger.error(f"Invalid topic or missing event_type: {topic}, {event_type}")
@@ -220,7 +219,6 @@ class KafkaRouteConsumer:
             }
             
             # Batch upsert org
-            print("org_data", org_data)
             await self.arango_service.batch_upsert_nodes([org_data], CollectionNames.ORGS.value)
             
             # Write a query to get departments with orgId == None
@@ -340,7 +338,6 @@ class KafkaRouteConsumer:
                 return False
 
             # Batch upsert user
-            # print("user_data", user_data)
             await self.arango_service.batch_upsert_nodes([user_data], CollectionNames.USERS.value)
 
             # Create edge between org and user if it doesn't exist
