@@ -167,7 +167,7 @@ const PdfHighlighterComp = ({
   const [actualPdfBuffer, setActualPdfBuffer] = useState<ArrayBuffer | null>(pdfBuffer || null);
   const scrollViewerTo = useRef<(highlight: HighlightType) => void>(() => {});
   const [processedCitations, setProcessedCitations] = useState<ProcessedCitation[]>([]);
-
+  console.log(citations)
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `

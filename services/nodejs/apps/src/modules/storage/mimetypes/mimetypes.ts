@@ -34,6 +34,7 @@ export const extensionToMimeType: Record<string, string> = {
   avif: 'image/avif',
   jxr: 'image/jxr',
   icns: 'image/x-icns',
+  
 
   // Document formats
   pdf: 'application/pdf',
@@ -59,6 +60,7 @@ export const extensionToMimeType: Record<string, string> = {
   xml: 'text/xml',
   csv: 'text/csv',
   tsv: 'text/tab-separated-values',
+  md: 'text/markdown',
 
   // Archive and compression formats
   zip: 'application/zip',

@@ -8,6 +8,7 @@ export enum EventType {
   NewRecordEvent = 'newRecord',
   UpdateRecordEvent = 'updateRecord',
   DeletedRecordEvent = 'deletedRecord',
+  ReindexRecordEvent = 'reindexRecord'
 }
 
 export interface Event {
@@ -41,6 +42,7 @@ export interface UpdateRecordEvent {
     updatedAtTimestamp : string;
     sourceLastModifiedTimestamp : string;
 }
+
 
 export interface DeletedRecordEvent {
   orgId: string;

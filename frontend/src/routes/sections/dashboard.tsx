@@ -44,6 +44,14 @@ const RecordDetails = lazy(() => import('src/pages/dashboard/knowledgebase/recor
 const KnowledgeSearch = lazy(
   () => import('src/pages/dashboard/knowledgebase/knowledgebase-search')
 );
+const KnowledgeSearchHistory = lazy(
+  () => import('src/pages/dashboard/knowledgebase/knowledgebase-search-history')
+);
+
+const SearchHistoryDetails = lazy(
+  () => import('src/pages/dashboard/knowledgebase/search-history-details')
+);
+
 
 // ----------------------------------------------------------------------
 
@@ -133,7 +141,14 @@ export const dashboardRoutes = [
         path: 'knowledge-base',
         children: [
           { path: 'details', element: <KnowledgeBaseList /> },
-          { path: 'search', element: <KnowledgeSearch /> },
+          {
+            path: 'search',
+            children: [
+              { element: <KnowledgeSearch />, index: true },
+              { path: 'history', element: <KnowledgeSearchHistory /> },
+              { path: 'history/:id', element: <SearchHistoryDetails /> },
+            ],
+          },
           { path: 'company-settings/groups/:id', element: <GroupDetails /> },
           {
             path: 'company-settings',

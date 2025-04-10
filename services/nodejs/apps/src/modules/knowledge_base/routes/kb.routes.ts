@@ -16,6 +16,7 @@ import {
   getRecordById,
   updateRecord,
   getRecordBuffer,
+  reindexRecord,
 } from '../controllers/kb_controllers';
 import { ArangoService } from '../../../libs/services/arango.service';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
@@ -160,6 +161,15 @@ export function createKnowledgeBaseRouter(container: Container): Router {
     metricsMiddleware(container),
     ValidationMiddleware.validate(restoreRecordSchema),
     //restoreRecord(arangoService),
+  );
+
+  // reindex a record 
+  router.post(
+    '/reindex/record/:recordId',
+    authMiddleware.authenticate,
+    metricsMiddleware(container),
+    ValidationMiddleware.validate(unarchiveRecordSchema),
+    reindexRecord(recordRelationService,keyValueStoreService, appConfig),
   );
 
   // Set expiration time for a record

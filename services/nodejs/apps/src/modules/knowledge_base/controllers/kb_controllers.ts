@@ -1033,6 +1033,73 @@ export const unarchiveRecord =
     }
   };
 
+export const reindexRecord =
+  (
+    recordRelationService: RecordRelationService,
+    keyValueStoreService: KeyValueStoreService,
+    appConfig: AppConfig,
+  ) =>
+  async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+    try {
+      const { recordId } = req.params as { recordId: string };
+      const userId = req.user?.userId;
+      const aiBackendUrl = appConfig.aiBackend;
+      if (!userId) {
+        throw new BadRequestError('User not authenticated');
+      }
+
+      try {
+        const aiCommand = new AIServiceCommand({
+          uri: `${aiBackendUrl}/api/v1/check-record-access/${recordId}`,
+          method: HttpMethod.GET,
+          headers: req.headers as Record<string, string>,
+          // body: { query, limit },
+        });
+
+        const aiResponse =
+          (await aiCommand.execute()) as AIServiceResponse<IServiceRecordsResponse>;
+        if (!aiResponse || aiResponse.statusCode !== 200 || !aiResponse.data) {
+          throw new UnauthorizedError(
+            'User has no access to this record',
+            aiResponse?.data,
+          );
+        }
+
+        const recordData = aiResponse.data;
+        const record = recordData.record;
+
+        const reindexResponse = recordRelationService.reindexRecord(
+          recordId,
+          record,
+          keyValueStoreService,
+        );
+
+        res.status(200).json({
+          reindexResponse,
+        });
+
+        return; // Added return statement
+      } catch (error: any) {
+        if (error.message?.includes('not found')) {
+          throw new NotFoundError('Record not found');
+        }
+
+        if (error.message?.includes('User has no access to this record')) {
+          throw new UnauthorizedError('User has no access to this record');
+        }
+
+        throw error;
+      }
+    } catch (error: any) {
+      logger.error('Error getting record by id', {
+        recordId: req.params.recordId,
+        error,
+      });
+      next(error);
+      return; // Added return statement
+    }
+  };
+
 // export const restoreRecord =
 //   (arangoService: ArangoService) =>
 //   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {

@@ -1747,6 +1747,69 @@ export class RecordRelationService {
     }
   }
 
+  async reindexRecord(
+    recordId: string,
+    record: any,
+    keyValueStoreService: KeyValueStoreService,
+  ): Promise<any> {
+    try {
+      try {
+        const reindexEventPayload = await this.createReindexRecordEventPayload(
+          record,
+          keyValueStoreService,
+        );
+
+        const event: Event = {
+          eventType: EventType.NewRecordEvent,
+          timestamp: Date.now(),
+          payload: reindexEventPayload,
+        };
+
+        await this.eventProducer.publishEvent(event);
+        logger.info(`Published reindex event for record ${recordId}`);
+
+        return { success: true, recordId };
+      } catch (eventError: any) {
+        logger.error('Failed to publish reindex record event', {
+          recordId,
+          error: eventError,
+        });
+        // Don't throw the error to avoid affecting the main operation
+        return { success: false, error: eventError.message };
+      }
+    } catch (error) {
+      logger.error('Error reindexing record', { recordId, error });
+      throw error;
+    }
+  }
+
+  // New method for creating reindex event payload
+  private async createReindexRecordEventPayload(
+    record: any,
+    keyValueStoreService: KeyValueStoreService,
+  ): Promise<NewRecordEvent> {
+    // Generate signed URL route based on record information
+    const url = (await keyValueStoreService.get<string>('endpoint')) || '{}';
+
+    const storageUrl =
+      JSON.parse(url).storage?.endpoint || this.defaultConfig.endpoint;
+    const signedUrlRoute = `${storageUrl}/api/v1/document/internal/${record.externalRecordId}/download`;
+
+    return {
+      orgId: record.orgId,
+      recordId: record._key,
+      version: record.version || 1,
+      signedUrlRoute: signedUrlRoute,
+      recordName: record.recordName,
+      recordType: record.recordType,
+      origin: record.origin,
+      extension: record.fileRecord.extension,
+      createdAtTimestamp: Date.now().toString(),
+      updatedAtTimestamp: Date.now().toString(),
+      sourceCreatedAtTimestamp: Date.now().toString(),
+    };
+  }
+
   /**
    * Soft-deletes a record by setting isDeleted flag
    * @param recordId Record ID to delete

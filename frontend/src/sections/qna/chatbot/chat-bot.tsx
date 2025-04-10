@@ -28,6 +28,9 @@ import ExcelViewer from './components/excel-highlighter';
 import ChatMessagesArea from './components/chat-message-area';
 import PdfHighlighterComp from './components/pdf-highlighter';
 import DocxHighlighterComp from './components/docx-highlighter';
+import MarkdownViewer from './components/markdown-highlighter';
+import HtmlViewer from './components/html-highlighter';
+import TextViewer from './components/text-highlighter';
 
 const DRAWER_WIDTH = 300;
 
@@ -95,6 +98,9 @@ const ChatInterface = () => {
   const [fileBuffer, setFileBuffer] = useState<ArrayBuffer>();
   const [isPdf, setIsPdf] = useState<boolean>(false);
   const [isDocx, setIsDocx] = useState<boolean>(false);
+  const [isMarkdown, setIsMarkdown] = useState<boolean>(false);
+  const [isHtml, setIsHtml] = useState<boolean>(false);
+  const [isTextFile, setIsTextFile] = useState<boolean>(false);
 
   const formatMessage = useCallback((apiMessage: Message): FormattedMessage | null => {
     if (!apiMessage) return null;
@@ -177,12 +183,6 @@ const ChatInterface = () => {
     setAggregatedCitations(citations);
 
     try {
-      const isExcelOrCSV = ['csv', 'xlsx', 'xls'].includes(citationMeta?.extension);
-      setIsDocx(['docx'].includes(citationMeta?.extension));
-      console.log(citationMeta);
-      console.log(isDocx);
-      setIsExcel(isExcelOrCSV);
-      setIsPdf(citationMeta?.extension === 'pdf');
       const recordId = citationMeta?.recordId;
       const response = await axios.get(`/api/v1/knowledgebase/record/${recordId}`);
       const { record } = response.data;
@@ -282,7 +282,13 @@ const ChatInterface = () => {
     } catch (err) {
       console.error('Failed to fetch document:', err);
     }
-
+    const isExcelOrCSV = ['csv', 'xlsx', 'xls'].includes(citationMeta?.extension);
+    setIsDocx(['docx'].includes(citationMeta?.extension));
+    setIsMarkdown(['md'].includes(citationMeta?.extension));
+    setIsHtml(['html'].includes(citationMeta?.extension));
+    setIsHtml(['txt'].includes(citationMeta?.extension));
+    setIsExcel(isExcelOrCSV);
+    setIsPdf(citationMeta?.extension === 'pdf');
     if (openPdfView && isExcel !== isExcelFile) {
       setPdfUrl(null);
       setAggregatedCitations(null);
@@ -531,6 +537,7 @@ const ChatInterface = () => {
         setIsLoadingConversation(true);
         setMessages([]);
         setExpandedCitations({});
+        setOpenPdfView(false);
         navigate(`/${chat._id}`);
         const response = await axios.get(`/api/v1/conversations/${chat._id}`);
         const { conversation } = response.data;
@@ -759,6 +766,27 @@ const ChatInterface = () => {
                     renderHeaders: true,
                     renderFooters: true,
                   }}
+                />
+              ) : isMarkdown ? (
+                <MarkdownViewer
+                  key="markdown-viewer"
+                  url={pdfUrl}
+                  buffer={fileBuffer}
+                  citations={aggregatedCitations}
+                />
+              ) : isHtml ? (
+                <HtmlViewer
+                  key="html-viewer"
+                  url={pdfUrl}
+                  buffer={fileBuffer}
+                  citations={aggregatedCitations}
+                />
+              ) : isTextFile ? (
+                <TextViewer
+                  key="text-viewer"
+                  url={pdfUrl}
+                  buffer={fileBuffer}
+                  citations={aggregatedCitations}
                 />
               ) : (
                 <PdfHighlighterComp

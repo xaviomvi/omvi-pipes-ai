@@ -22,22 +22,17 @@ async def isJwtTokenValid(request: Request):
         config_service = await get_config_service(request)
         secret_keys = await config_service.get_config(config_node_constants.SECRET_KEYS.value)
         jwt_secret = secret_keys.get('jwtSecret')
-        
         algorithm = os.environ.get("JWT_ALGORITHM", "HS256")
         if not jwt_secret:
             raise ValueError("Missing SECRET_KEY in environment variables")
-
         # Get the Authorization header
         authorization: str = request.headers.get("Authorization")
-
         if not authorization or not authorization.startswith("Bearer "):
             raise credentials_exception
-
         # Extract the token
         token = authorization.split("Bearer ")[1]
         if not token:
             raise credentials_exception
-
         # Decode the JWT
         payload = jwt.decode(token, jwt_secret, algorithms=[algorithm])
         payload["user"] = token
@@ -45,7 +40,7 @@ async def isJwtTokenValid(request: Request):
     except JWTError as e:
         print(f"JWT Error: {e}")
         raise credentials_exception
-
+    
 # Dependency for injecting authentication
 async def authMiddleware(request: Request):
     credentials_exception = HTTPException(

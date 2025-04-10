@@ -2,6 +2,8 @@ import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router';
+import axios from 'src/utils/axios';
+import { CONFIG } from 'src/config-global';
 import { useDropzone } from 'react-dropzone';
 import closeIcon from '@iconify-icons/mdi/close';
 import React, { useState, useEffect } from 'react';
@@ -54,6 +56,7 @@ import DeleteRecordDialog from './delete-record-dialog';
 import { handleDownloadDocument, uploadKnowledgeBaseFiles } from './utils';
 
 import type { Record, KnowledgeBaseDetailsProps } from './types/knowledge-base';
+
 
 interface ColumnVisibilityModel {
   [key: string]: boolean;
@@ -229,7 +232,7 @@ export default function KnowledgeBaseDetails({
   // Get file icon based on extension
   const getFileIcon = (extension: string): string => {
     const ext = extension?.toLowerCase() || '';
-
+  
     switch (ext) {
       case 'pdf':
         return 'mdi:file-pdf-box';
@@ -238,6 +241,7 @@ export default function KnowledgeBaseDetails({
         return 'mdi:file-word-box';
       case 'xls':
       case 'xlsx':
+      case 'csv':
         return 'mdi:file-excel-box';
       case 'ppt':
       case 'pptx':
@@ -246,19 +250,67 @@ export default function KnowledgeBaseDetails({
       case 'jpeg':
       case 'png':
       case 'gif':
+      case 'svg':
+      case 'webp':
         return 'mdi:file-image-box';
       case 'zip':
       case 'rar':
       case '7z':
+      case 'tar':
+      case 'gz':
         return 'mdi:file-archive-box';
       case 'txt':
-        return 'mdi:file-text-box';
+        return 'mdi:note-text-outline'; // Changed to a more visible text icon
+      case 'rtf':
+        return 'mdi:file-document-outline';
+      case 'md':
+        return 'mdi:language-markdown'; // More specific markdown icon
       case 'html':
+      case 'htm':
+        return 'mdi:language-html5';
       case 'css':
+        return 'mdi:language-css3';
       case 'js':
-        return 'mdi:file-code-box';
+      case 'ts':
+      case 'jsx':
+      case 'tsx':
+        return 'mdi:language-javascript';
+      case 'json':
+        return 'mdi:code-json';
+      case 'xml':
+        return 'mdi:file-code-outline';
+      case 'py':
+        return 'mdi:language-python';
+      case 'java':
+        return 'mdi:language-java';
+      case 'c':
+      case 'cpp':
+      case 'cs':
+        return 'mdi:language-c';
+      case 'php':
+        return 'mdi:language-php';
+      case 'rb':
+        return 'mdi:language-ruby';
+      case 'go':
+        return 'mdi:language-go';
+      case 'sql':
+        return 'mdi:database';
+      case 'mp3':
+      case 'wav':
+      case 'ogg':
+      case 'flac':
+        return 'mdi:file-music-outline';
+      case 'mp4':
+      case 'avi':
+      case 'mov':
+      case 'wmv':
+      case 'mkv':
+        return 'mdi:file-video-outline';
+      case 'eml':
+      case 'msg':
+        return 'mdi:email-outline';
       default:
-        return 'mdi:file-document-box';
+        return 'mdi:file-document-outline';
     }
   };
 
@@ -268,18 +320,80 @@ export default function KnowledgeBaseDetails({
 
     switch (ext) {
       case 'pdf':
-        return '#f44336';
+        return '#f44336'; // Red
       case 'doc':
       case 'docx':
-        return '#2196f3';
+        return '#2196f3'; // Blue
       case 'xls':
       case 'xlsx':
-        return '#4caf50';
+      case 'csv':
+        return '#4caf50'; // Green
       case 'ppt':
       case 'pptx':
-        return '#ff9800';
+        return '#ff9800'; // Orange
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'svg':
+      case 'webp':
+        return '#9c27b0'; // Purple
+      case 'zip':
+      case 'rar':
+      case '7z':
+      case 'tar':
+      case 'gz':
+        return '#795548'; // Brown
+      case 'txt':
+      case 'rtf':
+      case 'md':
+        return '#607d8b'; // Blue Grey
+      case 'html':
+      case 'htm':
+        return '#e65100'; // Deep Orange
+      case 'css':
+        return '#0277bd'; // Light Blue
+      case 'js':
+      case 'ts':
+      case 'jsx':
+      case 'tsx':
+        return '#ffd600'; // Yellow
+      case 'json':
+        return '#616161'; // Grey
+      case 'xml':
+        return '#00838f'; // Cyan
+      case 'py':
+        return '#1976d2'; // Blue
+      case 'java':
+        return '#b71c1c'; // Dark Red
+      case 'c':
+      case 'cpp':
+      case 'cs':
+        return '#3949ab'; // Indigo
+      case 'php':
+        return '#6a1b9a'; // Deep Purple
+      case 'rb':
+        return '#c62828'; // Red
+      case 'go':
+        return '#00acc1'; // Cyan
+      case 'sql':
+        return '#00695c'; // Teal
+      case 'mp3':
+      case 'wav':
+      case 'ogg':
+      case 'flac':
+        return '#283593'; // Indigo
+      case 'mp4':
+      case 'avi':
+      case 'mov':
+      case 'wmv':
+      case 'mkv':
+        return '#d81b60'; // Pink
+      case 'eml':
+      case 'msg':
+        return '#6a1b9a'; // Deep Purple
       default:
-        return '#1976d2';
+        return '#1976d2'; // Default Blue
     }
   };
 
@@ -580,6 +694,16 @@ export default function KnowledgeBaseDetails({
               onClick: () =>
                 handleDownloadDocument(params.row.externalRecordId, params.row.recordName),
             },
+            ...(params.row.indexingStatus === 'FAILED'
+              ? [
+                  {
+                    label: 'Retry Indexing',
+                    icon: 'mdi:refresh',
+                    color: '#ff9800', // Orange color for caution/retry
+                    onClick: () => handleRetryIndexing(params.row.id),
+                  },
+                ]
+              : []),
             {
               label: 'Delete Record',
               icon: trashCanIcon,
@@ -596,6 +720,14 @@ export default function KnowledgeBaseDetails({
 
           // Show the menu
           showActionMenu(event.currentTarget, items);
+        };
+
+        const handleRetryIndexing = (recordId: string) => {
+          try {
+            const response = axios.post(`${CONFIG.backendUrl}/api/v1/knowledgeBase/reindex/record/${recordId}`);
+          } catch (error) {
+            console.log("error in re indexing", error)
+          }
         };
 
         return (
