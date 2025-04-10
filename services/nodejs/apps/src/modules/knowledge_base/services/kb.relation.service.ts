@@ -24,7 +24,6 @@ import {
   EventType,
   NewRecordEvent,
   RecordsEventProducer,
-  ReindexRecordEvent,
   UpdateRecordEvent,
 } from './records_events.service';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
@@ -1761,7 +1760,7 @@ export class RecordRelationService {
         );
 
         const event: Event = {
-          eventType: EventType.ReindexRecordEvent, // Changed to ReindexRecordEvent
+          eventType: EventType.NewRecordEvent,
           timestamp: Date.now(),
           payload: reindexEventPayload,
         };
@@ -1788,7 +1787,7 @@ export class RecordRelationService {
   private async createReindexRecordEventPayload(
     record: any,
     keyValueStoreService: KeyValueStoreService,
-  ): Promise<ReindexRecordEvent> {
+  ): Promise<NewRecordEvent> {
     // Generate signed URL route based on record information
     const url = (await keyValueStoreService.get<string>('endpoint')) || '{}';
 

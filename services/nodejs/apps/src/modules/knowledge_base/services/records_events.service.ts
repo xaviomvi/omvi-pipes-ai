@@ -17,8 +17,7 @@ export interface Event {
   payload:
     | NewRecordEvent
     | UpdateRecordEvent
-    | DeletedRecordEvent
-    | ReindexRecordEvent;
+    | DeletedRecordEvent;
 }
 
 export interface NewRecordEvent {
@@ -43,19 +42,7 @@ export interface UpdateRecordEvent {
     updatedAtTimestamp : string;
     sourceLastModifiedTimestamp : string;
 }
-export interface ReindexRecordEvent {
-  orgId: string;
-  recordId : string;
-  recordName : string;
-  recordType : string;
-  version : number;
-  signedUrlRoute : string;
-  origin : string;
-  extension : string;
-  createdAtTimestamp : string;
-  updatedAtTimestamp : string;
-  sourceCreatedAtTimestamp : string;
-}
+
 
 export interface DeletedRecordEvent {
   orgId: string;

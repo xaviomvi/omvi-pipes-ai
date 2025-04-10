@@ -164,8 +164,8 @@ export function createKnowledgeBaseRouter(container: Container): Router {
   );
 
   // reindex a record 
-  router.patch(
-    'reindex/record/:recordId',
+  router.post(
+    '/reindex/record/:recordId',
     authMiddleware.authenticate,
     metricsMiddleware(container),
     ValidationMiddleware.validate(unarchiveRecordSchema),
