@@ -537,6 +537,7 @@ const ChatInterface = () => {
         setIsLoadingConversation(true);
         setMessages([]);
         setExpandedCitations({});
+        setOpenPdfView(false);
         navigate(`/${chat._id}`);
         const response = await axios.get(`/api/v1/conversations/${chat._id}`);
         const { conversation } = response.data;
