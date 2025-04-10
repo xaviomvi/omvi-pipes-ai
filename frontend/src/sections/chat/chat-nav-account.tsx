@@ -1,6 +1,10 @@
 import type { SelectChangeEvent } from '@mui/material/Select';
 
 import { useState, useCallback } from 'react';
+import userIdIcon from '@iconify-icons/solar/user-id-bold';
+import settingsIcon from '@iconify-icons/eva/settings-2-fill';
+// Icon imports
+import powerSettingsIcon from '@iconify-icons/ic/round-power-settings-new';
 
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
@@ -65,7 +69,7 @@ export function ChatNavAccount() {
 
           <Tooltip title="Log out">
             <IconButton color="error">
-              <Iconify icon="ic:round-power-settings-new" />
+              <Iconify icon={powerSettingsIcon} />
             </IconButton>
           </Tooltip>
         </Stack>
@@ -107,12 +111,12 @@ export function ChatNavAccount() {
           </MenuItem>
 
           <MenuItem>
-            <Iconify icon="solar:user-id-bold" width={24} />
+            <Iconify icon={userIdIcon} width={24} />
             Profile
           </MenuItem>
 
           <MenuItem>
-            <Iconify icon="eva:settings-2-fill" width={24} />
+            <Iconify icon={settingsIcon} width={24} />
             Settings
           </MenuItem>
         </MenuList>

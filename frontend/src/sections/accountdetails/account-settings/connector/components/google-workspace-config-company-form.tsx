@@ -1,3 +1,11 @@
+// Icon imports
+import infoOutlineIcon from '@iconify-icons/eva/info-outline';
+import editOutlineIcon from '@iconify-icons/eva/edit-outline';
+import trashOutlineIcon from '@iconify-icons/eva/trash-outline';
+import uploadOutlineIcon from '@iconify-icons/eva/upload-outline';
+import downloadOutlineIcon from '@iconify-icons/eva/download-outline';
+import fileTextOutlineIcon from '@iconify-icons/mdi/file-text-outline';
+import checkmarkCircleOutlineIcon from '@iconify-icons/eva/checkmark-circle-outline';
 import { useRef, useState, useEffect, forwardRef, useCallback, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -357,7 +365,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
             }}
           >
             <Iconify
-              icon="eva:info-outline"
+              icon={infoOutlineIcon}
               width={20}
               height={20}
               color={theme.palette.info.main}
@@ -439,9 +447,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
                   }}
                 >
                   <Iconify
-                    icon={
-                      hasExistingFile ? 'eva:checkmark-circle-outline' : 'mdi:file-text-outline'
-                    }
+                    icon={hasExistingFile ? checkmarkCircleOutlineIcon : fileTextOutlineIcon}
                     width={24}
                     height={24}
                     color={
@@ -469,7 +475,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
                     variant="outlined"
                     size="small"
                     onClick={handleDownload}
-                    startIcon={<Iconify icon="eva:download-outline" width={18} height={18} />}
+                    startIcon={<Iconify icon={downloadOutlineIcon} width={18} height={18} />}
                     color="primary"
                     sx={{
                       minWidth: 120,
@@ -482,7 +488,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
                     variant="outlined"
                     size="small"
                     onClick={handleRemoveFile}
-                    startIcon={<Iconify icon="eva:trash-outline" width={18} height={18} />}
+                    startIcon={<Iconify icon={trashOutlineIcon} width={18} height={18} />}
                     color="error"
                     sx={{
                       minWidth: 120,
@@ -496,7 +502,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
                       variant="outlined"
                       size="small"
                       onClick={handleUploadClick}
-                      startIcon={<Iconify icon="eva:edit-outline" width={18} height={18} />}
+                      startIcon={<Iconify icon={editOutlineIcon} width={18} height={18} />}
                       sx={{
                         minWidth: 120,
                         flexShrink: 0,
@@ -511,7 +517,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
                   variant="outlined"
                   size="small"
                   onClick={handleUploadClick}
-                  startIcon={<Iconify icon="eva:upload-outline" width={18} height={18} />}
+                  startIcon={<Iconify icon={uploadOutlineIcon} width={18} height={18} />}
                   sx={{
                     minWidth: 120,
                     flexShrink: 0,

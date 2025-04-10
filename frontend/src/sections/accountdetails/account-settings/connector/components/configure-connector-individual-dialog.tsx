@@ -1,4 +1,8 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
+
 import { useRef, useState } from 'react';
+import closeIcon from '@iconify-icons/eva/close-outline';
+import googleIcon from '@iconify-icons/eva/google-outline';
 
 import {
   Box,
@@ -21,7 +25,7 @@ import type { GoogleWorkspaceConfigFormRef } from './google-workspace-config-ind
 // Method configurations
 interface ConnectorConfigType {
   [key: string]: {
-    icon: string;
+    icon: React.ComponentProps<typeof IconifyIcon>['icon'];
     title: string;
     color: string;
   };
@@ -29,7 +33,7 @@ interface ConnectorConfigType {
 
 const CONNECTOR_CONFIG: ConnectorConfigType = {
   googleWorkspace: {
-    icon: 'eva:google-outline',
+    icon: googleIcon,
     title: 'Google Workspace',
     color: '#4285F4',
   },
@@ -149,7 +153,7 @@ const ConfigureConnectorDialog = ({
               sx={{ color: theme.palette.text.secondary }}
               aria-label="close"
             >
-              <Iconify icon="eva:close-outline" width={20} height={20} />
+              <Iconify icon={closeIcon} width={20} height={20} />
             </IconButton>
           </DialogTitle>
 

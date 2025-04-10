@@ -1,5 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
+import fileIcon from '@iconify-icons/eva/file-outline';
+import fileTextIcon from '@iconify-icons/eva/file-text-outline';
+import arrowBackIcon from '@iconify-icons/eva/arrow-ios-back-fill';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -34,7 +37,7 @@ const StyledTextarea = styled(TextField)(({ theme }) => ({
 const DEFAULT_SAML_CONFIG: SamlSsoConfig = {
   entryPoint: '',
   certificate: '',
-  emailKey: ''
+  emailKey: '',
 };
 
 const SamlSsoConfigPage = () => {
@@ -59,7 +62,7 @@ const SamlSsoConfigPage = () => {
   // Load existing config on mount
   useEffect(() => {
     fetchSamlConfiguration();
-    // eslint-disable-next-line 
+    // eslint-disable-next-line
   }, []);
 
   // Helper functions for snackbar
@@ -118,64 +121,64 @@ const SamlSsoConfigPage = () => {
             let fieldsUpdated = false;
 
             // Use more robust regex patterns for namespaced XML
-            
+
             // Extract Entry Point URL (SSO URL) - try different namespace patterns
             const ssoRegexPatterns = [
               /<md:SingleSignOnService[^>]*?Location="([^"]+)"[^>]*?>/i,
               /<SingleSignOnService[^>]*?Location="([^"]+)"[^>]*?>/i,
-              /<[^:>]*:SingleSignOnService[^>]*?Location="([^"]+)"[^>]*?>/i
+              /<[^:>]*:SingleSignOnService[^>]*?Location="([^"]+)"[^>]*?>/i,
             ];
-            
+
             // Using find() instead of for...of loop to avoid ESLint error
             const ssoMatch = ssoRegexPatterns
-              .map(pattern => content.match(pattern))
-              .find(match => match && match[1]);
-              
+              .map((pattern) => content.match(pattern))
+              .find((match) => match && match[1]);
+
             if (ssoMatch && ssoMatch[1]) {
               updatedConfig.entryPoint = ssoMatch[1];
               fieldsUpdated = true;
             }
-            
+
             // Extract Certificate - try different namespace patterns
             const certRegexPatterns = [
               /<ds:X509Certificate>([\s\S]*?)<\/ds:X509Certificate>/i,
               /<X509Certificate>([\s\S]*?)<\/X509Certificate>/i,
-              /<[^:>]*:X509Certificate>([\s\S]*?)<\/[^:>]*:X509Certificate>/i
+              /<[^:>]*:X509Certificate>([\s\S]*?)<\/[^:>]*:X509Certificate>/i,
             ];
-            
+
             // Using find() instead of for...of loop to avoid ESLint error
             const certMatch = certRegexPatterns
-              .map(pattern => content.match(pattern))
-              .find(match => match && match[1]);
-              
+              .map((pattern) => content.match(pattern))
+              .find((match) => match && match[1]);
+
             if (certMatch && certMatch[1]) {
               // Format certificate properly with line breaks
               const certContent = certMatch[1].trim().replace(/\s+/g, '');
-              
+
               // Break the certificate into lines of 64 characters
               // Using reduce to build formatted certificate rather than for loop
               const formattedCert = `-----BEGIN CERTIFICATE-----
-${Array.from({length: Math.ceil(certContent.length / 64)})
+${Array.from({ length: Math.ceil(certContent.length / 64) })
   .map((_, i) => certContent.substring(i * 64, (i + 1) * 64))
   .join('\n')}
 -----END CERTIFICATE-----`;
-              
+
               updatedConfig.certificate = formattedCert;
               fieldsUpdated = true;
             }
-            
+
             // Try to extract Entity ID
             const entityIdRegexPatterns = [
               /entityID="([^"]+)"/i,
               /<md:EntityDescriptor[^>]*?entityID="([^"]+)"[^>]*?>/i,
-              /<EntityDescriptor[^>]*?entityID="([^"]+)"[^>]*?>/i
+              /<EntityDescriptor[^>]*?entityID="([^"]+)"[^>]*?>/i,
             ];
-            
+
             // Using find() instead of for...of loop to avoid ESLint error
             const entityIdMatch = entityIdRegexPatterns
-              .map(pattern => content.match(pattern))
-              .find(match => match && match[1]);
-              
+              .map((pattern) => content.match(pattern))
+              .find((match) => match && match[1]);
+
             if (entityIdMatch && entityIdMatch[1]) {
               updatedConfig.entityId = entityIdMatch[1];
               fieldsUpdated = true;
@@ -183,7 +186,7 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
 
             if (fieldsUpdated) {
               setConfiguration(updatedConfig);
-              
+
               // Validate updated fields
               if (updatedConfig.entryPoint) {
                 validateField('entryPoint', updatedConfig.entryPoint);
@@ -191,10 +194,12 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
               if (updatedConfig.certificate) {
                 validateField('certificate', updatedConfig.certificate);
               }
-              
+
               showSuccessSnackbar('Successfully parsed XML metadata file');
             } else {
-              showErrorSnackbar('Could not extract required fields from XML. Please check the format or enter details manually.');
+              showErrorSnackbar(
+                'Could not extract required fields from XML. Please check the format or enter details manually.'
+              );
             }
           }
         } catch (err) {
@@ -262,9 +267,9 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
         certificate: configuration.certificate,
         emailKey: configuration.emailKey || 'nameID',
         entityId: configuration.entityId,
-        logoutUrl: configuration.logoutUrl
+        logoutUrl: configuration.logoutUrl,
       };
-      
+
       // Send to API
       await updateSamlSsoConfig(payload);
       showSuccessSnackbar('SAML configuration successfully updated');
@@ -284,7 +289,7 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
     <Container maxWidth="lg">
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, mt: 3 }}>
         <IconButton onClick={handleBack} sx={{ mr: 1, color: theme.palette.text.secondary }}>
-          <Iconify icon="eva:arrow-ios-back-fill" width={20} height={20} />
+          <Iconify icon={arrowBackIcon} width={20} height={20} />
         </IconButton>
         <Typography variant="h6">Back to Authentication Settings</Typography>
       </Box>
@@ -305,13 +310,14 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2">IdP Configuration XML</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Upload your Identity Provider&apos;s metadata XML file to automatically populate the fields below
+                    Upload your Identity Provider&apos;s metadata XML file to automatically populate
+                    the fields below
                   </Typography>
 
                   <Button
                     variant="outlined"
                     component="label"
-                    startIcon={<Iconify icon="eva:file-outline" />}
+                    startIcon={<Iconify icon={fileIcon} />}
                     size="small"
                   >
                     Choose XML File
@@ -319,7 +325,7 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
                   </Button>
                   {xmlFile && (
                     <Box sx={{ mt: 1, display: 'flex', alignItems: 'center' }}>
-                      <Iconify icon="eva:file-text-outline" width={16} height={16} sx={{ mr: 0.5 }} />
+                      <Iconify icon={fileTextIcon} width={16} height={16} sx={{ mr: 0.5 }} />
                       <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
                         {xmlFile.name}
                       </Typography>
@@ -337,7 +343,9 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
                   onChange={handleChange}
                   placeholder="https://idp.example.com/sso/saml"
                   error={Boolean(errors.entryPoint)}
-                  helperText={errors.entryPoint || 'The Single Sign-On URL from your Identity Provider'}
+                  helperText={
+                    errors.entryPoint || 'The Single Sign-On URL from your Identity Provider'
+                  }
                   required
                   size="small"
                   sx={{
@@ -358,9 +366,7 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
                   value={configuration.certificate || ''}
                   onChange={handleChange}
                   error={Boolean(errors.certificate)}
-                  helperText={
-                    errors.certificate || 'X.509 certificate provided by your IdP'
-                  }
+                  helperText={errors.certificate || 'X.509 certificate provided by your IdP'}
                   required
                   multiline
                   rows={8}
@@ -392,7 +398,11 @@ ${Array.from({length: Math.ceil(certContent.length / 64)})
                     },
                   }}
                 />
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, ml: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mt: 0.5, ml: 0.5 }}
+                >
                   The attribute that contains the user&apos;s email address (default is nameID)
                 </Typography>
               </Grid>

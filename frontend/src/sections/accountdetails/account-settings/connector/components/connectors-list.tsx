@@ -1,11 +1,14 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
+
+import googleIcon from '@iconify-icons/mdi/google';
+
 export interface ConnectorConfig {
   id: string;
-  icon: string;
+  icon: React.ComponentProps<typeof IconifyIcon>['icon'];
   title: string;
   description: string;
   color: string;
 }
-
 export interface ConfigStatus {
   googleWorkspace: boolean;
 }
@@ -20,7 +23,7 @@ export const GOOGLE_WORKSPACE_SCOPE = [
 export const CONNECTORS_LIST: ConnectorConfig[] = [
   {
     id: 'googleWorkspace',
-    icon: 'mdi:google',
+    icon: googleIcon,
     title: 'Google Workspace',
     description:
       'Integrate with Google Workspace for calendar, gmail, spreadsheets, drive and document sharing',

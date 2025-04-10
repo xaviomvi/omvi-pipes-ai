@@ -1,6 +1,11 @@
 import type { IChatParticipant } from 'src/types/chat';
 
+import attachIcon from '@iconify-icons/eva/attach-2-fill';
 import { useRef, useMemo, useState, useCallback } from 'react';
+import microphoneIcon from '@iconify-icons/solar/microphone-bold';
+// Icon imports
+import smilingFaceIcon from '@iconify-icons/eva/smiling-face-fill';
+import galleryAddIcon from '@iconify-icons/solar/gallery-add-bold';
 
 import Stack from '@mui/material/Stack';
 import InputBase from '@mui/material/InputBase';
@@ -109,19 +114,19 @@ export function ChatMessageInput({
         disabled={disabled}
         startAdornment={
           <IconButton>
-            <Iconify icon="eva:smiling-face-fill" />
+            <Iconify icon={smilingFaceIcon} />
           </IconButton>
         }
         endAdornment={
           <Stack direction="row" sx={{ flexShrink: 0 }}>
             <IconButton onClick={handleAttach}>
-              <Iconify icon="solar:gallery-add-bold" />
+              <Iconify icon={galleryAddIcon} />
             </IconButton>
             <IconButton onClick={handleAttach}>
-              <Iconify icon="eva:attach-2-fill" />
+              <Iconify icon={attachIcon} />
             </IconButton>
             <IconButton>
-              <Iconify icon="solar:microphone-bold" />
+              <Iconify icon={microphoneIcon} />
             </IconButton>
           </Stack>
         }

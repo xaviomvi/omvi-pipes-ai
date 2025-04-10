@@ -9,7 +9,11 @@ import type {
 } from 'src/types/chat-bot';
 
 import { Icon } from '@iconify/react';
+import menuIcon from '@iconify-icons/mdi/menu';
+import closeIcon from '@iconify-icons/mdi/close';
 import React, { useState, useCallback } from 'react';
+import chatOutlineIcon from '@iconify-icons/mdi/chat-outline';
+import fileDocumentOutlineIcon from '@iconify-icons/mdi/file-document-outline';
 
 import { Box, Button, styled, useTheme, Typography, IconButton } from '@mui/material';
 
@@ -113,12 +117,12 @@ const RecordHeader = ({
     <StyledHeader>
       {!isDrawerOpen && (
         <MenuButton onClick={onDrawerToggle} size="small" sx={{ mr: 1 }}>
-          <Icon icon="mdi:menu" />
+          <Icon icon={menuIcon} />
         </MenuButton>
       )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
         <Icon
-          icon={isConversation ? 'mdi:chat-outline' : 'mdi:file-document-outline'}
+          icon={isConversation ? chatOutlineIcon : fileDocumentOutlineIcon}
           style={{
             color: theme.palette.primary.main,
             width: 24,
@@ -678,7 +682,7 @@ const RecordSalesAgent = ({ initialContext, recordId }: RecordSalesAgentProps) =
             <PdfHighlighterComp pdfUrl={pdfUrl} citations={aggregatedCitations} />
             <StyledCloseButton
               onClick={onClosePdf}
-              startIcon={<Icon icon="mdi:close" />}
+              startIcon={<Icon icon={closeIcon} />}
               size="small"
             >
               Close Document

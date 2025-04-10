@@ -1,7 +1,10 @@
 import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import { useLocation } from 'react-router';
+import accountIcon from '@iconify-icons/mdi/account';
 import { zodResolver } from '@hookform/resolvers/zod';
+import uploadIcon from '@iconify-icons/ep/upload-filled';
+import deleteIcon from '@iconify-icons/ic/baseline-delete';
 import React, { useState, useEffect, useCallback } from 'react';
 
 import { LoadingButton } from '@mui/lab';
@@ -64,7 +67,7 @@ const PasswordSchema = zod
   });
 
 type ProfileFormData = zod.infer<typeof ProfileSchema>;
-type PasswordFormData = zod.infer<typeof PasswordSchema>;  
+type PasswordFormData = zod.infer<typeof PasswordSchema>;
 
 export default function UserProfile() {
   const theme = useTheme();
@@ -93,7 +96,7 @@ export default function UserProfile() {
 
   const passwordMethods = useForm<PasswordFormData>({
     resolver: zodResolver(PasswordSchema),
-    mode: 'onChange'
+    mode: 'onChange',
   });
 
   const {
@@ -178,7 +181,7 @@ export default function UserProfile() {
     try {
       setDeleting(true);
       if (!userId) throw new Error('User ID is required');
-      
+
       await deleteUserLogo(userId);
       setSnackbar({ open: true, message: 'Photo removed successfully', severity: 'success' });
       setDeleting(false);
@@ -193,7 +196,7 @@ export default function UserProfile() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!userId) throw new Error('User ID is required');
-      
+
     const formData = new FormData();
     formData.append('logo', file);
 
@@ -293,37 +296,44 @@ export default function UserProfile() {
           <Grid container spacing={{ xs: 3, md: 5 }}>
             {/* Avatar Section */}
             <Grid item xs={12} md={4}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: { xs: 1, md: 2 } }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  pt: { xs: 1, md: 2 },
+                }}
+              >
                 <Box sx={{ position: 'relative' }}>
                   {logo ? (
                     <Avatar
                       src={logo}
                       alt="User Photo"
-                      sx={{ 
-                        width: 140, 
+                      sx={{
+                        width: 140,
                         height: 140,
                         border: `3px solid ${alpha(theme.palette.background.paper, 0.9)}`,
-                        boxShadow: theme.shadows[2]
+                        boxShadow: theme.shadows[2],
                       }}
                     />
                   ) : (
-                    <Avatar 
+                    <Avatar
                       sx={{
                         width: 140,
                         height: 140,
                         bgcolor: alpha(theme.palette.primary.main, 0.08),
-                        boxShadow: theme.shadows[2]
+                        boxShadow: theme.shadows[2],
                       }}
                     >
-                      <Iconify 
-                        icon="mdi:account" 
-                        width={70} 
-                        height={70} 
-                        color={alpha(theme.palette.primary.main, 0.7)} 
+                      <Iconify
+                        icon={accountIcon}
+                        width={70}
+                        height={70}
+                        color={alpha(theme.palette.primary.main, 0.7)}
                       />
                     </Avatar>
                   )}
-                  
+
                   {isAdmin && (
                     <>
                       <input
@@ -333,16 +343,18 @@ export default function UserProfile() {
                         accept="image/*"
                         onChange={handleUpload}
                       />
-                      
+
                       {/* Upload button positioned directly on the avatar */}
-                      <Box sx={{ 
-                        position: 'absolute',
-                        bottom: -5,
-                        right: -5,
-                        display: 'flex',
-                        gap: 1
-                      }}>
-                        <Tooltip title={logo ? "Change photo" : "Upload photo"}>
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          bottom: -5,
+                          right: -5,
+                          display: 'flex',
+                          gap: 1,
+                        }}
+                      >
+                        <Tooltip title={logo ? 'Change photo' : 'Upload photo'}>
                           <label htmlFor="file-upload">
                             <IconButton
                               component="span"
@@ -356,18 +368,18 @@ export default function UserProfile() {
                                 },
                                 width: 44,
                                 height: 44,
-                                boxShadow: theme.shadows[3]
+                                boxShadow: theme.shadows[3],
                               }}
                             >
                               {uploading ? (
                                 <CircularProgress size={24} color="inherit" />
                               ) : (
-                                <Iconify icon="ep:upload-filled" width={22} height={22} />
+                                <Iconify icon={uploadIcon} width={22} height={22} />
                               )}
                             </IconButton>
                           </label>
                         </Tooltip>
-                        
+
                         {logo && (
                           <Tooltip title="Remove photo">
                             <IconButton
@@ -375,7 +387,7 @@ export default function UserProfile() {
                               color="error"
                               onClick={handleDelete}
                               disabled={deleting}
-                              sx={{ 
+                              sx={{
                                 bgcolor: theme.palette.background.paper,
                                 border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
                                 '&:hover': {
@@ -383,13 +395,13 @@ export default function UserProfile() {
                                 },
                                 width: 44,
                                 height: 44,
-                                boxShadow: theme.shadows[3]
+                                boxShadow: theme.shadows[3],
                               }}
                             >
                               {deleting ? (
                                 <CircularProgress size={24} color="inherit" />
                               ) : (
-                                <Iconify icon="ic:baseline-delete" width={22} height={22} />
+                                <Iconify icon={deleteIcon} width={22} height={22} />
                               )}
                             </IconButton>
                           </Tooltip>
@@ -398,11 +410,11 @@ export default function UserProfile() {
                     </>
                   )}
                 </Box>
-                
+
                 {!logo && isAdmin && (
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary" 
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
                     align="center"
                     sx={{ mt: 1.5, maxWidth: 130, fontSize: '0.75rem' }}
                   >
@@ -411,50 +423,50 @@ export default function UserProfile() {
                 )}
               </Box>
             </Grid>
-            
+
             {/* Form Section */}
             <Grid item xs={12} md={8}>
-              <Form 
-                methods={methods} 
-                onSubmit={handleSubmit(onSubmit)} 
+              <Form
+                methods={methods}
+                onSubmit={handleSubmit(onSubmit)}
                 {...({ noValidate: true } as any)}
               >
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={6}>
-                    <Field.Text 
-                      name="firstName" 
-                      label="First name" 
-                      fullWidth 
+                    <Field.Text
+                      name="firstName"
+                      label="First name"
+                      fullWidth
                       variant="outlined"
                       disabled={!isAdmin}
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
+                          height: 50,
                         },
                         '& .MuiInputBase-input.Mui-disabled': {
                           cursor: 'not-allowed',
                           WebkitTextFillColor: theme.palette.text.secondary,
-                          opacity: 0.7
-                        }
+                          opacity: 0.7,
+                        },
                       }}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Field.Text 
-                      name="lastName" 
-                      label="Last name" 
-                      fullWidth 
+                    <Field.Text
+                      name="lastName"
+                      label="Last name"
+                      fullWidth
                       variant="outlined"
                       disabled={!isAdmin}
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
+                          height: 50,
                         },
                         '& .MuiInputBase-input.Mui-disabled': {
                           cursor: 'not-allowed',
                           WebkitTextFillColor: theme.palette.text.secondary,
-                          opacity: 0.7
-                        }
+                          opacity: 0.7,
+                        },
                       }}
                     />
                   </Grid>
@@ -466,35 +478,35 @@ export default function UserProfile() {
                       variant="outlined"
                       required
                       disabled={!isAdmin}
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
+                          height: 50,
                         },
                         '& .MuiInputBase-input.Mui-disabled': {
                           cursor: 'not-allowed',
                           WebkitTextFillColor: theme.palette.text.secondary,
-                          opacity: 0.7
-                        }
+                          opacity: 0.7,
+                        },
                       }}
                     />
                   </Grid>
                   <Grid item xs={12}>
-                    <Field.Text 
-                      name="designation" 
-                      label="Designation" 
-                      fullWidth 
+                    <Field.Text
+                      name="designation"
+                      label="Designation"
+                      fullWidth
                       variant="outlined"
                       placeholder="e.g. Software Engineer"
                       disabled={!isAdmin}
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
+                          height: 50,
                         },
                         '& .MuiInputBase-input.Mui-disabled': {
                           cursor: 'not-allowed',
                           WebkitTextFillColor: theme.palette.text.secondary,
-                          opacity: 0.7
-                        }
+                          opacity: 0.7,
+                        },
                       }}
                     />
                   </Grid>
@@ -506,15 +518,15 @@ export default function UserProfile() {
                       variant="outlined"
                       required
                       disabled={!isAdmin}
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
+                          height: 50,
                         },
                         '& .MuiInputBase-input.Mui-disabled': {
                           cursor: 'not-allowed',
                           WebkitTextFillColor: theme.palette.text.secondary,
-                          opacity: 0.7
-                        }
+                          opacity: 0.7,
+                        },
                       }}
                     />
                   </Grid>
@@ -529,22 +541,22 @@ export default function UserProfile() {
                       loading={saveChanges}
                       loadingIndicator="Saving..."
                       disabled={!isValid || !isDirty || !isAdmin}
-                      sx={{ 
+                      sx={{
                         height: 40,
                         px: 2,
                         borderRadius: 2,
-                        textTransform: 'none', 
+                        textTransform: 'none',
                         fontWeight: 500,
                         fontSize: '0.93rem',
                         boxShadow: theme.shadows[1],
                         '&:hover': {
-                          boxShadow: theme.shadows[2]
+                          boxShadow: theme.shadows[2],
                         },
                         '&.Mui-disabled': {
                           cursor: 'not-allowed',
                           pointerEvents: 'auto',
-                          opacity: 0.6
-                        }
+                          opacity: 0.6,
+                        },
                       }}
                     >
                       Save changes
@@ -662,23 +674,23 @@ export default function UserProfile() {
       </Dialog> */}
 
       {/* Snackbar for notifications */}
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={4000} 
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={handleCloseSnackbar} 
+        <Alert
+          onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ 
+          sx={{
             width: '100%',
             borderRadius: 0.75,
             boxShadow: theme.shadows[3],
             '& .MuiAlert-icon': {
-              fontSize: '1.2rem'
-            }
+              fontSize: '1.2rem',
+            },
           }}
         >
           {snackbar.message}

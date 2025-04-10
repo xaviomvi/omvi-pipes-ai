@@ -1,4 +1,5 @@
 import { Icon } from '@iconify/react';
+import closeIcon from '@iconify-icons/mdi/close';
 import { useState, useEffect, useCallback } from 'react';
 
 import { Box, alpha, Button, styled, Divider, useTheme } from '@mui/material';
@@ -170,7 +171,12 @@ export default function KnowledgeBaseSearch() {
     setTopK(callback);
   };
 
-  const viewCitations = async (recordId: string, isDocPdf: boolean, isDocExcel: boolean, isDocDocx : boolean) => {
+  const viewCitations = async (
+    recordId: string,
+    isDocPdf: boolean,
+    isDocExcel: boolean,
+    isDocDocx: boolean
+  ) => {
     // Reset view states
     setIsPdf(false);
     setIsExcel(false);
@@ -444,7 +450,7 @@ export default function KnowledgeBaseSearch() {
         {isCitationViewerOpen && (
           <StyledCloseButton
             onClick={handleCloseViewer}
-            startIcon={<Icon icon="mdi:close" />}
+            startIcon={<Icon icon={closeIcon} />}
             size="small"
           >
             Close

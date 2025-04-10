@@ -1,6 +1,12 @@
-import type {
-  SelectChangeEvent} from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 
+import lockIcon from '@iconify-icons/mdi/lock';
+import closeIcon from '@iconify-icons/mdi/close';
+import pencilIcon from '@iconify-icons/mdi/pencil';
+import accountIcon from '@iconify-icons/mdi/account';
+import deleteIcon from '@iconify-icons/mdi/delete-outline';
+import serverIcon from '@iconify-icons/mdi/server-network';
+import infoIcon from '@iconify-icons/mdi/information-outline';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -22,7 +28,7 @@ import {
   InputAdornment,
   FormHelperText,
   CircularProgress,
-  FormControlLabel
+  FormControlLabel,
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
@@ -419,7 +425,7 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
           }}
         >
           <Iconify
-            icon="mdi:information-outline"
+            icon={infoIcon}
             width={20}
             height={20}
             color={theme.palette.info.main}
@@ -436,7 +442,7 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
           <Button
             onClick={handleToggleEdit}
-            startIcon={<Iconify icon={isEditing ? 'mdi:close' : 'mdi:pencil'} />}
+            startIcon={<Iconify icon={isEditing ? closeIcon : pencilIcon} />}
             color={isEditing ? 'error' : 'primary'}
             size="small"
           >
@@ -479,7 +485,7 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Iconify icon="mdi:server-network" width={16} height={16} sx={{ mr: 0.75 }} />
+                    <Iconify icon={serverIcon} width={16} height={16} sx={{ mr: 0.75 }} />
                     <Typography variant="body2">{broker}</Typography>
                   </Box>
                   {isEditing && (
@@ -489,7 +495,7 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
                       color="error"
                       sx={{ p: 0.5 }}
                     >
-                      <Iconify icon="mdi:delete-outline" width={18} height={18} />
+                      <Iconify icon={deleteIcon} width={18} height={18} />
                     </IconButton>
                   )}
                 </Box>
@@ -518,7 +524,7 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Iconify icon="mdi:server-network" width={16} height={16} />
+                      <Iconify icon={serverIcon} width={16} height={16} />
                     </InputAdornment>
                   ),
                 }}
@@ -613,7 +619,7 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:account" width={18} height={18} />
+                        <Iconify icon={accountIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -635,7 +641,7 @@ const KafkaConfigForm = forwardRef<KafkaConfigFormRef, KafkaConfigFormProps>(
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:lock" width={18} height={18} />
+                        <Iconify icon={lockIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}

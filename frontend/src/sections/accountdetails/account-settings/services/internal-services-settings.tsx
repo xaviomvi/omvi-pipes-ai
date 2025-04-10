@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import webCheckIcon from '@iconify-icons/mdi/web-check';
+import linkVariantIcon from '@iconify-icons/mdi/link-variant';
+import settingsIcon from '@iconify-icons/eva/settings-2-outline';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import { Box, Grid, Paper, Container, Typography, IconButton } from '@mui/material';
@@ -11,14 +14,14 @@ import ConfigureServiceDialog from './configure-services-dialog';
 const SERVICES_LIST = [
   {
     id: 'frontendPublicUrl',
-    icon: 'mdi:web-check',
+    icon: webCheckIcon,
     title: 'Frontend Public DNS',
     description: 'Publicly accessible frontend service DNS',
     color: '#87CEEB',
   },
   {
     id: 'connectorPublicUrl',
-    icon: 'mdi:link-variant',
+    icon: linkVariantIcon,
     title: 'Connectors Public DNS',
     description: 'Publicly accessible connector service DNS',
     color: '#231F20',
@@ -156,7 +159,7 @@ const InternalServicesSettings = () => {
                   }}
                   aria-label={`Configure ${service.title}`}
                 >
-                  <Iconify icon="eva:settings-2-outline" width={20} height={20} />
+                  <Iconify icon={settingsIcon} width={20} height={20} />
                 </IconButton>
               </Paper>
             </Grid>

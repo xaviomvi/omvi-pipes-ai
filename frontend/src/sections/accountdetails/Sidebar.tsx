@@ -1,5 +1,17 @@
+import cogIcon from '@iconify-icons/mdi/cog';
+import robotIcon from '@iconify-icons/mdi/robot';
 import React, { useState, useEffect } from 'react';
+import upIcon from '@iconify-icons/mdi/chevron-up';
+import accountIcon from '@iconify-icons/mdi/account';
+import downIcon from '@iconify-icons/mdi/chevron-down';
 import { useLocation, useNavigate } from 'react-router';
+import spiderWebIcon from '@iconify-icons/mdi/spider-web';
+import connectionIcon from '@iconify-icons/mdi/connection';
+import shieldLockIcon from '@iconify-icons/mdi/shield-lock';
+import linkVariantIcon from '@iconify-icons/mdi/link-variant';
+import accountGroupIcon from '@iconify-icons/mdi/account-group';
+import officeBuildingIcon from '@iconify-icons/mdi/office-building';
+import accountServiceIcon from '@iconify-icons/mdi/account-service-outline';
 
 import List from '@mui/material/List';
 import Drawer from '@mui/material/Drawer';
@@ -47,24 +59,24 @@ export default function Sidebar() {
   const commonSettingsOptions = [
     {
       name: 'Authentication',
-      icon: 'mdi:shield-lock',
+      icon: shieldLockIcon,
       path: `${baseUrl}/settings/authentication`,
     },
     {
       name: 'Connectors',
-      icon: 'mdi:link-variant',
+      icon: linkVariantIcon,
       path: `${baseUrl}/settings/connector`,
     },
     {
       name: 'Services',
-      icon: 'mdi:account-service-outline',
+      icon: accountServiceIcon,
       path: `${baseUrl}/settings/services`,
     },
     {
       name: 'Ai-Models',
-      icon: 'mdi:robot',
-      path: `${baseUrl}/settings/ai-models`
-    }
+      icon: robotIcon,
+      path: `${baseUrl}/settings/ai-models`,
+    },
   ];
 
   // Business-specific settings options
@@ -72,12 +84,12 @@ export default function Sidebar() {
     ...commonSettingsOptions,
     {
       name: 'Crawling',
-      icon: 'mdi:spider-web',
+      icon: spiderWebIcon,
       path: `${baseUrl}/settings/crawling`,
     },
     {
       name: 'Integrations',
-      icon: 'mdi:connection',
+      icon: connectionIcon,
       path: `${baseUrl}/settings/integrations`,
     },
   ];
@@ -111,7 +123,7 @@ export default function Sidebar() {
                 selected={pathname === `${baseUrl}/profile`}
               >
                 <ListItemIcon>
-                  <Iconify icon="mdi:office-building" width="24" height="24" />
+                  <Iconify icon={officeBuildingIcon} width="24" height="24" />
                 </ListItemIcon>
                 <ListItemText primary="Profile" />
               </ListItemButton>
@@ -122,7 +134,7 @@ export default function Sidebar() {
                 selected={pathname === `${baseUrl}/users`}
               >
                 <ListItemIcon>
-                  <Iconify icon="mdi:account-group" width="24" height="24" />
+                  <Iconify icon={accountGroupIcon} width="24" height="24" />
                 </ListItemIcon>
                 <ListItemText primary="Users & Groups" />
               </ListItemButton>
@@ -133,14 +145,10 @@ export default function Sidebar() {
                 selected={isSettingsPath || settingsOpen}
               >
                 <ListItemIcon>
-                  <Iconify icon="mdi:cog" width="24" height="24" />
+                  <Iconify icon={cogIcon} width="24" height="24" />
                 </ListItemIcon>
                 <ListItemText primary="Settings" />
-                <Iconify
-                  icon={settingsOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'}
-                  width="20"
-                  height="20"
-                />
+                <Iconify icon={settingsOpen ? upIcon : downIcon} width="20" height="20" />
               </ListItemButton>
             </ListItem>
             <Collapse in={settingsOpen} timeout="auto" unmountOnExit>
@@ -183,7 +191,7 @@ export default function Sidebar() {
             }
           >
             <ListItemIcon>
-              <Iconify icon="mdi:account" width="24" height="24" />
+              <Iconify icon={accountIcon} width="24" height="24" />
             </ListItemIcon>
             <ListItemText primary="Profile" />
           </ListItemButton>
@@ -198,14 +206,10 @@ export default function Sidebar() {
                 selected={isSettingsPath || settingsOpen}
               >
                 <ListItemIcon>
-                  <Iconify icon="mdi:cog" width="24" height="24" />
+                  <Iconify icon={cogIcon} width="24" height="24" />
                 </ListItemIcon>
                 <ListItemText primary="Settings" />
-                <Iconify
-                  icon={settingsOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'}
-                  width="20"
-                  height="20"
-                />
+                <Iconify icon={settingsOpen ? upIcon : downIcon} width="20" height="20" />
               </ListItemButton>
             </ListItem>
             <Collapse in={settingsOpen} timeout="auto" unmountOnExit>

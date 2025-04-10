@@ -1,4 +1,16 @@
 import React, { useState, useEffect } from 'react';
+// Ri icons
+import googleLineIcon from '@iconify-icons/ri/google-line';
+// Solar icons
+import lockLinearIcon from '@iconify-icons/solar/lock-linear';
+import cloudLinearIcon from '@iconify-icons/solar/cloud-linear';
+import settingsIcon from '@iconify-icons/solar/settings-linear';
+import microsoftFillIcon from '@iconify-icons/ri/microsoft-fill';
+import shieldLinearIcon from '@iconify-icons/solar/shield-linear';
+// IC icons
+import mailOutlineIcon from '@iconify-icons/ic/round-mail-outline';
+import dangerIcon from '@iconify-icons/solar/danger-triangle-linear';
+import emailLockOutlineIcon from '@iconify-icons/mdi/email-lock-outline';
 
 import { alpha } from '@mui/material/styles';
 import {
@@ -51,10 +63,11 @@ interface ConfigStatus {
 }
 
 // Configuration for auth methods with icons and descriptions
+
 const AUTH_METHODS_CONFIG = [
   {
     type: 'otp',
-    icon: 'mdi:email-lock-outline',
+    icon: emailLockOutlineIcon,
     title: 'One-Time Password',
     description: 'Send a verification code via email',
     configurable: false,
@@ -62,7 +75,7 @@ const AUTH_METHODS_CONFIG = [
   },
   {
     type: 'password',
-    icon: 'solar:lock-linear',
+    icon: lockLinearIcon,
     title: 'Password',
     description: 'Traditional email and password authentication',
     configurable: false,
@@ -70,7 +83,7 @@ const AUTH_METHODS_CONFIG = [
   },
   {
     type: 'google',
-    icon: 'ri:google-line',
+    icon: googleLineIcon,
     title: 'Google',
     description: 'Allow users to sign in with Google accounts',
     configurable: true,
@@ -79,7 +92,7 @@ const AUTH_METHODS_CONFIG = [
   },
   {
     type: 'microsoft',
-    icon: 'ri:microsoft-fill',
+    icon: microsoftFillIcon,
     title: 'Microsoft',
     description: 'Allow users to sign in with Microsoft accounts',
     configurable: true,
@@ -88,7 +101,7 @@ const AUTH_METHODS_CONFIG = [
   },
   {
     type: 'azureAd',
-    icon: 'solar:cloud-linear',
+    icon: cloudLinearIcon,
     title: 'Azure AD',
     description: 'Enterprise authentication via Azure Active Directory',
     configurable: true,
@@ -97,7 +110,7 @@ const AUTH_METHODS_CONFIG = [
   },
   {
     type: 'samlSso',
-    icon: 'solar:shield-linear',
+    icon: shieldLinearIcon,
     title: 'SAML SSO',
     description: 'Single Sign-On with SAML protocol',
     configurable: true,
@@ -109,13 +122,12 @@ const AUTH_METHODS_CONFIG = [
 // SMTP configuration item
 const SMTP_CONFIG = {
   type: 'smtp',
-  icon: 'ic:round-mail-outline',
+  icon: mailOutlineIcon,
   title: 'SMTP',
   description: 'Email server configuration for OTP and notifications',
   configurable: true,
   requiresSmtp: false,
 };
-
 const AuthMethodsList: React.FC<AuthMethodsListProps> = ({
   authMethods,
   handleToggleMethod,
@@ -562,7 +574,7 @@ const AuthMethodsList: React.FC<AuthMethodsListProps> = ({
                             mr: 1.5,
                           }}
                         >
-                          <Iconify icon="solar:danger-triangle-linear" width={18} height={18} />
+                          <Iconify icon={dangerIcon} width={18} height={18} />
                         </Box>
                       </Tooltip>
                     )}
@@ -581,7 +593,7 @@ const AuthMethodsList: React.FC<AuthMethodsListProps> = ({
                             },
                           }}
                         >
-                          <Iconify icon="solar:settings-linear" width={18} height={18} />
+                          <Iconify icon={settingsIcon} width={18} height={18} />
                         </IconButton>
                       )}
 
@@ -726,7 +738,7 @@ const AuthMethodsList: React.FC<AuthMethodsListProps> = ({
                   },
                 }}
               >
-                <Iconify icon="solar:settings-linear" width={18} height={18} />
+                <Iconify icon={settingsIcon} width={18} height={18} />
               </IconButton>
             </Paper>
           </Fade>

@@ -2,8 +2,18 @@
 import type { User } from 'src/context/UserContext';
 
 import { Icon } from '@iconify/react';
+import dbIcon from '@iconify-icons/mdi/database';
+import robotIcon from '@iconify-icons/mdi/robot';
+import closeIcon from '@iconify-icons/mdi/close';
 import React, { useState, useEffect } from 'react';
+import pencilIcon from '@iconify-icons/mdi/pencil';
+import updateIcon from '@iconify-icons/mdi/update';
+import accountIcon from '@iconify-icons/mdi/account';
+import clockIcon from '@iconify-icons/mdi/clock-outline';
 import { useParams, useNavigate } from 'react-router-dom';
+import arrowLeftIcon from '@iconify-icons/mdi/arrow-left';
+import trashCanIcon from '@iconify-icons/mdi/trash-can-outline';
+import fileAlertIcon from '@iconify-icons/mdi/file-alert-outline';
 
 import {
   Box,
@@ -118,7 +128,7 @@ export default function RecordDetails() {
           }}
         >
           <Icon
-            icon="mdi:file-alert-outline"
+            icon={fileAlertIcon}
             style={{ fontSize: '48px', color: '#e53935', marginBottom: '16px' }}
           />
           <Typography variant="h5" color="error" gutterBottom fontWeight={500}>
@@ -129,7 +139,7 @@ export default function RecordDetails() {
           </Typography>
           <Button
             variant="contained"
-            startIcon={<Icon icon="mdi:arrow-left" />}
+            startIcon={<Icon icon={arrowLeftIcon} />}
             onClick={() => navigate(-1)}
             sx={{ mt: 2 }}
           >
@@ -186,7 +196,7 @@ export default function RecordDetails() {
                     bgcolor: alpha('#000', 0.04),
                   }}
                 >
-                  <Icon icon="mdi:arrow-left" fontSize={20} />
+                  <Icon icon={arrowLeftIcon} fontSize={20} />
                 </IconButton>
 
                 <Icon
@@ -223,7 +233,7 @@ export default function RecordDetails() {
                 justifyContent={{ xs: 'flex-end', sm: 'flex-end' }}
               >
                 <Button
-                  startIcon={<Icon icon="mdi:pencil" />}
+                  startIcon={<Icon icon={pencilIcon} />}
                   variant="outlined"
                   size="small"
                   onClick={() => setIsEditDialogOpen(true)}
@@ -238,7 +248,7 @@ export default function RecordDetails() {
                   Edit
                 </Button>
                 <Button
-                  startIcon={<Icon icon="mdi:trash-can-outline" />}
+                  startIcon={<Icon icon={trashCanIcon} />}
                   variant="outlined"
                   color="error"
                   size="small"
@@ -281,7 +291,7 @@ export default function RecordDetails() {
                     color="text.secondary"
                     sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                   >
-                    <Icon icon="mdi:clock-outline" style={{ fontSize: '16px' }} />
+                    <Icon icon={clockIcon} style={{ fontSize: '16px' }} />
                     Created: {createdAt}
                   </Typography>
                 </Grid>
@@ -292,7 +302,7 @@ export default function RecordDetails() {
                     color="text.secondary"
                     sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                   >
-                    <Icon icon="mdi:update" style={{ fontSize: '16px' }} />
+                    <Icon icon={updateIcon} style={{ fontSize: '16px' }} />
                     Updated: {updatedAt}
                   </Typography>
                 </Grid>
@@ -304,8 +314,8 @@ export default function RecordDetails() {
                       color="text.secondary"
                       sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                     >
-                      <Icon icon="mdi:database" style={{ fontSize: '16px' }} />
-                      KB: {knowledgeBase?.name ? knowledgeBase.name : "Default"}
+                      <Icon icon={dbIcon} style={{ fontSize: '16px' }} />
+                      KB: {knowledgeBase?.name ? knowledgeBase.name : 'Default'}
                     </Typography>
                   </Grid>
                 )}
@@ -736,7 +746,7 @@ export default function RecordDetails() {
                             gap: 1,
                           }}
                         >
-                          <Icon icon="mdi:account" style={{ fontSize: '18px', opacity: 0.7 }} />
+                          <Icon icon={accountIcon} style={{ fontSize: '18px', opacity: 0.7 }} />
                           {(users && users.find((u) => u._id === record.createdBy)?.fullName) ||
                             'Unknown'}
                         </Typography>
@@ -822,7 +832,7 @@ export default function RecordDetails() {
                 }}
               >
                 <Icon
-                  icon="mdi:robot"
+                  icon={robotIcon}
                   style={{ fontSize: '18px', color: theme.palette.primary.main }}
                 />
               </Box>
@@ -840,7 +850,7 @@ export default function RecordDetails() {
               size="small"
               sx={{ bgcolor: alpha('#000', 0.03), borderRadius: 1 }}
             >
-              <Icon icon="mdi:close" fontSize={18} />
+              <Icon icon={closeIcon} fontSize={18} />
             </IconButton>
           </Box>
 

@@ -1,5 +1,11 @@
 import { useDispatch } from 'react-redux';
 import React, { useState, useEffect } from 'react';
+import closeIcon from '@iconify-icons/eva/close-fill';
+import searchIcon from '@iconify-icons/eva/search-fill';
+import emailIcon from '@iconify-icons/eva/email-outline';
+import clockIcon from '@iconify-icons/eva/clock-outline';
+import trashIcon from '@iconify-icons/eva/trash-2-outline';
+import alertIcon from '@iconify-icons/eva/alert-triangle-fill';
 
 import {
   Box,
@@ -211,7 +217,7 @@ export default function Invites() {
           }}
         >
           <Iconify
-            icon="eva:search-fill"
+            icon={searchIcon}
             width={20}
             height={20}
             sx={{ color: 'text.disabled', mr: 1 }}
@@ -225,7 +231,7 @@ export default function Invites() {
           />
           {searchTerm && (
             <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.5 }}>
-              <Iconify icon="eva:close-fill" width={16} height={16} />
+              <Iconify icon={closeIcon} width={16} height={16} />
             </IconButton>
           )}
         </Paper>
@@ -243,7 +249,7 @@ export default function Invites() {
           }}
         >
           <Iconify
-            icon="eva:email-outline"
+            icon={emailIcon}
             width={48}
             height={48}
             sx={{ color: 'text.disabled', opacity: 0.5 }}
@@ -315,7 +321,7 @@ export default function Invites() {
                           <Typography variant="subtitle2">{user.email}</Typography>
                           <Stack direction="row" alignItems="center" spacing={0.5}>
                             <Iconify
-                              icon="eva:clock-outline"
+                              icon={clockIcon}
                               width={14}
                               height={14}
                               sx={{ color: theme.palette.warning.main }}
@@ -363,7 +369,7 @@ export default function Invites() {
                             size="small"
                             variant="outlined"
                             color="primary"
-                            startIcon={<Iconify icon="eva:email-outline" />}
+                            startIcon={<Iconify icon={emailIcon} />}
                             onClick={() => handleResendInvite(user._id || '', user.email)}
                             disabled={!isAdmin}
                             sx={{
@@ -384,7 +390,7 @@ export default function Invites() {
                             size="small"
                             variant="outlined"
                             color="error"
-                            startIcon={<Iconify icon="eva:trash-2-outline" />}
+                            startIcon={<Iconify icon={trashIcon} />}
                             onClick={() => handleRemoveUser(user._id || '', user.email)}
                             disabled={!isAdmin}
                             sx={{
@@ -445,9 +451,7 @@ export default function Invites() {
         <DialogTitle sx={{ pb: 1 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Iconify
-              icon={
-                confirmDialog.action === 'resend' ? 'eva:email-outline' : 'eva:alert-triangle-fill'
-              }
+              icon={confirmDialog.action === 'resend' ? emailIcon : alertIcon}
               width={24}
               height={24}
               sx={{

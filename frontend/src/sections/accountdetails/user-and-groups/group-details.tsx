@@ -1,4 +1,15 @@
+import editIcon from '@iconify-icons/eva/edit-fill';
+import infoIcon from '@iconify-icons/eva/info-fill';
+import closeIcon from '@iconify-icons/eva/close-fill';
+import peopleIcon from '@iconify-icons/eva/people-fill';
+import searchIcon from '@iconify-icons/eva/search-fill';
 import React, { useRef, useState, useEffect } from 'react';
+import personIcon from '@iconify-icons/eva/person-add-fill';
+import arrowBackIcon from '@iconify-icons/eva/arrow-back-fill';
+import alertIcon from '@iconify-icons/eva/alert-triangle-fill';
+import rightIcon from '@iconify-icons/eva/chevron-right-outline';
+import verticalIcon from '@iconify-icons/eva/more-vertical-fill';
+import personRemoveIcon from '@iconify-icons/eva/person-remove-fill';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 
 import {
@@ -284,7 +295,7 @@ export default function GroupDetails() {
         </Typography>
         <Button
           variant="outlined"
-          startIcon={<Iconify icon="eva:arrow-back-fill" />}
+          startIcon={<Iconify icon={arrowBackIcon} />}
           onClick={() => navigate('/account/company-settings/groups')}
           sx={{ mt: 2 }}
         >
@@ -299,7 +310,7 @@ export default function GroupDetails() {
       {/* Header with Breadcrumbs */}
       <Stack spacing={3} sx={{ mb: 4 }}>
         <Breadcrumbs
-          separator={<Iconify icon="eva:chevron-right-outline" width={16} height={16} />}
+          separator={<Iconify icon={rightIcon} width={16} height={16} />}
           aria-label="breadcrumb"
         >
           <MuiLink
@@ -313,7 +324,7 @@ export default function GroupDetails() {
               '&:hover': { color: 'text.primary' },
             }}
           >
-            <Iconify icon="eva:people-outline" width={18} height={18} sx={{ mr: 0.5 }} />
+            <Iconify icon={peopleIcon} width={18} height={18} sx={{ mr: 0.5 }} />
             Groups
           </MuiLink>
           <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
@@ -336,7 +347,7 @@ export default function GroupDetails() {
                 height: 48,
               }}
             >
-              <Iconify icon="eva:people-outline" width={24} height={24} />
+              <Iconify icon={peopleIcon} width={24} height={24} />
             </Avatar>
             <Box>
               <Typography variant="h4">{group.name}</Typography>
@@ -372,7 +383,7 @@ export default function GroupDetails() {
           <Stack direction="row" spacing={1.5}>
             <Button
               variant="outlined"
-              startIcon={<Iconify icon="eva:person-add-fill" />}
+              startIcon={<Iconify icon={personIcon} />}
               onClick={handleAddUsers}
               sx={{ borderRadius: 1.5 }}
             >
@@ -380,7 +391,7 @@ export default function GroupDetails() {
             </Button>
             <Button
               variant="contained"
-              startIcon={<Iconify icon="eva:edit-fill" />}
+              startIcon={<Iconify icon={editIcon} />}
               onClick={handleEditGroup}
               sx={{ borderRadius: 1.5 }}
             >
@@ -407,7 +418,7 @@ export default function GroupDetails() {
           }}
         >
           <Iconify
-            icon="eva:search-fill"
+            icon={searchIcon}
             width={20}
             height={20}
             sx={{ color: 'text.disabled', mr: 1 }}
@@ -430,7 +441,7 @@ export default function GroupDetails() {
           />
           {searchTerm && (
             <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.5 }}>
-              <Iconify icon="eva:close-fill" width={16} height={16} />
+              <Iconify icon={closeIcon} width={16} height={16} />
             </IconButton>
           )}
         </Paper>
@@ -448,7 +459,7 @@ export default function GroupDetails() {
           }}
         >
           <Iconify
-            icon="eva:people-outline"
+            icon={peopleIcon}
             width={48}
             height={48}
             sx={{ color: 'text.disabled', opacity: 0.5 }}
@@ -461,7 +472,7 @@ export default function GroupDetails() {
           </Typography>
           <Button
             variant="contained"
-            startIcon={<Iconify icon="eva:person-add-fill" />}
+            startIcon={<Iconify icon={personIcon} />}
             onClick={handleAddUsers}
             sx={{ borderRadius: 1.5 }}
           >
@@ -546,7 +557,7 @@ export default function GroupDetails() {
                                 },
                               }}
                             >
-                              <Iconify icon="eva:more-vertical-fill" width={20} height={20} />
+                              <Iconify icon={verticalIcon} width={20} height={20} />
                             </IconButton>
                           </Tooltip>
                         </TableCell>
@@ -557,7 +568,7 @@ export default function GroupDetails() {
                     <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
                       <Box sx={{ textAlign: 'center' }}>
                         <Iconify
-                          icon="eva:search-outline"
+                          icon={searchIcon}
                           width={40}
                           height={40}
                           sx={{ color: 'text.secondary', mb: 1, opacity: 0.5 }}
@@ -664,7 +675,7 @@ export default function GroupDetails() {
             <Button
               variant="outlined"
               size="small"
-              startIcon={<Iconify icon="eva:edit-fill" />}
+              startIcon={<Iconify icon={editIcon} />}
               onClick={() => {
                 if (selectedUser._id === userId) {
                   navigate('/account/company-settings/personal-profile');
@@ -725,7 +736,7 @@ export default function GroupDetails() {
             handleMenuClose();
           }}
         >
-          <Iconify icon="eva:edit-fill" width={20} height={20} sx={{ mr: 1.5 }} />
+          <Iconify icon={editIcon} width={20} height={20} sx={{ mr: 1.5 }} />
           Edit Profile
         </MenuItem>
         <MenuItem
@@ -740,7 +751,7 @@ export default function GroupDetails() {
           }}
           onClick={handleRemoveUser}
         >
-          <Iconify icon="eva:person-remove-outline" width={20} height={20} sx={{ mr: 1.5 }} />
+          <Iconify icon={personRemoveIcon} width={20} height={20} sx={{ mr: 1.5 }} />
           Remove from Group
         </MenuItem>
       </Menu>
@@ -779,7 +790,7 @@ export default function GroupDetails() {
         <DialogTitle sx={{ pb: 1 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Iconify
-              icon="eva:alert-triangle-fill"
+              icon={alertIcon}
               width={24}
               height={24}
               sx={{ color: theme.palette.warning.main }}
@@ -899,7 +910,7 @@ function EditGroupModal({
               color: theme.palette.primary.main,
             }}
           >
-            <Iconify icon="eva:edit-fill" width={24} height={24} />
+            <Iconify icon={editIcon} width={24} height={24} />
           </Avatar>
           <Box>
             <Typography variant="h6">Edit Group</Typography>
@@ -927,7 +938,7 @@ function EditGroupModal({
         >
           <Stack direction="row" spacing={2} alignItems="center">
             <Iconify
-              icon="eva:info-fill"
+              icon={infoIcon}
               width={20}
               height={20}
               sx={{ color: theme.palette.info.main }}
@@ -1059,7 +1070,7 @@ function AddUsersToGroupsModal({
               color: theme.palette.primary.main,
             }}
           >
-            <Iconify icon="eva:person-add-fill" width={24} height={24} />
+            <Iconify icon={personIcon} width={24} height={24} />
           </Avatar>
           <Box>
             <Typography variant="h6">Add Users to Group</Typography>
@@ -1148,7 +1159,7 @@ function AddUsersToGroupsModal({
         >
           <Stack direction="row" spacing={2} alignItems="center">
             <Iconify
-              icon="eva:info-fill"
+              icon={infoIcon}
               width={20}
               height={20}
               sx={{ color: theme.palette.info.main }}
@@ -1175,7 +1186,7 @@ function AddUsersToGroupsModal({
           onClick={handleAddUsersToGroups}
           variant="contained"
           color="primary"
-          startIcon={<Iconify icon="eva:person-add-fill" />}
+          startIcon={<Iconify icon={personIcon} />}
           sx={{
             borderRadius: 1.5,
             px: 2,

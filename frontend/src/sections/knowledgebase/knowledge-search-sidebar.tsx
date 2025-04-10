@@ -1,6 +1,29 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
+
 import { Icon } from '@iconify/react';
+import appIcon from '@iconify-icons/mdi/apps';
 import { useNavigate } from 'react-router-dom';
+import jiraIcon from '@iconify-icons/mdi/jira';
+import closeIcon from '@iconify-icons/mdi/close';
+import gmailIcon from '@iconify-icons/mdi/gmail';
+import slackIcon from '@iconify-icons/mdi/slack';
 import React, { useState, useEffect } from 'react';
+import upIcon from '@iconify-icons/mdi/chevron-up';
+import magnifyIcon from '@iconify-icons/mdi/magnify';
+import dropboxIcon from '@iconify-icons/mdi/dropbox';
+import leftIcon from '@iconify-icons/mdi/chevron-left';
+import downIcon from '@iconify-icons/mdi/chevron-down';
+import rightIcon from '@iconify-icons/mdi/chevron-right';
+import salesforceIcon from '@iconify-icons/mdi/salesforce';
+import viewModuleIcon from '@iconify-icons/mdi/view-module';
+import filterMenuIcon from '@iconify-icons/mdi/filter-menu';
+import googleDriveIcon from '@iconify-icons/mdi/google-drive';
+import filterRemoveIcon from '@iconify-icons/mdi/filter-remove';
+import officeBuildingIcon from '@iconify-icons/mdi/office-building';
+import microsoftTeamsIcon from '@iconify-icons/mdi/microsoft-teams';
+import formatListIcon from '@iconify-icons/mdi/format-list-bulleted';
+import closeCircleIcon from '@iconify-icons/mdi/close-circle-outline';
+import microsoftOnedriveIcon from '@iconify-icons/mdi/microsoft-onedrive';
 
 import { alpha, styled, useTheme } from '@mui/material/styles';
 import {
@@ -31,14 +54,14 @@ import type { Filters, KnowledgeSearchSideBarProps } from './types/knowledge-bas
 
 // Connector definitions for app sources
 const connectors = [
-  { id: 'DRIVE', name: 'Google Drive', icon: 'mdi:google-drive', color: '#4285F4' },
-  { id: 'GMAIL', name: 'Gmail', icon: 'mdi:gmail', color: '#EA4335' },
-  { id: 'SLACK', name: 'Slack', icon: 'mdi:slack', color: '#4A154B' },
-  { id: 'JIRA', name: 'Jira', icon: 'mdi:jira', color: '#0052CC' },
-  { id: 'SALESFORCE', name: 'Salesforce', icon: 'mdi:salesforce', color: '#00A1E0' },
-  { id: 'DROPBOX', name: 'Dropbox', icon: 'mdi:dropbox', color: '#0061FF' },
-  { id: 'TEAMS', name: 'Microsoft Teams', icon: 'mdi:microsoft-teams', color: '#6264A7' },
-  { id: 'ONEDRIVE', name: 'OneDrive', icon: 'mdi:microsoft-onedrive', color: '#0078D4' },
+  { id: 'DRIVE', name: 'Google Drive', icon: googleDriveIcon, color: '#4285F4' },
+  { id: 'GMAIL', name: 'Gmail', icon: gmailIcon, color: '#EA4335' },
+  { id: 'SLACK', name: 'Slack', icon: slackIcon, color: '#4A154B' },
+  { id: 'JIRA', name: 'Jira', icon: jiraIcon, color: '#0052CC' },
+  { id: 'SALESFORCE', name: 'Salesforce', icon: salesforceIcon, color: '#00A1E0' },
+  { id: 'DROPBOX', name: 'Dropbox', icon: dropboxIcon, color: '#0061FF' },
+  { id: 'TEAMS', name: 'Microsoft Teams', icon: microsoftTeamsIcon, color: '#6264A7' },
+  { id: 'ONEDRIVE', name: 'OneDrive', icon: microsoftOnedriveIcon, color: '#0078D4' },
 ];
 
 // Constants
@@ -52,7 +75,7 @@ interface FilterHeaderProps {
 
 interface FilterSectionComponentProps {
   id: string;
-  icon: string;
+  icon: React.ComponentProps<typeof IconifyIcon>['icon'];
   label: string;
   filterType: keyof Filters;
   items: any[];
@@ -117,7 +140,9 @@ const FilterHeader = styled('div', {
   justifyContent: 'space-between',
   cursor: 'pointer',
   borderRadius: `${theme.shape.borderRadius}px ${theme.shape.borderRadius}px 0 0`,
-  backgroundColor: expanded ? alpha(theme.palette.primary.main, 0.05) : alpha(theme.palette.background.default, 0.5),
+  backgroundColor: expanded
+    ? alpha(theme.palette.primary.main, 0.05)
+    : alpha(theme.palette.background.default, 0.5),
   '&:hover': {
     backgroundColor: alpha(theme.palette.primary.main, 0.08),
   },
@@ -330,7 +355,7 @@ export default function KnowledgeSearchSideBar({
   onFilterChange,
   sx = {},
   openSidebar,
-  onToggleSidebar
+  onToggleSidebar,
 }: KnowledgeSearchSideBarProps) {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -367,21 +392,136 @@ export default function KnowledgeSearchSideBar({
         console.error('Error fetching filter data:', error);
         // Use fallback mock data in case of API error
         setDepartments([
-          { _id: 'engineering', name: 'Engineering', tag: 'eng', origin: 'system', description: '', orgId: '', isDeleted: false, __v: 0, createdAt: '', updatedAt: '' },
-          { _id: 'product', name: 'Product Management', tag: 'pm', origin: 'system', description: '', orgId: '', isDeleted: false, __v: 0, createdAt: '', updatedAt: '' },
-          { _id: 'design', name: 'Design', tag: 'design', origin: 'system', description: '', orgId: '', isDeleted: false, __v: 0, createdAt: '', updatedAt: '' },
-          { _id: 'marketing', name: 'Marketing', tag: 'mktg', origin: 'system', description: '', orgId: '', isDeleted: false, __v: 0, createdAt: '', updatedAt: '' },
-          { _id: 'sales', name: 'Sales', tag: 'sales', origin: 'system', description: '', orgId: '', isDeleted: false, __v: 0, createdAt: '', updatedAt: '' },
+          {
+            _id: 'engineering',
+            name: 'Engineering',
+            tag: 'eng',
+            origin: 'system',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            __v: 0,
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            _id: 'product',
+            name: 'Product Management',
+            tag: 'pm',
+            origin: 'system',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            __v: 0,
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            _id: 'design',
+            name: 'Design',
+            tag: 'design',
+            origin: 'system',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            __v: 0,
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            _id: 'marketing',
+            name: 'Marketing',
+            tag: 'mktg',
+            origin: 'system',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            __v: 0,
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            _id: 'sales',
+            name: 'Sales',
+            tag: 'sales',
+            origin: 'system',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            __v: 0,
+            createdAt: '',
+            updatedAt: '',
+          },
         ]);
         setRecordCategories([
-          { _id: 'technical', name: 'Technical Documentation', tag: 'tech', origin: 'system', description: '', orgId: '', isDeleted: false, __v: 0, createdAt: '', updatedAt: '' },
-          { _id: 'product', name: 'Product Documentation', tag: 'prod', origin: 'system', description: '', orgId: '', isDeleted: false, __v: 0, createdAt: '', updatedAt: '' },
-          { _id: 'process', name: 'Process Documentation', tag: 'proc', origin: 'system', description: '', orgId: '', isDeleted: false, __v: 0, createdAt: '', updatedAt: '' },
+          {
+            _id: 'technical',
+            name: 'Technical Documentation',
+            tag: 'tech',
+            origin: 'system',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            __v: 0,
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            _id: 'product',
+            name: 'Product Documentation',
+            tag: 'prod',
+            origin: 'system',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            __v: 0,
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            _id: 'process',
+            name: 'Process Documentation',
+            tag: 'proc',
+            origin: 'system',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            __v: 0,
+            createdAt: '',
+            updatedAt: '',
+          },
         ]);
         setModules([
-          { _id: 'module1', name: 'User Management', description: '', orgId: '', isDeleted: false, createdAt: '', updatedAt: '', __v: 0 },
-          { _id: 'module2', name: 'Authentication', description: '', orgId: '', isDeleted: false, createdAt: '', updatedAt: '', __v: 0 },
-          { _id: 'module3', name: 'Reporting', description: '', orgId: '', isDeleted: false, createdAt: '', updatedAt: '', __v: 0 },
+          {
+            _id: 'module1',
+            name: 'User Management',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            createdAt: '',
+            updatedAt: '',
+            __v: 0,
+          },
+          {
+            _id: 'module2',
+            name: 'Authentication',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            createdAt: '',
+            updatedAt: '',
+            __v: 0,
+          },
+          {
+            _id: 'module3',
+            name: 'Reporting',
+            description: '',
+            orgId: '',
+            isDeleted: false,
+            createdAt: '',
+            updatedAt: '',
+            __v: 0,
+          },
         ]);
       } finally {
         setLoading(false);
@@ -389,7 +529,6 @@ export default function KnowledgeSearchSideBar({
     };
     fetchData();
   }, []);
-  
 
   const handleDrawerToggle = () => {
     setOpen(!open);
@@ -480,9 +619,10 @@ export default function KnowledgeSearchSideBar({
   // Filter items based on search term
   const filterItems = <T extends { name: string; id?: string }>(items: T[]): T[] => {
     if (!searchTerm) return items;
-    return items.filter((item) => 
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.id && item.id.toLowerCase().includes(searchTerm.toLowerCase()))
+    return items.filter(
+      (item) =>
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.id && item.id.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   };
 
@@ -508,7 +648,7 @@ export default function KnowledgeSearchSideBar({
             variant="text"
             size="small"
             onClick={clearAllFilters}
-            startIcon={<Icon icon="mdi:close-circle-outline" fontSize="small" />}
+            startIcon={<Icon icon={closeCircleIcon} fontSize="small" />}
           >
             Clear All
           </ClearFiltersButton>
@@ -521,7 +661,7 @@ export default function KnowledgeSearchSideBar({
                 label={getFilterName(type as keyof Filters, value)}
                 size="small"
                 onDelete={() => clearFilter(type as keyof Filters, value)}
-                deleteIcon={<Icon icon="mdi:close" fontSize="small" />}
+                deleteIcon={<Icon icon={closeIcon} fontSize="small" />}
               />
             ))
           )}
@@ -529,7 +669,7 @@ export default function KnowledgeSearchSideBar({
       </ActiveFiltersContainer>
     );
   };
-  
+
   // Collapsed sidebar content
   const renderCollapsedContent = () => (
     <CollapsedButtonContainer>
@@ -540,7 +680,7 @@ export default function KnowledgeSearchSideBar({
           onClick={() => handleCollapsedFilterClick('connectors', 'connector')}
         >
           <Badge badgeContent={getActiveFilterCount('connector')} color="primary">
-            <Icon icon="mdi:apps" />
+            <Icon icon={appIcon} />
           </Badge>
         </IconButtonStyled>
       </Tooltip>
@@ -551,7 +691,7 @@ export default function KnowledgeSearchSideBar({
           onClick={() => handleCollapsedFilterClick('departments', 'department')}
         >
           <Badge badgeContent={getActiveFilterCount('department')} color="primary">
-            <Icon icon="mdi:office-building" />
+            <Icon icon={officeBuildingIcon} />
           </Badge>
         </IconButtonStyled>
       </Tooltip>
@@ -562,7 +702,7 @@ export default function KnowledgeSearchSideBar({
           onClick={() => handleCollapsedFilterClick('modules', 'moduleId')}
         >
           <Badge badgeContent={getActiveFilterCount('moduleId')} color="primary">
-            <Icon icon="mdi:view-module" />
+            <Icon icon={viewModuleIcon} />
           </Badge>
         </IconButtonStyled>
       </Tooltip>
@@ -573,7 +713,7 @@ export default function KnowledgeSearchSideBar({
           onClick={() => handleCollapsedFilterClick('categories', 'appSpecificRecordType')}
         >
           <Badge badgeContent={getActiveFilterCount('appSpecificRecordType')} color="primary">
-            <Icon icon="mdi:format-list-bulleted" />
+            <Icon icon={formatListIcon} />
           </Badge>
         </IconButtonStyled>
       </Tooltip>
@@ -591,13 +731,13 @@ export default function KnowledgeSearchSideBar({
               },
             }}
           >
-            <Icon icon="mdi:filter-remove" />
+            <Icon icon={filterRemoveIcon} />
           </IconButtonStyled>
         </Tooltip>
       )}
     </CollapsedButtonContainer>
   );
-  
+
   // Filter section component with enhanced styling
   const FilterSectionComponent = ({
     id,
@@ -610,11 +750,11 @@ export default function KnowledgeSearchSideBar({
     renderItemLabel = null,
     expanded,
     onToggle,
-    activeFilters = []
+    activeFilters = [],
   }: FilterSectionComponentProps) => {
     const isExpanded = expanded !== undefined ? expanded : expandedSections[id];
     const handleToggle = onToggle || (() => toggleSection(id));
-    
+
     return (
       <FilterSection>
         <FilterHeader expanded={isExpanded} onClick={handleToggle}>
@@ -622,10 +762,10 @@ export default function KnowledgeSearchSideBar({
             <Icon
               icon={icon}
               fontSize="small"
-              style={{ 
-                color: isExpanded 
-                  ? theme.palette.primary.main 
-                  : alpha(theme.palette.text.primary, 0.7)
+              style={{
+                color: isExpanded
+                  ? theme.palette.primary.main
+                  : alpha(theme.palette.text.primary, 0.7),
               }}
             />
             {label}
@@ -634,7 +774,7 @@ export default function KnowledgeSearchSideBar({
             )}
           </FilterLabel>
           <Icon
-            icon={isExpanded ? 'mdi:chevron-up' : 'mdi:chevron-down'}
+            icon={isExpanded ? upIcon : downIcon}
             fontSize="small"
             style={{ color: alpha(theme.palette.text.primary, 0.7) }}
           />
@@ -650,7 +790,7 @@ export default function KnowledgeSearchSideBar({
                 const itemId = typeof item === 'string' ? item : getItemId(item);
                 // eslint-disable-next-line
                 const isChecked = filters[filterType]?.includes(itemId) || false;
-                
+
                 return (
                   <FormControlLabelStyled
                     key={itemId}
@@ -674,9 +814,13 @@ export default function KnowledgeSearchSideBar({
                   />
                 );
               })}
-              
+
               {filterItems(items).length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 1, textAlign: 'center' }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ py: 1, textAlign: 'center' }}
+                >
                   No matching items
                 </Typography>
               )}
@@ -695,9 +839,14 @@ export default function KnowledgeSearchSideBar({
             <Typography
               variant="subtitle1"
               fontWeight={600}
-              sx={{ color: theme.palette.primary.main, display: 'flex', alignItems: 'center', gap: 1 }}
+              sx={{
+                color: theme.palette.primary.main,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
             >
-              <Icon icon="mdi:filter-menu" />
+              <Icon icon={filterMenuIcon} />
               Filters
             </Typography>
             <Tooltip title="Collapse sidebar">
@@ -706,7 +855,7 @@ export default function KnowledgeSearchSideBar({
                 size="small"
                 sx={{ color: theme.palette.text.secondary }}
               >
-                <Icon icon="mdi:chevron-left" width={20} height={20} />
+                <Icon icon={leftIcon} width={20} height={20} />
               </IconButtonStyled>
             </Tooltip>
           </>
@@ -716,7 +865,7 @@ export default function KnowledgeSearchSideBar({
               onClick={handleDrawerToggle}
               sx={{ mx: 'auto', color: theme.palette.primary.main }}
             >
-              <Icon icon="mdi:chevron-right" width={20} height={20} />
+              <Icon icon={rightIcon} width={20} height={20} />
             </IconButtonStyled>
           </Tooltip>
         )}
@@ -736,16 +885,13 @@ export default function KnowledgeSearchSideBar({
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Icon icon="mdi:magnify" fontSize="small" />
+                  <Icon icon={magnifyIcon} fontSize="small" />
                 </InputAdornment>
               ),
               endAdornment: searchTerm ? (
                 <InputAdornment position="end">
-                  <IconButton 
-                    size="small" 
-                    onClick={() => setSearchTerm('')}
-                  >
-                    <Icon icon="mdi:close" fontSize="small" />
+                  <IconButton size="small" onClick={() => setSearchTerm('')}>
+                    <Icon icon={closeIcon} fontSize="small" />
                   </IconButton>
                 </InputAdornment>
               ) : null,
@@ -756,18 +902,18 @@ export default function KnowledgeSearchSideBar({
 
           <FilterSectionComponent
             id="connectors"
-            icon="mdi:apps"
+            icon={appIcon}
             label="App Sources"
             filterType="connector"
             items={connectors}
             renderItemLabel={(connector) => (
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Icon 
-                  icon={connector.icon} 
-                  style={{ 
+                <Icon
+                  icon={connector.icon}
+                  style={{
                     marginRight: theme.spacing(1),
-                    color: connector.color
-                  }} 
+                    color: connector.color,
+                  }}
                 />
                 <Typography variant="body2">{connector.name}</Typography>
               </Box>
@@ -797,8 +943,6 @@ export default function KnowledgeSearchSideBar({
             filterType="appSpecificRecordType"
             items={recordCategories}
           /> */}
-          
-        
         </FiltersContainer>
       )}
     </OpenedDrawer>

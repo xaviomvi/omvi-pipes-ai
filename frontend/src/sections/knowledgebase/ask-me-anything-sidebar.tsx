@@ -1,4 +1,9 @@
 import { Icon } from '@iconify/react';
+import menuIcon from '@iconify-icons/mdi/menu';
+import refreshIcon from '@iconify-icons/mdi/refresh';
+import chatIcon from '@iconify-icons/mdi/chat-outline';
+import dotsIcon from '@iconify-icons/mdi/dots-vertical';
+import fileSearchIcon from '@iconify-icons/mdi/file-search-outline';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
 import {
@@ -298,7 +303,7 @@ const RecordSidebar = ({
             },
           }}
         >
-          <Icon icon="mdi:menu" />
+          <Icon icon={menuIcon} />
         </IconButton>
         <Typography variant="h6" sx={{ flex: 1, fontWeight: 600 }}>
           Conversations
@@ -314,7 +319,7 @@ const RecordSidebar = ({
                 },
               }}
             >
-              <Icon icon="mdi:chat-outline" />
+              <Icon icon={chatIcon} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Refresh">
@@ -327,7 +332,7 @@ const RecordSidebar = ({
                 },
               }}
             >
-              <Icon icon="mdi:refresh" />
+              <Icon icon={refreshIcon} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -376,7 +381,7 @@ const RecordSidebar = ({
                         },
                       }}
                     >
-                      <Icon icon="mdi:dots-vertical" />
+                      <Icon icon={dotsIcon} />
                     </IconButton>
                   }
                 >
@@ -401,7 +406,7 @@ const RecordSidebar = ({
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Icon
-                          icon="mdi:chat-outline"
+                          icon={chatIcon}
                           style={{
                             color:
                               selectedRecordId === record._id ? 'primary.main' : 'text.secondary',
@@ -456,7 +461,7 @@ const RecordSidebar = ({
               gap: 1,
             }}
           >
-            <Icon icon="mdi:file-search-outline" width={40} height={40} />
+            <Icon icon={fileSearchIcon} width={40} height={40} />
             <Typography>No conversations found</Typography>
           </Box>
         )}
@@ -477,7 +482,7 @@ const RecordSidebar = ({
             }
           }}
         >
-          <Icon icon="mdi:chat" style={{ marginRight: 8 }} />
+          <Icon icon={chatIcon} style={{ marginRight: 8 }} />
           Open Conversation
         </MenuItem>
       </Menu>

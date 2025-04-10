@@ -1,6 +1,7 @@
 import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import lockIcon from '@iconify-icons/mdi/lock-outline';
 import React, { useState, useEffect, useCallback } from 'react';
 
 import { LoadingButton } from '@mui/lab';
@@ -261,18 +262,18 @@ export default function PersonalProfile() {
           <Typography variant="h6" fontWeight={500} fontSize="1.25rem">
             Personal Profile
           </Typography>
-          
+
           <Button
             variant="outlined"
             size="medium"
             onClick={() => setIsChangePasswordOpen(true)}
-            startIcon={<Iconify icon="material-symbols:lock-outline" width={18} height={18} />}
-            sx={{ 
-              textTransform: 'none', 
+            startIcon={<Iconify icon={lockIcon} width={18} height={18} />}
+            sx={{
+              textTransform: 'none',
               fontWeight: 500,
               borderRadius: 2,
               px: 2,
-              py: 0.8
+              py: 0.8,
             }}
           >
             Change Password
@@ -284,8 +285,8 @@ export default function PersonalProfile() {
           <Grid container spacing={{ xs: 3, md: 5 }}>
             {/* Avatar Section */}
             {/* <Grid item xs={12} md={4}> */}
-              {/* <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: { xs: 1, md: 2 } }}> */}
-                {/* <Box sx={{ position: 'relative' }}>
+            {/* <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: { xs: 1, md: 2 } }}> */}
+            {/* <Box sx={{ position: 'relative' }}>
                   {logo ? (
                     <Avatar
                       src={logo}
@@ -388,8 +389,8 @@ export default function PersonalProfile() {
                     </>
                   )}
                 </Box> */}
-                
-                {/* {!logo && isAdmin && (
+
+            {/* {!logo && isAdmin && (
                   <Typography 
                     variant="caption" 
                     color="text.secondary" 
@@ -399,40 +400,40 @@ export default function PersonalProfile() {
                     Add a profile photo
                   </Typography>
                 )} */}
-              {/* </Box> */}
+            {/* </Box> */}
             {/* </Grid> */}
-            
+
             {/* Form Section */}
             <Grid item xs={12} md={8}>
-              <Form 
-                methods={methods} 
-                onSubmit={handleSubmit(onSubmit)} 
+              <Form
+                methods={methods}
+                onSubmit={handleSubmit(onSubmit)}
                 {...({ noValidate: true } as any)}
               >
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={6}>
-                    <Field.Text 
-                      name="firstName" 
-                      label="First name" 
-                      fullWidth 
+                    <Field.Text
+                      name="firstName"
+                      label="First name"
+                      fullWidth
                       variant="outlined"
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
-                        }
+                          height: 50,
+                        },
                       }}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Field.Text 
-                      name="lastName" 
-                      label="Last name" 
-                      fullWidth 
+                    <Field.Text
+                      name="lastName"
+                      label="Last name"
+                      fullWidth
                       variant="outlined"
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
-                        }
+                          height: 50,
+                        },
                       }}
                     />
                   </Grid>
@@ -443,24 +444,24 @@ export default function PersonalProfile() {
                       fullWidth
                       variant="outlined"
                       required
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
-                        }
+                          height: 50,
+                        },
                       }}
                     />
                   </Grid>
                   <Grid item xs={12}>
-                    <Field.Text 
-                      name="designation" 
-                      label="Designation" 
-                      fullWidth 
+                    <Field.Text
+                      name="designation"
+                      label="Designation"
+                      fullWidth
                       variant="outlined"
                       placeholder="e.g. Software Engineer"
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
-                        }
+                          height: 50,
+                        },
                       }}
                     />
                   </Grid>
@@ -471,10 +472,10 @@ export default function PersonalProfile() {
                       fullWidth
                       variant="outlined"
                       required
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
-                          height: 50
-                        }
+                          height: 50,
+                        },
                       }}
                     />
                   </Grid>
@@ -489,17 +490,17 @@ export default function PersonalProfile() {
                       loading={saveChanges}
                       loadingIndicator="Saving..."
                       disabled={!isValid || !isDirty}
-                      sx={{ 
+                      sx={{
                         height: 40,
                         px: 2,
                         borderRadius: 2,
-                        textTransform: 'none', 
+                        textTransform: 'none',
                         fontWeight: 500,
                         fontSize: '0.93rem',
                         boxShadow: theme.shadows[1],
                         '&:hover': {
-                          boxShadow: theme.shadows[2]
-                        }
+                          boxShadow: theme.shadows[2],
+                        },
                       }}
                     >
                       Save changes
@@ -513,18 +514,20 @@ export default function PersonalProfile() {
       </Paper>
 
       {/* Password Dialog */}
-      <Dialog 
-        open={isChangePasswordOpen} 
+      <Dialog
+        open={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
         PaperProps={{
           sx: {
             borderRadius: 1,
-            maxWidth: 400
-          }
+            maxWidth: 400,
+          },
         }}
       >
         <DialogTitle sx={{ pb: 1, pt: 2 }}>
-          <Typography variant="h6" fontWeight={500}>Change Password</Typography>
+          <Typography variant="h6" fontWeight={500}>
+            Change Password
+          </Typography>
         </DialogTitle>
         <Form
           methods={passwordMethods}
@@ -538,10 +541,10 @@ export default function PersonalProfile() {
               fullWidth
               margin="normal"
               variant="outlined"
-              sx={{ 
+              sx={{
                 '& .MuiOutlinedInput-root': {
-                  height: 56
-                }
+                  height: 56,
+                },
               }}
             />
             <Field.Text
@@ -551,21 +554,21 @@ export default function PersonalProfile() {
               fullWidth
               margin="normal"
               variant="outlined"
-              sx={{ 
+              sx={{
                 '& .MuiOutlinedInput-root': {
-                  height: 56
-                }
+                  height: 56,
+                },
               }}
             />
-            <Typography 
-              variant="caption" 
-              color="text.secondary" 
-              sx={{ 
-                display: 'block', 
-                mt: 0.5, 
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                display: 'block',
+                mt: 0.5,
                 mb: 1.5,
                 fontSize: '0.7rem',
-                lineHeight: 1.4 
+                lineHeight: 1.4,
               }}
             >
               Password must have at least 8 characters with lowercase, uppercase, number and symbol
@@ -577,31 +580,31 @@ export default function PersonalProfile() {
               fullWidth
               margin="normal"
               variant="outlined"
-              sx={{ 
+              sx={{
                 '& .MuiOutlinedInput-root': {
-                  height: 56
-                }
+                  height: 56,
+                },
               }}
             />
           </DialogContent>
           <DialogActions sx={{ px: 2.5, pb: 2, pt: 1 }}>
-            <Button 
+            <Button
               onClick={() => setIsChangePasswordOpen(false)}
               size="small"
-              sx={{ 
+              sx={{
                 textTransform: 'none',
-                color: 'text.secondary'
+                color: 'text.secondary',
               }}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              variant="contained" 
+            <Button
+              type="submit"
+              variant="contained"
               color="primary"
-              size="small" 
+              size="small"
               disabled={!passwordMethods.formState.isValid}
-              sx={{ 
+              sx={{
                 textTransform: 'none',
                 borderRadius: 0.75,
                 px: 2,
@@ -609,8 +612,8 @@ export default function PersonalProfile() {
                 fontWeight: 500,
                 boxShadow: 'none',
                 '&:hover': {
-                  boxShadow: 'none'
-                }
+                  boxShadow: 'none',
+                },
               }}
             >
               Update password
@@ -620,23 +623,23 @@ export default function PersonalProfile() {
       </Dialog>
 
       {/* Snackbar for notifications */}
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={4000} 
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={handleCloseSnackbar} 
+        <Alert
+          onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ 
+          sx={{
             width: '100%',
             borderRadius: 0.75,
             boxShadow: theme.shadows[3],
             '& .MuiAlert-icon': {
-              fontSize: '1.2rem'
-            }
+              fontSize: '1.2rem',
+            },
           }}
         >
           {snackbar.message}

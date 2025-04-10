@@ -1,6 +1,14 @@
 import React from 'react';
 import dayjs from 'dayjs';
 import { Icon } from '@iconify/react';
+import downloadIcon from '@iconify-icons/mdi/download';
+import zipIcon from '@iconify-icons/vscode-icons/file-type-zip';
+import pdfIcon from '@iconify-icons/vscode-icons/file-type-pdf2';
+import wordIcon from '@iconify-icons/vscode-icons/file-type-word2';
+import imageIcon from '@iconify-icons/vscode-icons/file-type-image';
+import excelIcon from '@iconify-icons/vscode-icons/file-type-excel2';
+import defaultFileIcon from '@iconify-icons/mdi/file-document-outline';
+import powerpointIcon from '@iconify-icons/vscode-icons/file-type-powerpoint2';
 
 import { Box, Card, Stack, Typography, IconButton, CardContent } from '@mui/material';
 
@@ -14,25 +22,25 @@ const getFileIcon = (extension: string) => {
 
   switch (ext) {
     case 'pdf':
-      return 'vscode-icons:file-type-pdf2';
+      return pdfIcon;
     case 'doc':
     case 'docx':
-      return 'vscode-icons:file-type-word2';
+      return wordIcon;
     case 'xls':
     case 'xlsx':
-      return 'vscode-icons:file-type-excel2';
+      return excelIcon;
     case 'ppt':
     case 'pptx':
-      return 'vscode-icons:file-type-powerpoint2';
+      return powerpointIcon;
     case 'jpg':
     case 'jpeg':
     case 'png':
-      return 'vscode-icons:file-type-image';
+      return imageIcon;
     case 'zip':
     case 'rar':
-      return 'vscode-icons:file-type-zip';
+      return zipIcon;
     default:
-      return 'mdi:file-document-outline';
+      return defaultFileIcon;
   }
 };
 
@@ -105,7 +113,7 @@ const RecordDocumentViewer = ({ record }: RecordDocumentViewerProps) => {
             </Typography>
           </Box>
           <IconButton onClick={handleDownload} sx={{ color: 'primary.main' }}>
-            <Icon icon="mdi:download" width={24} />
+            <Icon icon={downloadIcon} width={24} />
           </IconButton>
         </Stack>
 
