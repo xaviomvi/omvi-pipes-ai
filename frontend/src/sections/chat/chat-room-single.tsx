@@ -1,5 +1,9 @@
 import type { IChatParticipant } from 'src/types/chat';
 
+import phoneIcon from '@iconify-icons/solar/phone-bold';
+import mailIcon from '@iconify-icons/fluent/mail-24-filled';
+import locationIcon from '@iconify-icons/mingcute/location-fill';
+
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Collapse from '@mui/material/Collapse';
@@ -37,12 +41,12 @@ export function ChatRoomSingle({ participant }: Props) {
   const renderContact = (
     <Stack spacing={2} sx={{ px: 2, py: 2.5 }}>
       {[
-        { icon: 'mingcute:location-fill', value: participant?.address },
-        { icon: 'solar:phone-bold', value: participant?.phoneNumber },
-        { icon: 'fluent:mail-24-filled', value: participant?.email },
+        { icon: locationIcon, value: participant?.address, id: 'location' },
+        { icon: phoneIcon, value: participant?.phoneNumber, id: 'phone' },
+        { icon: mailIcon, value: participant?.email, id: 'email' },
       ].map((item) => (
         <Stack
-          key={item.icon}
+          key={item.id} // Use a string key instead of the icon
           spacing={1}
           direction="row"
           sx={{ typography: 'body2', wordBreak: 'break-all' }}

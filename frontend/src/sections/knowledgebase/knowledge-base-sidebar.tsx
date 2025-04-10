@@ -1,6 +1,19 @@
 import { Icon } from '@iconify/react';
+import tagIcon from '@iconify-icons/mdi/tag';
+import closeIcon from '@iconify-icons/mdi/close';
 import React, { useState, useEffect } from 'react';
+import upIcon from '@iconify-icons/mdi/chevron-up';
+import leftIcon from '@iconify-icons/mdi/chevron-left';
+import downIcon from '@iconify-icons/mdi/chevron-down';
+import rightIcon from '@iconify-icons/mdi/chevron-right';
 import { useLocation, useNavigate } from 'react-router-dom';
+import viewModuleIcon from '@iconify-icons/mdi/view-module';
+import filterMenuIcon from '@iconify-icons/mdi/filter-menu';
+import filterRemoveIcon from '@iconify-icons/mdi/filter-remove';
+import filterVariantIcon from '@iconify-icons/mdi/filter-variant';
+import officeBuildingIcon from '@iconify-icons/mdi/office-building';
+import formatListIcon from '@iconify-icons/mdi/format-list-bulleted';
+import closeCircleIcon from '@iconify-icons/mdi/close-circle-outline';
 
 import { alpha, styled, useTheme } from '@mui/material/styles';
 import {
@@ -317,7 +330,7 @@ export default function KnowledgeBaseSideBar({
   const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
     status: true,
   });
-  
+
   // Smoothly manage content appearance
   const [showCollapsedContent, setShowCollapsedContent] = useState(!openSidebar);
   const [showExpandedContent, setShowExpandedContent] = useState(openSidebar);
@@ -333,7 +346,7 @@ export default function KnowledgeBaseSideBar({
   // Sync internal state with prop
   useEffect(() => {
     setOpen(openSidebar);
-    
+
     // Manage content visibility with a slight delay for smooth transitions
     if (openSidebar) {
       setShowCollapsedContent(false);
@@ -349,7 +362,7 @@ export default function KnowledgeBaseSideBar({
   const handleDrawerToggle = () => {
     const newOpenState = !open;
     setOpen(newOpenState);
-    
+
     if (onToggleSidebar) {
       onToggleSidebar();
     }
@@ -465,7 +478,7 @@ export default function KnowledgeBaseSideBar({
             variant="text"
             size="small"
             onClick={clearAllFilters}
-            startIcon={<Icon icon="mdi:close-circle-outline" fontSize="small" />}
+            startIcon={<Icon icon={closeCircleIcon} fontSize="small" />}
           >
             Clear All
           </ClearFiltersButton>
@@ -478,7 +491,7 @@ export default function KnowledgeBaseSideBar({
                 label={getFilterName(type as keyof Filters, value)}
                 size="small"
                 onDelete={() => clearFilter(type as keyof Filters, value)}
-                deleteIcon={<Icon icon="mdi:close" fontSize="small" />}
+                deleteIcon={<Icon icon={closeIcon} fontSize="small" />}
               />
             ))
           )}
@@ -497,7 +510,7 @@ export default function KnowledgeBaseSideBar({
           onClick={() => handleCollapsedFilterClick('status', 'indexingStatus')}
         >
           <Badge badgeContent={getActiveFilterCount('indexingStatus')} color="primary">
-            <Icon icon="mdi:filter-variant" />
+            <Icon icon={filterVariantIcon} />
           </Badge>
         </IconButtonStyled>
       </Tooltip>
@@ -508,7 +521,7 @@ export default function KnowledgeBaseSideBar({
           onClick={() => handleCollapsedFilterClick('departments', 'department')}
         >
           <Badge badgeContent={getActiveFilterCount('department')} color="primary">
-            <Icon icon="mdi:office-building" />
+            <Icon icon={officeBuildingIcon} />
           </Badge>
         </IconButtonStyled>
       </Tooltip>
@@ -519,7 +532,7 @@ export default function KnowledgeBaseSideBar({
           onClick={() => handleCollapsedFilterClick('modules', 'moduleId')}
         >
           <Badge badgeContent={getActiveFilterCount('moduleId')} color="primary">
-            <Icon icon="mdi:view-module" />
+            <Icon icon={viewModuleIcon} />
           </Badge>
         </IconButtonStyled>
       </Tooltip>
@@ -530,7 +543,7 @@ export default function KnowledgeBaseSideBar({
           onClick={() => handleCollapsedFilterClick('tags', 'searchTags')}
         >
           <Badge badgeContent={getActiveFilterCount('searchTags')} color="primary">
-            <Icon icon="mdi:tag" />
+            <Icon icon={tagIcon} />
           </Badge>
         </IconButtonStyled>
       </Tooltip>
@@ -541,7 +554,7 @@ export default function KnowledgeBaseSideBar({
           onClick={() => handleCollapsedFilterClick('categories', 'appSpecificRecordType')}
         >
           <Badge badgeContent={getActiveFilterCount('appSpecificRecordType')} color="primary">
-            <Icon icon="mdi:format-list-bulleted" />
+            <Icon icon={formatListIcon} />
           </Badge>
         </IconButtonStyled>
       </Tooltip>
@@ -559,7 +572,7 @@ export default function KnowledgeBaseSideBar({
               },
             }}
           >
-            <Icon icon="mdi:filter-remove" />
+            <Icon icon={filterRemoveIcon} />
           </IconButtonStyled>
         </Tooltip>
       )}
@@ -591,7 +604,7 @@ export default function KnowledgeBaseSideBar({
           )}
         </FilterLabel>
         <Icon
-          icon={expandedSections[id] ? 'mdi:chevron-up' : 'mdi:chevron-down'}
+          icon={expandedSections[id] ? upIcon : downIcon}
           fontSize="small"
           color={theme.palette.text.secondary}
         />
@@ -632,8 +645,8 @@ export default function KnowledgeBaseSideBar({
   );
 
   return (
-    <OpenedDrawer 
-      variant="permanent" 
+    <OpenedDrawer
+      variant="permanent"
       open={open}
       sx={{
         ...sx,
@@ -652,7 +665,7 @@ export default function KnowledgeBaseSideBar({
               sx={{ color: theme.palette.primary.main }}
             >
               <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Icon icon="mdi:filter-menu" />
+                <Icon icon={filterMenuIcon} />
                 Filters
               </Box>
             </Typography>
@@ -660,7 +673,7 @@ export default function KnowledgeBaseSideBar({
               <IconButtonStyled
                 onClick={handleDrawerToggle}
                 size="small"
-                sx={{ 
+                sx={{
                   color: theme.palette.text.secondary,
                   transition: theme.transitions.create('transform', {
                     duration: '0.3s',
@@ -668,7 +681,7 @@ export default function KnowledgeBaseSideBar({
                   }),
                 }}
               >
-                <Icon icon="mdi:chevron-left" width={20} height={20} />
+                <Icon icon={leftIcon} width={20} height={20} />
               </IconButtonStyled>
             </Tooltip>
           </>
@@ -676,8 +689,8 @@ export default function KnowledgeBaseSideBar({
           <Tooltip title="Expand sidebar" placement="right">
             <IconButtonStyled
               onClick={handleDrawerToggle}
-              sx={{ 
-                mx: 'auto', 
+              sx={{
+                mx: 'auto',
                 color: theme.palette.primary.main,
                 transition: theme.transitions.create('transform', {
                   duration: '0.3s',
@@ -685,7 +698,7 @@ export default function KnowledgeBaseSideBar({
                 }),
               }}
             >
-              <Icon icon="mdi:chevron-right" width={20} height={20} />
+              <Icon icon={rightIcon} width={20} height={20} />
             </IconButtonStyled>
           </Tooltip>
         )}
@@ -700,7 +713,7 @@ export default function KnowledgeBaseSideBar({
 
             <FilterSectionComponent
               id="status"
-              icon="mdi:filter-variant"
+              icon={filterVariantIcon}
               label="Status"
               filterType="indexingStatus"
               items={['NOT_STARTED', 'IN_PROGRESS', 'FAILED', 'COMPLETED']}

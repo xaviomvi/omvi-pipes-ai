@@ -1,6 +1,16 @@
 import type { IChatParticipant } from 'src/types/chat';
 
 import { useCallback } from 'react';
+// Icon imports
+import phoneIcon from '@iconify-icons/solar/phone-bold';
+import bellOffIcon from '@iconify-icons/solar/bell-off-bold';
+import sidebarFoldIcon from '@iconify-icons/ri/layout-left-2-line';
+import moreVerticalIcon from '@iconify-icons/eva/more-vertical-fill';
+import trashBinIcon from '@iconify-icons/solar/trash-bin-trash-bold';
+import sidebarUnfoldIcon from '@iconify-icons/ri/layout-right-2-line';
+import videocameraIcon from '@iconify-icons/solar/videocamera-record-bold';
+import dangerTriangleIcon from '@iconify-icons/solar/danger-triangle-bold';
+import forbiddenCircleIcon from '@iconify-icons/solar/forbidden-circle-bold';
 
 import Stack from '@mui/material/Stack';
 import Badge from '@mui/material/Badge';
@@ -93,19 +103,19 @@ export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) 
 
       <Stack direction="row" flexGrow={1} justifyContent="flex-end">
         <IconButton>
-          <Iconify icon="solar:phone-bold" />
+          <Iconify icon={phoneIcon} />
         </IconButton>
 
         <IconButton>
-          <Iconify icon="solar:videocamera-record-bold" />
+          <Iconify icon={videocameraIcon} />
         </IconButton>
 
         <IconButton onClick={handleToggleNav}>
-          <Iconify icon={!collapseDesktop ? 'ri:sidebar-unfold-fill' : 'ri:sidebar-fold-fill'} />
+          <Iconify icon={!collapseDesktop ? sidebarUnfoldIcon : sidebarFoldIcon} />
         </IconButton>
 
         <IconButton onClick={popover.onOpen}>
-          <Iconify icon="eva:more-vertical-fill" />
+          <Iconify icon={moreVerticalIcon} />
         </IconButton>
       </Stack>
 
@@ -116,7 +126,7 @@ export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) 
               popover.onClose();
             }}
           >
-            <Iconify icon="solar:bell-off-bold" />
+            <Iconify icon={bellOffIcon} />
             Hide notifications
           </MenuItem>
 
@@ -125,7 +135,7 @@ export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) 
               popover.onClose();
             }}
           >
-            <Iconify icon="solar:forbidden-circle-bold" />
+            <Iconify icon={forbiddenCircleIcon} />
             Block
           </MenuItem>
 
@@ -134,7 +144,7 @@ export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) 
               popover.onClose();
             }}
           >
-            <Iconify icon="solar:danger-triangle-bold" />
+            <Iconify icon={dangerTriangleIcon} />
             Report
           </MenuItem>
 
@@ -146,7 +156,7 @@ export function ChatHeaderDetail({ collapseNav, participants, loading }: Props) 
             }}
             sx={{ color: 'error.main' }}
           >
-            <Iconify icon="solar:trash-bin-trash-bold" />
+            <Iconify icon={trashBinIcon} />
             Delete
           </MenuItem>
         </MenuList>

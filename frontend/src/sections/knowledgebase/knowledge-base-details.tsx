@@ -3,7 +3,18 @@ import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router';
 import { useDropzone } from 'react-dropzone';
+import closeIcon from '@iconify-icons/mdi/close';
 import React, { useState, useEffect } from 'react';
+import uploadIcon from '@iconify-icons/mdi/upload';
+import eyeIcon from '@iconify-icons/mdi/eye-outline';
+import magnifyIcon from '@iconify-icons/mdi/magnify';
+import refreshIcon from '@iconify-icons/mdi/refresh';
+import cloudIcon from '@iconify-icons/mdi/cloud-upload';
+import dotsIcon from '@iconify-icons/mdi/dots-vertical';
+import viewColumnIcon from '@iconify-icons/mdi/view-column';
+import downloadIcon from '@iconify-icons/mdi/download-outline';
+import trashCanIcon from '@iconify-icons/mdi/trash-can-outline';
+import filePlusIcon from '@iconify-icons/mdi/file-plus-outline';
 
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -60,7 +71,7 @@ interface UploadErrorState {
 
 interface ActionMenuItem {
   label: string;
-  icon: string;
+  icon: any;
   color: string;
   onClick: () => void;
   isDanger?: boolean;
@@ -558,20 +569,20 @@ export default function KnowledgeBaseDetails({
           const items: ActionMenuItem[] = [
             {
               label: 'View Details',
-              icon: 'mdi:eye-outline',
+              icon: eyeIcon,
               color: '#1976d2',
               onClick: () => navigate(`/record/${params.row.id}`),
             },
             {
               label: getDownloadLabel(),
-              icon: 'mdi:download-outline',
+              icon: downloadIcon,
               color: '#1976d2',
               onClick: () =>
                 handleDownloadDocument(params.row.externalRecordId, params.row.recordName),
             },
             {
               label: 'Delete Record',
-              icon: 'mdi:trash-can-outline',
+              icon: trashCanIcon,
               color: '#f44336',
               onClick: () =>
                 setDeleteDialogData({
@@ -608,7 +619,7 @@ export default function KnowledgeBaseDetails({
                 },
               }}
             >
-              <Icon icon="mdi:dots-vertical" fontSize={18} />
+              <Icon icon={dotsIcon} fontSize={18} />
             </IconButton>
           </Box>
         );
@@ -784,7 +795,7 @@ export default function KnowledgeBaseDetails({
               onChange={handleSearchInputChange}
               InputProps={{
                 startAdornment: (
-                  <Icon icon="mdi:magnify" style={{ marginRight: 8, color: '#757575' }} />
+                  <Icon icon={magnifyIcon} style={{ marginRight: 8, color: '#757575' }} />
                 ),
               }}
               sx={{
@@ -796,7 +807,7 @@ export default function KnowledgeBaseDetails({
             />
             <Button
               variant="outlined"
-              startIcon={<Icon icon="mdi:view-column" />}
+              startIcon={<Icon icon={viewColumnIcon} />}
               onClick={handleColumnVisibilityClick}
               sx={{
                 width: 100,
@@ -807,7 +818,7 @@ export default function KnowledgeBaseDetails({
             </Button>
             <StyledButton
               variant="outlined"
-              startIcon={<Icon icon="mdi:upload" />}
+              startIcon={<Icon icon={uploadIcon} />}
               onClick={() => setOpenUploadDialog(true)}
               sx={{
                 width: 100,
@@ -1052,7 +1063,7 @@ export default function KnowledgeBaseDetails({
             size="small"
             variant="outlined"
             onClick={handleReset}
-            startIcon={<Icon icon="mdi:refresh" />}
+            startIcon={<Icon icon={refreshIcon} />}
             sx={{ borderRadius: '8px' }}
           >
             Reset
@@ -1061,7 +1072,7 @@ export default function KnowledgeBaseDetails({
             size="small"
             variant="contained"
             onClick={handleShowAll}
-            startIcon={<Icon icon="mdi:eye" />}
+            startIcon={<Icon icon={eyeIcon} />}
             sx={{ borderRadius: '8px' }}
           >
             Show All
@@ -1135,7 +1146,7 @@ export default function KnowledgeBaseDetails({
             >
               <input {...getInputProps()} />
               <Icon
-                icon="mdi:cloud-upload-outline"
+                icon={cloudIcon}
                 style={{
                   fontSize: '48px',
                   marginBottom: '16px',
@@ -1151,7 +1162,7 @@ export default function KnowledgeBaseDetails({
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<Icon icon="mdi:file-plus" />}
+                startIcon={<Icon icon={filePlusIcon} />}
                 sx={{ borderRadius: '8px' }}
               >
                 Select Files
@@ -1181,7 +1192,7 @@ export default function KnowledgeBaseDetails({
                     color="error"
                     variant="text"
                     onClick={() => setFiles([])}
-                    startIcon={<Icon icon="mdi:trash-can-outline" />}
+                    startIcon={<Icon icon={trashCanIcon} />}
                     sx={{ borderRadius: '8px' }}
                   >
                     Clear All
@@ -1240,7 +1251,7 @@ export default function KnowledgeBaseDetails({
                           onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
                           sx={{ p: 0.5, flexShrink: 0 }}
                         >
-                          <Icon icon="mdi:close" fontSize={18} />
+                          <Icon icon={closeIcon} fontSize={18} />
                         </IconButton>
                       </Stack>
                     );
@@ -1266,7 +1277,7 @@ export default function KnowledgeBaseDetails({
             onClick={handleUpload}
             variant="contained"
             disabled={files.length === 0 || uploading}
-            startIcon={<Icon icon="mdi:cloud-upload" />}
+            startIcon={<Icon icon={cloudIcon} />}
             sx={{ borderRadius: '8px' }}
           >
             Upload

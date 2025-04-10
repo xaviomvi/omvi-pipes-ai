@@ -1,24 +1,21 @@
 import type { ButtonBaseProps } from '@mui/material/ButtonBase';
 import type { ListItemButtonProps } from '@mui/material/ListItemButton';
 
+import arrowDownIcon from '@iconify-icons/eva/arrow-ios-downward-fill';
+import arrowForwardIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
+
 import { styled } from '@mui/material/styles';
 import ButtonBase from '@mui/material/ButtonBase';
 import ListItemButton from '@mui/material/ListItemButton';
 
 import { Iconify } from 'src/components/iconify';
-
 // ----------------------------------------------------------------------
 
 export const CollapseButton = styled(
   ({ selected, children, disabled, ...other }: ListItemButtonProps) => (
     <ListItemButton disabled={disabled} {...other}>
       {children}
-      <Iconify
-        width={16}
-        icon={
-          ((!selected || disabled) && 'eva:arrow-ios-forward-fill') || 'eva:arrow-ios-downward-fill'
-        }
-      />
+      <Iconify width={16} icon={((!selected || disabled) && arrowForwardIcon) || arrowDownIcon} />
     </ListItemButton>
   )
 )(({ theme }) => ({

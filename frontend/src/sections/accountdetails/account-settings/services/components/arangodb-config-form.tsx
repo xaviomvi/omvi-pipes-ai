@@ -1,3 +1,9 @@
+import linkIcon from '@iconify-icons/mdi/link';
+import lockIcon from '@iconify-icons/mdi/lock';
+import closeIcon from '@iconify-icons/mdi/close';
+import pencilIcon from '@iconify-icons/mdi/pencil';
+import accountIcon from '@iconify-icons/mdi/account';
+import infoIcon from '@iconify-icons/mdi/information-outline';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -212,7 +218,7 @@ const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormP
           }}
         >
           <Iconify
-            icon="mdi:information-outline"
+            icon={infoIcon}
             width={20}
             height={20}
             color={theme.palette.info.main}
@@ -228,7 +234,7 @@ const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormP
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
           <Button
             onClick={handleToggleEdit}
-            startIcon={<Iconify icon={isEditing ? 'mdi:close' : 'mdi:pencil'} />}
+            startIcon={<Iconify icon={isEditing ? closeIcon : pencilIcon} />}
             color={isEditing ? 'error' : 'primary'}
             size="small"
           >
@@ -253,7 +259,7 @@ const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormP
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Iconify icon="mdi:link" width={18} height={18} />
+                    <Iconify icon={linkIcon} width={18} height={18} />
                   </InputAdornment>
                 ),
               }}
@@ -283,7 +289,7 @@ const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormP
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Iconify icon="mdi:account" width={18} height={18} />
+                    <Iconify icon={accountIcon} width={18} height={18} />
                   </InputAdornment>
                 ),
               }}
@@ -313,7 +319,7 @@ const ArangoDBConfigForm = forwardRef<ArangoDBConfigFormRef, ArangoDBConfigFormP
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Iconify icon="mdi:lock" width={18} height={18} />
+                    <Iconify icon={lockIcon} width={18} height={18} />
                   </InputAdornment>
                 ),
               }}

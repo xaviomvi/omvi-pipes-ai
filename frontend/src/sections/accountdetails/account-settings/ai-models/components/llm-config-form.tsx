@@ -2,8 +2,16 @@ import type { SubmitHandler } from 'react-hook-form';
 import type { SelectChangeEvent } from '@mui/material';
 
 import { z } from 'zod';
+import keyIcon from '@iconify-icons/mdi/key';
+import linkIcon from '@iconify-icons/mdi/link';
+import closeIcon from '@iconify-icons/mdi/close';
+import robotIcon from '@iconify-icons/mdi/robot';
+import eyeIcon from '@iconify-icons/eva/eye-fill';
+import pencilIcon from '@iconify-icons/mdi/pencil';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
+import cubeIcon from '@iconify-icons/mdi/cube-outline';
+import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -26,7 +34,6 @@ import {
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
-
 // LLM form values interfaces
 interface LlmFormValues {
   modelType: 'openAI' | 'azureOpenAI' | 'gemini' | 'anthropic';
@@ -678,7 +685,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button
               onClick={handleToggleEdit}
-              startIcon={<Iconify icon={isEditing ? 'mdi:close' : 'mdi:pencil'} />}
+              startIcon={<Iconify icon={isEditing ? closeIcon : pencilIcon} />}
               color={isEditing ? 'error' : 'primary'}
               size="small"
             >
@@ -767,7 +774,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:key" width={18} height={18} />
+                            <Iconify icon={keyIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                         endAdornment: (
@@ -779,7 +786,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                               disabled={!isEditing || fetchError}
                             >
                               <Iconify
-                                icon={showOpenAIPassword ? 'eva:eye-off-fill' : 'eva:eye-fill'}
+                                icon={showOpenAIPassword ? eyeOffIcon : eyeIcon}
                                 width={16}
                                 height={16}
                               />
@@ -818,7 +825,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:robot" width={18} height={18} />
+                            <Iconify icon={robotIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                       }}
@@ -857,7 +864,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:key" width={18} height={18} />
+                            <Iconify icon={keyIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                         endAdornment: (
@@ -869,7 +876,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                               disabled={!isEditing || fetchError}
                             >
                               <Iconify
-                                icon={showGeminiPassword ? 'eva:eye-off-fill' : 'eva:eye-fill'}
+                                icon={showGeminiPassword ? eyeOffIcon : eyeIcon}
                                 width={16}
                                 height={16}
                               />
@@ -906,7 +913,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:robot" width={18} height={18} />
+                            <Iconify icon={robotIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                       }}
@@ -943,7 +950,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:key" width={18} height={18} />
+                            <Iconify icon={keyIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                         endAdornment: (
@@ -955,7 +962,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                               disabled={!isEditing || fetchError}
                             >
                               <Iconify
-                                icon={showGeminiPassword ? 'eva:eye-off-fill' : 'eva:eye-fill'}
+                                icon={showGeminiPassword ? eyeOffIcon : eyeIcon}
                                 width={16}
                                 height={16}
                               />
@@ -992,7 +999,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:robot" width={18} height={18} />
+                            <Iconify icon={robotIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                       }}
@@ -1032,7 +1039,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:link" width={18} height={18} />
+                            <Iconify icon={linkIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                       }}
@@ -1065,7 +1072,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:cube-outline" width={18} height={18} />
+                            <Iconify icon={cubeIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                       }}
@@ -1099,7 +1106,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:key" width={18} height={18} />
+                            <Iconify icon={keyIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                         endAdornment: (
@@ -1111,7 +1118,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                               disabled={!isEditing || fetchError}
                             >
                               <Iconify
-                                icon={showAzurePassword ? 'eva:eye-off-fill' : 'eva:eye-fill'}
+                                icon={showAzurePassword ? eyeOffIcon : eyeIcon}
                                 width={16}
                                 height={16}
                               />
@@ -1148,7 +1155,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:robot" width={18} height={18} />
+                            <Iconify icon={robotIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                       }}

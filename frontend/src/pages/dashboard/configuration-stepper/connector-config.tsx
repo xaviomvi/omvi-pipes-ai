@@ -1,6 +1,18 @@
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import mailLineIcon from '@iconify-icons/ri/mail-line';
+import alertLineIcon from '@iconify-icons/ri/alert-line';
+import deleteIcon from '@iconify-icons/ri/delete-bin-line';
+import googleIcon from '@iconify-icons/simple-icons/google';
+import fileTextIcon from '@iconify-icons/ri/file-text-line';
+import infoOutlineIcon from '@iconify-icons/eva/info-outline';
+import fileUploadIcon from '@iconify-icons/ri/file-upload-fill';
+import uploadCloudIcon from '@iconify-icons/ri/upload-cloud-2-line';
+import errorWarningIcon from '@iconify-icons/ri/error-warning-fill';
+import userSettingsIcon from '@iconify-icons/ri/user-settings-line';
+import lockPasswordIcon from '@iconify-icons/ri/lock-password-line';
+import checkCircleIcon from '@iconify-icons/mdi/check-circle-outline';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
 import {
@@ -716,12 +728,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
               flexShrink: 0,
             }}
           >
-            <Iconify
-              icon="simple-icons:google"
-              width={28}
-              height={28}
-              color={theme.palette.primary.main}
-            />
+            <Iconify icon={googleIcon} width={28} height={28} color={theme.palette.primary.main} />
           </Box>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 600, letterSpacing: '-0.01em' }}>
@@ -777,7 +784,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                     startAdornment: (
                       <InputAdornment position="start">
                         <Iconify
-                          icon="ri:mail-line"
+                          icon={mailLineIcon}
                           width={20}
                           height={20}
                           sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
@@ -839,7 +846,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
               }}
             >
               <Iconify
-                icon="eva:info-outline"
+                icon={infoOutlineIcon}
                 width={20}
                 height={20}
                 color={theme.palette.info.main}
@@ -881,7 +888,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                       startAdornment: (
                         <InputAdornment position="start">
                           <Iconify
-                            icon="ri:user-settings-line"
+                            icon={userSettingsIcon}
                             width={20}
                             height={20}
                             sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
@@ -912,7 +919,6 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                   <TextField
                     {...field}
                     label="Client Secret"
-
                     placeholder="e.g., GOCSPX-1234abcdef"
                     fullWidth
                     size="small"
@@ -926,7 +932,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                       startAdornment: (
                         <InputAdornment position="start">
                           <Iconify
-                            icon="ri:lock-password-line"
+                            icon={lockPasswordIcon}
                             width={20}
                             height={20}
                             sx={{ color: theme.palette.primary.main, opacity: 0.8 }}
@@ -1044,7 +1050,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                     }}
                   >
                     <Iconify
-                      icon={isDragging ? 'ri:file-upload-fill' : 'ri:upload-cloud-2-line'}
+                      icon={isDragging ? fileUploadIcon : uploadCloudIcon}
                       width={32}
                       height={32}
                       sx={{
@@ -1086,7 +1092,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                     }}
                   >
                     <Iconify
-                      icon="mdi:information-outline"
+                      icon={infoOutlineIcon}
                       width={14}
                       height={14}
                       sx={{ color: theme.palette.info.main, mr: 0.5 }}
@@ -1119,7 +1125,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                       }}
                     >
                       <Iconify
-                        icon="mdi:check-circle-outline"
+                        icon={checkCircleIcon}
                         width={28}
                         height={28}
                         sx={{ color: theme.palette.success.main }}
@@ -1141,7 +1147,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                       }}
                     >
                       <Iconify
-                        icon="ri:file-text-line"
+                        icon={fileTextIcon}
                         width={20}
                         height={20}
                         sx={{ color: theme.palette.primary.main, flexShrink: 0, mr: 1 }}
@@ -1171,7 +1177,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
                       size="small"
                       color="error"
                       variant="outlined"
-                      startIcon={<Iconify icon="ri:delete-bin-line" width={18} height={18} />}
+                      startIcon={<Iconify icon={deleteIcon} width={18} height={18} />}
                       sx={{
                         borderRadius: '10px',
                         textTransform: 'none',
@@ -1220,7 +1226,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
             }}
           >
             <Iconify
-              icon="ri:error-warning-fill"
+              icon={errorWarningIcon}
               width={22}
               height={22}
               sx={{ color: theme.palette.error.main, mt: 0.25, mr: 1.5, flexShrink: 0 }}
@@ -1261,7 +1267,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
             }}
           >
             <Iconify
-              icon="ri:alert-line"
+              icon={alertLineIcon}
               width={22}
               height={22}
               sx={{ color: theme.palette.warning.main, mt: 0.25, mr: 1.5, flexShrink: 0 }}
@@ -1290,7 +1296,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
             }}
           >
             <Iconify
-              icon="ri:error-warning-fill"
+              icon={errorWarningIcon}
               width={22}
               height={22}
               sx={{ color: theme.palette.error.main, mt: 0.25, mr: 1.5, flexShrink: 0 }}

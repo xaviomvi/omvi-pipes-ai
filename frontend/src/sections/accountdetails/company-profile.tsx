@@ -2,6 +2,10 @@ import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import React, { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import disketteBoldIcon from '@iconify-icons/solar/diskette-bold';
+import officeBuildingIcon from '@iconify-icons/mdi/office-building';
+import galleryAddBoldIcon from '@iconify-icons/solar/gallery-add-bold';
+import trashBinBoldIcon from '@iconify-icons/solar/trash-bin-trash-bold';
 
 import { LoadingButton } from '@mui/lab';
 import {
@@ -242,20 +246,24 @@ export default function CompanyProfile() {
           <Grid container spacing={{ xs: 3, md: 5 }}>
             {/* Form Section - Now on the LEFT */}
             <Grid item xs={12} md={8}>
-              <Form methods={methods} onSubmit={handleSubmit(onSubmit)} {...({ noValidate: true } as any)}>
+              <Form
+                methods={methods}
+                onSubmit={handleSubmit(onSubmit)}
+                {...({ noValidate: true } as any)}
+              >
                 <Paper
                   elevation={0}
-                  sx={{ 
-                    p: 3, 
+                  sx={{
+                    p: 3,
                     borderRadius: 2,
                     border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                    mb: 3
+                    mb: 3,
                   }}
                 >
                   <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
                     Basic Information
                   </Typography>
-                  
+
                   <Grid container spacing={2.5}>
                     <Grid item xs={12}>
                       <Tooltip
@@ -272,9 +280,9 @@ export default function CompanyProfile() {
                             disabled={!isAdmin}
                             variant="outlined"
                             placeholder="Enter your company's registered name"
-                            sx={{ 
+                            sx={{
                               '& .MuiOutlinedInput-root': {
-                                height: 48
+                                height: 48,
                               },
                               '& .MuiInputBase-input.Mui-disabled': {
                                 cursor: 'not-allowed',
@@ -298,9 +306,9 @@ export default function CompanyProfile() {
                             disabled={!isAdmin}
                             variant="outlined"
                             placeholder="Short name for display"
-                            sx={{ 
+                            sx={{
                               '& .MuiOutlinedInput-root': {
-                                height: 48
+                                height: 48,
                               },
                               '& .MuiInputBase-input.Mui-disabled': {
                                 cursor: 'not-allowed',
@@ -319,9 +327,9 @@ export default function CompanyProfile() {
                         required
                         variant="outlined"
                         placeholder="company@example.com"
-                        sx={{ 
+                        sx={{
                           '& .MuiOutlinedInput-root': {
-                            height: 48
+                            height: 48,
                           },
                           '& .MuiInputBase-input.Mui-disabled': {
                             cursor: 'not-allowed',
@@ -331,20 +339,20 @@ export default function CompanyProfile() {
                     </Grid>
                   </Grid>
                 </Paper>
-                
+
                 <Paper
                   elevation={0}
-                  sx={{ 
-                    p: 3, 
+                  sx={{
+                    p: 3,
                     borderRadius: 2,
                     border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                    mb: 3
+                    mb: 3,
                   }}
                 >
                   <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
                     Address Information
                   </Typography>
-                  
+
                   <Grid container spacing={2.5}>
                     <Grid item xs={12}>
                       <Field.Text
@@ -354,9 +362,9 @@ export default function CompanyProfile() {
                         fullWidth
                         variant="outlined"
                         placeholder="Enter street address"
-                        sx={{ 
+                        sx={{
                           '& .MuiOutlinedInput-root': {
-                            height: 45
+                            height: 45,
                           },
                           '& .MuiInputBase-input.Mui-disabled': {
                             cursor: 'not-allowed',
@@ -372,9 +380,9 @@ export default function CompanyProfile() {
                         fullWidth
                         variant="outlined"
                         placeholder="Enter city"
-                        sx={{ 
+                        sx={{
                           '& .MuiOutlinedInput-root': {
-                            height: 45
+                            height: 45,
                           },
                           '& .MuiInputBase-input.Mui-disabled': {
                             cursor: 'not-allowed',
@@ -390,9 +398,9 @@ export default function CompanyProfile() {
                         fullWidth
                         variant="outlined"
                         placeholder="Enter state or province"
-                        sx={{ 
+                        sx={{
                           '& .MuiOutlinedInput-root': {
-                            height: 45
+                            height: 45,
                           },
                           '& .MuiInputBase-input.Mui-disabled': {
                             cursor: 'not-allowed',
@@ -408,9 +416,9 @@ export default function CompanyProfile() {
                         disabled={!isAdmin}
                         variant="outlined"
                         placeholder="Enter postal code"
-                        sx={{ 
+                        sx={{
                           '& .MuiOutlinedInput-root': {
-                            height: 45
+                            height: 45,
                           },
                           '& .MuiInputBase-input.Mui-disabled': {
                             cursor: 'not-allowed',
@@ -425,9 +433,9 @@ export default function CompanyProfile() {
                         label="Country"
                         fullWidth
                         variant="outlined"
-                        sx={{ 
+                        sx={{
                           '& .MuiOutlinedInput-root': {
-                            height: 45
+                            height: 45,
                           },
                           '& .MuiInputBase-input.Mui-disabled': {
                             cursor: 'not-allowed',
@@ -443,7 +451,7 @@ export default function CompanyProfile() {
                     </Grid>
                   </Grid>
                 </Paper>
-                  
+
                 <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
                   <LoadingButton
                     color="primary"
@@ -451,18 +459,18 @@ export default function CompanyProfile() {
                     variant="contained"
                     loading={saveChanges}
                     loadingIndicator="Saving..."
-                    startIcon={<Iconify icon="solar:diskette-bold" width={18} height={18} />}
+                    startIcon={<Iconify icon={disketteBoldIcon} width={18} height={18} />}
                     disabled={!isValid || !isDirty || !isAdmin}
                     sx={{
                       height: 42,
                       px: 3,
                       borderRadius: 1,
-                      textTransform: 'none', 
+                      textTransform: 'none',
                       fontWeight: 500,
                       fontSize: '0.9rem',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                       '&:hover': {
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                       },
                       '&.Mui-disabled': {
                         cursor: 'not-allowed',
@@ -475,36 +483,43 @@ export default function CompanyProfile() {
                 </Box>
               </Form>
             </Grid>
-            
+
             {/* Logo Section - Now on the RIGHT */}
             <Grid item xs={12} md={4}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: { xs: 1, md: 2 } }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  pt: { xs: 1, md: 2 },
+                }}
+              >
                 <Box sx={{ position: 'relative', mb: 3 }}>
                   {logo ? (
-                    <Box 
-                      sx={{ 
-                        width: 150, 
-                        height: 150, 
+                    <Box
+                      sx={{
+                        width: 150,
+                        height: 150,
                         borderRadius: 2,
                         overflow: 'hidden',
                         border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
                         boxShadow: theme.shadows[2],
                         position: 'relative',
-                        margin: '0 auto'
+                        margin: '0 auto',
                       }}
                     >
                       <img
                         src={logo}
                         alt="Company Logo"
-                        style={{ 
-                          width: '100%', 
-                          height: '100%', 
-                          objectFit: 'cover'
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
                         }}
                       />
                     </Box>
                   ) : (
-                    <Box 
+                    <Box
                       sx={{
                         width: 150,
                         height: 150,
@@ -514,25 +529,27 @@ export default function CompanyProfile() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        margin: '0 auto'
+                        margin: '0 auto',
                       }}
                     >
-                      <Iconify 
-                        icon="mdi:office-building" 
-                        width={70} 
-                        height={70} 
-                        color={alpha(theme.palette.primary.main, 0.7)} 
+                      <Iconify
+                        icon={officeBuildingIcon}
+                        width={70}
+                        height={70}
+                        color={alpha(theme.palette.primary.main, 0.7)}
                       />
                     </Box>
                   )}
-                  
+
                   {isAdmin && (
-                    <Box sx={{ 
-                      display: 'flex',
-                      justifyContent: 'center',
-                      gap: 2,
-                      mt: 2
-                    }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: 2,
+                        mt: 2,
+                      }}
+                    >
                       <input
                         style={{ display: 'none' }}
                         id="file-upload"
@@ -540,15 +557,15 @@ export default function CompanyProfile() {
                         accept="image/*"
                         onChange={handleUpload}
                       />
-                      
-                      <Tooltip title={logo ? "Update logo" : "Upload logo"}>
+
+                      <Tooltip title={logo ? 'Update logo' : 'Upload logo'}>
                         <label htmlFor="file-upload">
                           <LoadingButton
                             component="span"
                             variant="outlined"
                             color="primary"
                             size="small"
-                            startIcon={<Iconify icon="solar:gallery-add-bold" width={18} height={18} />}
+                            startIcon={<Iconify icon={galleryAddBoldIcon} width={18} height={18} />}
                             loading={uploading}
                             loadingPosition="start"
                             sx={{
@@ -560,22 +577,22 @@ export default function CompanyProfile() {
                               fontWeight: 500,
                               boxShadow: 'none',
                               '&:hover': {
-                                boxShadow: theme.shadows[1]
-                              }
+                                boxShadow: theme.shadows[1],
+                              },
                             }}
                           >
                             {logo ? 'Change' : 'Upload'}
                           </LoadingButton>
                         </label>
                       </Tooltip>
-                      
+
                       {logo && (
                         <Tooltip title="Remove logo">
                           <LoadingButton
                             variant="outlined"
                             color="error"
-                            size="small" 
-                            startIcon={<Iconify icon="solar:trash-bin-trash-bold" width={18} height={18} />}
+                            size="small"
+                            startIcon={<Iconify icon={trashBinBoldIcon} width={18} height={18} />}
                             onClick={handleDelete}
                             loading={deleting}
                             loadingPosition="start"
@@ -588,8 +605,8 @@ export default function CompanyProfile() {
                               fontWeight: 500,
                               boxShadow: 'none',
                               '&:hover': {
-                                boxShadow: theme.shadows[1]
-                              }
+                                boxShadow: theme.shadows[1],
+                              },
                             }}
                           >
                             Remove
@@ -599,11 +616,11 @@ export default function CompanyProfile() {
                     </Box>
                   )}
                 </Box>
-                
+
                 {!logo && isAdmin && (
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary" 
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
                     align="center"
                     sx={{ mt: 0.5, display: 'block' }}
                   >
@@ -611,22 +628,26 @@ export default function CompanyProfile() {
                   </Typography>
                 )}
               </Box>
-              
+
               <Paper
                 elevation={0}
-                sx={{ 
-                  p: 2.5, 
+                sx={{
+                  p: 2.5,
                   borderRadius: 2,
                   bgcolor: alpha(theme.palette.background.default, 0.5),
                   border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                  mt: 1
+                  mt: 1,
                 }}
               >
-                <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}
+                >
                   Company Logo
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
-                  Your logo will appear on your account dashboard, emails, and documents generated from Pipeshub.
+                  Your logo will appear on your account dashboard, emails, and documents generated
+                  from Pipeshub.
                 </Typography>
               </Paper>
             </Grid>
@@ -634,24 +655,24 @@ export default function CompanyProfile() {
         </Box>
       </Paper>
 
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={4000} 
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        sx={{mt:6}}
+        sx={{ mt: 6 }}
       >
-        <Alert 
-          onClose={handleCloseSnackbar} 
+        <Alert
+          onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ 
+          sx={{
             width: '100%',
             borderRadius: 0.75,
             boxShadow: theme.shadows[3],
             '& .MuiAlert-icon': {
-              fontSize: '1.2rem'
-            }
+              fontSize: '1.2rem',
+            },
           }}
         >
           {snackbar.message}

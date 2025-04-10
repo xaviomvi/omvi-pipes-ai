@@ -1,4 +1,13 @@
 // Define the authentication method type
+import type { Icon as IconifyIcon } from '@iconify/react';
+
+import googleIcon from '@iconify-icons/mdi/google';
+import microsoftIcon from '@iconify-icons/mdi/microsoft';
+import shieldAccountIcon from '@iconify-icons/mdi/shield-account';
+import microsoftAzureIcon from '@iconify-icons/mdi/microsoft-azure';
+import cellphoneMessageIcon from '@iconify-icons/mdi/cellphone-message';
+import formTextboxPasswordIcon from '@iconify-icons/mdi/form-textbox-password';
+
 export type AuthMethodType = 'password' | 'otp' | 'google' | 'microsoft' | 'azureAd' | 'samlSso';
 
 // Define the structure for an authentication method
@@ -6,10 +15,9 @@ export interface AuthMethod {
   type: string;
   enabled: boolean;
 }
-
 // Define the configuration structure for an authentication method
 export interface AuthMethodConfig {
-  icon: string;
+  icon: React.ComponentProps<typeof IconifyIcon>['icon'];
   title: string;
   description: string;
   color: string;
@@ -72,7 +80,7 @@ export const getMethodDisplayName = (type: AuthMethodType): string => {
 export const getMethodConfig = (type: AuthMethodType): AuthMethodConfig => {
   const configs: Record<AuthMethodType, AuthMethodConfig> = {
     otp: {
-      icon: 'mdi:cellphone-message',
+      icon: cellphoneMessageIcon,
       title: 'One-Time Password',
       description: 'Send a verification code via email',
       color: '#4A6CF7',
@@ -80,7 +88,7 @@ export const getMethodConfig = (type: AuthMethodType): AuthMethodConfig => {
       requiresSmtp: true,
     },
     password: {
-      icon: 'mdi:form-textbox-password',
+      icon: formTextboxPasswordIcon,
       title: 'Password',
       description: 'Traditional email and password authentication',
       color: '#1E293B',
@@ -88,7 +96,7 @@ export const getMethodConfig = (type: AuthMethodType): AuthMethodConfig => {
       requiresSmtp: false,
     },
     google: {
-      icon: 'mdi:google',
+      icon: googleIcon,
       title: 'Google',
       description: 'Allow users to sign in with Google accounts',
       color: '#EA4335',
@@ -96,7 +104,7 @@ export const getMethodConfig = (type: AuthMethodType): AuthMethodConfig => {
       requiresSmtp: false,
     },
     microsoft: {
-      icon: 'mdi:microsoft',
+      icon: microsoftIcon,
       title: 'Microsoft',
       description: 'Allow users to sign in with Microsoft accounts',
       color: '#00A4EF',
@@ -104,7 +112,7 @@ export const getMethodConfig = (type: AuthMethodType): AuthMethodConfig => {
       requiresSmtp: false,
     },
     azureAd: {
-      icon: 'mdi:microsoft-azure',
+      icon: microsoftAzureIcon,
       title: 'Azure AD',
       description: 'Enterprise authentication via Azure Active Directory',
       color: '#0078D4',
@@ -112,7 +120,7 @@ export const getMethodConfig = (type: AuthMethodType): AuthMethodConfig => {
       requiresSmtp: false,
     },
     samlSso: {
-      icon: 'mdi:shield-account',
+      icon: shieldAccountIcon,
       title: 'SAML SSO',
       description: 'Single Sign-On with SAML protocol',
       color: '#FF6B00',

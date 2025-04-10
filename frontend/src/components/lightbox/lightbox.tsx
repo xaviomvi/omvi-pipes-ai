@@ -1,6 +1,15 @@
+import playIcon from '@iconify-icons/carbon/play';
+import closeIcon from '@iconify-icons/carbon/close';
+import pauseIcon from '@iconify-icons/carbon/pause';
+import zoomInIcon from '@iconify-icons/carbon/zoom-in';
+import zoomOutIcon from '@iconify-icons/carbon/zoom-out';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import Video from 'yet-another-react-lightbox/plugins/video';
+import chevronLeftIcon from '@iconify-icons/carbon/chevron-left';
+import centerToFitIcon from '@iconify-icons/carbon/center-to-fit';
+import fitToScreenIcon from '@iconify-icons/carbon/fit-to-screen';
 import Captions from 'yet-another-react-lightbox/plugins/captions';
+import chevronRightIcon from '@iconify-icons/carbon/chevron-right';
 import Slideshow from 'yet-another-react-lightbox/plugins/slideshow';
 import Fullscreen from 'yet-another-react-lightbox/plugins/fullscreen';
 import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails';
@@ -58,15 +67,15 @@ export function Lightbox({
         ],
       }}
       render={{
-        iconClose: () => <Iconify width={24} icon="carbon:close" />,
-        iconZoomIn: () => <Iconify width={24} icon="carbon:zoom-in" />,
-        iconZoomOut: () => <Iconify width={24} icon="carbon:zoom-out" />,
-        iconSlideshowPlay: () => <Iconify width={24} icon="carbon:play" />,
-        iconSlideshowPause: () => <Iconify width={24} icon="carbon:pause" />,
-        iconPrev: () => <Iconify width={32} icon="carbon:chevron-left" />,
-        iconNext: () => <Iconify width={32} icon="carbon:chevron-right" />,
-        iconExitFullscreen: () => <Iconify width={24} icon="carbon:center-to-fit" />,
-        iconEnterFullscreen: () => <Iconify width={24} icon="carbon:fit-to-screen" />,
+        iconClose: () => <Iconify width={24} icon={closeIcon} />,
+        iconZoomIn: () => <Iconify width={24} icon={zoomInIcon} />,
+        iconZoomOut: () => <Iconify width={24} icon={zoomOutIcon} />,
+        iconSlideshowPlay: () => <Iconify width={24} icon={playIcon} />,
+        iconSlideshowPause: () => <Iconify width={24} icon={pauseIcon} />,
+        iconPrev: () => <Iconify width={32} icon={chevronLeftIcon} />,
+        iconNext: () => <Iconify width={32} icon={chevronRightIcon} />,
+        iconExitFullscreen: () => <Iconify width={24} icon={centerToFitIcon} />,
+        iconEnterFullscreen: () => <Iconify width={24} icon={fitToScreenIcon} />,
       }}
       className={lightboxClasses.root.concat(className ? ` ${className}` : '')}
       {...other}

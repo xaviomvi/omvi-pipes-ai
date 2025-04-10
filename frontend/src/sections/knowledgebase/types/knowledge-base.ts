@@ -1,4 +1,5 @@
 import type { Theme, SxProps } from '@mui/material';
+import type { Icon as IconifyIcon } from '@iconify/react';
 
 export interface Department {
   _id: string;
@@ -64,7 +65,7 @@ export interface FilterHeaderProps {
 
 export interface FilterSectionComponentProps {
   id: string;
-  icon: string;
+  icon: React.ComponentProps<typeof IconifyIcon>['icon'];
   label: string;
   filterType: keyof Filters;
   items: any[]; // This should be more specific based on your data structure

@@ -1,6 +1,11 @@
 import type { IChatParticipant, IChatConversations } from 'src/types/chat';
 
+import searchFillIcon from '@iconify-icons/eva/search-fill';
 import { useMemo, useState, useEffect, useCallback } from 'react';
+import userPlusBoldIcon from '@iconify-icons/solar/user-plus-bold';
+import arrowIosBackFillIcon from '@iconify-icons/eva/arrow-ios-back-fill';
+import arrowIosForwardFillIcon from '@iconify-icons/eva/arrow-ios-forward-fill';
+import usersGroupRoundedBoldIcon from '@iconify-icons/solar/users-group-rounded-bold';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -210,7 +215,7 @@ export function ChatNav({
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <Iconify icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
+              <Iconify icon={searchFillIcon} sx={{ color: 'text.disabled' }} />
             </InputAdornment>
           ),
         }}
@@ -230,14 +235,12 @@ export function ChatNav({
         )}
 
         <IconButton onClick={handleToggleNav}>
-          <Iconify
-            icon={collapseDesktop ? 'eva:arrow-ios-forward-fill' : 'eva:arrow-ios-back-fill'}
-          />
+          <Iconify icon={collapseDesktop ? arrowIosForwardFillIcon : arrowIosBackFillIcon} />
         </IconButton>
 
         {!collapseDesktop && (
           <IconButton onClick={handleClickCompose}>
-            <Iconify width={24} icon="solar:user-plus-bold" />
+            <Iconify width={24} icon={userPlusBoldIcon} />
           </IconButton>
         )}
       </Stack>
@@ -257,7 +260,7 @@ export function ChatNav({
   return (
     <>
       <ToggleButton onClick={onOpenMobile} sx={{ display: { md: 'none' } }}>
-        <Iconify width={16} icon="solar:users-group-rounded-bold" />
+        <Iconify width={16} icon={usersGroupRoundedBoldIcon} />
       </ToggleButton>
 
       <Stack

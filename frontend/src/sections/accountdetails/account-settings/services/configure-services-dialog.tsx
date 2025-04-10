@@ -1,4 +1,15 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
+
 import { useRef, useState } from 'react';
+import redisIcon from '@iconify-icons/logos/redis';
+import databaseIcon from '@iconify-icons/mdi/database';
+import webCheckIcon from '@iconify-icons/mdi/web-check';
+import closeIcon from '@iconify-icons/eva/close-outline';
+import chart3dIcon from '@iconify-icons/carbon/chart-3d';
+import apacheKafkaIcon from '@iconify-icons/mdi/apache-kafka';
+import mongodbIcon from '@iconify-icons/simple-icons/mongodb';
+import linkVariantIcon from '@iconify-icons/mdi/link-variant';
+import arangodbIcon from '@iconify-icons/simple-icons/arangodb';
 
 import {
   Box,
@@ -34,17 +45,13 @@ import type { StorageServiceFormRef } from './components/storage-service-form';
 import FrontendUrlConfigForm from './components/frontend-url-config-form';
 import ConnectorUrlConfigForm from './components/connector-url-config-form';
 
-import type {
-  FrontendUrlConfigFormRef,
-} from './components/frontend-url-config-form';
-import type {
-  ConnectorUrlConfigFormRef,
-} from './components/connector-url-config-form';
+import type { FrontendUrlConfigFormRef } from './components/frontend-url-config-form';
+import type { ConnectorUrlConfigFormRef } from './components/connector-url-config-form';
 
 // Method configurations
 interface ServiceConfigType {
   [key: string]: {
-    icon: string;
+    icon: React.ComponentProps<typeof IconifyIcon>['icon'];
     title: string;
     color: string;
   };
@@ -52,47 +59,46 @@ interface ServiceConfigType {
 
 const SERVICE_CONFIG: ServiceConfigType = {
   redis: {
-    icon: 'logos:redis',
+    icon: redisIcon,
     title: 'Redis',
     color: '#DC382D',
   },
   kafka: {
-    icon: 'mdi:apache-kafka',
+    icon: apacheKafkaIcon,
     title: 'Kafka',
     color: '#231F20',
   },
   mongoDb: {
-    icon: 'simple-icons:mongodb',
+    icon: mongodbIcon,
     title: 'MongoDB',
     color: '#47A248',
   },
   arangoDb: {
-    icon: 'simple-icons:arangodb',
+    icon: arangodbIcon,
     title: 'ArangoDB',
     color: '#D12C2F',
   },
   qdrant: {
-    icon: 'carbon:chart-3d',
+    icon: chart3dIcon,
     title: 'Qdrant',
     color: '#FF9800',
   },
   storage: {
-    icon: 'mdi:database',
+    icon: databaseIcon,
     title: 'Storage Service',
     color: '#0078D4',
   },
   frontendPublicUrl: {
-    icon: 'mdi:web-check',
+    icon: webCheckIcon,
     title: 'Frontend Public Url',
     color: '#87CEEB',
   },
   connectorPublicUrl: {
-    icon: 'mdi:link-variant',
+    icon: linkVariantIcon,
     title: 'Connectors Public Url',
     color: '#231F20',
   },
 };
-
 // Expected save result interface
 interface SaveResult {
   success: boolean;
@@ -283,7 +289,7 @@ const ConfigureServiceDialog = ({
               sx={{ color: theme.palette.text.secondary }}
               aria-label="close"
             >
-              <Iconify icon="eva:close-outline" width={20} height={20} />
+              <Iconify icon={closeIcon} width={20} height={20} />
             </IconButton>
           </DialogTitle>
 

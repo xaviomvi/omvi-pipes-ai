@@ -1,3 +1,7 @@
+import closeIcon from '@iconify-icons/mdi/close';
+import pencilIcon from '@iconify-icons/mdi/pencil';
+import serverIcon from '@iconify-icons/mdi/server-outline';
+import infoIcon from '@iconify-icons/mdi/information-outline';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -204,7 +208,7 @@ const FrontendUrlConfigForm = forwardRef<FrontendUrlConfigFormRef, FrontendUrlFo
           }}
         >
           <Iconify
-            icon="mdi:information-outline"
+            icon={infoIcon}
             width={20}
             height={20}
             color={theme.palette.info.main}
@@ -221,7 +225,7 @@ const FrontendUrlConfigForm = forwardRef<FrontendUrlConfigFormRef, FrontendUrlFo
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
           <Button
             onClick={handleToggleEdit}
-            startIcon={<Iconify icon={isEditing ? 'mdi:close' : 'mdi:pencil'} />}
+            startIcon={<Iconify icon={isEditing ? closeIcon : pencilIcon} />}
             color={isEditing ? 'error' : 'primary'}
             size="small"
           >
@@ -246,7 +250,7 @@ const FrontendUrlConfigForm = forwardRef<FrontendUrlConfigFormRef, FrontendUrlFo
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Iconify icon="mdi:server" width={18} height={18} />
+                    <Iconify icon={serverIcon} width={18} height={18} />
                   </InputAdornment>
                 ),
               }}

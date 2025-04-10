@@ -2,8 +2,17 @@ import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import eyeIcon from '@iconify-icons/eva/eye-fill';
 import React, { useState, useEffect } from 'react';
+import infoIcon from '@iconify-icons/eva/info-fill';
+import plusIcon from '@iconify-icons/eva/plus-fill';
 import { zodResolver } from '@hookform/resolvers/zod';
+import closeIcon from '@iconify-icons/eva/close-fill';
+import searchIcon from '@iconify-icons/eva/search-fill';
+import trashIcon from '@iconify-icons/eva/trash-2-outline';
+import alertIcon from '@iconify-icons/eva/alert-triangle-fill';
+import accountGroupIcon from '@iconify-icons/mdi/account-group';
+import verticalIcon from '@iconify-icons/eva/more-vertical-fill';
 
 import {
   Box,
@@ -254,7 +263,7 @@ export default function Groups() {
           }}
         >
           <Iconify
-            icon="eva:search-fill"
+            icon={searchIcon}
             width={20}
             height={20}
             sx={{ color: 'text.disabled', mr: 1 }}
@@ -268,7 +277,7 @@ export default function Groups() {
           />
           {searchTerm && (
             <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.5 }}>
-              <Iconify icon="eva:close-fill" width={16} height={16} />
+              <Iconify icon={closeIcon} width={16} height={16} />
             </IconButton>
           )}
         </Paper>
@@ -276,7 +285,7 @@ export default function Groups() {
         <Button
           variant="contained"
           color="primary"
-          startIcon={<Iconify icon="eva:plus-fill" />}
+          startIcon={<Iconify icon={plusIcon} />}
           onClick={handleCreateGroup}
           size="medium"
           sx={{
@@ -334,7 +343,7 @@ export default function Groups() {
                             '&:hover': { transform: 'scale(1.1)' },
                           }}
                         >
-                          <Iconify icon="mdi:account-group" width={22} height={22} />
+                          <Iconify icon={accountGroupIcon} width={22} height={22} />
                         </Avatar>
                         <Box>
                           <Typography variant="subtitle2">{group.name}</Typography>
@@ -383,7 +392,7 @@ export default function Groups() {
                             },
                           }}
                         >
-                          <Iconify icon="eva:more-vertical-fill" width={20} height={20} />
+                          <Iconify icon={verticalIcon} width={20} height={20} />
                         </IconButton>
                       </Tooltip>
                     </TableCell>
@@ -394,7 +403,7 @@ export default function Groups() {
                 <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Iconify
-                      icon="mdi:account-group"
+                      icon={accountGroupIcon}
                       width={40}
                       height={40}
                       sx={{ color: 'text.secondary', mb: 1, opacity: 0.5 }}
@@ -466,7 +475,7 @@ export default function Groups() {
         }}
       >
         <MenuItem onClick={handleViewGroup}>
-          <Iconify icon="eva:eye-fill" width={20} height={20} sx={{ mr: 1.5 }} />
+          <Iconify icon={eyeIcon} width={20} height={20} sx={{ mr: 1.5 }} />
           View Group
         </MenuItem>
         <MenuItem
@@ -481,7 +490,7 @@ export default function Groups() {
           }}
           onClick={handleRemoveGroup}
         >
-          <Iconify icon="eva:trash-2-outline" width={20} height={20} sx={{ mr: 1.5 }} />
+          <Iconify icon={trashIcon} width={20} height={20} sx={{ mr: 1.5 }} />
           Remove Group
         </MenuItem>
       </Menu>
@@ -515,7 +524,7 @@ export default function Groups() {
                 color: theme.palette.primary.main,
               }}
             >
-              <Iconify icon="mdi:account-group" width={24} height={24} />
+              <Iconify icon={accountGroupIcon} width={24} height={24} />
             </Avatar>
             <Box>
               <Typography variant="h6">Create New Group</Typography>
@@ -567,7 +576,7 @@ export default function Groups() {
             >
               <Stack direction="row" spacing={2} alignItems="center">
                 <Iconify
-                  icon="eva:info-fill"
+                  icon={infoIcon}
                   width={20}
                   height={20}
                   sx={{ color: theme.palette.info.main }}
@@ -599,7 +608,7 @@ export default function Groups() {
                 isSubmitting ? (
                   <CircularProgress size={16} color="inherit" />
                 ) : (
-                  <Iconify icon="eva:plus-fill" />
+                  <Iconify icon={plusIcon} />
                 )
               }
               sx={{
@@ -628,7 +637,7 @@ export default function Groups() {
         <DialogTitle sx={{ pb: 1 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Iconify
-              icon="eva:alert-triangle-fill"
+              icon={alertIcon}
               width={24}
               height={24}
               sx={{ color: theme.palette.warning.main }}

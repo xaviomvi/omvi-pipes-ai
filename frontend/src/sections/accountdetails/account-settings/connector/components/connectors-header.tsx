@@ -1,3 +1,8 @@
+import editIcon from '@iconify-icons/eva/edit-outline';
+import linkIcon from '@iconify-icons/eva/link-2-outline';
+import closeIcon from '@iconify-icons/eva/close-outline';
+import checkmarkIcon from '@iconify-icons/eva/checkmark-outline';
+
 import { Box, alpha, Button, useTheme, Typography } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
@@ -36,7 +41,7 @@ const ConnectorsHeader = ({
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Iconify
-          icon="eva:link-2-outline"
+          icon={linkIcon}
           width={20}
           height={20}
           sx={{ color: theme.palette.primary.main }}
@@ -54,7 +59,7 @@ const ConnectorsHeader = ({
               color="inherit"
               onClick={handleCancelEdit}
               disabled={isLoading}
-              startIcon={<Iconify icon="eva:close-outline" width={18} height={18} />}
+              startIcon={<Iconify icon={closeIcon} width={18} height={18} />}
               sx={{
                 borderColor: alpha(theme.palette.text.primary, 0.2),
                 color: theme.palette.text.primary,
@@ -71,7 +76,7 @@ const ConnectorsHeader = ({
               color="primary"
               onClick={handleSaveChanges}
               disabled={isLoading}
-              startIcon={<Iconify icon="eva:checkmark-outline" width={18} height={18} />}
+              startIcon={<Iconify icon={checkmarkIcon} width={18} height={18} />}
               sx={{
                 boxShadow: 'none',
                 '&:hover': {
@@ -89,7 +94,7 @@ const ConnectorsHeader = ({
             color="primary"
             onClick={() => setIsEditing(true)}
             disabled={isLoading}
-            startIcon={<Iconify icon="eva:edit-outline" width={18} height={18} />}
+            startIcon={<Iconify icon={editIcon} width={18} height={18} />}
             sx={{
               borderColor: theme.palette.primary.main,
               '&:hover': {

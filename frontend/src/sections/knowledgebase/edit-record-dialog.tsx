@@ -1,5 +1,8 @@
 import { Icon } from '@iconify/react';
+import closeIcon from '@iconify-icons/carbon/close';
+import infoIcon from '@iconify-icons/eva/info-outline';
 import React, { useRef, useState, useEffect } from 'react';
+import cloudIcon from '@iconify-icons/eva/cloud-upload-outline';
 
 import {
   Box,
@@ -50,7 +53,7 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [nameChanged, setNameChanged] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
-  
+
   // Create a ref for the file input to reset it when needed
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -215,13 +218,17 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
       const config = {
         headers: {
           'Content-Type': 'multipart/form-data',
-        }
+        },
       };
       // Always append the current name (which might be changed or not)
       formData.append('recordName', name.trim() || (file ? file.name : initialName));
 
       // Send the file to the API
-      const response = await axios.put(`/api/v1/knowledgeBase/record/${recordId}`, formData,config);
+      const response = await axios.put(
+        `/api/v1/knowledgeBase/record/${recordId}`,
+        formData,
+        config
+      );
 
       if (!response) {
         throw new Error(`Upload failed with status: ${response}`);
@@ -317,7 +324,7 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
       setFileError('Cannot determine the file type to upload. Please contact support.');
       return;
     }
-    
+
     // Otherwise, trigger the file input click
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -363,7 +370,10 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
       ) : (
         <DialogContent sx={{ p: 3, pt: 2 }}>
           {fileError && (
-            <Alert severity="error" sx={{ mb: 3, borderRadius: '10px', boxShadow: '0 2px 8px rgba(244,67,54,0.15)' }}>
+            <Alert
+              severity="error"
+              sx={{ mb: 3, borderRadius: '10px', boxShadow: '0 2px 8px rgba(244,67,54,0.15)' }}
+            >
               <AlertTitle>Error</AlertTitle>
               {fileError}
             </Alert>
@@ -379,7 +389,7 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
             size="small"
             placeholder="Enter name"
             variant="outlined"
-            sx={{ 
+            sx={{
               mb: 2,
               '& .MuiOutlinedInput-root': {
                 borderRadius: '10px',
@@ -421,35 +431,49 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
                 />
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography variant="body1" fontWeight={500} sx={{ mb: 0.5 }}>
-                    { record.recordName}
+                    {record.recordName}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <span>{getFileTypeName(currentExtension)} (.{currentExtension})</span>
-                    <Box component="span" sx={{ width: '4px', height: '4px', borderRadius: '50%', bgcolor: 'text.disabled' }}/>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                  >
+                    <span>
+                      {getFileTypeName(currentExtension)} (.{currentExtension})
+                    </span>
+                    <Box
+                      component="span"
+                      sx={{
+                        width: '4px',
+                        height: '4px',
+                        borderRadius: '50%',
+                        bgcolor: 'text.disabled',
+                      }}
+                    />
                     <span>{formatFileSize(record.fileRecord.sizeInBytes)}</span>
                   </Typography>
                 </Box>
               </Box>
-              
+
               {/* File type restriction notice for existing files */}
               {currentExtension && (
-                <Alert 
-                  severity="info" 
+                <Alert
+                  severity="info"
                   variant="outlined"
-                  icon={<Icon icon="mdi:information-outline" style={{ fontSize: '20px' }} />}
-                  sx={{ 
-                    mb: 2, 
-                    borderRadius: '10px', 
-                    '& .MuiAlert-message': { 
-                      width: '100%' 
+                  icon={<Icon icon={infoIcon} style={{ fontSize: '20px' }} />}
+                  sx={{
+                    mb: 2,
+                    borderRadius: '10px',
+                    '& .MuiAlert-message': {
+                      width: '100%',
                     },
                     border: `1px solid ${alpha('#1976d2', 0.3)}`,
                     bgcolor: alpha('#1976d2', 0.02),
                   }}
                 >
                   <Typography variant="body2">
-                    You can only upload {getFileTypeName(currentExtension)} files (.{currentExtension})
-                    to replace this document.
+                    You can only upload {getFileTypeName(currentExtension)} files (.
+                    {currentExtension}) to replace this document.
                   </Typography>
                 </Alert>
               )}
@@ -459,7 +483,7 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
             {existingFile ? 'Replace File' : 'Upload File'}
           </Typography>
-          
+
           <Box
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
@@ -492,7 +516,7 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
 
             <div style={{ display: 'block', cursor: 'pointer' }}>
               <Icon
-                icon="mdi:cloud-upload-outline"
+                icon={cloudIcon}
                 style={{
                   fontSize: '48px',
                   marginBottom: '16px',
@@ -509,23 +533,26 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 or
               </Typography>
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 size="medium"
                 disableElevation
                 onClick={handleBrowseClick}
-                sx={{ 
+                sx={{
                   borderRadius: '8px',
                   px: 3,
                   textTransform: 'none',
-                  fontWeight: 500
+                  fontWeight: 500,
                 }}
               >
                 Browse Files
               </Button>
               <Box sx={{ mt: 1 }}>
                 <Typography variant="caption" display="block" color="text.secondary">
-                  {existingFile && currentExtension ? `Only .${currentExtension} files are accepted` : 'All file types are accepted'} • Maximum size: 30MB
+                  {existingFile && currentExtension
+                    ? `Only .${currentExtension} files are accepted`
+                    : 'All file types are accepted'}{' '}
+                  • Maximum size: 30MB
                 </Typography>
               </Box>
             </div>
@@ -572,16 +599,16 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
                     fileInputRef.current.value = '';
                   }
                 }}
-                sx={{ 
-                  ml: 1, 
+                sx={{
+                  ml: 1,
                   flexShrink: 0,
                   bgcolor: alpha('#000', 0.05),
                   '&:hover': {
                     bgcolor: alpha('#000', 0.1),
-                  }
+                  },
                 }}
               >
-                <Icon icon="mdi:close" fontSize={18} />
+                <Icon icon={closeIcon} fontSize={18} />
               </IconButton>
             </Box>
           )}
@@ -589,17 +616,17 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
       )}
 
       <Divider />
-      
+
       <DialogActions sx={{ px: 3, py: 2.5 }}>
         <Button
           onClick={onClose}
           variant="outlined"
           size="medium"
           disabled={uploading}
-          sx={{ 
-            borderRadius: '8px', 
+          sx={{
+            borderRadius: '8px',
             textTransform: 'none',
-            fontWeight: 500
+            fontWeight: 500,
           }}
         >
           Cancel
@@ -610,11 +637,11 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
           size="medium"
           disableElevation
           disabled={!canUpload || uploading || !!fileError}
-          sx={{ 
+          sx={{
             borderRadius: '8px',
             textTransform: 'none',
             fontWeight: 500,
-            px: 3
+            px: 3,
           }}
         >
           {existingFile ? (file ? 'Replace' : nameChanged ? 'Update' : 'Save') : 'Upload'}

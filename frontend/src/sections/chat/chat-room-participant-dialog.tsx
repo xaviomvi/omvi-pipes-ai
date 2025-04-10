@@ -1,6 +1,11 @@
 import type { IChatParticipant } from 'src/types/chat';
 
+import phoneIcon from '@iconify-icons/solar/phone-bold';
 import closeIcon from '@iconify-icons/mingcute/close-line';
+import locationIcon from '@iconify-icons/mingcute/location-fill';
+import chatIcon from '@iconify-icons/solar/chat-round-dots-bold';
+import fluentMailIcon from '@iconify-icons/fluent/mail-24-filled';
+import vidCamIcon from '@iconify-icons/solar/videocamera-record-bold';
 
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
@@ -12,6 +17,7 @@ import DialogContent from '@mui/material/DialogContent';
 import { varAlpha } from 'src/theme/styles';
 
 import { Iconify } from 'src/components/iconify';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -42,11 +48,7 @@ export function ChatRoomParticipantDialog({ participant, open, onClose }: Props)
           <Typography variant="subtitle1">{participant.name}</Typography>
 
           <Stack direction="row" sx={{ typography: 'caption', color: 'text.disabled' }}>
-            <Iconify
-              icon="mingcute:location-fill"
-              width={16}
-              sx={{ flexShrink: 0, mr: 0.5, mt: '2px' }}
-            />
+            <Iconify icon={locationIcon} width={16} sx={{ flexShrink: 0, mr: 0.5, mt: '2px' }} />
             {participant.address}
           </Stack>
 
@@ -62,7 +64,7 @@ export function ChatRoomParticipantDialog({ participant, open, onClose }: Props)
                 },
               }}
             >
-              <Iconify width={18} icon="solar:phone-bold" />
+              <Iconify width={18} icon={phoneIcon} />
             </IconButton>
 
             <IconButton
@@ -76,7 +78,7 @@ export function ChatRoomParticipantDialog({ participant, open, onClose }: Props)
                 },
               }}
             >
-              <Iconify width={18} icon="solar:chat-round-dots-bold" />
+              <Iconify width={18} icon={chatIcon} />
             </IconButton>
 
             <IconButton
@@ -90,7 +92,7 @@ export function ChatRoomParticipantDialog({ participant, open, onClose }: Props)
                 },
               }}
             >
-              <Iconify width={18} icon="fluent:mail-24-filled" />
+              <Iconify width={18} icon={fluentMailIcon} />
             </IconButton>
 
             <IconButton
@@ -104,7 +106,7 @@ export function ChatRoomParticipantDialog({ participant, open, onClose }: Props)
                 },
               }}
             >
-              <Iconify width={18} icon="solar:videocamera-record-bold" />
+              <Iconify width={18} icon={vidCamIcon} />
             </IconButton>
           </Stack>
         </Stack>

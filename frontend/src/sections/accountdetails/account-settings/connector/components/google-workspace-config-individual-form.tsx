@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import eyeIcon from '@iconify-icons/eva/eye-fill';
+import infoIcon from '@iconify-icons/eva/info-outline';
+import hashIcon from '@iconify-icons/eva/hash-outline';
+import lockIcon from '@iconify-icons/eva/lock-outline';
+import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
+import uploadIcon from '@iconify-icons/eva/upload-outline';
+import fileTextIcon from '@iconify-icons/mdi/file-text-outline';
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -361,7 +368,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
             }}
           >
             <Iconify
-              icon="eva:info-outline"
+              icon={infoIcon}
               width={20}
               height={20}
               color={theme.palette.info.main}
@@ -401,7 +408,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
             }}
           >
             <Iconify
-              icon="eva:info-outline"
+              icon={infoIcon}
               width={20}
               height={20}
               color={theme.palette.info.main}
@@ -456,7 +463,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
                   }}
                 >
                   <Iconify
-                    icon="mdi:file-text-outline"
+                    icon={fileTextIcon}
                     width={24}
                     height={24}
                     color={theme.palette.primary.main}
@@ -475,7 +482,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
                 variant="outlined"
                 size="small"
                 onClick={handleUploadClick}
-                startIcon={<Iconify icon="eva:upload-outline" width={18} height={18} />}
+                startIcon={<Iconify icon={uploadIcon} width={18} height={18} />}
                 sx={{
                   minWidth: 120,
                   flexShrink: 0,
@@ -522,7 +529,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Iconify icon="eva:hash-outline" width={18} height={18} />
+                      <Iconify icon={hashIcon} width={18} height={18} />
                     </InputAdornment>
                   ),
                 }}
@@ -555,7 +562,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Iconify icon="eva:lock-outline" width={18} height={18} />
+                      <Iconify icon={lockIcon} width={18} height={18} />
                     </InputAdornment>
                   ),
                   endAdornment: (
@@ -566,7 +573,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
                         size="small"
                       >
                         <Iconify
-                          icon={showClientSecret ? 'eva:eye-off-outline' : 'eva:eye-outline'}
+                          icon={showClientSecret ? eyeOffIcon : eyeIcon}
                           width={18}
                           height={18}
                         />

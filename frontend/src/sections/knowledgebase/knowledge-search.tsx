@@ -1,6 +1,22 @@
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router';
+import jiraIcon from '@iconify-icons/mdi/jira';
+import slackIcon from '@iconify-icons/mdi/slack';
+// Import all the required icons at the top of your file
+import gmailIcon from '@iconify-icons/mdi/gmail';
+import closeIcon from '@iconify-icons/mdi/close';
+import refreshIcon from '@iconify-icons/mdi/refresh';
+import historyIcon from '@iconify-icons/mdi/history';
+import eyeIcon from '@iconify-icons/mdi/eye-outline';
+import magnifyIcon from '@iconify-icons/mdi/magnify';
+import databaseIcon from '@iconify-icons/mdi/database';
+import starIcon from '@iconify-icons/mdi/star-outline';
+import googleDriveIcon from '@iconify-icons/mdi/google-drive';
+import lightBulbIcon from '@iconify-icons/mdi/lightbulb-outline';
+import microsoftTeamsIcon from '@iconify-icons/mdi/microsoft-teams';
+import fileSearchIcon from '@iconify-icons/mdi/file-search-outline';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import microsoftOnedriveIcon from '@iconify-icons/mdi/microsoft-onedrive';
 
 import {
   Box,
@@ -28,43 +44,6 @@ import { ORIGIN } from './constants/knowledge-search';
 import type { SearchResult, KnowledgeSearchProps } from './types/search-response';
 
 // Helper function to get file icon based on extension
-const getFileIcon = (extension: string): string => {
-  const ext = extension?.toLowerCase() || '';
-
-  switch (ext) {
-    case 'pdf':
-      return 'mdi:file-pdf-box';
-    case 'doc':
-    case 'docx':
-      return 'mdi:file-word-box';
-    case 'xls':
-    case 'xlsx':
-      return 'mdi:file-excel-box';
-    case 'ppt':
-    case 'pptx':
-      return 'mdi:file-powerpoint-box';
-    case 'jpg':
-    case 'jpeg':
-    case 'png':
-    case 'gif':
-      return 'mdi:file-image-box';
-    case 'zip':
-    case 'rar':
-    case '7z':
-      return 'mdi:file-archive-box';
-    case 'txt':
-      return 'mdi:file-text-box';
-    case 'html':
-    case 'css':
-    case 'js':
-      return 'mdi:file-code-box';
-    case 'mail':
-    case 'email':
-      return 'mdi:email';
-    default:
-      return 'mdi:file-document-box';
-  }
-};
 
 // Helper function to get file icon color based on extension
 export const getFileIconColor = (extension: string): string => {
@@ -113,31 +92,28 @@ export const getContentPreview = (content: string, maxLength: number = 220): str
 };
 
 // Get source icon based on origin/connector
-export const getSourceIcon = (
-  result: SearchResult,
-  theme: any
-): { icon: string; color: string } => {
+export const getSourceIcon = (result: SearchResult, theme: any): { icon: any; color: string } => {
   if (!result?.metadata) {
-    return { icon: 'mdi:database', color: theme.palette.text.secondary };
+    return { icon: databaseIcon, color: theme.palette.text.secondary };
   }
 
   if (result.metadata.recordType === 'MAIL' || result.metadata.connector === 'GMAIL') {
-    return { icon: 'mdi:gmail', color: '#EA4335' };
+    return { icon: gmailIcon, color: '#EA4335' };
   }
 
   switch (result.metadata.connector) {
     case 'DRIVE':
-      return { icon: 'mdi:google-drive', color: '#4285F4' };
+      return { icon: googleDriveIcon, color: '#4285F4' };
     case 'SLACK':
-      return { icon: 'mdi:slack', color: '#4A154B' };
+      return { icon: slackIcon, color: '#4A154B' };
     case 'JIRA':
-      return { icon: 'mdi:jira', color: '#0052CC' };
+      return { icon: jiraIcon, color: '#0052CC' };
     case 'TEAMS':
-      return { icon: 'mdi:microsoft-teams', color: '#6264A7' };
+      return { icon: microsoftTeamsIcon, color: '#6264A7' };
     case 'ONEDRIVE':
-      return { icon: 'mdi:microsoft-onedrive', color: '#0078D4' };
+      return { icon: microsoftOnedriveIcon, color: '#0078D4' };
     default:
-      return { icon: 'mdi:database', color: theme.palette.text.secondary };
+      return { icon: databaseIcon, color: theme.palette.text.secondary };
   }
 };
 
@@ -366,7 +342,7 @@ const KnowledgeSearch = ({
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Icon icon="mdi:magnify" style={{ color: theme.palette.text.secondary }} />
+                      <Icon icon={magnifyIcon} style={{ color: theme.palette.text.secondary }} />
                     </InputAdornment>
                   ),
                   endAdornment: searchInputValue && (
@@ -376,7 +352,7 @@ const KnowledgeSearch = ({
                         onClick={() => setSearchInputValue('')}
                         sx={{ color: theme.palette.text.secondary }}
                       >
-                        <Icon icon="mdi:close" fontSize="small" />
+                        <Icon icon={closeIcon} fontSize="small" />
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -469,7 +445,7 @@ const KnowledgeSearch = ({
                 }}
               >
                 <Icon
-                  icon="mdi:file-search-outline"
+                  icon={fileSearchIcon}
                   style={{ fontSize: 48, color: theme.palette.text.secondary, marginBottom: 16 }}
                 />
                 <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
@@ -486,7 +462,7 @@ const KnowledgeSearch = ({
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<Icon icon="mdi:refresh" />}
+                  startIcon={<Icon icon={refreshIcon} />}
                   onClick={clearSearch}
                   sx={{
                     borderRadius: '6px',
@@ -514,7 +490,7 @@ const KnowledgeSearch = ({
                 }}
               >
                 <Icon
-                  icon="mdi:lightbulb-outline"
+                  icon={lightBulbIcon}
                   style={{ fontSize: 48, color: theme.palette.primary.main, marginBottom: 16 }}
                 />
                 <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
@@ -531,7 +507,7 @@ const KnowledgeSearch = ({
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <Button
                     variant="outlined"
-                    startIcon={<Icon icon="mdi:star-outline" />}
+                    startIcon={<Icon icon={starIcon} />}
                     sx={{
                       borderRadius: '6px',
                       textTransform: 'none',
@@ -542,7 +518,7 @@ const KnowledgeSearch = ({
                   </Button>
                   <Button
                     variant="outlined"
-                    startIcon={<Icon icon="mdi:history" />}
+                    startIcon={<Icon icon={historyIcon} />}
                     sx={{
                       borderRadius: '6px',
                       textTransform: 'none',
@@ -649,7 +625,7 @@ const KnowledgeSearch = ({
                                   <Button
                                     size="small"
                                     variant="outlined"
-                                    startIcon={<Icon icon="mdi:eye-outline" />}
+                                    startIcon={<Icon icon={eyeIcon} />}
                                     onClick={(e) => handleViewCitations(result, e)}
                                     sx={{
                                       fontSize: '0.75rem',

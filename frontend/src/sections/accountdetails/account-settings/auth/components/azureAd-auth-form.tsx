@@ -1,3 +1,6 @@
+import infoIcon from '@iconify-icons/eva/info-outline';
+import hashIcon from '@iconify-icons/eva/hash-outline';
+import globeIcon from '@iconify-icons/eva/globe-outline';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -255,7 +258,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
               }}
             >
               <Iconify
-                icon="eva:info-outline"
+                icon={infoIcon}
                 width={20}
                 height={20}
                 color={theme.palette.info.main}
@@ -303,7 +306,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="eva:hash-outline" width={18} height={18} />
+                        <Iconify icon={hashIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -334,7 +337,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="eva:globe-outline" width={18} height={18} />
+                        <Iconify icon={globeIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}

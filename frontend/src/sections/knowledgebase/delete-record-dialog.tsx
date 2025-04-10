@@ -1,5 +1,6 @@
 import { Icon } from '@iconify/react';
 import React, { useState } from 'react';
+import trashCanIcon from '@iconify-icons/mdi/trash-can-outline';
 
 import {
   Box,
@@ -17,7 +18,6 @@ import {
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
-
 
 interface DeleteRecordDialogProps {
   open: boolean;
@@ -56,9 +56,7 @@ const DeleteRecordDialog = ({
       onClose();
     } catch (err) {
       console.error('Error deleting record:', err);
-      setError(
-        err.response?.data?.message || 'Failed to delete the record. Please try again.'
-      );
+      setError(err.response?.data?.message || 'Failed to delete the record. Please try again.');
     } finally {
       setIsDeleting(false);
     }
@@ -73,8 +71,8 @@ const DeleteRecordDialog = ({
   };
 
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={handleClose}
       fullWidth
       maxWidth="sm"
@@ -85,8 +83,8 @@ const DeleteRecordDialog = ({
         },
       }}
     >
-      <DialogTitle 
-        sx={{ 
+      <DialogTitle
+        sx={{
           p: 3,
           display: 'flex',
           alignItems: 'center',
@@ -105,25 +103,26 @@ const DeleteRecordDialog = ({
             color: '#f44336',
           }}
         >
-          <Icon icon="mdi:trash-can-outline" fontSize={24} />
+          <Icon icon={trashCanIcon} fontSize={24} />
         </Box>
         <Typography variant="h6" fontWeight={500}>
           Delete Record
         </Typography>
       </DialogTitle>
-      
+
       <Divider />
-      
+
       <DialogContent sx={{ p: 3 }}>
         <Typography paragraph>
-          Are you sure you want to delete <strong>{recordName}</strong>? This action cannot be undone.
+          Are you sure you want to delete <strong>{recordName}</strong>? This action cannot be
+          undone.
         </Typography>
-        
+
         <Typography variant="body2" color="text.secondary" paragraph>
-          All data associated with this record will be permanently removed from the system. 
-          This includes any documents, files, metadata, and relationships.
+          All data associated with this record will be permanently removed from the system. This
+          includes any documents, files, metadata, and relationships.
         </Typography>
-        
+
         <Box sx={{ mt: 3 }}>
           <Typography variant="body2" gutterBottom fontWeight={500}>
             Type <strong>{recordName}</strong> to confirm deletion:
@@ -134,26 +133,26 @@ const DeleteRecordDialog = ({
             value={confirmText}
             onChange={handleConfirmChange}
             placeholder={`Type "${recordName}" to confirm`}
-            sx={{ 
+            sx={{
               mt: 1,
               '& .MuiOutlinedInput-root': {
                 borderRadius: 1,
-              }
+              },
             }}
             error={confirmText !== '' && confirmText !== recordName}
             disabled={isDeleting}
           />
         </Box>
-        
+
         {error && (
           <Alert severity="error" sx={{ mt: 3 }}>
             {error}
           </Alert>
         )}
       </DialogContent>
-      
-      <DialogActions 
-        sx={{ 
+
+      <DialogActions
+        sx={{
           p: 2.5,
           bgcolor: (theme) => alpha(theme.palette.background.default, 0.5),
         }}
@@ -175,7 +174,13 @@ const DeleteRecordDialog = ({
           color="error"
           onClick={handleDelete}
           disabled={isDeleteDisabled || isDeleting}
-          startIcon={isDeleting ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:trash-can-outline" />}
+          startIcon={
+            isDeleting ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : (
+              <Icon icon={trashCanIcon} />
+            )
+          }
           sx={{
             borderRadius: 1,
             fontWeight: 500,

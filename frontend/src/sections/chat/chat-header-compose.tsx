@@ -1,6 +1,7 @@
 import type { IChatParticipant } from 'src/types/chat';
 
 import { useState, useCallback } from 'react';
+import checkIcon from '@iconify-icons/eva/checkmark-fill';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -86,7 +87,7 @@ export function ChatHeaderCompose({ contacts, onAddRecipients }: Props) {
                   ...(selected && { opacity: 1, color: 'primary.main' }),
                 }}
               >
-                <Iconify icon="eva:checkmark-fill" />
+                <Iconify icon={checkIcon} />
               </Stack>
             </Box>
 

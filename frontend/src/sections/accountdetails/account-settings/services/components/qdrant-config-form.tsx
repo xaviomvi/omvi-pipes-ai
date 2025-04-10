@@ -1,3 +1,8 @@
+import keyIcon from '@iconify-icons/mdi/key';
+import closeIcon from '@iconify-icons/mdi/close';
+import poundIcon from '@iconify-icons/mdi/pound';
+import pencilIcon from '@iconify-icons/mdi/pencil';
+import serverIcon from '@iconify-icons/mdi/server';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -250,7 +255,7 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
           <Button
             onClick={handleToggleEdit}
-            startIcon={<Iconify icon={isEditing ? 'mdi:close' : 'mdi:pencil'} />}
+            startIcon={<Iconify icon={isEditing ? closeIcon : pencilIcon} />}
             color={isEditing ? 'error' : 'primary'}
             size="small"
           >
@@ -275,7 +280,7 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Iconify icon="mdi:server" width={18} height={18} />
+                    <Iconify icon={serverIcon} width={18} height={18} />
                   </InputAdornment>
                 ),
               }}
@@ -305,7 +310,7 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Iconify icon="mdi:pound" width={18} height={18} />
+                    <Iconify icon={poundIcon} width={18} height={18} />
                   </InputAdornment>
                 ),
               }}
@@ -334,7 +339,7 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Iconify icon="mdi:pound" width={18} height={18} />
+                    <Iconify icon={poundIcon} width={18} height={18} />
                   </InputAdornment>
                 ),
               }}
@@ -364,7 +369,7 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Iconify icon="mdi:key" width={18} height={18} />
+                    <Iconify icon={keyIcon} width={18} height={18} />
                   </InputAdornment>
                 ),
               }}

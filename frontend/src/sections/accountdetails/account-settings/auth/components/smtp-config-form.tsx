@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import eyeIcon from '@iconify-icons/mdi/eye';
+import eyeOffIcon from '@iconify-icons/mdi/eye-off';
+import infoIcon from '@iconify-icons/eva/info-outline';
+import lockIcon from '@iconify-icons/eva/lock-outline';
+import radioIcon from '@iconify-icons/eva/radio-outline';
+import emailIcon from '@iconify-icons/eva/email-outline';
+import serverIcon from '@iconify-icons/mdi/server-outline';
+import personIcon from '@iconify-icons/eva/person-outline';
 import React, { useState, useEffect, forwardRef, useCallback, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -257,7 +265,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
               }}
             >
               <Iconify
-                icon="eva:info-outline"
+                icon={infoIcon}
                 width={20}
                 height={20}
                 color={theme.palette.info.main}
@@ -287,7 +295,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="eva:server-outline" width={18} height={18} />
+                        <Iconify icon={serverIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -317,7 +325,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="eva:radio-outline" width={18} height={18} />
+                        <Iconify icon={radioIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -348,7 +356,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="eva:email-outline" width={18} height={18} />
+                        <Iconify icon={emailIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -378,7 +386,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="eva:person-outline" width={18} height={18} />
+                        <Iconify icon={personIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -409,7 +417,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="eva:lock-outline" width={18} height={18} />
+                        <Iconify icon={lockIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                     endAdornment: (
@@ -421,7 +429,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
                           aria-label={showPassword ? 'hide password' : 'show password'}
                         >
                           <Iconify
-                            icon={showPassword ? 'eva:eye-off-outline' : 'eva:eye-outline'}
+                            icon={showPassword ? eyeOffIcon : eyeIcon}
                             width={18}
                             height={18}
                           />

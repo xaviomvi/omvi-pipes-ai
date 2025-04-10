@@ -1,3 +1,19 @@
+import webIcon from '@iconify-icons/mdi/web';
+import keyIcon from '@iconify-icons/mdi/key';
+import lockIcon from '@iconify-icons/mdi/lock';
+import linkIcon from '@iconify-icons/mdi/link';
+import closeIcon from '@iconify-icons/mdi/close';
+import dbIcon from '@iconify-icons/mdi/database';
+import eyeIcon from '@iconify-icons/eva/eye-fill';
+import pencilIcon from '@iconify-icons/mdi/pencil';
+import folderIcon from '@iconify-icons/mdi/folder';
+import bucketIcon from '@iconify-icons/mdi/bucket';
+import packageIcon from '@iconify-icons/mdi/package';
+import accountIcon from '@iconify-icons/mdi/account';
+import shieldIcon from '@iconify-icons/mdi/shield-lock';
+import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
+import mapMarkerIcon from '@iconify-icons/mdi/map-marker';
+import infoIcon from '@iconify-icons/mdi/information-outline';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -313,9 +329,10 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
             accountKey: formData.accountKey,
             containerName: formData.containerName,
           }),
-          ...(formData.storageType === storageTypes.AZURE_BLOB && formData.endpointSuffix && {
-            endpointSuffix: formData.endpointSuffix,
-          }),
+          ...(formData.storageType === storageTypes.AZURE_BLOB &&
+            formData.endpointSuffix && {
+              endpointSuffix: formData.endpointSuffix,
+            }),
         };
 
         const response = await updateStorageConfig(configToSave);
@@ -373,7 +390,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
           }}
         >
           <Iconify
-            icon="mdi:information-outline"
+            icon={infoIcon}
             width={20}
             height={20}
             color={theme.palette.info.main}
@@ -390,7 +407,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
           <Button
             onClick={handleToggleEdit}
-            startIcon={<Iconify icon={isEditing ? 'mdi:close' : 'mdi:pencil'} />}
+            startIcon={<Iconify icon={isEditing ? closeIcon : pencilIcon} />}
             color={isEditing ? 'error' : 'primary'}
             size="small"
           >
@@ -420,7 +437,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                 onChange={handleSelectChange}
                 startAdornment={
                   <InputAdornment position="start">
-                    <Iconify icon="mdi:database" width={18} height={18} />
+                    <Iconify icon={dbIcon} width={18} height={18} />
                   </InputAdornment>
                 }
               >
@@ -453,7 +470,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:folder" width={18} height={18} />
+                        <Iconify icon={folderIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -481,7 +498,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:link" width={18} height={18} />
+                        <Iconify icon={linkIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -515,7 +532,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:key" width={18} height={18} />
+                        <Iconify icon={keyIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -544,7 +561,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:lock" width={18} height={18} />
+                        <Iconify icon={lockIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                     endAdornment: (
@@ -556,7 +573,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                           disabled={!isEditing}
                         >
                           <Iconify
-                            icon={showPassword ? 'eva:eye-off-fill' : 'eva:eye-fill'}
+                            icon={showPassword ? eyeOffIcon : eyeIcon}
                             width={16}
                             height={16}
                           />
@@ -589,7 +606,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:map-marker" width={18} height={18} />
+                        <Iconify icon={mapMarkerIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -617,7 +634,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:bucket" width={18} height={18} />
+                        <Iconify icon={bucketIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -651,7 +668,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:account" width={18} height={18} />
+                        <Iconify icon={accountIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -679,7 +696,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:package" width={18} height={18} />
+                        <Iconify icon={packageIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}
@@ -708,7 +725,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:key" width={18} height={18} />
+                        <Iconify icon={keyIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                     endAdornment: (
@@ -720,7 +737,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                           disabled={!isEditing}
                         >
                           <Iconify
-                            icon={showPassword ? 'eva:eye-off-fill' : 'eva:eye-fill'}
+                            icon={showPassword ? eyeOffIcon : eyeIcon}
                             width={16}
                             height={16}
                           />
@@ -758,7 +775,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                     onChange={handleSelectChange}
                     startAdornment={
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:shield-lock" width={18} height={18} />
+                        <Iconify icon={shieldIcon} width={18} height={18} />
                       </InputAdornment>
                     }
                   >
@@ -782,7 +799,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="mdi:web" width={18} height={18} />
+                        <Iconify icon={webIcon} width={18} height={18} />
                       </InputAdornment>
                     ),
                   }}

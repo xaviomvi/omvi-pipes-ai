@@ -1,6 +1,16 @@
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import editIcon from '@iconify-icons/eva/edit-fill';
+import closeIcon from '@iconify-icons/eva/close-fill';
+import peopleIcon from '@iconify-icons/eva/people-fill';
+import searchIcon from '@iconify-icons/eva/search-fill';
+import emailIcon from '@iconify-icons/eva/email-outline';
 import React, { useRef, useState, useEffect } from 'react';
+import trashIcon from '@iconify-icons/eva/trash-2-outline';
+import personIcon from '@iconify-icons/eva/person-add-fill';
+import alertIcon from '@iconify-icons/eva/alert-triangle-fill';
+import accountGroupIcon from '@iconify-icons/mdi/account-group';
+import verticalIcon from '@iconify-icons/eva/more-vertical-fill';
 
 import {
   Box,
@@ -296,7 +306,7 @@ const Users = () => {
           }}
         >
           <Iconify
-            icon="eva:search-fill"
+            icon={searchIcon}
             width={20}
             height={20}
             sx={{ color: 'text.disabled', mr: 1 }}
@@ -310,7 +320,7 @@ const Users = () => {
           />
           {searchTerm && (
             <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ p: 0.5 }}>
-              <Iconify icon="eva:close-fill" width={16} height={16} />
+              <Iconify icon={closeIcon} width={16} height={16} />
             </IconButton>
           )}
         </Paper>
@@ -320,7 +330,7 @@ const Users = () => {
             variant="outlined"
             color="primary"
             onClick={handleAddUsersToGroups}
-            startIcon={<Iconify icon="mdi:account-group" />}
+            startIcon={<Iconify icon={accountGroupIcon} />}
             size="medium"
             sx={{
               borderRadius: 1.5,
@@ -333,7 +343,7 @@ const Users = () => {
           <Button
             variant="contained"
             color="primary"
-            startIcon={<Iconify icon="eva:person-add-fill" />}
+            startIcon={<Iconify icon={personIcon} />}
             onClick={handleAddUser}
             size="medium"
             sx={{
@@ -452,7 +462,7 @@ const Users = () => {
                           },
                         }}
                       >
-                        <Iconify icon="eva:more-vertical-fill" width={20} height={20} />
+                        <Iconify icon={verticalIcon} width={20} height={20} />
                       </IconButton>
                     </TableCell>
                   </TableRow>
@@ -462,7 +472,7 @@ const Users = () => {
                 <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Iconify
-                      icon="eva:people-fill"
+                      icon={peopleIcon}
                       width={40}
                       height={40}
                       sx={{ color: 'text.secondary', mb: 1, opacity: 0.5 }}
@@ -545,7 +555,7 @@ const Users = () => {
             handleMenuClose();
           }}
         >
-          <Iconify icon="eva:edit-fill" width={20} height={20} sx={{ mr: 1.5 }} />
+          <Iconify icon={editIcon} width={20} height={20} sx={{ mr: 1.5 }} />
           Edit Profile
         </MenuItem>
         <MenuItem
@@ -560,7 +570,7 @@ const Users = () => {
           }}
           onClick={handleRemoveUser}
         >
-          <Iconify icon="eva:trash-2-outline" width={20} height={20} sx={{ mr: 1.5 }} />
+          <Iconify icon={trashIcon} width={20} height={20} sx={{ mr: 1.5 }} />
           Remove User
         </MenuItem>
       </Menu>
@@ -648,7 +658,7 @@ const Users = () => {
             <Button
               variant="outlined"
               size="small"
-              startIcon={<Iconify icon="eva:edit-fill" />}
+              startIcon={<Iconify icon={editIcon} />}
               onClick={() => {
                 if (selectedUser._id) {
                   if (selectedUser._id === userId) {
@@ -685,7 +695,7 @@ const Users = () => {
         <DialogTitle sx={{ pb: 1 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Iconify
-              icon="eva:alert-triangle-fill"
+              icon={alertIcon}
               width={24}
               height={24}
               sx={{ color: theme.palette.warning.main }}
@@ -803,7 +813,7 @@ function AddUserModal({ open, onClose, groups, onUsersAdded }: AddUserModalProps
       <DialogTitle sx={{ pb: 1 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Iconify
-            icon="eva:person-add-fill"
+            icon={personIcon}
             width={24}
             height={24}
             sx={{ color: theme.palette.primary.main }}
@@ -851,7 +861,7 @@ function AddUserModal({ open, onClose, groups, onUsersAdded }: AddUserModalProps
           onClick={handleAddUsers}
           variant="contained"
           color="primary"
-          startIcon={<Iconify icon="eva:email-outline" />}
+          startIcon={<Iconify icon={emailIcon} />}
           sx={{ borderRadius: 1 }}
         >
           Send Invites
@@ -926,7 +936,7 @@ function AddUsersToGroupsModal({
       <DialogTitle sx={{ pb: 1 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Iconify
-            icon="mdi:account-group"
+            icon={accountGroupIcon}
             width={24}
             height={24}
             sx={{ color: theme.palette.primary.main }}
@@ -990,7 +1000,7 @@ function AddUsersToGroupsModal({
           onClick={handleAddUsersToGroups}
           variant="contained"
           color="primary"
-          startIcon={<Iconify icon="eva:people-fill" />}
+          startIcon={<Iconify icon={peopleIcon} />}
           sx={{ borderRadius: 1 }}
         >
           Add to Groups
