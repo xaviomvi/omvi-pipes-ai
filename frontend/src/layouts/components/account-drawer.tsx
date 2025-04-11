@@ -77,19 +77,24 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
   const [open, setOpen] = useState(false);
   const [menuItems, setMenuItems] = useState(data);
   const [customLogo, setCustomLogo] = useState<string | null>('');
+  const isBusiness =
+    user?.accountType === 'business' ||
+    user?.accountType === 'organization' ||
+    user?.role === 'business';
   useEffect(() => {
     const fetchLogo = async () => {
       try {
         const orgId = await getOrgIdFromToken();
-        const logoUrl = await getOrgLogo(orgId);
-        setCustomLogo(logoUrl);
+        if (isBusiness) {
+          const logoUrl = await getOrgLogo(orgId);
+          setCustomLogo(logoUrl);
+        }
       } catch (err) {
         console.error(err, 'error in fetching logo');
       }
     };
-
     fetchLogo();
-  }, []);
+  }, [isBusiness]);
 
   // Build menu items when user data changes
   useEffect(() => {
@@ -103,17 +108,13 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
     const items = [...baseAccountItems];
 
     // Check for business account type with fallbacks
-    const isBusiness =
-      user?.accountType === 'business' ||
-      user?.accountType === 'organization' ||
-      user?.role === 'business';
 
     if (isBusiness) {
       items.push(companySettingsItem);
     }
 
     setMenuItems(items);
-  }, [data, user]);
+  }, [data, isBusiness]);
 
   const handleOpenDrawer = useCallback(() => {
     setOpen(true);
