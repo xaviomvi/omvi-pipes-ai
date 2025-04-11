@@ -619,6 +619,7 @@ class Processor:
             self.logger.debug("📑 Creating semantic sentences")
             sentence_data = []
             sentences = ocr_result.get("sentences", [])
+            self.logger.debug(f"sentences: {sentences}")
             if sentences:
                 self.logger.debug("📑 Creating semantic sentences")
 
@@ -632,7 +633,7 @@ class Processor:
                         "blockText": s["content"].strip(),
                         "blockType": s.get("block_type", 0),
                         "blockNum": s.get("block_number", 0),
-                        "pageNum": s.get("pageNum", 0)
+                        "pageNum": s.get("page_number", 0)
                     }
                 } for idx, s in enumerate(sentences) if s.get("content")]
 

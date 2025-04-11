@@ -3,6 +3,7 @@ from io import BytesIO
 from app.config.arangodb_constants import EventTypes
 from app.config.arangodb_constants import CollectionNames
 import json
+import asyncio
 
 
 class EventProcessor:
@@ -92,41 +93,78 @@ class EventProcessor:
             
             if signed_url:
                 self.logger.debug(f"Signed URL: {signed_url}")
-                # Download file using signed URL
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(signed_url) as response:
-                        if response.status != 200:
-                            self.logger.error(f"❌ Failed to download file: {response}")
-                            return
-                        file_content = await response.read()
+                # Download file using signed URL with chunked streaming
+                chunk_size = 1024 * 1024 * 2  # 2MB chunks
+                file_chunks = []
+                total_size = 0
+                
+                # Increase timeouts significantly
+                timeout = aiohttp.ClientTimeout(
+                    total=1800,      # 30 minutes total
+                    connect=60,      # 1 minute for initial connection
+                    sock_read=300    # 5 minutes per chunk read
+                )
+                
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    try:
+                        async with session.get(signed_url) as response:
+                            if response.status != 200:
+                                self.logger.error(f"❌ Failed to download file: {response.status}")
+                                self.logger.error(f"Response headers: {response.headers}")
+                                return
+                            
+                            # Get content length if available
+                            content_length = response.headers.get('Content-Length')
+                            if content_length:
+                                self.logger.info(f"Expected file size: {int(content_length) / (1024*1024):.2f} MB")
+                            
+                            self.logger.info("Starting chunked download...")
+                            try:
+                                async for chunk in response.content.iter_chunked(chunk_size):
+                                    file_chunks.append(chunk)
+                                    total_size += len(chunk)
+                                    self.logger.debug(f"Total size so far: {total_size / (1024*1024):.2f} MB")
+                            except asyncio.TimeoutError as e:
+                                self.logger.error(f"❌ Timeout during file download at {total_size / (1024*1024):.2f} MB: {repr(e)}")
+                                raise
+                            
+                            # Combine chunks only when needed
+                            file_content = b''.join(file_chunks)
+                            self.logger.info(f"✅ Download complete. Total size: {total_size / (1024*1024):.2f} MB")
+                            
+                    except aiohttp.ClientError as e:
+                        self.logger.error(f"❌ Network error during download: {repr(e)}")
+                        raise
+                    except Exception as e:
+                        self.logger.error(f"❌ Unexpected error during download: {repr(e)}")
+                        raise
             else:
                 file_content = event_data.get('buffer')
+            
+            self.logger.debug(f"file_content type: {type(file_content)}")
+            self.logger.debug(f"file_content: {file_content}")
                 
             if mime_type == "application/vnd.google-apps.presentation":
                 self.logger.info("🚀 Processing Google Slides")
                 # Decode JSON content if it's streamed data
-                self.logger.debug(f"file_content type: {type(file_content)}")
                 if isinstance(file_content, bytes):
                     try:
                         file_content = json.loads(file_content.decode('utf-8'))
                     except json.JSONDecodeError as e:
                         self.logger.error(f"Failed to decode Google Slides content: {str(e)}")
                         raise
-                self.logger.debug(f"file_content: {file_content}")
                 result = await self.processor.process_google_slides(record_id, record_version, org_id, file_content)
                 return result
 
             if mime_type == "application/vnd.google-apps.document":
                 self.logger.info("🚀 Processing Google Docs")
                 # Decode JSON content if it's streamed data
-                self.logger.debug(f"file_content: {file_content}")
                 if isinstance(file_content, bytes):
                     try:
                         file_content = json.loads(file_content.decode('utf-8'))
                     except json.JSONDecodeError as e:
                         self.logger.error(f"Failed to decode Google Docs content: {str(e)}")
                         raise
-                self.logger.debug(f"file_content: {file_content}")
                 result = await self.processor.process_google_docs(record_id, record_version, org_id, file_content)
                 return result
 
@@ -260,6 +298,5 @@ class EventProcessor:
 
         except Exception as e:
             # Let the error bubble up to Kafka consumer
-            self.logger.error(f"❌ Error in event processor: {str(e)}")
+            self.logger.error(f"❌ Error in event processor: {repr(e)}")
             raise
-

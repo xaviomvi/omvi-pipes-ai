@@ -181,7 +181,7 @@ class KafkaRouteConsumer:
                     )
                     response.raise_for_status()
                 except Exception as e:
-                    self.logger.error(f"❌ HTTP request failed: {str(e)}")
+                    self.logger.error(f"❌ HTTP request failed: {repr(e)}")
                     return False
             self.logger.info(f"✅ Successfully handled sync event: {event_type}")
             return True
