@@ -2,12 +2,10 @@ from functools import wraps
 import asyncio
 import random
 from googleapiclient.errors import HttpError
-from app.utils.logger import create_logger
 from app.exceptions.connector_google_exceptions import (    
     GoogleAuthError, AdminQuotaError, GoogleConnectorError
 )
 
-logger = create_logger(__name__)
 
 def token_refresh(func):
     """Decorator to check and refresh token before API call"""
@@ -84,21 +82,11 @@ def exponential_backoff(max_retries: int = 5, initial_delay: float = 1.0, max_de
 
                     if retry_after:
                         delay = float(retry_after)
-                        logger.info(
-                            "📅 Using Retry-After header: %s seconds", delay)
                     else:
                         delay = min(delay * 2 + jitter, max_delay)
-                        logger.info(
-                            "📈 Calculated exponential backoff delay: %s seconds", delay)
-
-                    logger.warning(
-                        "🔄 Rate limit (%s) hit. Retrying after %.2f seconds. Attempt %s/%s",
-                        status_code, delay, retries + 1, max_retries
-                    )
 
                     await asyncio.sleep(delay)
                     retries += 1
-                    logger.info("🔁 Retry attempt %s initiated", retries)
 
                 except Exception as e:
                     raise GoogleConnectorError(
@@ -108,6 +96,5 @@ def exponential_backoff(max_retries: int = 5, initial_delay: float = 1.0, max_de
                             "error": str(e)
                         }
                     )
-
         return wrapper
     return decorator

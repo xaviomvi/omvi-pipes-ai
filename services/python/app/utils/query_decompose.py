@@ -18,8 +18,9 @@ class DecomposedQueries(BaseModel):
 class QueryDecompositionService:
     """Service for decomposing complex queries into simpler sub-queries"""
     
-    def __init__(self, llm):
+    def __init__(self, logger, llm):
         """Initialize the query decomposition service with an LLM"""
+        self.logger = logger
         self.llm = llm
         
         # Template for query decomposition with confidence scores
@@ -80,7 +81,7 @@ class QueryDecompositionService:
             return parsed_json
         except Exception as e:
             # If parsing fails, return error
-            print("error: ", str(e))
+            self.logger.error("error: ", str(e))
             return {"error": str(e)}  # Return error in structured format
         
     async def decompose_query(self, query: str) -> Dict[str, Any]:
@@ -120,7 +121,7 @@ class QueryDecompositionService:
                 
             return result
         except Exception as e:
-            print("exception", {str(e)})
+            self.logger.error("exception", {str(e)})
             return {
                 "queries": [{"query": query, "confidence": "Very High"}],
                 "reason": f"Error during decomposition: {str(e)}"

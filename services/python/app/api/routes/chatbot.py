@@ -5,7 +5,6 @@ from dependency_injector.wiring import inject
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Optional, Dict, Any, List
 from app.setups.query_setup import AppContainer
-from app.utils.logger import create_logger
 from app.modules.retrieval.retrieval_service import RetrievalService
 from app.modules.retrieval.retrieval_arango import ArangoService
 from app.config.configuration_service import ConfigurationService
@@ -14,9 +13,6 @@ from app.utils.citations import process_citations
 from app.utils.query_transform import setup_query_transformation
 from app.utils.query_decompose import QueryDecompositionService
 from app.modules.reranker.reranker import RerankerService
-from app.utils.llm import get_llm
-
-logger = create_logger(__name__)
 
 router = APIRouter()
 
@@ -57,13 +53,14 @@ async def get_reranker_service(request: Request) -> RerankerService:
 async def askAI(request: Request, query_info: ChatQuery, 
                 retrieval_service: RetrievalService=Depends(get_retrieval_service),
                 arango_service: ArangoService=Depends(get_arango_service),
-                config_service: ConfigurationService=Depends(get_config_service),
                 reranker_service: RerankerService=Depends(get_reranker_service)):
     """Perform semantic search across documents"""
     try:
+        container = request.app.container
+        logger = container.logger()
         llm = retrieval_service.llm
         if llm is None:
-            llm = await retrieval_service.get_llm()
+            llm = await retrieval_service.get_llm_instance()
             if llm is None:
                 raise HTTPException(
                     status_code=500,
@@ -94,8 +91,8 @@ async def askAI(request: Request, query_info: ChatQuery,
                 expansion_chain.ainvoke(query)
             )
 
-            logger.info(f"Rewritten query: {rewritten_query}")
-            logger.info(f"Expanded queries: {expanded_queries}")
+            logger.debug(f"Rewritten query: {rewritten_query}")
+            logger.debug(f"Expanded queries: {expanded_queries}")
             
             expanded_queries_list = [q.strip() for q in expanded_queries.split('\n') if q.strip()]
 
@@ -136,6 +133,11 @@ async def askAI(request: Request, query_info: ChatQuery,
         seen_ids = set()
         for result_set in all_search_results:
             for result in result_set:
+                logger.debug("==================")
+                logger.debug("==================")
+                logger.debug(f'result: {result}')
+                logger.debug("==================")
+                logger.debug("==================")
                 result_id = result['metadata'].get('_id')
                 if result_id not in seen_ids:
                     seen_ids.add(result_id)

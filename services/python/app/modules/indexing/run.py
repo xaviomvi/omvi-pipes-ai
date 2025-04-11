@@ -7,15 +7,13 @@ from qdrant_client.http import models
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
 from app.config.arangodb_constants import CollectionNames
-from app.utils.logger import create_logger
 from qdrant_client.http.models import Filter, FieldCondition, MatchValue
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 from typing import List, Optional
 from dotenv import load_dotenv
 from app.exceptions.indexing_exceptions import *
 from datetime import datetime, timezone
-
-logger = create_logger(__name__)
 
 @dataclass
 class Document(LangchainDocument):
@@ -32,8 +30,9 @@ class Document(LangchainDocument):
 
 
 class CustomChunker(SemanticChunker):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, logger, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.logger = logger
         self.number_of_chunks = None
         self.breakpoint_threshold_type: str = "percentile"
         self.breakpoint_threshold_amount: float = 1
@@ -41,7 +40,7 @@ class CustomChunker(SemanticChunker):
     def split_documents(self, documents: List[Document]) -> List[Document]:
         """Override split_documents to use our custom merging logic"""
         try:
-            logger.info("Splitting documents")
+            self.logger.info("Splitting documents")
             if len(documents) <= 1:
                 return documents
 
@@ -84,7 +83,7 @@ class CustomChunker(SemanticChunker):
                 for index in indices_above_thresh:
                     # Get group of documents to merge
                     group = documents[start_index:index + 1]
-                    logger.info("Group: %s", group)
+                    self.logger.info("Group: %s", group)
                     
                     # Merge text content
                     merged_text = " ".join(doc.page_content for doc in group)
@@ -112,7 +111,7 @@ class CustomChunker(SemanticChunker):
                 # Handle the last group
                 if start_index < len(documents):
                     group = documents[start_index:]
-                    logger.debug("Group: %s", group)
+                    self.logger.debug("Group: %s", group)
                 
                     merged_text = " ".join(doc.page_content for doc in group)
                     
@@ -276,7 +275,6 @@ class CustomChunker(SemanticChunker):
                 details={"error": str(e)}
             )
 
-
     
     def split_text(self, text: str) -> List[str]:
         """This method won't be used but needs to be implemented"""
@@ -286,12 +284,14 @@ class CustomChunker(SemanticChunker):
 class IndexingPipeline:
     def __init__(
         self,
+        logger,
         arango_service,
         collection_name: str,
         qdrant_api_key: str,
         qdrant_host,
         grpc_port,
     ):
+        self.logger = logger
         """
         Initialize the indexing pipeline with necessary configurations.
 
@@ -325,6 +325,7 @@ class IndexingPipeline:
             # Initialize custom semantic chunker with BGE embeddings
             try:
                 self.text_splitter = CustomChunker(
+                    logger=self.logger,
                     embeddings=self.dense_embeddings,
                     breakpoint_threshold_type="percentile",
                     breakpoint_threshold_amount=95,
@@ -392,7 +393,7 @@ class IndexingPipeline:
         try:
             self.qdrant_client.get_collection(self.collection_name)
         except Exception as e:
-            logger.info(f"Collection {self.collection_name} not found, creating new collection")
+            self.logger.info(f"Collection {self.collection_name} not found, creating new collection")
             try:
                 self.qdrant_client.create_collection(
                     collection_name=self.collection_name,
@@ -407,9 +408,9 @@ class IndexingPipeline:
                         )
                     }
                 )
-                logger.info(f"✅ Successfully created collection {self.collection_name}")
+                self.logger.info(f"✅ Successfully created collection {self.collection_name}")
             except Exception as e:
-                logger.error(f"❌ Error creating collection {self.collection_name}: {str(e)}")
+                self.logger.error(f"❌ Error creating collection {self.collection_name}: {str(e)}")
                 raise VectorStoreError(
                     "Failed to create collection",
                     details={
@@ -461,7 +462,7 @@ class IndexingPipeline:
                     details={"error": str(e)}
                 )
 
-            logger.info(f"✅ Successfully added {len(chunks)} documents to vector store")
+            self.logger.info(f"✅ Successfully added {len(chunks)} documents to vector store")
             
             # Update record with indexing status
             try:
@@ -473,7 +474,7 @@ class IndexingPipeline:
                     )
                 
                 doc = dict(record)
-                doc.update({"indexingStatus": "COMPLETED", "lastIndexTimestamp": int(datetime.now(timezone.utc).timestamp())})
+                doc.update({"indexingStatus": "COMPLETED", "lastIndexTimestamp": get_epoch_timestamp_in_ms()})
                 docs = [doc]
                 
                 success = await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)
@@ -518,7 +519,7 @@ class IndexingPipeline:
                     record_id=record_id
                 )
 
-            logger.info(f"🗑️ Deleting embeddings for record {record_id}")
+            self.logger.info(f"🗑️ Deleting embeddings for record {record_id}")
             
             try:
                 filter_dict = Filter(
@@ -537,13 +538,13 @@ class IndexingPipeline:
                 )
                 
                 ids = [point.id for point in result[0]]
-                logger.info(f"🎯 Filter: {filter_dict}")
-                logger.info(f"🎯 Ids: {ids}")
+                self.logger.info(f"🎯 Filter: {filter_dict}")
+                self.logger.info(f"🎯 Ids: {ids}")
                 
                 if ids:
                     await self.vector_store.adelete(ids=ids)
                 
-                logger.info(f"✅ Successfully deleted embeddings for record {record_id}")
+                self.logger.info(f"✅ Successfully deleted embeddings for record {record_id}")
                 
             except Exception as e:
                 raise EmbeddingDeletionError(

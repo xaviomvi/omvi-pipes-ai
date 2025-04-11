@@ -1,16 +1,14 @@
 from typing import Optional, Any, Dict
 import json
 from redis import asyncio as aioredis
-from app.utils.logger import create_logger
 from app.config.configuration_service import ConfigurationService
 import asyncio
-
-logger = create_logger(__name__)
 
 class BaseRedisService():
     """Service for handling Redis operations"""
 
-    def __init__(self, redis_client, config: ConfigurationService):
+    def __init__(self, logger, redis_client, config: ConfigurationService):
+        self.logger = logger
         self.config = config
         self.redis_client = redis_client
         self.prefix = "drive_sync:"  # Namespace for our keys
@@ -23,7 +21,7 @@ class BaseRedisService():
                 return False
             return True
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {str(e)}")
+            self.logger.error(f"Failed to connect to Redis: {str(e)}")
             return False
 
     async def disconnect(self):
@@ -41,7 +39,7 @@ class BaseRedisService():
             await self.redis_client.set(full_key, value, ex=expire)
             return True
         except Exception as e:
-            logger.error(f"Failed to set Redis key {key}: {str(e)}")
+            self.logger.error(f"Failed to set Redis key {key}: {str(e)}")
             return False
 
     async def get(self, key: str) -> Optional[Any]:
@@ -53,7 +51,7 @@ class BaseRedisService():
                 return json.loads(value)
             return value
         except Exception as e:
-            logger.error(f"Failed to get Redis key {key}: {str(e)}")
+            self.logger.error(f"Failed to get Redis key {key}: {str(e)}")
             return None
 
     async def delete(self, key: str) -> bool:
@@ -63,7 +61,7 @@ class BaseRedisService():
             await self.redis_client.delete(full_key)
             return True
         except Exception as e:
-            logger.error(f"Failed to delete Redis key {key}: {str(e)}")
+            self.logger.error(f"Failed to delete Redis key {key}: {str(e)}")
             return False
 
     async def store_progress(self, progress: Dict) -> bool:

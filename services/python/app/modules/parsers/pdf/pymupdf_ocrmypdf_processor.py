@@ -5,15 +5,13 @@ import os
 import spacy
 import time
 from typing import Dict, Any, List, Tuple, Optional
-from app.utils.logger import create_logger
 from app.modules.parsers.pdf.ocr_handler import OCRStrategy
 from spacy.language import Language
 
-logger = create_logger(__name__)
 
 class PyMuPDFOCRStrategy(OCRStrategy):
-    def __init__(self, language: str = "eng"):
-        logger.info("🛠️ Initializing PyMuPDF OCR Strategy")
+    def __init__(self, logger, language: str = "eng"):
+        self.logger = logger
         self.language = language
         self.doc = None
         self._processed_pages = {}
@@ -21,34 +19,33 @@ class PyMuPDFOCRStrategy(OCRStrategy):
         self.document_analysis_result = None
         self.nlp = None
         self.ocr_pdf_content = None
-        logger.debug("✅ PyMuPDF OCR Strategy initialized")
 
     async def load_document(self, content: bytes) -> None:
         """Load and analyze document"""
-        logger.info("🔄 Starting document load...")
+        self.logger.info("🔄 Starting document load...")
 
         # Load with PyMuPDF first
-        logger.debug("📄 Initial PyMuPDF load")
+        self.logger.debug("📄 Initial PyMuPDF load")
         temp_doc = fitz.open(stream=content, filetype="pdf")
 
         # Check if any page needs OCR
-        logger.debug("🔍 Checking if document needs OCR")
+        self.logger.debug("🔍 Checking if document needs OCR")
         needs_ocr = any(self.needs_ocr(page) for page in temp_doc)
         self._needs_ocr = needs_ocr
-        logger.debug(f"📊 OCR need determination: {needs_ocr}")
+        self.logger.debug(f"📊 OCR need determination: {needs_ocr}")
 
         if needs_ocr:
-            logger.info("🤖 Document needs OCR, processing with OCRmyPDF")
+            self.logger.info("🤖 Document needs OCR, processing with OCRmyPDF")
             try:
-                logger.debug("📝 Creating temporary files for OCR processing")
+                self.logger.debug("📝 Creating temporary files for OCR processing")
                 with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_in, \
                         tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_out:
 
-                    logger.debug("📤 Writing content to temporary input file")
+                    self.logger.debug("📤 Writing content to temporary input file")
                     temp_in.write(content)
                     temp_in.flush()
 
-                    logger.debug("🔄 Running OCRmyPDF")
+                    self.logger.debug("🔄 Running OCRmyPDF")
                     ocrmypdf.ocr(
                         temp_in.name,
                         temp_out.name,
@@ -62,7 +59,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                         quiet=True
                     )
 
-                    logger.debug("📥 Loading OCR-processed PDF")
+                    self.logger.debug("📥 Loading OCR-processed PDF")
                     with open(temp_out.name, "rb") as f:
                         ocr_content = f.read()
                         processed_doc = fitz.open("pdf", ocr_content)
@@ -72,7 +69,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                         # # Create output directory if it doesn't exist
                         # output_dir = "output/searchable/pymupdf"
                         # os.makedirs(output_dir, exist_ok=True)
-                        # logger.debug(f"📁 Using output directory: {output_dir}")
+                        # self.logger.debug(f"📁 Using output directory: {output_dir}")
 
                         # # Generate unique filename using timestamp
                         # timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -80,41 +77,39 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                         # output_path = os.path.join(output_dir, output_filename)
 
                         # # Save the PDF to file
-                        # logger.info(
+                        # self.logger.info(
                         #     f"💾 Saving OCR-processed PDF to: {output_path}")
                         # with open(output_path, "wb") as ocr_file:
                         #     ocr_file.write(ocr_content)
 
-                logger.info("✅ OCR processing completed successfully")
+                self.logger.info("✅ OCR processing completed successfully")
                 self.doc = processed_doc
 
             except Exception as e:
-                logger.error(f"❌ OCR processing failed: {str(e)}")
-                logger.info("⚠️ Falling back to direct PyMuPDF extraction")
+                self.logger.error(f"❌ OCR processing failed: {str(e)}")
+                self.logger.info("⚠️ Falling back to direct PyMuPDF extraction")
                 self.doc = temp_doc
                 self._needs_ocr = False
                 self.ocr_pdf_content = None
 
             finally:
-                logger.debug("🧹 Cleaning up temporary files")
+                self.logger.debug("🧹 Cleaning up temporary files")
                 for path in [temp_in.name, temp_out.name]:
                     if os.path.exists(path):
                         try:
                             os.remove(path)
                         except Exception as e:
-                            logger.error(
+                            self.logger.error(
                                 "❌ Error cleaning up temp file, %s: %s", path, str(e))
         else:
-            logger.info(
+            self.logger.info(
                 "📝 Document doesn't need OCR, using direct PyMuPDF extraction")
             self.doc = temp_doc
             self.ocr_pdf_content = None
 
-        print("SELF.DOC", self.doc, flush=True)
-
-        logger.debug("🔄 Pre-processing document to match Azure's structure")
+        self.logger.debug("🔄 Pre-processing document to match Azure's structure")
         self.document_analysis_result = self._preprocess_document()
-        logger.info(f"✅ Document loaded with {len(self.doc)} pages")
+        self.logger.info(f"✅ Document loaded with {len(self.doc)} pages")
 
     @Language.component("custom_sentence_boundary")
     def custom_sentence_boundary(doc):
@@ -203,7 +198,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
 
     def _merge_lines_to_sentences(self, lines_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Merge lines into sentences using spaCy"""
-        logger.debug(f"🚀 Merging lines to sentences")
+        self.logger.debug(f"🚀 Merging lines to sentences")
 
         nlp = spacy.load("en_core_web_sm")
         self.nlp = self._create_custom_tokenizer(
@@ -245,7 +240,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                 "bounding_box": merged_bbox
             })
 
-        logger.debug(f"✅ Merged into {len(sentences)} sentences")
+        self.logger.debug(f"✅ Merged into {len(sentences)} sentences")
         return sentences
 
     def _process_block_text(self, block: Dict[str, Any], page_width: float, page_height: float) -> Dict[str, Any]:
@@ -314,7 +309,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                         block_spans.append(span_data)
 
                         # Process individual characters if available
-                        logger.debug("🔤 Processing words in span")
+                        self.logger.debug("🔤 Processing words in span")
                         for char in span.get("chars", []):
                             word_text = char.get("c", "").strip()
                             if word_text:
@@ -336,7 +331,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
         }
 
         # Process sentences using the lines
-        logger.debug("🔄 Processing sentences from lines")
+        self.logger.debug("🔄 Processing sentences from lines")
         sentences = self._merge_lines_to_sentences(block_lines)
         processed_sentences = []
         for sentence in sentences:
@@ -387,7 +382,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                          for span in line.get("spans", []))
         word_count = len(text1.split())
 
-        logger.debug(f"Block word count: {word_count}")
+        self.logger.debug(f"Block word count: {word_count}")
 
         # Merge if word count is below threshold
         return word_count < word_threshold
@@ -416,7 +411,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
 
     def _preprocess_document(self) -> Dict[str, Any]:
         """Pre-process document to match Azure's structure"""
-        logger.debug("🔄 Starting document pre-processing")
+        self.logger.debug("🔄 Starting document pre-processing")
         result = {
             "pages": [],
             "lines": [],
@@ -427,12 +422,12 @@ class PyMuPDFOCRStrategy(OCRStrategy):
         }
 
         for page_idx in range(len(self.doc)):
-            logger.debug(f"📄 Processing page {page_idx + 1}")
+            self.logger.debug(f"📄 Processing page {page_idx + 1}")
             page = self.doc[page_idx]
             page_width = page.rect.width
             page_height = page.rect.height
 
-            logger.debug("📊 Processing page content")
+            self.logger.debug("📊 Processing page content")
             page_dict = {
                 "page_number": page_idx + 1,
                 "width": page_width,
@@ -443,7 +438,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                 "tables": []
             }
 
-            logger.debug("📝 Extracting text blocks and paragraphs")
+            self.logger.debug("📝 Extracting text blocks and paragraphs")
             text_dict = page.get_text("dict")
             blocks = text_dict.get("blocks", [])
 
@@ -457,7 +452,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                 # Keep merging blocks until we have enough words or run out of blocks
                 while (next_index < len(blocks) and
                        self._should_merge_blocks(current_block, blocks[next_index])):
-                    logger.debug(f"Merging blocks {i} and {next_index}")
+                    self.logger.debug(f"Merging blocks {i} and {next_index}")
                     current_block = self._merge_block_content(
                         current_block, blocks[next_index])
                     next_index += 1
@@ -480,43 +475,43 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                         processed_block["paragraph"]["page_number"] = page_idx + 1
                         result["paragraphs"].append(
                             processed_block["paragraph"])
-                        logger.debug(
+                        self.logger.debug(
                             "📚 Added paragraph to document collection (Page %s, Block %s)", page_idx + 1, processed_block['paragraph']['block_number'])
 
                     for sentence in processed_block["sentences"]:
                         sentence["page_number"] = page_idx + 1
                         result["sentences"].append(sentence)
-                        logger.debug(
+                        self.logger.debug(
                             "📑 Added sentence to document collection (Page %s, Block %s)", page_idx + 1, sentence['block_number'])
 
-            logger.debug(f"✅ Completed processing page {page_idx + 1}")
-            logger.debug(f"📊 Page statistics:")
-            logger.debug(f"- Lines: {len(page_dict['lines'])}")
-            logger.debug(f"- Words: {len(page_dict['words'])}")
+            self.logger.debug(f"✅ Completed processing page {page_idx + 1}")
+            self.logger.debug(f"📊 Page statistics:")
+            self.logger.debug(f"- Lines: {len(page_dict['lines'])}")
+            self.logger.debug(f"- Words: {len(page_dict['words'])}")
             result["pages"].append(page_dict)
 
-        logger.debug("📊 Final document analysis result:")
-        logger.debug(f"- Total pages: {len(result['pages'])}")
-        logger.debug(f"- Total paragraphs: {len(result['paragraphs'])}")
-        logger.debug(f"- Total sentences: {len(result['sentences'])}")
+        self.logger.debug("📊 Final document analysis result:")
+        self.logger.debug(f"- Total pages: {len(result['pages'])}")
+        self.logger.debug(f"- Total paragraphs: {len(result['paragraphs'])}")
+        self.logger.debug(f"- Total sentences: {len(result['sentences'])}")
 
         return result
 
     async def extract_text(self) -> Dict[str, Any]:
         """Extract text and layout information"""
-        logger.debug("📊 Starting text extraction")
+        self.logger.debug("📊 Starting text extraction")
         if not self.doc or not self.document_analysis_result:
-            logger.error("❌ Document not loaded")
+            self.logger.error("❌ Document not loaded")
             raise ValueError("Document not loaded. Call load_document first.")
 
-        logger.debug("📊 Returning document analysis result:")
-        logger.debug(f"- Pages: {len(self.document_analysis_result['pages'])}")
-        logger.debug(
+        self.logger.debug("📊 Returning document analysis result:")
+        self.logger.debug(f"- Pages: {len(self.document_analysis_result['pages'])}")
+        self.logger.debug(
             f"- Paragraphs: {len(self.document_analysis_result['paragraphs'])}")
-        logger.debug(
+        self.logger.debug(
             f"- Sentences: {len(self.document_analysis_result['sentences'])}")
 
-        logger.info("✅ Text extraction completed")
+        self.logger.info("✅ Text extraction completed")
         return self.document_analysis_result
 
     def _normalize_bbox(self, bbox: Tuple[float, float, float, float],
@@ -532,7 +527,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
 
     async def process_page(self, page) -> Dict[str, Any]:
         """Process a single page"""
-        logger.debug("📊 Processing page content")
+        self.logger.debug("📊 Processing page content")
         page_width = page.rect.width
         page_height = page.rect.height
 
@@ -561,7 +556,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                         "bounding_box": self._normalize_bbox(line["bbox"], page_width, page_height)
                     })
 
-        logger.debug("✅ Completed processing page")
+        self.logger.debug("✅ Completed processing page")
 
         return {
             "words": words,
@@ -573,16 +568,16 @@ class PyMuPDFOCRStrategy(OCRStrategy):
     def print_merge_statistics(self) -> None:
         """Print statistics about the merged sentences and paragraphs"""
         if not self.document_analysis_result:
-            logger.error("❌ No document analysis result available")
+            self.logger.error("❌ No document analysis result available")
             return
 
-        logger.info("📊 Document Merge Statistics:")
+        self.logger.info("📊 Document Merge Statistics:")
 
         # Page statistics
         for page_idx, page in enumerate(self.document_analysis_result["pages"]):
-            logger.info(f"\n📄 Page {page_idx + 1}:")
-            logger.info(f"- Lines: {len(page['lines'])}")
-            logger.info(f"- Words: {len(page['words'])}")
+            self.logger.info(f"\n📄 Page {page_idx + 1}:")
+            self.logger.info(f"- Lines: {len(page['lines'])}")
+            self.logger.info(f"- Words: {len(page['words'])}")
 
             # Count sentences and paragraphs on this page
             page_sentences = [s for s in self.document_analysis_result["sentences"]
@@ -590,29 +585,29 @@ class PyMuPDFOCRStrategy(OCRStrategy):
             page_paragraphs = [p for p in self.document_analysis_result["paragraphs"]
                                if p["page_number"] == page_idx + 1]
 
-            logger.info(f"- Sentences: {len(page_sentences)}")
-            logger.info(f"- Paragraphs: {len(page_paragraphs)}")
+            self.logger.info(f"- Sentences: {len(page_sentences)}")
+            self.logger.info(f"- Paragraphs: {len(page_paragraphs)}")
 
             # Log sample content
             if page_sentences:
-                logger.info("\n📝 Sample sentences:")
+                self.logger.info("\n📝 Sample sentences:")
                 # Show first 3 sentences
                 for i, sent in enumerate(page_sentences[:3]):
-                    logger.info(f"{i+1}. '{sent['content'][:100]}...'")
-                    logger.info("   Block: %s, BBox: %s",
+                    self.logger.info(f"{i+1}. '{sent['content'][:100]}...'")
+                    self.logger.info("   Block: %s, BBox: %s",
                                 sent['block_number'], sent['bounding_box'])
 
             if page_paragraphs:
-                logger.info("\n📚 Sample paragraphs:")
+                self.logger.info("\n📚 Sample paragraphs:")
                 # Show first 2 paragraphs
                 for i, para in enumerate(page_paragraphs[:2]):
-                    logger.info(f"{i+1}. '{para['content'][:100]}...'")
-                    logger.info("   Block: %s, BBox: %s",
+                    self.logger.info(f"{i+1}. '{para['content'][:100]}...'")
+                    self.logger.info("   Block: %s, BBox: %s",
                                 para['block_number'], para['bounding_box'])
 
     def create_debug_pdf(self, output_path: str) -> None:
         """Create a debug PDF showing sentence and paragraph boundaries"""
-        logger.info("🎨 Creating debug visualization PDF")
+        self.logger.info("🎨 Creating debug visualization PDF")
 
         # Copy original document
         debug_doc = fitz.open()
@@ -628,7 +623,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
             page_height = page.rect.height
 
             # Draw paragraphs
-            logger.debug(f"📝 Drawing paragraphs for page {page_idx + 1}")
+            self.logger.debug(f"📝 Drawing paragraphs for page {page_idx + 1}")
             for para in self.document_analysis_result["paragraphs"]:
                 if para["page_number"] - 1 == page_idx:
                     bbox = para["bounding_box"]
@@ -642,7 +637,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                     page.draw_rect(rect, color=paragraph_color, width=1)
 
             # Draw sentences
-            logger.debug(f"📝 Drawing sentences for page {page_idx + 1}")
+            self.logger.debug(f"📝 Drawing sentences for page {page_idx + 1}")
             for sent in self.document_analysis_result["sentences"]:
                 if sent["page_number"] - 1 == page_idx:
                     bbox = sent["bounding_box"]
@@ -658,4 +653,4 @@ class PyMuPDFOCRStrategy(OCRStrategy):
         # Save debug PDF
         debug_doc.save(output_path)
         debug_doc.close()
-        logger.info(f"✅ Debug PDF saved to {output_path}")
+        self.logger.info(f"✅ Debug PDF saved to {output_path}")

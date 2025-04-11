@@ -19,6 +19,8 @@ async def isJwtTokenValid(request: Request):
         headers={"WWW-Authenticate": "Bearer"}
     )
     try:
+        logger = request.app.container.logger()
+        logger.debug("🚀 Starting authentication")
         config_service = await get_config_service(request)
         secret_keys = await config_service.get_config(config_node_constants.SECRET_KEYS.value)
         jwt_secret = secret_keys.get('jwtSecret')
@@ -38,7 +40,7 @@ async def isJwtTokenValid(request: Request):
         payload["user"] = token
         return payload
     except JWTError as e:
-        print(f"JWT Error: {e}")
+        logger.error(f"JWT Error: {e}")
         raise credentials_exception
     
 # Dependency for injecting authentication
@@ -48,12 +50,14 @@ async def authMiddleware(request: Request):
         detail="Not authenticated",
     )
     try:# Validate the token
+        logger = request.app.container.logger()
+        logger.debug("🚀 Starting authentication")
         payload = await isJwtTokenValid(request)
         # Attach the authenticated user information to the request state
         request.state.user = payload
     except HTTPException as e:
         raise e  # Re-raise HTTPException instances
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error: {e}")
         raise credentials_exception
     return request

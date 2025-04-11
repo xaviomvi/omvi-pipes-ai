@@ -114,7 +114,12 @@ def process_citations(llm_response, documents: List[Dict[str, Any]]) -> Dict[str
                         "raw_response": response_content
                     }
         else:
-            response_data = response_content        
+            response_data = response_content
+        
+        # Debug information
+        print(f"Response data type: {type(response_data)}")
+        print(f"Response data: {response_data}")
+        
         # Extract document indexes (1-based indexing from template)
         doc_indexes = []
         
@@ -197,7 +202,6 @@ def process_citations(llm_response, documents: List[Dict[str, Any]]) -> Dict[str
                     if 0 <= idx_value < len(documents):
                         doc_indexes.append(idx_value)
                 except (ValueError, TypeError) as e:
-                    print(f"Error processing index {idx}: {str(e)}")
                     continue
                 
         # Get citations from referenced documents
@@ -217,7 +221,6 @@ def process_citations(llm_response, documents: List[Dict[str, Any]]) -> Dict[str
                 )
                 citations.append(citation)
             except (IndexError, KeyError) as e:
-                print(f"Error accessing document at index {idx}: {str(e)}")
                 continue
 
         # Create a result object (either use existing or create new)

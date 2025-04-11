@@ -5,14 +5,13 @@ src/api/middleware.py
 from ipaddress import ip_address, ip_network
 from cryptography.exceptions import InvalidSignature
 from fastapi import Request
-from app.utils.logger import create_logger
 
-logger = create_logger(__name__)
 
 class WebhookAuthVerifier:
     """Reusable webhook auth helper for specific routes"""
 
-    def __init__(self):
+    def __init__(self, logger):
+        self.logger = logger
         self.google_ips = [
             '64.233.160.0/19', '66.102.0.0/20',
             '66.249.80.0/20', '72.14.192.0/18',
@@ -27,14 +26,14 @@ class WebhookAuthVerifier:
 
         # Uncomment this to enable IP restriction
         # if not self._is_google_ip(client_ip):
-        #     logger.warning(f"Unauthorized IP attempt from: {client_ip}")
+        #     self.logger.warning(f"Unauthorized IP attempt from: {client_ip}")
         #     return False
 
         if not await self._verify_signature(request):
-            logger.warning("Invalid signature in request from %s", client_ip)
+            self.logger.warning("Invalid signature in request from %s", client_ip)
             return False
 
-        logger.info("Webhook request authenticated from %s", client_ip)
+        self.logger.info("Webhook request authenticated from %s", client_ip)
         return True
 
     def _is_google_ip(self, ip: str) -> bool:
@@ -46,7 +45,7 @@ class WebhookAuthVerifier:
                 for google_range in self.google_ips
             )
         except (ValueError, TypeError) as e:
-            logger.error("IP parsing error: %s", str(e))
+            self.logger.error("IP parsing error: %s", str(e))
             return False
 
     async def _verify_signature(self, request: Request) -> bool:
@@ -65,7 +64,7 @@ class WebhookAuthVerifier:
             )
 
             if not channel_id or not resource_id:
-                logger.warning(
+                self.logger.warning(
                     "Missing headers. Channel ID: %s, Resource ID: %s",
                     bool(channel_id), bool(resource_id))
                 return False
@@ -74,5 +73,5 @@ class WebhookAuthVerifier:
             return True
 
         except (InvalidSignature, ValueError, TypeError) as e:
-            logger.error("Signature verification error: %s", str(e))
+            self.logger.error("Signature verification error: %s", str(e))
             return False

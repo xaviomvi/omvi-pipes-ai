@@ -10,7 +10,6 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import BatchHttpRequest
 from app.config.arangodb_constants import Connectors, RecordTypes
 from app.config.configuration_service import ConfigurationService, config_node_constants, WebhookConfig
-from app.utils.logger import create_logger
 from app.connectors.utils.decorators import exponential_backoff, token_refresh
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
@@ -23,19 +22,18 @@ from app.exceptions.connector_google_exceptions import (
     DrivePermissionError, DriveSyncError, BatchOperationError
 )
 
-logger = create_logger(__name__)
-
 class DriveUserService:
     """DriveService class for interacting with Google Drive API"""
 
-    def __init__(self, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter, google_token_handler, credentials=None):
+    def __init__(self, logger, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter, google_token_handler, credentials=None):
         """Initialize DriveService with config and rate limiter
 
         Args:
             config (Config): Configuration object
             rate_limiter (DriveAPIRateLimiter): Rate limiter for Drive API
         """
-        logger.info("🚀 Initializing DriveService")
+        self.logger = logger
+        self.logger.info("🚀 Initializing DriveService")
         self.config_service = config
         self.service = None
 
@@ -108,7 +106,7 @@ class DriveUserService:
                     }
                 )
 
-            logger.info("✅ DriveUserService connected successfully")
+            self.logger.info("✅ DriveUserService connected successfully")
             return True
 
         except (GoogleAuthError, DriveOperationError):
@@ -126,16 +124,16 @@ class DriveUserService:
     async def _check_and_refresh_token(self):
         """Check token expiry and refresh if needed"""
         if not self.token_expiry:
-            # logger.warning("⚠️ Token expiry time not set.")
+            # self.logger.warning("⚠️ Token expiry time not set.")
             return
         
         if not self.org_id or not self.user_id:
-            logger.warning("⚠️ Org ID or User ID not set yet.")
+            self.logger.warning("⚠️ Org ID or User ID not set yet.")
             return
 
         now = datetime.now(timezone.utc)
         time_until_refresh = self.token_expiry - now - timedelta(minutes=20)
-        logger.info(f"Time until refresh: {time_until_refresh.total_seconds()} seconds")
+        self.logger.info(f"Time until refresh: {time_until_refresh.total_seconds()} seconds")
         
         if time_until_refresh.total_seconds() <= 0:
             await self.google_token_handler.refresh_token(self.org_id, self.user_id)
@@ -159,7 +157,7 @@ class DriveUserService:
                 tz=timezone.utc
             )
 
-            logger.info("✅ Token refreshed, new expiry: %s", self.token_expiry)
+            self.logger.info("✅ Token refreshed, new expiry: %s", self.token_expiry)
 
 
     async def connect_enterprise_user(self) -> bool:
@@ -174,14 +172,14 @@ class DriveUserService:
             return True
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Failed to connect to Enterprise Drive Service: %s", str(e))
             return False
 
     async def disconnect(self):
         """Disconnect and cleanup Drive service"""
         try:
-            logger.info("🔄 Disconnecting Drive service")
+            self.logger.info("🔄 Disconnecting Drive service")
 
             # Close the service connections if they exist
             if self.service:
@@ -191,10 +189,10 @@ class DriveUserService:
             # Clear credentials
             self.credentials = None
 
-            logger.info("✅ Drive service disconnected successfully")
+            self.logger.info("✅ Drive service disconnected successfully")
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to disconnect Drive service: {str(e)}")
+            self.logger.error(f"❌ Failed to disconnect Drive service: {str(e)}")
             return False
 
     @exponential_backoff()
@@ -202,14 +200,14 @@ class DriveUserService:
     async def list_individual_user(self, org_id) -> List[Dict]:
         """Get individual user info"""
         try:
-            logger.info("🚀 Getting individual user info")
+            self.logger.info("🚀 Getting individual user info")
             async with self.google_limiter:
                 about = self.service.about().get(
                     fields="user"
                 ).execute()
 
                 user = about.get('user', {})
-                logger.info("🚀 User info: %s", user)
+                self.logger.info("🚀 User info: %s", user)
                 
                 user = {
                     '_key': str(uuid4()),
@@ -229,7 +227,7 @@ class DriveUserService:
                 return [user]
 
         except Exception as e:
-            logger.error("❌ Failed to get individual user info: %s", str(e))
+            self.logger.error("❌ Failed to get individual user info: %s", str(e))
             return []
 
     @exponential_backoff()
@@ -237,7 +235,7 @@ class DriveUserService:
     async def list_files_in_folder(self, folder_id: str, include_subfolders: bool = True) -> List[Dict]:
         """List all files in a folder and optionally its subfolders using BFS"""
         try:
-            logger.info("🚀 Listing files in folder %s", folder_id)
+            self.logger.info("🚀 Listing files in folder %s", folder_id)
             all_files = []
             folders_to_process = [(folder_id, "/")]
             processed_folders = set()
@@ -296,7 +294,7 @@ class DriveUserService:
                     if not page_token:
                         break
 
-            logger.info("✅ Found %s files in folder %s", len(all_files), folder_id)
+            self.logger.info("✅ Found %s files in folder %s", len(all_files), folder_id)
             return all_files
 
         except (DrivePermissionError, DriveOperationError):
@@ -315,7 +313,7 @@ class DriveUserService:
     async def list_shared_drives(self) -> List[Dict]:
         """List all shared drives"""
         try:
-            logger.info("🚀 Listing shared drives")
+            self.logger.info("🚀 Listing shared drives")
             async with self.google_limiter:
                 drives = []
                 page_token = None
@@ -344,7 +342,7 @@ class DriveUserService:
                     if not page_token:
                         break
 
-                logger.info("✅ Found %s shared drives", len(drives))
+                self.logger.info("✅ Found %s shared drives", len(drives))
                 return drives
 
         except (DrivePermissionError, DriveOperationError):
@@ -360,7 +358,7 @@ class DriveUserService:
     async def create_changes_watch(self) -> Optional[Dict]:
         """Set up changes.watch for all changes"""
         try:
-            logger.info("🚀 Creating changes watch")
+            self.logger.info("🚀 Creating changes watch")
 
             async with self.google_limiter:
                 channel_id = str(uuid.uuid4())
@@ -455,11 +453,11 @@ class DriveUserService:
                         f.truncate()
                         json.dump(channels, f, indent=2)
                 except Exception as e:
-                    logger.warning(
+                    self.logger.warning(
                         "Failed to store webhook data: %s. Continuing anyway.", str(e)
                     )
 
-                logger.info("✅ Changes watch created successfully")
+                self.logger.info("✅ Changes watch created successfully")
                 return data
 
         except (DrivePermissionError, DriveOperationError):
@@ -475,7 +473,7 @@ class DriveUserService:
     async def get_changes(self, page_token: str) -> Tuple[List[Dict], Optional[str]]:
         """Get all changes since the given page token"""
         try:
-            logger.info("🚀 Getting changes since page token: %s", page_token)
+            self.logger.info("🚀 Getting changes since page token: %s", page_token)
             changes = []
             next_token = page_token
 
@@ -491,7 +489,7 @@ class DriveUserService:
                         ).execute()
                 except HttpError as e:
                     if e.resp.status == 404:  # Invalid page token
-                        logger.error("❌ Invalid page token %s", page_token)
+                        self.logger.error("❌ Invalid page token %s", page_token)
                         new_token = await self.get_start_page_token_api()
                         if not new_token:
                             raise DriveOperationError(
@@ -524,7 +522,7 @@ class DriveUserService:
                 if not next_token:
                     break
 
-            logger.info("✅ Found %s changes since page token: %s",
+            self.logger.info("✅ Found %s changes since page token: %s",
                         len(changes), page_token)
             return changes, next_token
 
@@ -544,7 +542,7 @@ class DriveUserService:
     async def get_start_page_token_api(self) -> Optional[str]:
         """Get current page token for changes"""
         try:
-            logger.info("🚀 Getting start page token")
+            self.logger.info("🚀 Getting start page token")
             async with self.google_limiter:
                 try:
                     response = self.service.changes().getStartPageToken(
@@ -568,7 +566,7 @@ class DriveUserService:
                         details={"response": response}
                     )
 
-                logger.info("✅ Fetched start page token %s", token)
+                self.logger.info("✅ Fetched start page token %s", token)
                 return token
 
         except (DrivePermissionError, DriveOperationError):
@@ -588,7 +586,7 @@ class DriveUserService:
     async def batch_fetch_metadata_and_permissions(self, file_ids: List[str], files: Optional[List[Dict]] = None) -> List[Dict]:
         """Fetch comprehensive metadata using batch requests"""
         try:
-            logger.info("🚀 Batch fetching metadata and content for %s files", len(file_ids))
+            self.logger.info("🚀 Batch fetching metadata and content for %s files", len(file_ids))
             failed_items = []
             metadata_results = {}
             
@@ -617,7 +615,7 @@ class DriveUserService:
                     
                     if isinstance(exception, HttpError):
                         if exception.resp.status == 403:
-                            logger.info(
+                            self.logger.info(
                                 "⚠️ Permission denied for %s request on file %s: %s",
                                 req_type, file_id, str(exception)
                             )
@@ -628,13 +626,13 @@ class DriveUserService:
                                 return
                             failed_items.append(error_details)
                         else:
-                            logger.error(
+                            self.logger.error(
                                 "❌ HTTP error for %s request on file %s: %s",
                                 req_type, file_id, str(exception)
                             )
                             failed_items.append(error_details)
                     else:
-                        logger.error(
+                        self.logger.error(
                             "❌ Unexpected error for %s request on file %s: %s",
                             req_type, file_id, str(exception)
                         )
@@ -692,10 +690,10 @@ class DriveUserService:
                         else:
                             result['headRevisionId'] = ''
                             
-                        logger.info("✅ Fetched head revision ID for file: %s", file_id)
+                        self.logger.info("✅ Fetched head revision ID for file: %s", file_id)
                     except HttpError as e:
                         if e.resp.status == 403:
-                            logger.warning(
+                            self.logger.warning(
                                 "⚠️ Insufficient permissions to read revisions for file %s", file_id)
                             result['headRevisionId'] = ""
                             failed_items.append({
@@ -720,7 +718,7 @@ class DriveUserService:
                     details={"total_files": len(file_ids)}
                 )
 
-            logger.info("✅ Completed batch fetch for %s files", len(file_ids))
+            self.logger.info("✅ Completed batch fetch for %s files", len(file_ids))
             return final_results
 
         except BatchOperationError:

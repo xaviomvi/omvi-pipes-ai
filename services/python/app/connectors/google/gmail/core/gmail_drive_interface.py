@@ -1,17 +1,15 @@
 from typing import Optional, Dict
-from app.utils.logger import create_logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.config.configuration_service import ConfigurationService
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
-
-logger = create_logger(__name__)
 
 class GmailDriveInterface:
     """Interface for getting Drive files from Gmail, supporting both individual and enterprise setups"""
 
     def __init__(
         self,
+        logger,
         config: ConfigurationService,
         rate_limiter: GoogleAPIRateLimiter,
         google_token_handler,
@@ -19,6 +17,7 @@ class GmailDriveInterface:
         credentials=None,
         admin_service=None
     ):
+        self.logger = logger
         self.config_service = config
         self.rate_limiter = rate_limiter
         self.drive_service = drive_service
@@ -41,21 +40,21 @@ class GmailDriveInterface:
             # For enterprise setup
             if account_type == 'enterprise' or account_type == 'business':
                 if not user_email:
-                    logger.error("❌ User email required for enterprise setup")
+                    self.logger.error("❌ User email required for enterprise setup")
                     return None
 
                 # Create admin service if not provided
                 
                 self.drive_service = self.admin_service
                 if not await self.drive_service.connect_admin(org_id):
-                    logger.error(
+                    self.logger.error(
                         "❌ Failed to connect to Drive Admin service")
                     return None
 
                 # Get user-specific service
                 user_service = await self.drive_service.create_drive_user_service(user_email)
                 if not user_service:
-                    logger.error(
+                    self.logger.error(
                         f"❌ Failed to create user service for {user_email}")
                     return None
 
@@ -67,6 +66,7 @@ class GmailDriveInterface:
                 # Create user service if not provided
                 if not isinstance(self.drive_service, DriveUserService):
                     self.drive_service = DriveUserService(
+                        logger=self.logger,
                         config=self.config_service,
                         rate_limiter=self.rate_limiter,
                         google_token_handler=self.google_token_handler,
@@ -74,7 +74,7 @@ class GmailDriveInterface:
                     )
                     
                     if not await self.drive_service.connect_individual_user(org_id, user_id):
-                        logger.error(
+                        self.logger.error(
                             "❌ Failed to connect to Drive User service")
                         return None
 
@@ -82,5 +82,5 @@ class GmailDriveInterface:
                 return metadata[0]
 
         except Exception as e:
-            logger.error(f"❌ Failed to get Drive file {file_id}: {str(e)}")
+            self.logger.error(f"❌ Failed to get Drive file {file_id}: {str(e)}")
             return None

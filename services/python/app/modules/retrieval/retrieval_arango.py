@@ -1,16 +1,14 @@
-from app.utils.logger import create_logger
 from app.config.arangodb_constants import CollectionNames, RecordTypes
 from app.config.configuration_service import ConfigurationService, config_node_constants
 from arango import ArangoClient
 from typing import Optional, Dict
 
-logger = create_logger(__name__)
 
 class ArangoService():
     """ArangoDB service for interacting with the database"""
 
-    def __init__(self, arango_client: ArangoClient, config: ConfigurationService):
-        logger.info("🚀 Initializing ArangoService")
+    def __init__(self, logger, arango_client: ArangoClient, config: ConfigurationService):
+        self.logger = logger
         self.config_service = config
         self.client = arango_client
         self.db = None
@@ -19,7 +17,7 @@ class ArangoService():
     async def connect(self) -> bool:
         """Connect to ArangoDB and initialize collections"""
         try:
-            logger.info("🚀 Connecting to ArangoDB...")
+            self.logger.info("🚀 Connecting to ArangoDB...")
             arangodb_config = await self.config_service.get_config(config_node_constants.ARANGODB.value)
             arango_url = arangodb_config['url']
             arango_user = arangodb_config['username']
@@ -29,42 +27,33 @@ class ArangoService():
             if not isinstance(arango_url, str):
                 raise ValueError("ArangoDB URL must be a string")
             if not self.client:
-                logger.error("ArangoDB client not initialized")
+                self.logger.error("ArangoDB client not initialized")
                 return False
 
             # Connect to system db to ensure our db exists
-            logger.debug("Connecting to system db")
+            self.logger.debug("Connecting to system db")
             sys_db = self.client.db(
                 '_system',
                 username=arango_user,
                 password=arango_password,
                 verify=True
             )
-            logger.debug("System DB: %s", sys_db)
-
-            # # Create our database if it doesn't exist
-            # logger.debug("Checking if our database exists")
-            # if not sys_db.has_database(arango_db):
-            #     logger.info(
-            #         "🚀 Database %s does not exist. Creating...",
-            #         arango_db
-            #     )
-            #     sys_db.create_database(arango_db)
-            #     logger.info("✅ Database created successfully")
+            self.logger.debug("System DB: %s", sys_db)
+            self.logger.info("✅ Database created successfully")
                 
             # Connect to our database
-            logger.debug("Connecting to our database")
+            self.logger.debug("Connecting to our database")
             self.db = self.client.db(
                 arango_db,
                 username=arango_user,
                 password=arango_password,
                 verify=True
             )
-            logger.debug("Our DB: %s", self.db)
+            self.logger.debug("Our DB: %s", self.db)
 
             return True
         except Exception as e:
-            logger.error("❌ Failed to connect to ArangoDB: %s", str(e))
+            self.logger.error("❌ Failed to connect to ArangoDB: %s", str(e))
             self.client = None
             self.db = None
 
@@ -73,12 +62,12 @@ class ArangoService():
     async def disconnect(self):
         """Disconnect from ArangoDB"""
         try:
-            logger.info("🚀 Disconnecting from ArangoDB")
+            self.logger.info("🚀 Disconnecting from ArangoDB")
             if self.client:
                 self.client.close()
-            logger.info("✅ Disconnected from ArangoDB successfully")
+            self.logger.info("✅ Disconnected from ArangoDB successfully")
         except Exception as e:
-            logger.error("❌ Failed to disconnect from ArangoDB: %s", str(e))
+            self.logger.error("❌ Failed to disconnect from ArangoDB: %s", str(e))
             return False
 
     async def get_document(self, document_key: str, collection: str):
@@ -94,7 +83,7 @@ class ArangoService():
             result = list(cursor)
             return result[0] if result else None
         except Exception as e:
-            logger.error("❌ Error getting document: %s", str(e))
+            self.logger.error("❌ Error getting document: %s", str(e))
             return None
 
     async def get_accessible_records(self, user_id: str, org_id: str, filters: dict = None) -> list:
@@ -115,7 +104,7 @@ class ArangoService():
                     'topics': [topic_ids]
                 }
         """
-        logger.info(f"Getting accessible records for user {user_id} in org {org_id} with filters {filters}")
+        self.logger.info(f"Getting accessible records for user {user_id} in org {org_id} with filters {filters}")
         
         try:
             # First get counts separately
@@ -304,7 +293,7 @@ class ArangoService():
                 return []
 
         except Exception as e:
-            logger.error(f"Failed to get accessible records: {str(e)}")
+            self.logger.error(f"Failed to get accessible records: {str(e)}")
             raise
 
     async def get_user_by_user_id(self, user_id: str) -> Optional[Dict]:
@@ -319,7 +308,7 @@ class ArangoService():
             result = next(cursor, None)
             return result
         except Exception as e:
-            logger.error(f"Error getting user by user ID: {str(e)}")
+            self.logger.error(f"Error getting user by user ID: {str(e)}")
             return None
 
     async def check_record_access_with_details(self, user_id: str, org_id: str, record_id: str):
@@ -475,6 +464,6 @@ class ArangoService():
             }
 
         except Exception as e:
-            logger.error(f"Failed to check record access and get details: {str(e)}")
+            self.logger.error(f"Failed to check record access and get details: {str(e)}")
             raise
 
