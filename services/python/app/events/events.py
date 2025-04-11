@@ -105,28 +105,33 @@ class EventProcessor:
             if mime_type == "application/vnd.google-apps.presentation":
                 self.logger.info("🚀 Processing Google Slides")
                 # Decode JSON content if it's streamed data
+                self.logger.debug(f"file_content type: {type(file_content)}")
                 if isinstance(file_content, bytes):
                     try:
                         file_content = json.loads(file_content.decode('utf-8'))
                     except json.JSONDecodeError as e:
                         self.logger.error(f"Failed to decode Google Slides content: {str(e)}")
                         raise
+                self.logger.debug(f"file_content: {file_content}")
                 result = await self.processor.process_google_slides(record_id, record_version, org_id, file_content)
                 return result
 
             if mime_type == "application/vnd.google-apps.document":
                 self.logger.info("🚀 Processing Google Docs")
                 # Decode JSON content if it's streamed data
+                self.logger.debug(f"file_content: {file_content}")
                 if isinstance(file_content, bytes):
                     try:
                         file_content = json.loads(file_content.decode('utf-8'))
                     except json.JSONDecodeError as e:
                         self.logger.error(f"Failed to decode Google Docs content: {str(e)}")
                         raise
+                self.logger.debug(f"file_content: {file_content}")
                 result = await self.processor.process_google_docs(record_id, record_version, org_id, file_content)
                 return result
 
             if mime_type == "application/vnd.google-apps.spreadsheet":
+                return None
                 self.logger.info("🚀 Processing Google Sheets")
                 # Decode JSON content if it's streamed data
                 if isinstance(file_content, bytes):

@@ -862,6 +862,7 @@ class GoogleAdminService:
 
             # Create new user service
             user_service = GmailUserService(
+                logger=self.logger,
                 config=self.config_service,
                 rate_limiter=self.rate_limiter,
                 google_token_handler=self.google_token_handler,

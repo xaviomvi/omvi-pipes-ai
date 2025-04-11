@@ -116,7 +116,7 @@ class KafkaRouteConsumer:
 
                     if isinstance(value, str):
                         value = json.loads(value)
-                    self.logger.debug("Type of value", type(value))
+                    self.logger.debug(f"Type of value: {type(value)}")
                     event_type = value.get('eventType')
                 except json.JSONDecodeError as e:
                     self.logger.error(f"Failed to parse JSON: {e}")

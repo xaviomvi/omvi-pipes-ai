@@ -600,10 +600,9 @@ async def download_file(
                                 
                 if mime_type == "application/vnd.google-apps.presentation":
                     logger.info("🚀 Processing Google Slides")
-                    return None
                     google_slides_parser = await get_google_slides_parser(request)
                     await google_slides_parser.connect_service(user_email, org_id, user_id)
-                    result = await google_slides_parser.process_presentation(record_id)
+                    result = await google_slides_parser.process_presentation(file_id)
                     
                     # Convert result to JSON and return as StreamingResponse
                     json_data = json.dumps(result).encode('utf-8')
@@ -614,10 +613,9 @@ async def download_file(
 
                 if mime_type == "application/vnd.google-apps.document":
                     logger.info("🚀 Processing Google Docs")
-                    return None
                     google_docs_parser = await get_google_docs_parser(request)
                     await google_docs_parser.connect_service(user_email, org_id, user_id)
-                    content = await google_docs_parser.parse_doc_content(record_id)
+                    content = await google_docs_parser.parse_doc_content(file_id)
                     logger.debug(f"content: {content}")
                     all_content, headers, footers = google_docs_parser.order_document_content(content)
                     logger.debug(f"all_content: {all_content}")

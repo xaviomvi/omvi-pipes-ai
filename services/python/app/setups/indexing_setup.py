@@ -37,7 +37,7 @@ load_dotenv(override=True)
 class AppContainer(containers.DeclarativeContainer):
     """Dependency injection container for the application."""
     # Log when container is initialized
-    logger = providers.Singleton(create_logger, "Python Connector Service")
+    logger = providers.Singleton(create_logger, "Python Indexing Service")
     
     logger().info("🚀 Initializing AppContainer")
     

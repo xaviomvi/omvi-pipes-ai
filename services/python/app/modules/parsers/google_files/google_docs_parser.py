@@ -36,7 +36,7 @@ class GoogleDocsParser:
                 self.logger.error("❌ No valid service available for parsing")
                 return None
             # Fetch the document
-            document = self.docs_service.documents().get(documentId=doc_id).execute()
+            document = self.service.documents().get(documentId=doc_id).execute()
 
             # Initialize content structure
             content = {
@@ -184,9 +184,11 @@ class GoogleDocsParser:
                         footer_content['content'].append(text)
                 content['footers'].append(footer_content)
 
+            self.logger.debug("✅ Google Docs content parsed successfully")
             return content
 
         except Exception as e:
+            self.logger.error(f"❌ Error parsing Google Docs content: {str(e)}")
             return None
 
     def order_document_content(self, content: Dict) -> Tuple[List, List, List]:
