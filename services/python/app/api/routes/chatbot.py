@@ -69,7 +69,7 @@ async def askAI(request: Request, query_info: ChatQuery,
                 
         logger.debug("useDecomposition", query_info.useDecomposition)
         if query_info.useDecomposition:
-            decomposition_service = QueryDecompositionService(llm)
+            decomposition_service = QueryDecompositionService(llm, logger=logger)
             decomposition_result = await decomposition_service.decompose_query(query_info.query)
             decomposed_queries = decomposition_result["queries"]
             

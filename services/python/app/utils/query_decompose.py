@@ -18,10 +18,10 @@ class DecomposedQueries(BaseModel):
 class QueryDecompositionService:
     """Service for decomposing complex queries into simpler sub-queries"""
     
-    def __init__(self, logger, llm):
+    def __init__(self, llm, logger):
         """Initialize the query decomposition service with an LLM"""
-        self.logger = logger
         self.llm = llm
+        self.logger = logger
         
         # Template for query decomposition with confidence scores
         self.decomposition_template = ChatPromptTemplate.from_template(
