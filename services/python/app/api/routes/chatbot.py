@@ -136,11 +136,6 @@ async def askAI(request: Request, query_info: ChatQuery,
         seen_ids = set()
         for result_set in all_search_results:
             for result in result_set:
-                logger.debug("==================")
-                logger.debug("==================")
-                logger.debug(f'result: {result}')
-                logger.debug("==================")
-                logger.debug("==================")
                 result_id = result['metadata'].get('_id')
                 if result_id not in seen_ids:
                     seen_ids.add(result_id)

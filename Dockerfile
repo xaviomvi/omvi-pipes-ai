@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     libbz2-dev liblz4-dev libzstd-dev libssl-dev ca-certificates libspatialindex-dev libpq5 && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
+    apt-get install -y libreoffice && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -22,6 +23,12 @@ RUN pip3 install -e .
 # Download NLTK and spaCy models
 RUN python3 -m nltk.downloader punkt && \
     python3 -m spacy download en_core_web_sm
+
+RUN python -c "from langchain_huggingface import HuggingFaceEmbeddings; \
+    model = HuggingFaceEmbeddings(model_name='BAAI/bge-large-en-v1.5')"
+
+RUN python -c "from langchain_qdrant import FastEmbedSparse; \
+    model = FastEmbedSparse(model_name='Qdrant/BM25')"
 
 WORKDIR /app
 
