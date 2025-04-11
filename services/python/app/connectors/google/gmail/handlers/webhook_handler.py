@@ -49,11 +49,6 @@ class AbstractGmailWebhookHandler(ABC):
         """Log webhook headers and return important headers"""
         try:
             timestamp = datetime.now(timezone.utc)
-            log_dir = f'logs/webhook_headers/{timestamp.strftime("%Y-%m")}'
-            os.makedirs(log_dir, exist_ok=True)
-
-            log_file_path = f"""{
-                log_dir}/gmail_{self.handler_type.lower()}_headers.json"""
 
             important_headers = {
                 'resource_id': headers.get('x-goog-resource-id'),
@@ -65,35 +60,9 @@ class AbstractGmailWebhookHandler(ABC):
                 'handler_type': self.handler_type
             }
 
-            debug_entry = {
-                'timestamp': timestamp.isoformat(),
-                'important_headers': important_headers,
-                'raw_headers': dict(headers)
-            }
-
             self.logger.debug("%s webhook: Processing headers - Resource ID: %s, State: %s",
                          self.handler_type, important_headers['resource_id'], important_headers['resource_state'])
 
-            try:
-                if os.path.exists(log_file_path):
-                    with open(log_file_path, 'r') as f:
-                        try:
-                            log_data = json.load(f)
-                        except json.JSONDecodeError:
-                            log_data = []
-                else:
-                    log_data = []
-
-                log_data.append(debug_entry)
-
-                temp_file = f"{log_file_path}.tmp"
-                with open(temp_file, 'w') as f:
-                    json.dump(log_data, f, indent=4)
-                os.replace(temp_file, log_file_path)
-
-            except Exception as e:
-                self.logger.error("%s webhook: Error writing header logs: %s",
-                             self.handler_type, str(e), exc_info=True)
 
             return important_headers
 

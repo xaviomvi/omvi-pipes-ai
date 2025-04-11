@@ -588,6 +588,8 @@ async def download_file(
 
         # Download file based on connector type
         try:
+            chunk_size = 1024 * 1024 * 5 # 5MB chunks
+            
             if connector == "drive":
                 logger.info(f"Downloading Drive file: {file_id}")
                 # Build the Drive service
@@ -645,69 +647,36 @@ async def download_file(
                 logger.info(f"Starting binary file download for file_id: {file_id}")
                 file_buffer = io.BytesIO()
 
-                # Get file metadata with enhanced logging
-                logger.info("Fetching file metadata...")
-                file_metadata = drive_service.files().get(fileId=file_id, fields="size,name,mimeType").execute()
-                total_size = int(file_metadata.get('size', 0))
-                file_name = file_metadata.get('name', 'unknown')
-                file_mime_type = file_metadata.get('mimeType', 'unknown')
-                logger.info(f"File details - Name: {file_name}, Size: {total_size} bytes, Type: {file_mime_type}")
-
                 # Download the file with enhanced progress logging
                 logger.info("Initiating download process...")
                 request = drive_service.files().get_media(fileId=file_id)
-                chunk_size = 1024 * 1024  # 1MB chunks
+                
                 downloader = MediaIoBaseDownload(file_buffer, request, chunksize=chunk_size)
 
                 done = False
-                bytes_downloaded = 0
-                chunk_count = 0
-
                 try:
                     while not done:
-                        chunk_count += 1
                         status, done = downloader.next_chunk()
-                        current_pos = file_buffer.tell()
-                        if current_pos > bytes_downloaded:
-                            bytes_downloaded = current_pos
-                            percentage = (bytes_downloaded / total_size) * 100 if total_size > 0 else 0
-                            logger.info(f"Chunk {chunk_count}: Downloaded {bytes_downloaded}/{total_size} bytes ({percentage:.1f}%)")
+                        logger.info(f"Download {int(status.progress() * 100)}%.")
 
-                    logger.info(f"Download completed - Total chunks: {chunk_count}, Final size: {file_buffer.tell()} bytes")
-                    
-                    # Verify downloaded content
-                    final_size = file_buffer.tell()
-                    if final_size == 0:
-                        logger.error("Downloaded file is empty!")
-                        raise HTTPException(status_code=500, detail="Downloaded file is empty")
-                    
-                    if final_size != total_size:
-                        logger.warning(f"Size mismatch - Expected: {total_size}, Got: {final_size}")
-                    
-                    # Reset buffer position and prepare for streaming
-                    logger.info("Preparing to stream file...")
+                    # Reset buffer position to start
                     file_buffer.seek(0)
-                    
+                                    
                     # Stream the response with content type from metadata
                     logger.info("Initiating streaming response...")
                     return StreamingResponse(
                         file_buffer,
-                        media_type=file_mime_type,
-                        headers={
-                            "Content-Disposition": f'attachment; filename="{file_name}"',
-                            "Content-Length": str(final_size)
-                        }
+                        media_type=mime_type
                     )
 
                 except Exception as download_error:
-                    logger.error(f"Download failed: {str(download_error)}")
-                    logger.error(f"Error type: {type(download_error).__name__}")
+                    logger.error(f"Download failed: {repr(download_error)}")
                     if hasattr(download_error, 'response'):
                         logger.error(f"Response status: {download_error.response.status_code}")
                         logger.error(f"Response content: {download_error.response.content}")
                     raise HTTPException(
                         status_code=500,
-                        detail=f"File download failed: {str(download_error)}"
+                        detail=f"File download failed: {repr(download_error)}"
                     )
 
             elif connector == "gmail":
@@ -762,32 +731,31 @@ async def download_file(
                         drive_service = build('drive', 'v3', credentials=creds)
                         file_buffer = io.BytesIO()
                         
-                        # Get file metadata for size
-                        file_metadata = drive_service.files().get(fileId=file_id, fields="size").execute()
-                        total_size = int(file_metadata.get('size', 0))
-                        
+                        logger.info("Initiating download process...")
+                                                
                         request = drive_service.files().get_media(fileId=file_id)
-                        chunk_size = 1024 * 1024  # 1MB chunks
                         downloader = MediaIoBaseDownload(file_buffer, request, chunksize=chunk_size)
                         
                         done = False
-                        bytes_downloaded = 0
                         
-                        while not done:
-                            status, done = downloader.next_chunk()
-                            current_pos = file_buffer.tell()
-                            if current_pos > bytes_downloaded:
-                                bytes_downloaded = current_pos
-                                percentage = (bytes_downloaded / total_size) * 100 if total_size > 0 else 0
-                                logger.info(f"Download progress: {percentage:.1f}% ({bytes_downloaded}/{total_size} bytes)")
+                        try:                        
+                            while not done:
+                                status, done = downloader.next_chunk()
+                                logger.info(f"Download {int(status.progress() * 100)}%.")
                         
-                        file_buffer.seek(0)
+                            file_buffer.seek(0)
                         
-                        return StreamingResponse(
-                            file_buffer,
-                            media_type='application/octet-stream'
-                        )
-                        
+                            return StreamingResponse(
+                                file_buffer,
+                                media_type='application/octet-stream'
+                            )
+                        except Exception as download_error:
+                            logger.error(f"Download failed: {repr(download_error)}")
+                            raise HTTPException(
+                                status_code=500,
+                                detail=f"File download failed: {repr(download_error)}"
+                            )
+
                     except Exception as drive_error:
                         logger.error(f"Failed to get file from both Gmail and Drive. Gmail error: {str(gmail_error)}, Drive error: {str(drive_error)}")
                         raise HTTPException(

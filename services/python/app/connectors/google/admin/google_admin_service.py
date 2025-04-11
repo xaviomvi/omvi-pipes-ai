@@ -683,6 +683,7 @@ class GoogleAdminService:
 
             webhook_url = f"{webhook_endpoint.rstrip('/')}/admin/webhook"
             expiration_time = int((datetime.now(timezone.utc) + timedelta(
+                days=WebhookConfig.EXPIRATION_DAYS.value,
                 hours=WebhookConfig.EXPIRATION_HOURS.value,
                 minutes=WebhookConfig.EXPIRATION_MINUTES.value
             )).timestamp() * 1000)  # Convert to milliseconds timestamp

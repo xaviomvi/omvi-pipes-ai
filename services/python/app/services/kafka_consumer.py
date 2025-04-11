@@ -76,6 +76,7 @@ class KafkaConsumerManager:
                     'enable.auto.commit': True,
                     'isolation.level': 'read_committed',
                     'enable.partition.eof': False,
+                    'max.poll.interval.ms': 900000,
                     'client.id': KafkaConfig.CLIENT_ID_MAIN.value
                 }
 

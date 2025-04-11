@@ -79,10 +79,22 @@ class BaseDriveSyncService(ABC):
         """Perform initial sync"""
         pass
 
-    async def setup_changes_watch(self, user_service: DriveUserService) -> Optional[Dict]:
+    async def setup_changes_watch(self, user_service: DriveUserService, user_email: str) -> Optional[Dict]:
         """Set up changes.watch after initial sync"""
         try:
             # Set up watch
+            page_token = await self.arango_service.get_page_token_db(user_email=user_email)
+            if not page_token:
+                self.logger.warning("⚠️ No page token found for user %s", user_email)
+                return await user_service.create_changes_watch()
+            
+            stopped = await user_service.stop_watch(page_token['channelId'], page_token['resourceId'])
+            # Delete the page token from database after retrieving it
+            deleted = await self.arango_service.delete_page_token_db(user_email=user_email)
+            if not deleted:
+                self.logger.warning("⚠️ Failed to delete page token for user %s", user_email)
+            if not stopped:
+                self.logger.warning("⚠️ Failed to stop changes watch for user %s", user_email)
             return await user_service.create_changes_watch()
 
         except Exception as e:
@@ -727,7 +739,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                             "❌ Failed to create user service for user: %s", user['email'])
                         continue
 
-                    channel_data = await self.setup_changes_watch(user_service)
+                    channel_data = await self.setup_changes_watch(user_service, user['email'])
                     self.logger.info(f"🚀 Channel data: {channel_data}")
                     if not channel_data:
                         self.logger.warning(
@@ -1032,7 +1044,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                 return False
 
             # Set up changes watch for the user
-            channel_data = await self.setup_changes_watch(user_service)
+            channel_data = await self.setup_changes_watch(user_service, user_email)
             if not channel_data:
                 self.logger.error(f"❌ Failed to set up changes watch for user: {user_email}")
                 await self.arango_service.update_user_sync_state(user_email, 'FAILED', service_type=Connectors.GOOGLE_DRIVE.value)
@@ -1253,7 +1265,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
             if user_info:
                 try:
                     user_service = self.drive_user_service
-                    channel_data = await self.setup_changes_watch(user_service)
+                    channel_data = await self.setup_changes_watch(user_service, user_info['email'])
                     if not channel_data:
                         self.logger.warning(
                             "❌ Failed to set up changes watch for user: %s", user_info['email'])
