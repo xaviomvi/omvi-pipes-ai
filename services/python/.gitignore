@@ -1,3 +1,6 @@
 data/*
 default_config.json
 to_do.txt
+credentials.json
+token.pickle
+tests/*

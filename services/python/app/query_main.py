@@ -13,14 +13,12 @@ from app.api.routes.records import router as records_router
 from app.api.middlewares.auth import authMiddleware
 import httpx
 from app.config.configuration_service import config_node_constants
-from app.utils.logger import create_logger
-
-logger = create_logger(__name__)
 
 container = AppContainer()
 
 async def initialize_container(container: AppContainer) -> bool:
     """Initialize container resources"""
+    logger = container.logger()
     logger.info("🚀 Initializing application resources")
 
     try:
@@ -48,9 +46,7 @@ async def initialize_container(container: AppContainer) -> bool:
 
 async def get_initialized_container() -> AppContainer:
     """Dependency provider for initialized container"""
-    logger.debug("🔄 Getting initialized container")
     if not hasattr(get_initialized_container, 'initialized'):
-        logger.debug("🔧 First-time container initialization")
         await initialize_container(container)
         container.wire(modules=[
             "app.api.routes.search",
@@ -59,18 +55,20 @@ async def get_initialized_container() -> AppContainer:
             "app.modules.retrieval.retrieval_arango"
         ])
         get_initialized_container.initialized = True
-        logger.debug("✅ Container initialization complete")
     return container
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan context manager for FastAPI"""
-    logger.debug("🚀 Starting retrieval application")
-    
+   
     # Initialize container
     app_container = await get_initialized_container()
     # Store container in app state for access in dependencies
     app.container = app_container
+    
+    logger = app.container.logger()
+    logger.debug("🚀 Starting retrieval application")
+    
     consumer = await container.llm_config_handler()
     consume_task = asyncio.create_task(consumer.consume_messages())
     

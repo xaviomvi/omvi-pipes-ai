@@ -3,7 +3,7 @@
 import os
 import pickle
 import asyncio
-from typing import Dict, List, Optional
+from typing import Dict, Any, List
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
@@ -60,75 +60,22 @@ class GoogleSlidesTest:
             logger.error("❌ Authentication failed: %s", str(e))
             return False
 
-    async def list_slides_files(self) -> List[Dict]:
-        """List all Google Slides files in Drive"""
-        try:
-            logger.info("🔍 Listing Google Slides files")
-
-            async with self.google_limiter:
-                results = self.drive_service.files().list(
-                    q="mimeType='application/vnd.google-apps.presentation'",
-                    spaces='drive',
-                    fields="files(id, name, createdTime, modifiedTime)",
-                    pageSize=10  # Limiting to 10 files for testing
-                ).execute()
-
-            files = results.get('files', [])
-            logger.info("✅ Found %d presentation files", len(files))
-            return files
-
-        except Exception as e:
-            logger.error("❌ Failed to list Slides files: %s", str(e))
-            return []
-
-    async def process_presentation(self, presentation_id: str) -> Optional[Dict]:
-        """Process a single presentation"""
-        try:
-            logger.info("🔄 Processing presentation: %s", presentation_id)
-
-            async with self.google_limiter:
-                presentation = self.slides_service.presentations().get(
-                    presentationId=presentation_id
-                ).execute()
-
-            # Process presentation data
-            processed_data = {
-                'metadata': {
-                    'title': presentation.get('title', ''),
-                    'locale': presentation.get('locale', ''),
-                    'slideCount': len(presentation.get('slides', [])),
-                    'presentationId': presentation_id,
-                },
-                'slides': [],
-                'summary': {
-                    'totalSlides': len(presentation.get('slides', [])),
-                    'hasNotes': any(slide.get('slideProperties', {}).get('notesPage')
-                                    for slide in presentation.get('slides', []))
-                }
-            }
-
-            # Process each slide
-            for slide in presentation.get('slides', []):
-                slide_data = await self._process_slide(slide)
-                if slide_data:
-                    processed_data['slides'].append(slide_data)
-
-            logger.info("✅ Successfully processed presentation")
-            return processed_data
-
-        except Exception as e:
-            logger.error("❌ Failed to process presentation: %s", str(e))
-            return None
-
-    async def _process_slide(self, slide: Dict) -> Dict:
+    async def _process_slide(self, slide: Dict) -> Dict[str, Any]:
         """Process individual slide content"""
         try:
             slide_data = {
                 'slideId': slide.get('objectId', ''),
+                'layout': slide.get('slideProperties', {}).get('layoutObjectId', ''),
+                'masterObjectId': slide.get('slideProperties', {}).get('masterObjectId', ''),
+                'notesPageId': slide.get('slideProperties', {}).get('notesPage', {}).get('notesProperties', {}).get('speakerNotesObjectId', ''),
+                'slideProperties': {
+                    'displayName': slide.get('slideProperties', {}).get('displayName', ''),
+                    'layoutProperties': slide.get('slideProperties', {}).get('layoutProperties', {}),
+                    'masterProperties': slide.get('slideProperties', {}).get('masterProperties', {})
+                },
                 'elements': []
             }
 
-            # Process each element in the slide
             for element in slide.get('pageElements', []):
                 element_data = await self._process_element(element)
                 if element_data:
@@ -140,13 +87,27 @@ class GoogleSlidesTest:
             logger.error("❌ Failed to process slide: %s", str(e))
             return None
 
-    async def _process_element(self, element: Dict) -> Optional[Dict]:
+    async def _process_element(self, element: Dict) -> Dict[str, Any]:
         """Process individual page element"""
         try:
             element_data = {
+                'id': element.get('objectId', ''),
                 'type': self._get_element_type(element),
-                'text': await self._extract_text(element)
+                'transform': element.get('transform', {}),
+                'size': element.get('size', {})
             }
+
+            # Process based on element type
+            if 'shape' in element:
+                element_data.update(await self._process_shape(element))
+            elif 'table' in element:
+                element_data.update(await self._process_table(element))
+            elif 'image' in element:
+                element_data.update(await self._process_image(element))
+            elif 'video' in element:
+                element_data.update(await self._process_video(element))
+            elif 'line' in element:
+                element_data.update(await self._process_line(element))
 
             return element_data
 
@@ -168,77 +129,193 @@ class GoogleSlidesTest:
             return 'line'
         return 'unknown'
 
-    async def _extract_text(self, element: Dict) -> Dict:
-        """Extract text content from element"""
-        text_data = {
+    async def _process_shape(self, element: Dict) -> Dict[str, Any]:
+        """Process shape element"""
+        shape = element.get('shape', {})
+        shape_data = {
+            'shapeType': shape.get('shapeType', ''),
+            'text': await self._extract_text_content(shape.get('text', {})),
+            'placeholder': shape.get('placeholder', {}),
+            'style': {
+                'shapeBackgroundFill': shape.get('shapeProperties', {}).get('shapeBackgroundFill', {}),
+                'outline': shape.get('shapeProperties', {}).get('outline', {})
+            }
+        }
+        return shape_data
+
+    async def _process_table(self, element: Dict) -> Dict[str, Any]:
+        """Process table element"""
+        table = element.get('table', {})
+        table_data = {
+            'rows': table.get('rows', 0),
+            'columns': table.get('columns', 0),
+            'cells': []
+        }
+
+        for row_idx, row in enumerate(table.get('tableRows', [])):
+            for col_idx, cell in enumerate(row.get('tableCells', [])):
+                cell_data = {
+                    'rowIndex': row_idx,
+                    'columnIndex': col_idx,
+                    'text': await self._extract_text_content(cell.get('text', {})),
+                    'style': cell.get('tableCellProperties', {})
+                }
+                table_data['cells'].append(cell_data)
+
+        return table_data
+
+    async def _process_image(self, element: Dict) -> Dict[str, Any]:
+        """Process image element"""
+        image = element.get('image', {})
+        return {
+            'sourceUrl': image.get('sourceUrl', ''),
+            'contentUrl': image.get('contentUrl', ''),
+            'imageProperties': image.get('imageProperties', {})
+        }
+
+    async def _process_video(self, element: Dict) -> Dict[str, Any]:
+        """Process video element"""
+        video = element.get('video', {})
+        return {
+            'id': video.get('id', ''),
+            'source': video.get('source', ''),
+            'url': video.get('url', ''),
+            'videoProperties': video.get('videoProperties', {})
+        }
+
+    async def _process_line(self, element: Dict) -> Dict[str, Any]:
+        """Process line element"""
+        line = element.get('line', {})
+        return {
+            'lineType': line.get('lineType', ''),
+            'lineProperties': line.get('lineProperties', {})
+        }
+
+    async def _extract_text_content(self, text_element: Dict) -> Dict[str, Any]:
+        """Extract text content and styling"""
+        if not text_element:
+            return {'content': '', 'style': {}}
+
+        text_content = {
             'content': '',
+            'style': {},
+            'lists': [],
             'links': []
         }
 
-        # Extract text from shape
-        if 'shape' in element and 'text' in element['shape']:
-            for text_element in element['shape']['text'].get('textElements', []):
-                if 'textRun' in text_element:
-                    text_run = text_element['textRun']
-                    text_data['content'] += text_run.get('content', '')
+        for element in text_element.get('textElements', []):
+            if 'textRun' in element:
+                text_run = element['textRun']
+                text_content['content'] += text_run.get('content', '')
 
-                    # Extract links if present
-                    if 'link' in text_run.get('textStyle', {}):
-                        text_data['links'].append({
-                            'text': text_run.get('content', ''),
-                            'url': text_run['textStyle']['link'].get('url', '')
-                        })
+                # Capture text style
+                if 'style' in text_run:
+                    text_content['style'] = {
+                        'bold': text_run['style'].get('bold', False),
+                        'italic': text_run['style'].get('italic', False),
+                        'underline': text_run['style'].get('underline', False),
+                        'fontSize': text_run['style'].get('fontSize', {}),
+                        'foregroundColor': text_run['style'].get('foregroundColor', {}),
+                        'backgroundColor': text_run['style'].get('backgroundColor', {})
+                    }
 
-        return text_data
+                # Capture links
+                if 'link' in text_run:
+                    text_content['links'].append({
+                        'url': text_run['link'].get('url', ''),
+                        'text': text_run.get('content', '')
+                    })
 
-    def print_presentation_summary(self, presentation_data: Dict):
-        """Print a summary of the processed presentation"""
+            elif 'paragraphMarker' in element:
+                # Capture list information
+                if 'bullet' in element['paragraphMarker']:
+                    text_content['lists'].append({
+                        'glyph': element['paragraphMarker']['bullet'].get('glyph', ''),
+                        'listId': element['paragraphMarker']['bullet'].get('listId', ''),
+                        'nestingLevel': element['paragraphMarker']['bullet'].get('nestingLevel', 0)
+                    })
+
+        return text_content
+
+    async def process_presentation(self, presentation_id: str) -> Dict[str, Any]:
+        """Process an entire presentation including all slides"""
         try:
-            metadata = presentation_data.get('metadata', {})
-            slides = presentation_data.get('slides', [])
-            summary = presentation_data.get('summary', {})
+            if not self.slides_service:
+                logger.error("❌ No valid service available for parsing")
+                return None
 
-            logger.info("\n📊 Presentation Summary")
-            logger.info("=" * 50)
-            logger.info("📑 Title: %s", metadata.get('title'))
-            logger.info("🔢 Total Slides: %d", summary.get('totalSlides'))
-            logger.info("📝 Has Notes: %s",
-                        "Yes" if summary.get('hasNotes') else "No")
-            logger.info("\n")
+            # Get presentation data
+            presentation = self.slides_service.presentations().get(
+                presentationId=presentation_id
+            ).execute()
 
-            # Print details for each slide
-            for idx, slide in enumerate(slides, 1):
-                logger.info("📌 Slide %d", idx)
-                logger.info("-" * 30)
+            # Extract presentation metadata
+            metadata = {
+                'presentationId': presentation.get('presentationId', ''),
+                'title': presentation.get('title', ''),
+                'locale': presentation.get('locale', ''),
+                'revisionId': presentation.get('revisionId', ''),
+                'pageSize': presentation.get('pageSize', {}),
+                'masterCount': len(presentation.get('masters', [])),
+                'layoutCount': len(presentation.get('layouts', [])),
+                'hasNotesMaster': bool(presentation.get('notesMaster'))
+            }
 
-                # Print elements in the slide
-                elements = slide.get('elements', [])
-                element_types = {}
-                for element in elements:
-                    element_type = element.get('type')
-                    element_types[element_type] = element_types.get(
-                        element_type, 0) + 1
+            processed_slides = []
+            for index, slide in enumerate(presentation.get('slides', []), 1):
+                slide_data = await self._process_slide(slide)
+                if slide_data:
+                    # Add slide number and additional metadata
+                    slide_data.update({
+                        'slideNumber': index,
+                        'totalSlides': len(presentation.get('slides', [])),
+                        'hasNotesPage': bool(slide.get('slideProperties', {}).get('notesPage')),
+                        'masterProperties': slide.get('slideProperties', {}).get('masterProperties', {}),
+                        'layoutProperties': slide.get('slideProperties', {}).get('layoutProperties', {})
+                    })
+                    processed_slides.append(slide_data)
 
-                logger.info("Elements found:")
-                for element_type, count in element_types.items():
-                    logger.info(f"  - {element_type}: {count}")
-
-                # Print text content if available
-                text_elements = [e for e in elements if e.get(
-                    'type') == 'shape' and e.get('text', {}).get('content')]
-                if text_elements:
-                    logger.info("\nText content:")
-                    for text_element in text_elements:
-                        content = text_element.get(
-                            'text', {}).get('content', '').strip()
-                        if content:
-                            logger.info(f"  • {content}")
-
-                logger.info("\n")
+            return {
+                'metadata': metadata,
+                'slides': processed_slides,
+                'summary': {
+                    'totalSlides': len(processed_slides),
+                    'hasNotes': any(slide.get('hasNotesPage') for slide in processed_slides),
+                    'presentationTitle': metadata['title'],
+                    'locale': metadata['locale']
+                }
+            }
 
         except Exception as e:
-            logger.error("❌ Failed to print presentation summary: %s", str(e))
+            logger.error("❌ Failed to process presentation: %s", str(e))
+            return None
 
+    async def list_slides_files(self) -> List[Dict[str, Any]]:
+        """List all Google Slides files in the user's Drive"""
+        try:
+            if not self.drive_service:
+                logger.error("❌ No valid Drive service available")
+                return []
+
+            # Search for Google Slides files
+            results = self.drive_service.files().list(
+                q="mimeType='application/vnd.google-apps.presentation'",
+                pageSize=10,  # Limit to 10 files
+                fields="files(id, name, createdTime, modifiedTime)"
+            ).execute()
+
+            files = results.get('files', [])
+            
+            if not files:
+                logger.info("📂 No Google Slides files found")
+                return []
+
+            logger.info(f"📂 Found {len(files)} Google Slides files")
+            return files
+
+        except Exception as e:
+            logger.error("❌ Failed to list Slides files: %s", str(e))
+            return []
 
 async def main():
     """Main function to test Google Slides functionality"""
@@ -255,17 +332,25 @@ async def main():
         logger.error("❌ No Slides files found")
         return
 
-    # Process each presentation
-    for file in slides_files:
-        logger.info("\n🔄 Processing: %s", file['name'])
-        presentation_data = await slides_test.process_presentation(file['id'])
+    # Process the first presentation
+    first_file = slides_files[0]
+    logger.info("\n🔄 Processing: %s", first_file['name'])
+    presentation_data = await slides_test.process_presentation(first_file['id'])
 
-        if presentation_data:
-            # Print summary
-            slides_test.print_presentation_summary(presentation_data)
-        else:
-            logger.error("❌ Failed to process presentation: %s", file['name'])
-
+    if presentation_data:
+        logger.info("Presentation data: %s", presentation_data)
+        # Print the processed data
+        logger.info("✅ Presentation processed successfully")
+        logger.info("📑 Total slides: %s", presentation_data['summary']['totalSlides'])
+        logger.info("📝 Has notes: %s", presentation_data['summary']['hasNotes'])
+        
+        # Process individual slides
+        for slide in presentation_data['slides']:
+            logger.info("🔍 Slide ID: %s", slide['slideId'])
+            logger.info("📐 Layout: %s", slide['layout'])
+            logger.info("📊 Number of elements: %s", len(slide['elements']))
+    else:
+        logger.error("❌ Failed to process presentation: %s", first_file['name'])
 
 if __name__ == "__main__":
     asyncio.run(main())

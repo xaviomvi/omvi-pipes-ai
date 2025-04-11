@@ -2,12 +2,10 @@ import os
 import jwt
 import aiohttp
 from app.config.configuration_service import config_node_constants, Routes, TokenScopes
-from app.utils.logger import create_logger
-
-logger = create_logger(__name__)
 
 class GoogleTokenHandler:
-    def __init__(self, config_service, arango_service):
+    def __init__(self, logger, config_service, arango_service):
+        self.logger = logger
         self.token_expiry = None
         self.service = None
         self.config_service = config_service
@@ -29,7 +27,7 @@ class GoogleTokenHandler:
             scoped_jwt_secret,
             algorithm='HS256'
         )
-        logger.info(f"🚀 JWT Token: {jwt_token}")
+        self.logger.info(f"🚀 JWT Token: {jwt_token}")
         
         headers = {
             "Authorization": f"Bearer {jwt_token}"
@@ -37,7 +35,7 @@ class GoogleTokenHandler:
         
         endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
         nodejs_endpoint = endpoints.get('cm').get('endpoint')
-        logger.info(f"🚀 Nodejs Endpoint: {nodejs_endpoint}")
+        self.logger.info(f"🚀 Nodejs Endpoint: {nodejs_endpoint}")
         
         # Fetch credentials from API
         async with aiohttp.ClientSession() as session:
@@ -49,14 +47,14 @@ class GoogleTokenHandler:
                 if response.status != 200:
                     raise Exception(f"Failed to fetch credentials: {await response.json()}")
                 creds_data = await response.json()
-                logger.info("🚀 Fetch refreshed access token response: %s", creds_data)
+                self.logger.info("🚀 Fetch refreshed access token response: %s", creds_data)
                         
         return creds_data
 
     async def refresh_token(self, org_id, user_id):
         """Refresh the access token"""
         try:
-            logger.info("🔄 Refreshing access token")
+            self.logger.info("🔄 Refreshing access token")
             
             payload = {
                 "orgId": org_id,
@@ -89,12 +87,12 @@ class GoogleTokenHandler:
                         raise Exception(f"Failed to refresh token: {await response.json()}")
                     
                     creds_data = await response.json()
-                    logger.info("🚀 Access Token Refresh response: %s", creds_data)
+                    self.logger.info("🚀 Access Token Refresh response: %s", creds_data)
                                
-            logger.info("✅ Successfully refreshed access token")
+            self.logger.info("✅ Successfully refreshed access token")
 
         except Exception as e:
-            logger.error(f"❌ Failed to refresh token: {str(e)}")
+            self.logger.error(f"❌ Failed to refresh token: {str(e)}")
             raise
 
     async def get_enterprise_token(self, org_id):

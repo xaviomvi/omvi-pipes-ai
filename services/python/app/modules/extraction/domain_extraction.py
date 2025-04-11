@@ -5,18 +5,15 @@ from langchain.prompts import PromptTemplate
 from langchain.output_parsers import PydanticOutputParser
 from langchain.schema import HumanMessage, AIMessage
 from app.modules.extraction.prompt_template import prompt
-from app.utils.logger import create_logger
 import uuid
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime, timezone
 import numpy as np
-from app.core.llm_service import LLMFactory
 from app.config.arangodb_constants import CollectionNames, DepartmentNames
 from app.utils.llm import get_llm
 
-logger = create_logger(__name__)
 
 # Update the Literal types
 SentimentType = Literal["Positive", "Neutral", "Negative"]
@@ -61,11 +58,12 @@ class DocumentClassification(BaseModel):
 
 
 class DomainExtractor:
-    def __init__(self, base_arango_service, config_service):
+    def __init__(self, logger, base_arango_service, config_service):
+        self.logger = logger
         self.arango_service = base_arango_service
         self.config_service = config_service
-        logger.info("🚀 self.arango_service: %s", self.arango_service)
-        logger.info("🚀 self.arango_service.db: %s", self.arango_service.db)
+        self.logger.info("🚀 self.arango_service: %s", self.arango_service)
+        self.logger.info("🚀 self.arango_service.db: %s", self.arango_service.db)
 
         self.parser = PydanticOutputParser(
             pydantic_object=DocumentClassification)
@@ -138,10 +136,10 @@ class DomainExtractor:
                         return list(self.topics_store)[max_lda_sim_idx]
 
                 except Exception as e:
-                    logger.error(f"❌ Error in LDA similarity check: {str(e)}")
+                    self.logger.error(f"❌ Error in LDA similarity check: {str(e)}")
 
         except Exception as e:
-            logger.error(f"❌ Error in topic similarity check: {str(e)}")
+            self.logger.error(f"❌ Error in topic similarity check: {str(e)}")
 
         return new_topic
 
@@ -165,13 +163,13 @@ class DomainExtractor:
         Extract metadata from document content using Azure OpenAI.
         Includes reflection logic to attempt recovery from parsing failures.
         """
-        logger.info("🎯 Extracting domain metadata")
-        self.llm = await get_llm(self.config_service)
+        self.logger.info("🎯 Extracting domain metadata")
+        self.llm = await get_llm(self.logger, self.config_service)
         
         try:
-            logger.info(f"🎯 Extracting departments for org_id: {org_id}")
+            self.logger.info(f"🎯 Extracting departments for org_id: {org_id}")
             departments = await self.arango_service.get_departments(org_id)
-            logger.info(f"🎯 Departments: {departments}")
+            self.logger.info(f"🎯 Departments: {departments}")
             if not departments:
                 departments = [dept.value for dept in DepartmentNames]
 
@@ -187,10 +185,10 @@ class DomainExtractor:
             "{sentiment_list}", sentiment_list)
             self.prompt_template = PromptTemplate.from_template(filled_prompt)
 
-            logger.info(f"🎯 Prompt template: {self.prompt_template}")
+            self.logger.info(f"🎯 Prompt template: {self.prompt_template}")
 
             formatted_prompt = self.prompt_template.format(content=content)
-            logger.info(f"🎯 Prompt formatted successfully {formatted_prompt}")
+            self.logger.info(f"🎯 Prompt formatted successfully {formatted_prompt}")
 
             messages = [HumanMessage(content=formatted_prompt)]
             response = await self.llm.ainvoke(messages)
@@ -203,7 +201,7 @@ class DomainExtractor:
                 response_text = response_text.rsplit("```", 1)[0]
             response_text = response_text.strip()
 
-            logger.info(f"🎯 Response received: {response_text}")
+            self.logger.info(f"🎯 Response received: {response_text}")
 
             try:
                 # Parse the response using the Pydantic parser
@@ -216,12 +214,12 @@ class DomainExtractor:
                 return parsed_response
 
             except Exception as parse_error:
-                logger.error(f"❌ Failed to parse response: {str(parse_error)}")
-                logger.error(f"Response content: {response_text}")
+                self.logger.error(f"❌ Failed to parse response: {str(parse_error)}")
+                self.logger.error(f"Response content: {response_text}")
                 
                 # Reflection: attempt to fix the validation issue by providing feedback to the LLM
                 try:
-                    logger.info("🔄 Attempting reflection to fix validation issues")
+                    self.logger.info("🔄 Attempting reflection to fix validation issues")
                     reflection_prompt = f"""
                     The previous response failed validation with the following error:
                     {str(parse_error)}
@@ -250,7 +248,7 @@ class DomainExtractor:
                         reflection_text = reflection_text.rsplit("```", 1)[0]
                     reflection_text = reflection_text.strip()
                     
-                    logger.info(f"🎯 Reflection response: {reflection_text}")
+                    self.logger.info(f"🎯 Reflection response: {reflection_text}")
                     
                     # Try parsing again with the reflection response
                     parsed_reflection = self.parser.parse(reflection_text)
@@ -259,28 +257,28 @@ class DomainExtractor:
                     canonical_topics = await self.process_new_topics(parsed_reflection.topics)
                     parsed_reflection.topics = canonical_topics
                     
-                    logger.info("✅ Reflection successful - validation passed on second attempt")
+                    self.logger.info("✅ Reflection successful - validation passed on second attempt")
                     return parsed_reflection
                     
                 except Exception as reflection_error:
-                    logger.error(f"❌ Reflection attempt failed: {str(reflection_error)}")
+                    self.logger.error(f"❌ Reflection attempt failed: {str(reflection_error)}")
                     # Re-raise the original error after reflection attempt failed
                     raise ValueError(f"Failed to parse LLM response and reflection attempt failed: {str(parse_error)}")
 
         except Exception as e:
-            logger.error(f"❌ Error during metadata extraction: {str(e)}")
+            self.logger.error(f"❌ Error during metadata extraction: {str(e)}")
             raise
 
     async def save_metadata_to_arango(self, document_id: str, metadata: DocumentClassification):
         """
         Extract metadata from a document in ArangoDB and create department relationships
         """
-        logger.info("🚀 Saving metadata to ArangoDB")
+        self.logger.info("🚀 Saving metadata to ArangoDB")
         
         try:
             # Retrieve the document content from ArangoDB
             record = await self.arango_service.get_document(document_id, CollectionNames.RECORDS.value)
-            logger.info(f"🚀 Record: {record}")
+            self.logger.info(f"🚀 Record: {record}")
 
             # Create domain metadata document for batch upsert
             doc = dict(record)
@@ -291,7 +289,7 @@ class DomainExtractor:
             })
             docs = [doc]
 
-            logger.info(f"🎯 Upserting domain metadata for document: {document_id}")
+            self.logger.info(f"🎯 Upserting domain metadata for document: {document_id}")
             await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)
 
             # Create relationships with departments
@@ -303,7 +301,7 @@ class DomainExtractor:
                         bind_vars={'department': department}
                     )
                     dept_doc = cursor.next()
-                    logger.info(f"🚀 Department: {dept_doc}")
+                    self.logger.info(f"🚀 Department: {dept_doc}")
                     
                     if dept_doc:
                         edge = {
@@ -312,13 +310,13 @@ class DomainExtractor:
                             "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
                         }
                         await self.arango_service.batch_create_edges([edge], CollectionNames.BELONGS_TO_DEPARTMENT.value)
-                        logger.info(f"🔗 Created relationship between document {document_id} and department {department}")
+                        self.logger.info(f"🔗 Created relationship between document {document_id} and department {department}")
 
                 except StopIteration:
-                    logger.warning(f"⚠️ No department found for: {department}")
+                    self.logger.warning(f"⚠️ No department found for: {department}")
                     continue
                 except Exception as e:
-                    logger.error(f"❌ Error creating relationship with department {department}: {str(e)}")
+                    self.logger.error(f"❌ Error creating relationship with department {department}: {str(e)}")
                     continue
                 
             # Handle single category
@@ -478,7 +476,7 @@ class DomainExtractor:
                         "createdAtTimestamp": int(datetime.now(timezone.utc).timestamp())
                     })
 
-            logger.info(f"🚀 Metadata saved successfully for document: {document_id}")
+            self.logger.info(f"🚀 Metadata saved successfully for document: {document_id}")
             
             # Add metadata fields to doc
             doc.update({
@@ -494,5 +492,5 @@ class DomainExtractor:
             return doc
 
         except Exception as e:
-            logger.error(f"❌ Error saving metadata to ArangoDB: {str(e)}")
+            self.logger.error(f"❌ Error saving metadata to ArangoDB: {str(e)}")
             raise

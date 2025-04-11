@@ -1,15 +1,11 @@
 from openpyxl import load_workbook
 from typing import Dict, List, Any
 import io
-import os
-from app.utils.logger import create_logger
 from openpyxl.cell.cell import MergedCell
 from openpyxl.utils import get_column_letter
 from app.modules.parsers.excel.prompt_template import prompt, sheet_summary_prompt, table_summary_prompt, row_text_prompt
 import json
 from datetime import datetime
-
-logger = create_logger(__name__)
 
 class ExcelParser:
     def __init__(self):
@@ -91,7 +87,6 @@ class ExcelParser:
             }
 
         except Exception as e:
-            logger.error(f"❌ Error parsing Excel file: {str(e)}")
             raise
         finally:
             if self.workbook:
@@ -100,7 +95,6 @@ class ExcelParser:
     def _process_sheet(self, sheet) -> Dict[str, List[List[Dict[str, Any]]]]:
         """Process individual sheet and extract cell data"""
         try:
-            logger.debug(f"Processing sheet: {sheet.title}")
             sheet_data = {'headers': [], 'data': []}
 
             # Extract headers from first row
@@ -163,11 +157,9 @@ class ExcelParser:
 
                 sheet_data['data'].append(row_data)
 
-            logger.debug(f"Processed sheet: {sheet.title}")
             return sheet_data
 
         except Exception as e:
-            logger.error(f"❌ Error processing sheet: {str(e)}")
             raise
 
     def get_sheet_data(self, sheet_name: str = None) -> Dict[str, Any]:
@@ -181,7 +173,6 @@ class ExcelParser:
             Dictionary containing sheet data with headers and rows
         """
         try:
-            logger.debug(f"Getting sheet data for: {sheet_name}")
             if not self.workbook:
                 self.parse()
 
@@ -195,13 +186,11 @@ class ExcelParser:
             return {name: self._process_sheet(self.workbook[name]) for name in self.workbook.sheetnames}
 
         except Exception as e:
-            logger.error(f"❌ Error getting sheet data: {str(e)}")
             raise
 
     def find_tables(self, sheet) -> List[Dict[str, Any]]:
         """Find and process all tables in a sheet"""
         try:
-            logger.debug(f"Finding tables in sheet: {sheet.title}")
             tables = []
             visited_cells = set()  # Track already processed cells
 
@@ -292,11 +281,9 @@ class ExcelParser:
                         if table['data']:  # Only add if table has data
                             tables.append(table)
 
-            logger.debug(f"Found {len(tables)} tables in sheet: {sheet.title}")
             return tables
 
         except Exception as e:
-            logger.error(f"❌ Error finding tables: {str(e)}")
             raise
 
     def _process_cell(self, cell, header, row, col):
@@ -354,13 +341,11 @@ class ExcelParser:
                 }
             }
         except Exception as e:
-            logger.error(f"❌ Error processing cell: {str(e)}")
             raise
 
     async def get_tables_in_sheet(self, sheet_name: str) -> List[Dict[str, Any]]:
         """Get all tables in a specific sheet"""
         try:
-            logger.debug(f"Getting tables in sheet: {sheet_name}")
             if not self.workbook:
                 self.parse()
 
@@ -368,11 +353,7 @@ class ExcelParser:
                 raise ValueError(f"Sheet '{sheet_name}' not found in workbook")
 
             sheet = self.workbook[sheet_name]
-            tables = self.find_tables(sheet)
-            
-            logger.debug(f"Found {len(tables)} tables in sheet: {sheet_name}")
-            logger.debug(f"tables: {tables}")
-            
+            tables = self.find_tables(sheet)            
 
             # Prepare context for LLM with all tables
             tables_context = []
@@ -416,8 +397,6 @@ class ExcelParser:
 
                     # Ensure we have the right number of headers
                     if len(new_headers) != len(table['data'][0]):
-                        logger.warning(f"""LLM generated incorrect number of headers for table {
-                                       idx}. Falling back to original headers.""")
                         new_headers = table['headers']
 
                     # Reconstruct table with new headers
@@ -439,48 +418,17 @@ class ExcelParser:
                     processed_tables.append(new_table)
 
                 except Exception as e:
-                    logger.error(f"""Error processing headers for table {
-                                 idx}: {str(e)}""")
                     # Fall back to original table
                     processed_tables.append(table)
 
             return processed_tables
 
         except Exception as e:
-            logger.error(f"❌ Error getting tables in sheet: {str(e)}")
             raise
-
-    # async def get_sheet_summary(self, sheet_name: str, tables: List[Dict[str, Any]]) -> str:
-    #     """Get a natural language summary of all tables in a sheet"""
-    #     try:
-    #         logger.debug(f"Getting sheet summary for: {sheet_name}")
-    #         # Prepare tables data for the prompt
-    #         tables_data = []
-    #         for idx, table in enumerate(tables, 1):
-    #             sample_data = [
-    #                 {cell['header']: (cell['value'].isoformat() if isinstance(cell['value'], datetime) else cell['value'])
-    #                  for cell in row}
-    #                 for row in table['data'][:3]  # Use first 3 rows as sample
-    #             ]
-    #             tables_data.append(f"Table {idx}:\nHeaders: {table['headers']}\n"
-    #                                f"Sample data:\n{json.dumps(sample_data, indent=2)}")
-
-    #         # Get summary from LLM
-    #         messages = self.sheet_summary_prompt.format_messages(
-    #             sheet_name=sheet_name,
-    #             tables_data="\n\n".join(tables_data)
-    #         )
-    #         response = await self.llm.ainvoke(messages)
-    #         return response.content
-
-    #     except Exception as e:
-    #         logger.error(f"❌ Error getting sheet summary: {str(e)}")
-    #         raise
 
     async def get_table_summary(self, table: Dict[str, Any]) -> str:
         """Get a natural language summary of a specific table"""
         try:
-            logger.debug(f"Getting table summary for: {table['headers']}")
             # Prepare sample data
             sample_data = [
                 {cell['header']: (cell['value'].isoformat() if isinstance(cell['value'], datetime) else cell['value'])
@@ -497,13 +445,11 @@ class ExcelParser:
             return response.content
 
         except Exception as e:
-            logger.error(f"❌ Error getting table summary: {str(e)}")
             raise
 
     async def get_rows_text(self, rows: List[List[Dict[str, Any]]], table_summary: str) -> List[str]:
         """Convert multiple rows into natural language text using context from summaries in a single prompt"""
         try:
-            logger.debug(f"Getting rows text for: {rows}")
             # Prepare rows data
             rows_data = [
                 {cell['header']: (cell['value'].isoformat() if isinstance(cell['value'], datetime) else cell['value'])
@@ -540,7 +486,6 @@ class ExcelParser:
                     return [content]
 
         except Exception as e:
-            logger.error(f"❌ Error getting rows text: {str(e)}")
             raise
 
     async def process_sheet_with_summaries(self, llm, sheet_name: str) -> Dict[str, Any]:

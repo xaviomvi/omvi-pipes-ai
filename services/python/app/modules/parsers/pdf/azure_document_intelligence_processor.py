@@ -3,22 +3,21 @@ from azure.ai.formrecognizer.aio import DocumentAnalysisClient as AsyncDocumentA
 from typing import Dict, Any, List, Optional
 from io import BytesIO
 import fitz  # PyMuPDF for initial document check
-from app.utils.logger import create_logger
 from app.modules.parsers.pdf.ocr_handler import OCRStrategy
 from spacy import Language
 import spacy
 import time
 import os
 
-logger = create_logger(__name__)
-
 class AzureOCRStrategy(OCRStrategy):
     def __init__(
         self,
+        logger,
         endpoint: str,
         key: str,
         model_id: str = "prebuilt-document"
     ):
+        self.logger = logger
         self.endpoint = endpoint
         self.key = key
         self.model_id = model_id
@@ -30,19 +29,19 @@ class AzureOCRStrategy(OCRStrategy):
 
     async def load_document(self, content: bytes) -> None:
         """Load and analyze document using Azure Document Intelligence"""
-        logger.info("🔄 Starting Azure Document Intelligence load...")
+        self.logger.info("🔄 Starting Azure Document Intelligence load...")
 
         # Load with PyMuPDF first for OCR need check
-        logger.debug("📄 Initial PyMuPDF load for OCR check")
+        self.logger.debug("📄 Initial PyMuPDF load for OCR check")
         with fitz.open(stream=content, filetype="pdf") as temp_doc:
             # Check if any page needs OCR
-            logger.debug("🔍 Checking if document needs OCR")
+            self.logger.debug("🔍 Checking if document needs OCR")
             needs_ocr = any(self.needs_ocr(page) for page in temp_doc)
             self._needs_ocr = needs_ocr
-            logger.debug(f"🔍 OCR need check result: {needs_ocr}")
+            self.logger.debug(f"🔍 OCR need check result: {needs_ocr}")
 
         if needs_ocr:
-            logger.info("🤖 Document needs OCR, processing with Azure...")
+            self.logger.info("🤖 Document needs OCR, processing with Azure...")
             try:
                 async with AsyncDocumentAnalysisClient(
                     endpoint=self.endpoint,
@@ -51,37 +50,37 @@ class AzureOCRStrategy(OCRStrategy):
                     document = BytesIO(content)
                     document.seek(0)
 
-                    logger.debug("📤 Sending document to Azure for analysis")
+                    self.logger.debug("📤 Sending document to Azure for analysis")
                     poller = await doc_client.begin_analyze_document(
                         model_id=self.model_id,
                         document=document
                     )
-                    logger.debug("⏳ Waiting for Azure analysis results")
+                    self.logger.debug("⏳ Waiting for Azure analysis results")
                     self.doc = await poller.result()
 
                     # Create searchable PDF after successful OCR
-                    # logger.info("📄 Creating searchable PDF...")
+                    # self.logger.info("📄 Creating searchable PDF...")
                     # self.ocr_pdf_content = await self._create_searchable_pdf(content)
-                    # logger.info("✅ Searchable PDF created successfully")
+                    # self.logger.info("✅ Searchable PDF created successfully")
 
-                logger.info("✅ Azure document analysis completed successfully")
+                self.logger.info("✅ Azure document analysis completed successfully")
             except Exception as e:
-                logger.error(f"❌ Azure document analysis failed: {e}")
-                logger.info("⚠️ Falling back to direct PyMuPDF extraction")
+                self.logger.error(f"❌ Azure document analysis failed: {e}")
+                self.logger.info("⚠️ Falling back to direct PyMuPDF extraction")
                 self.doc = fitz.open(stream=content, filetype="pdf")
                 self._needs_ocr = False
                 self.ocr_pdf_content = None
 
         else:
-            logger.info(
+            self.logger.info(
                 "📝 Document doesn't need OCR, using PyMuPDF extraction")
             self.doc = fitz.open(stream=content, filetype="pdf")
             self._needs_ocr = False
             self.ocr_pdf_content = None
 
-        logger.debug("🔄 Pre-processing document to match Azure's structure")
+        self.logger.debug("🔄 Pre-processing document to match Azure's structure")
         self.document_analysis_result = self._preprocess_document(needs_ocr)
-        logger.info(f"✅ Document loaded!")
+        self.logger.info(f"✅ Document loaded!")
 
     @Language.component("custom_sentence_boundary")
     def custom_sentence_boundary(doc):
@@ -342,7 +341,7 @@ class AzureOCRStrategy(OCRStrategy):
                         block_spans.append(span_data)
 
                         # Process individual characters if available
-                        logger.debug("🔤 Processing words in span")
+                        self.logger.debug("🔤 Processing words in span")
                         for char in span.get("chars", []):
                             word_text = char.get("c", "").strip()
                             if word_text:
@@ -364,7 +363,7 @@ class AzureOCRStrategy(OCRStrategy):
         }
 
         # Process sentences using the lines
-        logger.debug("🔄 Processing sentences from lines")
+        self.logger.debug("🔄 Processing sentences from lines")
         sentences = self._merge_lines_to_sentences(block_lines)
         processed_sentences = []
         for sentence in sentences:
@@ -406,8 +405,8 @@ class AzureOCRStrategy(OCRStrategy):
         Returns:
             Dictionary containing processed text data including lines, spans, words and metadata
         """
-        logger.debug("================================================")
-        logger.debug(f"🔤 Processing block content: {block.content}")
+        self.logger.debug("================================================")
+        self.logger.debug(f"🔤 Processing block content: {block.content}")
         block_text = []
         block_words = []
 
@@ -469,7 +468,7 @@ class AzureOCRStrategy(OCRStrategy):
                          for span in line.get("spans", []))
         word_count = len(text1.split())
 
-        logger.debug(f"Block word count: {word_count}")
+        self.logger.debug(f"Block word count: {word_count}")
 
         # Merge if word count is below threshold
         return word_count < word_threshold
@@ -499,8 +498,8 @@ class AzureOCRStrategy(OCRStrategy):
 
     def _preprocess_document(self, needs_ocr: bool) -> Dict[str, Any]:
         """Pre-process document to match PyMuPDF's structure"""
-        logger.debug("🔄 Starting document pre-processing")
-        logger.debug(f"attributes: {dir(self.doc)}")
+        self.logger.debug("🔄 Starting document pre-processing")
+        self.logger.debug(f"attributes: {dir(self.doc)}")
         # Handle both Azure and PyMuPDF document types
         result = {
             "pages": [],
@@ -512,30 +511,30 @@ class AzureOCRStrategy(OCRStrategy):
         }
 
         if needs_ocr:
-            logger.debug("self.doc has attribute pages")
+            self.logger.debug("self.doc has attribute pages")
             doc_pages = self.doc.pages
-            logger.debug(f"Number of pages: {len(doc_pages)}")
+            self.logger.debug(f"Number of pages: {len(doc_pages)}")
             
         else:
-            logger.debug("self.doc does not have attribute pages")
+            self.logger.debug("self.doc does not have attribute pages")
             doc_pages = range(len(self.doc))  # PyMuPDF case
             # doc_pages = self.doc.pages()
-            logger.debug(f"DOC PAGES: {doc_pages}")
+            self.logger.debug(f"DOC PAGES: {doc_pages}")
             
 
         # First pass: collect all lines and paragraphs by page
         for page in doc_pages:
             if hasattr(page, 'page_number'):
-                logger.debug(f"📄 Processing page {page.page_number}")
+                self.logger.debug(f"📄 Processing page {page.page_number}")
             else:
-                logger.debug(f"📄 Processing page {page}")
+                self.logger.debug(f"📄 Processing page {page}")
 
             # Get page properties based on document type
             if hasattr(page, 'width'):
-                logger.debug("PAGE WIDTH: %f", page.width)
-                logger.debug("PAGE HEIGHT: %f", page.height)
-                logger.debug("PAGE UNIT: %s", page.unit)
-                logger.debug("PAGE NUMBER: %d", page.page_number)
+                self.logger.debug("PAGE WIDTH: %f", page.width)
+                self.logger.debug("PAGE HEIGHT: %f", page.height)
+                self.logger.debug("PAGE UNIT: %s", page.unit)
+                self.logger.debug("PAGE NUMBER: %d", page.page_number)
                 page_width = page.width
                 page_height = page.height
                 page_unit = page.unit
@@ -544,14 +543,14 @@ class AzureOCRStrategy(OCRStrategy):
                 page_number = page
                 page = self.doc[page_number]
                 page_width = page.rect.width
-                logger.debug("PAGE RECT WIDTH: %f", page_width)
+                self.logger.debug("PAGE RECT WIDTH: %f", page_width)
                 page_height = page.rect.height
-                logger.debug("Content: %s", page.get_text("dict"))
-                logger.debug("PAGE RECT HEIGHT: %f", page_height)
+                self.logger.debug("Content: %s", page.get_text("dict"))
+                self.logger.debug("PAGE RECT HEIGHT: %f", page_height)
                 page_unit = "point"
-                logger.debug("PAGE RECT UNIT: %s", page_unit)
+                self.logger.debug("PAGE RECT UNIT: %s", page_unit)
                 
-                logger.debug("PAGE RECT NUMBER: %d", page_number)
+                self.logger.debug("PAGE RECT NUMBER: %d", page_number)
 
             page_dict = {
                 "page_number": page_number,
@@ -567,7 +566,7 @@ class AzureOCRStrategy(OCRStrategy):
                 # Collect all lines from the page
                 page_lines = []
                 if hasattr(page, 'lines'):
-                    logger.debug("Processing page lines")
+                    self.logger.debug("Processing page lines")
                     for line in page.lines:
                         line_data = self._process_line(
                             line, page_width, page_height)
@@ -579,7 +578,7 @@ class AzureOCRStrategy(OCRStrategy):
 
                 # Process paragraphs and their associated lines
                 if hasattr(self.doc, 'paragraphs'):
-                    logger.debug("Processing paragraphs")
+                    self.logger.debug("Processing paragraphs")
                     for idx, paragraph in enumerate(self.doc.paragraphs):
                         processed_paragraph = self._process_block_text_azure(
                             paragraph, page_width, page_height)
@@ -612,7 +611,7 @@ class AzureOCRStrategy(OCRStrategy):
 
                 # Process tables if present
                 if hasattr(page, 'tables'):
-                    logger.debug("Processing tables")
+                    self.logger.debug("Processing tables")
                     for table in page.tables:
                         table_data = self._process_table(table, page)
                         page_dict["tables"].append(table_data)
@@ -621,7 +620,7 @@ class AzureOCRStrategy(OCRStrategy):
                 result["pages"].append(page_dict)
                 
             else:
-                logger.debug("📝 Extracting text blocks and paragraphs")
+                self.logger.debug("📝 Extracting text blocks and paragraphs")
                 text_dict = page.get_text("dict")
                 blocks = text_dict.get("blocks", [])
 
@@ -635,7 +634,7 @@ class AzureOCRStrategy(OCRStrategy):
                     # Keep merging blocks until we have enough words or run out of blocks
                     while (next_index < len(blocks) and
                         self._should_merge_blocks(current_block, blocks[next_index])):
-                        logger.debug(f"Merging blocks {i} and {next_index}")
+                        self.logger.debug(f"Merging blocks {i} and {next_index}")
                         current_block = self._merge_block_content(
                             current_block, blocks[next_index])
                         next_index += 1
@@ -658,25 +657,25 @@ class AzureOCRStrategy(OCRStrategy):
                             processed_block["paragraph"]["page_number"] = page.number + 1
                             result["paragraphs"].append(
                                 processed_block["paragraph"])
-                            logger.debug(
+                            self.logger.debug(
                                 "📚 Added paragraph to document collection (Page %s, Block %s)", page.number + 1, processed_block['paragraph']['block_number'])
 
                         for sentence in processed_block["sentences"]:
                             sentence["page_number"] = page.number + 1
                             result["sentences"].append(sentence)
-                            logger.debug(
+                            self.logger.debug(
                                 "📑 Added sentence to document collection (Page %s, Block %s)", page.number + 1, sentence['block_number'])
 
-                logger.debug(f"✅ Completed processing page {page.number + 1}")
-                logger.debug(f"📊 Page statistics:")
-                logger.debug(f"- Lines: {len(page_dict['lines'])}")
-                logger.debug(f"- Words: {len(page_dict['words'])}")
+                self.logger.debug(f"✅ Completed processing page {page.number + 1}")
+                self.logger.debug(f"📊 Page statistics:")
+                self.logger.debug(f"- Lines: {len(page_dict['lines'])}")
+                self.logger.debug(f"- Words: {len(page_dict['words'])}")
                 result["pages"].append(page_dict)
 
-            logger.debug("📊 Final document analysis result:")
-            logger.debug(f"- Total pages: {len(result['pages'])}")
-            logger.debug(f"- Total paragraphs: {len(result['paragraphs'])}")
-            logger.debug(f"- Total sentences: {len(result['sentences'])}")
+            self.logger.debug("📊 Final document analysis result:")
+            self.logger.debug(f"- Total pages: {len(result['pages'])}")
+            self.logger.debug(f"- Total paragraphs: {len(result['paragraphs'])}")
+            self.logger.debug(f"- Total sentences: {len(result['sentences'])}")
                 
         return result
         
@@ -688,7 +687,7 @@ class AzureOCRStrategy(OCRStrategy):
         overlap_threshold: float = 0.5
     ) -> List[Dict[str, Any]]:
         """Find lines that belong to a paragraph based on content and spatial overlap"""
-        logger.debug(f"Finding lines for paragraph: {paragraph_text[:100]}...")
+        self.logger.debug(f"Finding lines for paragraph: {paragraph_text[:100]}...")
 
         paragraph_lines = []
         paragraph_words = set(paragraph_text.lower().split())
@@ -708,7 +707,7 @@ class AzureOCRStrategy(OCRStrategy):
 
             if word_overlap > 0.9 and spatial_overlap:
                 paragraph_lines.append(line)
-                logger.debug(f"Added line to paragraph: {line_content}")
+                self.logger.debug(f"Added line to paragraph: {line_content}")
 
         # Sort lines by vertical position
         paragraph_lines.sort(key=lambda x: sum(
@@ -718,25 +717,25 @@ class AzureOCRStrategy(OCRStrategy):
 
     async def extract_text(self) -> Dict[str, Any]:
         """Extract text and layout information"""
-        logger.debug("📊 Starting text extraction")
+        self.logger.debug("📊 Starting text extraction")
         if not self.doc or not self.document_analysis_result:
-            logger.error("❌ Document not loaded")
+            self.logger.error("❌ Document not loaded")
             raise ValueError("Document not loaded. Call load_document first.")
 
-        logger.debug("📊 Returning document analysis result:")
-        logger.debug(f"- Pages: {len(self.document_analysis_result['pages'])}")
-        logger.debug(f"- Lines: {len(self.document_analysis_result['lines'])}")
-        logger.debug(
+        self.logger.debug("📊 Returning document analysis result:")
+        self.logger.debug(f"- Pages: {len(self.document_analysis_result['pages'])}")
+        self.logger.debug(f"- Lines: {len(self.document_analysis_result['lines'])}")
+        self.logger.debug(
             f"- Paragraphs: {len(self.document_analysis_result['paragraphs'])}")
-        logger.debug(
+        self.logger.debug(
             f"- Sentences: {len(self.document_analysis_result['sentences'])}")
 
-        logger.info("✅ Text extraction completed")
+        self.logger.info("✅ Text extraction completed")
         return self.document_analysis_result
 
     def _merge_lines_to_sentences(self, lines_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Merge lines into sentences using spaCy"""
-        logger.debug(f"🚀 Merging lines to sentences: {lines_data}")
+        self.logger.debug(f"🚀 Merging lines to sentences: {lines_data}")
 
         self.nlp = spacy.load("en_core_web_sm")
         self.nlp = self._create_custom_tokenizer(
@@ -749,8 +748,8 @@ class AzureOCRStrategy(OCRStrategy):
         # Log each line being processed
         for line_data in lines_data:
             content = line_data["content"].strip()
-            logger.debug(f"📝 Processing line: '{content}'")
-            logger.debug(f"📐 Line bbox: {line_data['bounding_box']}")
+            self.logger.debug(f"📝 Processing line: '{content}'")
+            self.logger.debug(f"📐 Line bbox: {line_data['bounding_box']}")
 
             if not content:
                 continue
@@ -760,7 +759,7 @@ class AzureOCRStrategy(OCRStrategy):
                 (char_index, char_index + len(content), line_data["bounding_box"]))
             char_index += len(content) + 1
 
-        logger.debug(f"📄 Full text for processing: '{full_text}'")
+        self.logger.debug(f"📄 Full text for processing: '{full_text}'")
 
         doc = self.nlp(full_text)
         sentences = []
@@ -770,27 +769,27 @@ class AzureOCRStrategy(OCRStrategy):
             sent_text = sent.text.strip()
             sent_start, sent_end = sent.start_char, sent.end_char
 
-            logger.debug("================================================")
-            logger.debug(f"🔤 Processing sentence: '{sent_text}'")
-            logger.debug(f"📍 Sentence span: {sent_start} to {sent_end}")
+            self.logger.debug("================================================")
+            self.logger.debug(f"🔤 Processing sentence: '{sent_text}'")
+            self.logger.debug(f"📍 Sentence span: {sent_start} to {sent_end}")
 
             sentence_bboxes = []
             for start_idx, end_idx, bbox in line_map:
                 if start_idx < sent_end and end_idx > sent_start:
-                    logger.debug(f"📎 Including line bbox: {bbox}")
+                    self.logger.debug(f"📎 Including line bbox: {bbox}")
                     sentence_bboxes.append(bbox)
 
             merged_bbox = self._merge_bounding_boxes(
                 sentence_bboxes) if sentence_bboxes else None
-            logger.debug(f"📐 Merged sentence bbox: {merged_bbox}")
+            self.logger.debug(f"📐 Merged sentence bbox: {merged_bbox}")
 
             sentences.append({
                 "sentence": sent_text,
                 "bounding_box": merged_bbox
             })
 
-        logger.debug("================================================")
-        logger.debug(f"✅ Merged into {len(sentences)} sentences")
+        self.logger.debug("================================================")
+        self.logger.debug(f"✅ Merged into {len(sentences)} sentences")
         return sentences
 
     def _process_table(self, table, page) -> Dict[str, Any]:
@@ -833,7 +832,7 @@ class AzureOCRStrategy(OCRStrategy):
         Returns:
             Single bounding box containing 4 points that encompass all input boxes
         """
-        logger.debug(f"🚀 Merging bounding boxes: {bboxes}")
+        self.logger.debug(f"🚀 Merging bounding boxes: {bboxes}")
 
         # Flatten all points from all boxes
         all_points = [point for box in bboxes for point in box]
@@ -844,7 +843,7 @@ class AzureOCRStrategy(OCRStrategy):
         max_x = max(point["x"] for point in all_points)
         max_y = max(point["y"] for point in all_points)
 
-        logger.debug(f"✅ Merged bounding box: {min_x}, {min_y}, {max_x}, {max_y}")
+        self.logger.debug(f"✅ Merged bounding box: {min_x}, {min_y}, {max_x}, {max_y}")
         return [
             {"x": min_x, "y": min_y},  # top-left
             {"x": max_x, "y": min_y},  # top-right
@@ -905,21 +904,21 @@ class AzureOCRStrategy(OCRStrategy):
 
     async def _create_searchable_pdf(self, original_content: bytes, output_dir: str = "output/searchable/azure") -> bytes:
         """Create a searchable PDF by overlaying OCR text from Azure results"""
-        logger.debug("🔄 Starting searchable PDF creation")
+        self.logger.debug("🔄 Starting searchable PDF creation")
 
         # Create output directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
-        logger.debug(f"📁 Using output directory: {output_dir}")
+        self.logger.debug(f"📁 Using output directory: {output_dir}")
 
         # Generate unique filename using timestamp
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         output_filename = f"searchable_pdf_{timestamp}.pdf"
         output_path = os.path.join(output_dir, output_filename)
-        logger.debug(f"📄 Output file will be saved as: {output_path}")
+        self.logger.debug(f"📄 Output file will be saved as: {output_path}")
 
         # Open the original PDF from bytes
         doc = fitz.open(stream=original_content, filetype="pdf")
-        logger.debug(f"📄 Opened original PDF with {len(doc)} pages")
+        self.logger.debug(f"📄 Opened original PDF with {len(doc)} pages")
 
         # Process each page
         for page_num in range(len(doc)):
@@ -929,10 +928,10 @@ class AzureOCRStrategy(OCRStrategy):
             azure_page = next(
                 (p for p in self.doc.pages if p.page_number == page_num), None)
             if not azure_page:
-                logger.debug(f"⚠️ No Azure OCR results found for page {page_num + 1}")
+                self.logger.debug(f"⚠️ No Azure OCR results found for page {page_num + 1}")
                 continue
 
-            logger.debug(f"🔄 Processing page {page_num + 1}")
+            self.logger.debug(f"🔄 Processing page {page_num + 1}")
             word_count = 0
 
             # Add text overlay for each word
@@ -965,18 +964,18 @@ class AzureOCRStrategy(OCRStrategy):
 
                 word_count += 1
 
-            logger.debug(f"✅ Added {word_count} words to page {page_num + 1}")
+            self.logger.debug(f"✅ Added {word_count} words to page {page_num + 1}")
 
         # Save the modified PDF to the output file
-        logger.info(f"💾 Saving searchable PDF to: {output_path}")
+        self.logger.info(f"💾 Saving searchable PDF to: {output_path}")
         doc.save(output_path)
         doc.close()
-        logger.debug("📄 Closed PDF document")
+        self.logger.debug("📄 Closed PDF document")
 
         # Read the saved file
-        logger.debug(f"📖 Reading saved searchable PDF: {output_path}")
+        self.logger.debug(f"📖 Reading saved searchable PDF: {output_path}")
         with open(output_path, 'rb') as f:
             ocr_pdf_content = f.read()
 
-        logger.info("✅ Searchable PDF creation completed")
+        self.logger.info("✅ Searchable PDF creation completed")
         return ocr_pdf_content

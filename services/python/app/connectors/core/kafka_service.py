@@ -1,24 +1,23 @@
 from confluent_kafka import Producer
-from app.utils.logger import create_logger
 from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.config.arangodb_constants import EventTypes
 import json
 import asyncio
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
-logger = create_logger(__name__)
 
 class KafkaService:
-    def __init__(self, config: ConfigurationService):
+    def __init__(self, config: ConfigurationService, logger):
         self.config_service = config
         self.producer = None
+        self.logger = logger
 
     def delivery_report(self, err, msg):
         """Delivery report for produced messages."""
         if err is not None:
-            logger.error("❌ Delivery failed for record %s: %s", msg.key(), err)
+            self.logger.error("❌ Delivery failed for record %s: %s", msg.key(), err)
         else:
-            logger.info("✅ Record %s successfully produced to %s [%s]", msg.key(
+            self.logger.info("✅ Record %s successfully produced to %s [%s]", msg.key(
             ), msg.topic(), msg.partition())
 
     async def send_event_to_kafka(self, event_data):
@@ -54,8 +53,8 @@ class KafkaService:
                 }
             }
 
-            logger.info(f"Formatted event: {formatted_event}")
-            logger.info(f"kafka config: {kafka_config}")
+            self.logger.info(f"Formatted event: {formatted_event}")
+            self.logger.info(f"kafka config: {kafka_config}")
             producer_config = {
                 'bootstrap.servers': kafka_config.get('servers', 'localhost:9092'),
                 'client.id': kafka_config.get('client_id', 'file-processor')
@@ -71,6 +70,6 @@ class KafkaService:
             await asyncio.to_thread(self.producer.flush)
             return True
         except Exception as e:
-            logger.error("❌ Failed to send event to Kafka: %s", str(e))
+            self.logger.error("❌ Failed to send event to Kafka: %s", str(e))
             return False
 

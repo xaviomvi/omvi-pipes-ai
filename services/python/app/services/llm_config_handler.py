@@ -3,15 +3,12 @@ import json
 from confluent_kafka import Consumer, KafkaError
 import httpx
 from typing import Dict, List
-from app.utils.logger import create_logger
 from app.config.configuration_service import config_node_constants, KafkaConfig
 from datetime import datetime, timezone
 from app.modules.retrieval.retrieval_service import RetrievalService
 
-logger = create_logger(__name__)
-
 class LLMConfigHandler:
-    def __init__(self, config_service, retrieval_service: RetrievalService):
+    def __init__(self, logger, config_service, retrieval_service: RetrievalService):
         """Initialize the LLM config handler with required services
         
         Args:
@@ -20,6 +17,7 @@ class LLMConfigHandler:
         """
         self.consumer = None
         self.running = False
+        self.logger = logger
         self.config_service = config_service
         self.retrieval_service = retrieval_service
         self.processed_messages: Dict[str, List[int]] = {}
@@ -46,9 +44,9 @@ class LLMConfigHandler:
             self.consumer = Consumer(KAFKA_CONFIG)
             # Subscribe to entity-events topic
             self.consumer.subscribe(['entity-events'])
-            logger.info("Successfully subscribed to topic: entity-events")
+            self.logger.info("Successfully subscribed to topic: entity-events")
         except Exception as e:
-            logger.error(f"Failed to create consumer: {e}")
+            self.logger.error(f"Failed to create consumer: {e}")
             raise
 
     def is_message_processed(self, message_id: str) -> bool:
@@ -76,16 +74,16 @@ class LLMConfigHandler:
             bool: True if successful, False otherwise
         """
         try:
-            logger.info("📥 Processing LLM configured event")
+            self.logger.info("📥 Processing LLM configured event")
             credentials_route = payload.get('credentialsRoute')
             
-            await self.retrieval_service.get_llm()
+            await self.retrieval_service.get_llm_instance()
                     
-            logger.info("✅ Successfully updated LLM configuration in all services")
+            self.logger.info("✅ Successfully updated LLM configuration in all services")
             return True
                     
         except Exception as e:
-            logger.error(f"❌ Failed to fetch AI configuration: {str(e)}")
+            self.logger.error(f"❌ Failed to fetch AI configuration: {str(e)}")
             return False
                     
     async def process_message(self, message):
@@ -94,7 +92,7 @@ class LLMConfigHandler:
             message_id = f"{message.topic()}-{message.partition()}-{message.offset()}"
 
             if self.is_message_processed(message_id):
-                logger.info(f"Message {message_id} already processed, skipping")
+                self.logger.info(f"Message {message_id} already processed, skipping")
                 return True
 
             message_value = message.value()
@@ -113,12 +111,12 @@ class LLMConfigHandler:
                         return await self.handle_llm_configured(value['payload'])
                     
                 except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON: {e}")
+                    self.logger.error(f"Failed to parse JSON: {e}")
             
             return False
 
         except Exception as e:
-            logger.error(f"Error processing message: {str(e)}")
+            self.logger.error(f"Error processing message: {str(e)}")
             return False
         finally:
             self.mark_message_processed(message_id)
@@ -126,7 +124,7 @@ class LLMConfigHandler:
     async def consume_messages(self):
         """Main consumption loop."""
         try:
-            logger.info("Starting LLM config consumer loop")
+            self.logger.info("Starting LLM config consumer loop")
             while self.running:
                 try:
                     message = self.consumer.poll(1.0)
@@ -139,7 +137,7 @@ class LLMConfigHandler:
                         if message.error().code() == KafkaError._PARTITION_EOF:
                             continue
                         else:
-                            logger.error(f"Kafka error: {message.error()}")
+                            self.logger.error(f"Kafka error: {message.error()}")
                             continue
 
                     success = await self.process_message(message)
@@ -147,18 +145,18 @@ class LLMConfigHandler:
                         self.consumer.commit(message)
 
                 except asyncio.CancelledError:
-                    logger.info("LLM config consumer task cancelled")
+                    self.logger.info("LLM config consumer task cancelled")
                     break
                 except Exception as e:
-                    logger.error(f"Error processing Kafka message: {e}")
+                    self.logger.error(f"Error processing Kafka message: {e}")
                     await asyncio.sleep(1)
 
         except Exception as e:
-            logger.error(f"Fatal error in consume_messages: {e}")
+            self.logger.error(f"Fatal error in consume_messages: {e}")
         finally:
             if self.consumer:
                 self.consumer.close()
-                logger.info("LLM config consumer closed")
+                self.logger.info("LLM config consumer closed")
 
     async def start(self):
         """Start the consumer."""

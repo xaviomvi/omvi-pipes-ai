@@ -8,13 +8,11 @@ from app.modules.retrieval.retrieval_arango import ArangoService
 from app.config.arangodb_constants import CollectionNames,RecordTypes
 from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig, GeminiLLMConfig, AnthropicLLMConfig, AwsBedrockLLMConfig, LLMFactory
 from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
-from app.utils.logger import create_logger
-
-logger = create_logger(__name__)
 
 class RetrievalService:
     def __init__(
         self,
+        logger,
         config_service,
         collection_name: str,
         qdrant_api_key: str,
@@ -33,6 +31,7 @@ class RetrievalService:
         model_name = "BAAI/bge-large-en-v1.5"
         encode_kwargs = {'normalize_embeddings': True}
         
+        self.logger = logger
         self.config_service = config_service
         self.llm = None
 
@@ -66,9 +65,9 @@ class RetrievalService:
             retrieval_mode=RetrievalMode.HYBRID,
         )
         
-    async def get_llm(self):
+    async def get_llm_instance(self):
         try:
-            logger.info("Getting LLM")
+            self.logger.info("Getting LLM")
             ai_models = await self.config_service.get_config(config_node_constants.AI_MODELS.value)
             llm_configs = ai_models['llm']
             # For now, we'll use the first available provider that matches our supported types
@@ -118,11 +117,11 @@ class RetrievalService:
             if not llm_config:
                 raise ValueError("No supported LLM provider found in configuration")
 
-            self.llm = LLMFactory.create_llm(llm_config)
-            logger.info("LLM created successfully")
+            self.llm = LLMFactory.create_llm(self.logger, llm_config)
+            self.logger.info("LLM created successfully")
             return self.llm        
         except Exception as e:
-            logger.error(f"Error getting LLM: {str(e)}")
+            self.logger.error(f"Error getting LLM: {str(e)}")
             return None
         
     def _preprocess_query(self, query: str) -> str:

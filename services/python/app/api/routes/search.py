@@ -4,14 +4,10 @@ from dependency_injector.wiring import inject
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Optional, Dict, Any, List
 from app.setups.query_setup import AppContainer
-from app.utils.logger import create_logger
 from app.config.configuration_service import ConfigurationService
 from app.modules.retrieval.retrieval_service import RetrievalService
 from app.modules.retrieval.retrieval_arango import ArangoService
 from app.utils.query_transform import setup_query_transformation
-from app.utils.llm import get_llm
-
-logger = create_logger(__name__)
 
 router = APIRouter()
 
@@ -50,13 +46,14 @@ async def get_config_service(request: Request) -> ConfigurationService:
 @inject
 async def search(request: Request, body: SearchQuery, 
                 retrieval_service: RetrievalService = Depends(get_retrieval_service),
-                config_service: ConfigurationService=Depends(get_config_service),
                 arango_service: ArangoService = Depends(get_arango_service)):
     """Perform semantic search across documents"""
     try:       
+        container = request.app.container
+        logger = container.logger()
         llm = retrieval_service.llm
         if llm is None:
-            llm = await retrieval_service.get_llm()
+            llm = await retrieval_service.get_llm_instance()
             if llm is None:
                 raise HTTPException(
                     status_code=500,
@@ -73,8 +70,8 @@ async def search(request: Request, body: SearchQuery,
             expansion_chain.ainvoke(body.query)
         )
         
-        logger.info(f"Rewritten query: {rewritten_query}")
-        logger.info(f"Expanded queries: {expanded_queries}")
+        logger.debug(f"Rewritten query: {rewritten_query}")
+        logger.debug(f"Expanded queries: {expanded_queries}")
         
         expanded_queries_list = [q.strip() for q in expanded_queries.split('\n') if q.strip()]
 

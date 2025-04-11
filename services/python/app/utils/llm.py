@@ -4,7 +4,7 @@ from app.config.configuration_service import config_node_constants
 from app.config.configuration_service import ConfigurationService
 
 
-async def get_llm(config_service: ConfigurationService):
+async def get_llm(logger, config_service: ConfigurationService):
     ai_models = await config_service.get_config(config_node_constants.AI_MODELS.value)
     llm_configs = ai_models['llm']
     # For now, we'll use the first available provider that matches our supported types
@@ -54,6 +54,6 @@ async def get_llm(config_service: ConfigurationService):
     if not llm_config:
         raise ValueError("No supported LLM provider found in configuration")
 
-    llm = LLMFactory.create_llm(llm_config)
+    llm = LLMFactory.create_llm(logger, llm_config)
 
     return llm

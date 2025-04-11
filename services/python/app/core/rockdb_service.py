@@ -1,14 +1,12 @@
 from typing import Dict, List, Optional, Any
 from rocksdict import Rdict, Options
 import json
-from app.utils.logger import create_logger
-
-logger = create_logger(__name__)
 
 class RockDBService:
-    def __init__(self, db_path: str = "data/rockdb"):
+    def __init__(self, logger, db_path: str = "data/rockdb"):
         """Initialize RockDB service with the specified path"""
-        logger.info(f"🗄️ Initializing RockDB at {db_path}")
+        self.logger = logger
+        self.logger.info(f"🗄️ Initializing RockDB at {db_path}")
 
         # Configure RockDB options
         opts = Options()
@@ -21,9 +19,9 @@ class RockDBService:
 
         try:
             self.db = Rdict(path=db_path, options=opts)
-            logger.debug("✅ RockDB initialized successfully")
+            self.logger.debug("✅ RockDB initialized successfully")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize RockDB: {str(e)}")
+            self.logger.error(f"❌ Failed to initialize RockDB: {str(e)}")
             raise
 
     def _make_paragraph_key(self, doc_id: str, para_idx: int) -> bytes:
@@ -47,8 +45,8 @@ class RockDBService:
             paragraphs: List of paragraph dictionaries with content and metadata
             sentences: List of sentence dictionaries with content and metadata
         """
-        logger.info(f"📝 Storing content for document {doc_id}")
-        logger.debug(f"📊 Paragraphs: {
+        self.logger.info(f"📝 Storing content for document {doc_id}")
+        self.logger.debug(f"📊 Paragraphs: {
                      len(paragraphs)}, Sentences: {len(sentences)}")
 
         try:
@@ -60,7 +58,7 @@ class RockDBService:
             for para_idx, para in enumerate(paragraphs):
                 para_key = self._make_paragraph_key(doc_id, para_idx)
                 self.db[para_key] = json.dumps(para)
-                logger.debug(f"📘 Stored paragraph {para_idx}: {
+                self.logger.debug(f"📘 Stored paragraph {para_idx}: {
                              para['content'][:50]}...")
 
             # Store sentences and create mapping
@@ -73,17 +71,17 @@ class RockDBService:
                 if 'block_number' in sent:
                     sent_to_para_mapping[str(sent_idx)] = str(
                         sent['block_number'])
-                logger.debug(f"📜 Stored sentence {sent_idx}: {
+                self.logger.debug(f"📜 Stored sentence {sent_idx}: {
                              sent['content'][:50]}...")
 
             # Store mapping
             mapping_key = self._make_mapping_key(doc_id)
             self.db[mapping_key] = json.dumps(sent_to_para_mapping)
 
-            logger.info(f"✅ Successfully stored document {doc_id} content")
+            self.logger.info(f"✅ Successfully stored document {doc_id} content")
 
         except Exception as e:
-            logger.error(f"❌ Failed to store document content: {str(e)}")
+            self.logger.error(f"❌ Failed to store document content: {str(e)}")
             raise
 
     def get_sentence_with_context(self, doc_id: str, sent_idx: int) -> Dict[str, Any]:
@@ -97,7 +95,7 @@ class RockDBService:
         Returns:
             Dictionary containing sentence and its paragraph context
         """
-        logger.debug(f"🔍 Retrieving sentence {
+        self.logger.debug(f"🔍 Retrieving sentence {
                      sent_idx} from document {doc_id}")
 
         try:
@@ -105,7 +103,7 @@ class RockDBService:
             sent_key = self._make_sentence_key(doc_id, sent_idx)
             sent_data = self.db.get(sent_key)
             if not sent_data:
-                logger.warning(
+                self.logger.warning(
                     f"⚠️ Sentence {sent_idx} not found in document {doc_id}")
                 return None
 
@@ -115,7 +113,7 @@ class RockDBService:
             mapping_key = self._make_mapping_key(doc_id)
             mapping_data = self.db.get(mapping_key)
             if not mapping_data:
-                logger.warning(f"⚠️ Mapping not found for document {doc_id}")
+                self.logger.warning(f"⚠️ Mapping not found for document {doc_id}")
                 return {"sentence": sentence, "paragraph": None}
 
             mapping = json.loads(mapping_data)
@@ -127,7 +125,7 @@ class RockDBService:
                 para_data = self.db.get(para_key)
                 if para_data:
                     paragraph = json.loads(para_data)
-                    logger.debug(f"✅ Retrieved sentence with context")
+                    self.logger.debug(f"✅ Retrieved sentence with context")
                     return {
                         "sentence": sentence,
                         "paragraph": paragraph
@@ -136,7 +134,7 @@ class RockDBService:
             return {"sentence": sentence, "paragraph": None}
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"❌ Failed to retrieve sentence with context: {str(e)}")
             raise
 
@@ -150,7 +148,7 @@ class RockDBService:
         Returns:
             List of dictionaries containing sentences and their paragraph context
         """
-        logger.debug(f"🔍 Retrieving all sentences for document {doc_id}")
+        self.logger.debug(f"🔍 Retrieving all sentences for document {doc_id}")
 
         try:
             sentences_with_context = []
@@ -163,20 +161,20 @@ class RockDBService:
                 if sentence_with_context:
                     sentences_with_context.append(sentence_with_context)
 
-            logger.info(f"✅ Retrieved {
+            self.logger.info(f"✅ Retrieved {
                         len(sentences_with_context)} sentences with context")
             return sentences_with_context
 
         except Exception as e:
-            logger.error(f"❌ Failed to retrieve document sentences: {str(e)}")
+            self.logger.error(f"❌ Failed to retrieve document sentences: {str(e)}")
             raise
 
     def close(self):
         """Close the database connection"""
-        logger.info("🔒 Closing RockDB connection")
+        self.logger.info("🔒 Closing RockDB connection")
         try:
             self.db.close()
-            logger.debug("✅ RockDB connection closed")
+            self.logger.debug("✅ RockDB connection closed")
         except Exception as e:
-            logger.error(f"❌ Failed to close RockDB connection: {str(e)}")
+            self.logger.error(f"❌ Failed to close RockDB connection: {str(e)}")
             raise

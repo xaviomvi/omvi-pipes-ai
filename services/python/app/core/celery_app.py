@@ -1,15 +1,13 @@
 from celery import Celery
 from celery.schedules import crontab
 from typing import Any
-from app.utils.logger import create_logger
 from app.config.configuration_service import ConfigurationService, config_node_constants, CeleryConfig, RedisConfig
-
-logger = create_logger(__name__)
 
 class CeleryApp:
     """Celery application manager"""
 
-    def __init__(self, config_service: ConfigurationService):
+    def __init__(self, logger, config_service: ConfigurationService):
+        self.logger = logger
         self.config_service = config_service
         self.app = Celery('drive_sync')
 
@@ -35,9 +33,9 @@ class CeleryApp:
             }
 
             self.app.conf.update(celery_config)
-            logger.info("Celery app configured successfully")
+            self.logger.info("Celery app configured successfully")
         except Exception as e:
-            logger.error(f"Failed to configure Celery app: {str(e)}")
+            self.logger.error(f"Failed to configure Celery app: {str(e)}")
             raise
 
     async def setup_schedules(self) -> None:
@@ -74,9 +72,9 @@ class CeleryApp:
                     'kwargs': {'action': 'resume'}
                 },
             }
-            logger.info("Celery beat schedules configured successfully")
+            self.logger.info("Celery beat schedules configured successfully")
         except Exception as e:
-            logger.error(f"Failed to setup Celery schedules: {str(e)}")
+            self.logger.error(f"Failed to setup Celery schedules: {str(e)}")
             raise
 
     def get_app(self) -> Celery:

@@ -11,9 +11,6 @@ from jose import jwt
 from app.config.configuration_service import ConfigurationService, config_node_constants, KafkaConfig
 from app.config.arangodb_constants import CollectionNames
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Concurrency control settings
 MAX_CONCURRENT_TASKS = 5  # Maximum number of messages to process concurrently
@@ -34,7 +31,6 @@ async def make_api_call(signed_url_route: str, token: str) -> dict:
     async with aiohttp.ClientSession() as session:
         url = signed_url_route
         
-        logger.debug(f"Making API call to: {url}")
         # Add the JWT to the Authorization header
         headers = {
             'Authorization': f'Bearer {token}',
@@ -52,7 +48,8 @@ async def make_api_call(signed_url_route: str, token: str) -> dict:
                 return {'is_json': False, 'data': data}
 
 class KafkaConsumerManager:
-    def __init__(self, config_service: ConfigurationService, event_processor):
+    def __init__(self, logger, config_service: ConfigurationService, event_processor):
+        self.logger = logger
         self.consumer = None
         self.running = False
         self.event_processor = event_processor
@@ -88,10 +85,10 @@ class KafkaConsumerManager:
 
             self.consumer = Consumer(KAFKA_CONFIG)
             self.consumer.subscribe([KAFKA_TOPIC])
-            logger.info(f"Successfully subscribed to topic: {KAFKA_TOPIC}")
+            self.logger.info(f"Successfully subscribed to topic: {KAFKA_TOPIC}")
         except Exception as e:
-            logger.error(f"Failed to create consumer: {e}")
-            logger.info(
+            self.logger.error(f"Failed to create consumer: {e}")
+            self.logger.info(
                 "Please ensure the topic 'record-events' exists on the Kafka broker")
             raise
 
@@ -104,12 +101,12 @@ class KafkaConsumerManager:
         message_id = f"{topic}-{partition}-{offset}"
         
         try:
-            logger.info(f"Starting to process message: {message_id}")
+            self.logger.info(f"Starting to process message: {message_id}")
             success = await self._process_message(message)
-            logger.info(f"Finished processing message {message_id}: {'Success' if success else 'Failed'}")
+            self.logger.info(f"Finished processing message {message_id}: {'Success' if success else 'Failed'}")
             return success
         except Exception as e:
-            logger.error(f"Error in process_message_wrapper for {message_id}: {e}")
+            self.logger.error(f"Error in process_message_wrapper for {message_id}: {e}")
             return False
         finally:
             # Release the semaphore to allow a new task to start
@@ -122,7 +119,7 @@ class KafkaConsumerManager:
         
         # Check for DUPLICATE processing first
         if self.is_message_processed(topic_partition, offset):
-            logger.info(f"Message {message_id} already processed, skipping")
+            self.logger.info(f"Message {message_id} already processed, skipping")
             return True
             
         try:
@@ -136,17 +133,17 @@ class KafkaConsumerManager:
                 # Handle nested JSON strings
                 if isinstance(data, str):
                     data = json.loads(data)
-                logger.debug(f"Parsed message data: {type(data)}")
+                self.logger.debug(f"Parsed message data: {type(data)}")
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON: {e}")
+                self.logger.error(f"Failed to parse JSON: {e}")
                 return False
 
             event_type = data.get('eventType')
             if not event_type:
-                logger.error(f"Missing event_type for topic: {message.topic()}")
+                self.logger.error(f"Missing event_type for topic: {message.topic()}")
                 return False
 
-            logger.info(f"Processing file record with event type: {event_type}")
+            self.logger.info(f"Processing file record with event type: {event_type}")
             payload_data = data.get('payload')
             
             # Get signed URL from the route
@@ -162,7 +159,7 @@ class KafkaConsumerManager:
 
                     # Make the API call with the token
                     response = await make_api_call(payload_data['signedUrlRoute'], token)
-                    logger.debug(f"Signed URL response received")
+                    self.logger.debug(f"Signed URL response received")
                     
                     if response.get('is_json') is True:
                         response_data = response.get('data')
@@ -176,12 +173,12 @@ class KafkaConsumerManager:
 
                     try:
                         await self.event_processor.on_event(data)
-                        logger.info(f"✅ Successfully processed document for event: {event_type}")
+                        self.logger.info(f"✅ Successfully processed document for event: {event_type}")
                         self.mark_message_processed(topic_partition, offset)
                         return True
                     except IndexingError as e:
                         # Handle indexing-specific errors
-                        logger.error(f"❌ Indexing error: {str(e)}")
+                        self.logger.error(f"❌ Indexing error: {str(e)}")
                         record_id = payload_data.get('recordId')
                         if record_id:
                             await self._update_document_status(
@@ -194,7 +191,7 @@ class KafkaConsumerManager:
                         
                     except Exception as e:
                         # Handle unexpected errors
-                        logger.error(f"❌ Unexpected error: {str(e)}")
+                        self.logger.error(f"❌ Unexpected error: {str(e)}")
                         record_id = payload_data.get('recordId')
                         if record_id:
                             await self._update_document_status(
@@ -206,14 +203,14 @@ class KafkaConsumerManager:
                         return False
                     
                 except Exception as e:
-                    logger.error(f"Error getting signed URL: {str(e)}")
+                    self.logger.error(f"Error getting signed URL: {str(e)}")
                     return False
             else:
-                logger.warning(f"No signedUrlRoute found in payload")
+                self.logger.warning(f"No signedUrlRoute found in payload")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error processing message {message_id}: {e}")
+            self.logger.error(f"Error processing message {message_id}: {e}")
             return False
 
     def is_message_processed(self, topic_partition: str, offset: int) -> bool:
@@ -235,7 +232,7 @@ class KafkaConsumerManager:
         # Check for exceptions in completed tasks
         for task in done_tasks:
             if task.exception():
-                logger.error(f"Task completed with exception: {task.exception()}")
+                self.logger.error(f"Task completed with exception: {task.exception()}")
 
     async def start_processing_task(self, message):
         """Start a new task for processing a message with semaphore control"""
@@ -253,12 +250,12 @@ class KafkaConsumerManager:
         self.cleanup_completed_tasks()
         
         # Log current task count
-        logger.debug(f"Active tasks: {len(self.active_tasks)}/{MAX_CONCURRENT_TASKS}")
+        self.logger.debug(f"Active tasks: {len(self.active_tasks)}/{MAX_CONCURRENT_TASKS}")
 
     async def consume_messages(self):
         """Main consumption loop."""
         try:
-            logger.info("Starting Kafka consumer loop")
+            self.logger.info("Starting Kafka consumer loop")
             while self.running:
                 try:
                     message = self.consumer.poll(0.1)  # Poll with a shorter timeout
@@ -272,29 +269,29 @@ class KafkaConsumerManager:
                         if message.error().code() == KafkaError._PARTITION_EOF:
                             continue
                         else:
-                            logger.error(f"Kafka error: {message.error()}")
+                            self.logger.error(f"Kafka error: {message.error()}")
                             continue
                     
                     # Start processing the message in a new task
                     await self.start_processing_task(message)
                     
                 except asyncio.CancelledError:
-                    logger.info("Kafka consumer task cancelled")
+                    self.logger.info("Kafka consumer task cancelled")
                     break
                 except Exception as e:
-                    logger.error(f"Error in consume_messages loop: {e}")
+                    self.logger.error(f"Error in consume_messages loop: {e}")
                     await asyncio.sleep(1)  # Wait a bit before retrying
         except Exception as e:
-            logger.error(f"Fatal error in consume_messages: {e}")
+            self.logger.error(f"Fatal error in consume_messages: {e}")
         finally:
             # Wait for all active tasks to complete before shutting down
             if self.active_tasks:
-                logger.info(f"Waiting for {len(self.active_tasks)} active tasks to complete...")
+                self.logger.info(f"Waiting for {len(self.active_tasks)} active tasks to complete...")
                 await asyncio.gather(*self.active_tasks, return_exceptions=True)
                 
             if self.consumer:
                 self.consumer.close()
-                logger.info("Kafka consumer closed")
+                self.logger.info("Kafka consumer closed")
 
     async def generate_jwt(self, token_payload: dict) -> str:
         """
@@ -349,7 +346,7 @@ class KafkaConsumerManager:
                 CollectionNames.RECORDS.value
             )
             if not record:
-                logger.error(f"❌ Record {record_id} not found for status update")
+                self.logger.error(f"❌ Record {record_id} not found for status update")
                 return
 
             doc = dict(record)
@@ -368,10 +365,10 @@ class KafkaConsumerManager:
                 docs, 
                 CollectionNames.RECORDS.value
             )
-            logger.info(f"✅ Updated document status for record {record_id}")
+            self.logger.info(f"✅ Updated document status for record {record_id}")
 
         except Exception as e:
-            logger.error(f"❌ Failed to update document status: {str(e)}")
+            self.logger.error(f"❌ Failed to update document status: {str(e)}")
 
 class RateLimiter:
     """Simple rate limiter to control how many tasks start per second"""

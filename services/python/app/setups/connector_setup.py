@@ -10,7 +10,6 @@ from app.connectors.core.kafka_service import KafkaService
 from confluent_kafka import Consumer, KafkaError
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.admin.google_admin_service import GoogleAdminService
-from app.connectors.google.admin.google_admin_service import GoogleAdminService
 from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
 from app.connectors.google.google_drive.core.sync_service import DriveSyncIndividualService, DriveSyncEnterpriseService
 from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
@@ -20,6 +19,10 @@ from app.connectors.google.gmail.handlers.change_handler import GmailChangeHandl
 from app.connectors.google.google_drive.handlers.webhook_handler import IndividualDriveWebhookHandler, EnterpriseDriveWebhookHandler
 from app.connectors.google.gmail.handlers.webhook_handler import IndividualGmailWebhookHandler, EnterpriseGmailWebhookHandler
 from app.connectors.google.helpers.google_token_handler import GoogleTokenHandler
+from app.modules.parsers.google_files.parser_user_service import ParserUserService
+from app.modules.parsers.google_files.google_docs_parser import GoogleDocsParser
+from app.modules.parsers.google_files.google_sheets_parser import GoogleSheetsParser
+from app.modules.parsers.google_files.google_slides_parser import GoogleSlidesParser
 from app.core.signed_url import SignedUrlHandler, SignedUrlConfig
 from app.core.celery_app import CeleryApp
 from app.connectors.google.core.sync_tasks import SyncTasks
@@ -31,15 +34,16 @@ import aiohttp
 from app.utils.logger import create_logger
 from app.connectors.google.admin.admin_webhook_handler import AdminWebhookHandler
 
-logger = create_logger(__name__)
 
 async def initialize_individual_account_services_fn(org_id, container):
     """Initialize services for an individual account type."""
     try:    
+        logger = container.logger()
         # Initialize base services
         container.drive_service.override(
             providers.Singleton(
                 DriveUserService, 
+                logger=logger,
                 config=container.config_service, 
                 rate_limiter=container.rate_limiter, 
                 google_token_handler = await container.google_token_handler())
@@ -50,6 +54,7 @@ async def initialize_individual_account_services_fn(org_id, container):
         container.gmail_service.override(
             providers.Singleton(
                 GmailUserService, 
+                logger=logger,
                 config=container.config_service, 
                 rate_limiter=container.rate_limiter,
                 google_token_handler = await container.google_token_handler())
@@ -61,6 +66,7 @@ async def initialize_individual_account_services_fn(org_id, container):
         container.drive_webhook_handler.override(
             providers.Singleton(
                 IndividualDriveWebhookHandler,
+                logger=logger,
                 config=container.config_service,
                 drive_user_service=container.drive_service(),
                 arango_service=await container.arango_service(),
@@ -73,6 +79,7 @@ async def initialize_individual_account_services_fn(org_id, container):
         container.gmail_webhook_handler.override(
             providers.Singleton(
                 IndividualGmailWebhookHandler,
+                logger=logger,
                 config=container.config_service,
                 gmail_user_service=container.gmail_service(),
                 arango_service=await container.arango_service(),
@@ -86,6 +93,7 @@ async def initialize_individual_account_services_fn(org_id, container):
         container.drive_sync_service.override(
             providers.Singleton(
                 DriveSyncIndividualService,
+                logger=logger,
                 config=container.config_service,
                 drive_user_service= container.drive_service(),
                 arango_service=await container.arango_service(),
@@ -100,10 +108,10 @@ async def initialize_individual_account_services_fn(org_id, container):
         container.gmail_sync_service.override(
             providers.Singleton(
                 GmailSyncIndividualService,
+                logger=logger,
                 config=container.config_service,
                 gmail_user_service= container.gmail_service(),
                 arango_service=await container.arango_service(),
-                change_handler=await container.gmail_change_handler(),
                 kafka_service=container.kafka_service,
                 celery_app=container.celery_app
             )
@@ -114,6 +122,7 @@ async def initialize_individual_account_services_fn(org_id, container):
         container.sync_tasks.override(
             providers.Singleton(
                 SyncTasks,
+                logger=logger,
                 celery_app=container.celery_app,
                 drive_sync_service= container.drive_sync_service(),
                 gmail_sync_service= container.gmail_sync_service(),
@@ -121,6 +130,49 @@ async def initialize_individual_account_services_fn(org_id, container):
         )
         sync_tasks = container.sync_tasks()
         assert isinstance(sync_tasks, SyncTasks)
+        
+        container.parser_user_service.override(
+            providers.Singleton(
+                ParserUserService,
+                logger=logger,
+                config=container.config_service,
+                rate_limiter=container.rate_limiter,
+                google_token_handler=await container.google_token_handler(),
+            )
+        )
+        parser_user_service = container.parser_user_service()
+        assert isinstance(parser_user_service, ParserUserService)
+        
+        container.google_docs_parser.override(
+            providers.Singleton(
+                GoogleDocsParser,
+                logger=logger,
+                user_service = container.parser_user_service(),
+            )
+        )
+        google_docs_parser = container.google_docs_parser()
+        assert isinstance(google_docs_parser, GoogleDocsParser)
+        
+        container.google_sheets_parser.override(
+            providers.Singleton(
+                GoogleSheetsParser,
+                logger=logger,
+                user_service=container.parser_user_service(),
+            )
+        )
+        google_sheets_parser = container.google_sheets_parser()
+        assert isinstance(google_sheets_parser, GoogleSheetsParser)
+        
+        container.google_slides_parser.override(
+            providers.Singleton(
+                GoogleSlidesParser,
+                logger=logger,
+                user_service=container.parser_user_service(),
+            )
+        )
+        google_slides_parser = container.google_slides_parser()
+        assert isinstance(google_slides_parser, GoogleSlidesParser)
+
 
     except Exception as e:
         logger.error(f"❌ Failed to initialize services for individual account: {str(e)}")
@@ -140,10 +192,12 @@ async def initialize_enterprise_account_services_fn(org_id, container):
     """Initialize services for an enterprise account type."""
     
     try:
+        logger = container.logger()
         # Initialize base services
         container.drive_service.override(
             providers.Singleton(
                 GoogleAdminService, 
+                logger=logger,
                 config=container.config_service,
                 rate_limiter=container.rate_limiter,
                 google_token_handler=await container.google_token_handler(),
@@ -153,6 +207,7 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         container.gmail_service.override(
             providers.Singleton(
                 GoogleAdminService, 
+                logger=logger,
                 config=container.config_service,
                 rate_limiter=container.rate_limiter,
                 google_token_handler=await container.google_token_handler(),
@@ -164,6 +219,7 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         container.drive_webhook_handler.override(
             providers.Singleton(
                 EnterpriseDriveWebhookHandler,
+                logger=logger,
                 config=container.config_service,
                 drive_admin_service=container.drive_service(),
                 arango_service=await container.arango_service(),
@@ -176,6 +232,7 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         container.gmail_webhook_handler.override(
             providers.Singleton(
                 EnterpriseGmailWebhookHandler,
+                logger=logger,
                 config=container.config_service,
                 gmail_admin_service=container.gmail_service(),
                 arango_service=await container.arango_service(),
@@ -189,6 +246,7 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         container.drive_sync_service.override(
             providers.Singleton(
                 DriveSyncEnterpriseService,
+                logger=logger,
                 config=container.config_service,
                 drive_admin_service=container.drive_service(),
                 arango_service=await container.arango_service(),
@@ -203,10 +261,10 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         container.gmail_sync_service.override(
             providers.Singleton(
                 GmailSyncEnterpriseService,
+                logger=logger,
                 config=container.config_service,
                 gmail_admin_service=container.gmail_service(),
                 arango_service=await container.arango_service(),
-                change_handler=await container.gmail_change_handler(),
                 kafka_service=container.kafka_service,
                 celery_app=container.celery_app
             )
@@ -217,6 +275,7 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         container.sync_tasks.override(
             providers.Singleton(
                 SyncTasks,
+                logger=logger,
                 celery_app=container.celery_app,
                 drive_sync_service=container.drive_sync_service(),
                 gmail_sync_service=container.gmail_sync_service(),
@@ -228,6 +287,7 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         container.google_admin_service.override(
             providers.Singleton(
                 GoogleAdminService,
+                logger=logger,
                 config=container.config_service,
                 rate_limiter=container.rate_limiter,
                 google_token_handler=await container.google_token_handler(),
@@ -243,11 +303,42 @@ async def initialize_enterprise_account_services_fn(org_id, container):
         container.admin_webhook_handler.override(
             providers.Singleton(
                 AdminWebhookHandler,
+                logger=logger,
                 admin_service=google_admin_service
             )
         )
         admin_webhook_handler = container.admin_webhook_handler()
         assert isinstance(admin_webhook_handler, AdminWebhookHandler)
+        
+        container.google_docs_parser.override(
+            providers.Singleton(
+                GoogleDocsParser,
+                logger=logger,
+                admin_service=container.google_admin_service(),
+            )
+        )
+        google_docs_parser = container.google_docs_parser()
+        assert isinstance(google_docs_parser, GoogleDocsParser)
+        
+        container.google_sheets_parser.override(
+            providers.Singleton(
+                GoogleSheetsParser,
+                logger=logger,
+                admin_service=container.google_admin_service(),
+            )
+        )
+        google_sheets_parser = container.google_sheets_parser()
+        assert isinstance(google_sheets_parser, GoogleSheetsParser)
+        
+        container.google_slides_parser.override(
+            providers.Singleton(
+                GoogleSlidesParser,
+                logger=logger,
+                admin_service=container.google_admin_service(),
+            )
+        )
+        google_slides_parser = container.google_slides_parser()
+        assert isinstance(google_slides_parser, GoogleSlidesParser)
         
     except Exception as e:
         logger.error(f"❌ Failed to initialize services for enterprise account: {str(e)}")
@@ -265,13 +356,18 @@ async def initialize_enterprise_account_services_fn(org_id, container):
 
 class AppContainer(containers.DeclarativeContainer):
     """Dependency injection container for the application."""
+    
+    # Initialize logger correctly as a singleton provider
+    logger = providers.Singleton(create_logger, "Python Connector Service")
+    
     # Log when container is initialized
-    logger.info("🚀 Initializing AppContainer")
-    logger.info("🔧 Environment: dev")
+    logger().info("🚀 Initializing AppContainer")
+    logger().info("🔧 Environment: dev")
     
     # Core services that don't depend on account type
     config_service = providers.Singleton(
-        ConfigurationService
+        ConfigurationService,
+        logger=logger
     )
 
     async def _create_arango_client(config_service):
@@ -294,10 +390,11 @@ class AppContainer(containers.DeclarativeContainer):
 
     # Core Services
     rate_limiter = providers.Singleton(GoogleAPIRateLimiter)
-    kafka_service = providers.Singleton(KafkaService, config=config_service)
+    kafka_service = providers.Singleton(KafkaService, logger=logger, config=config_service)
     
     arango_service = providers.Singleton(
         ArangoService,
+        logger=logger,
         arango_client=arango_client,
         kafka_service=kafka_service,
         config=config_service,
@@ -305,6 +402,7 @@ class AppContainer(containers.DeclarativeContainer):
     
     google_token_handler = providers.Singleton(
         GoogleTokenHandler,
+        logger=logger,
         config_service=config_service,
         arango_service=arango_service,
     )
@@ -312,12 +410,14 @@ class AppContainer(containers.DeclarativeContainer):
     # Change Handlers 
     drive_change_handler = providers.Singleton(
         DriveChangeHandler,
+        logger=logger,
         config_service=config_service,
         arango_service=arango_service,
     )
 
     gmail_change_handler = providers.Singleton(
         GmailChangeHandler,
+        logger=logger,
         config_service=config_service,
         arango_service=arango_service,
     )
@@ -325,7 +425,8 @@ class AppContainer(containers.DeclarativeContainer):
     # Celery and Tasks
     celery_app = providers.Singleton(
         CeleryApp,
-        config_service
+        logger=logger,
+        config_service=config_service
     )
 
     # Signed URL Handler
@@ -335,6 +436,7 @@ class AppContainer(containers.DeclarativeContainer):
     )
     signed_url_handler = providers.Singleton(
         SignedUrlHandler,
+        logger=logger,
         config=signed_url_config,
         configuration_service=config_service
     )
@@ -351,7 +453,11 @@ class AppContainer(containers.DeclarativeContainer):
     sync_tasks = providers.Dependency()
     google_admin_service = providers.Dependency()
     admin_webhook_handler = providers.Dependency()
-
+    
+    google_docs_parser = providers.Dependency()
+    google_sheets_parser = providers.Dependency()
+    google_slides_parser = providers.Dependency()
+    parser_user_service = providers.Dependency()
     # Wire everything up
     wiring_config = containers.WiringConfiguration(
         modules=[
@@ -363,8 +469,9 @@ class AppContainer(containers.DeclarativeContainer):
         ]
     )
 
-async def health_check_etcd():
+async def health_check_etcd(container):
     """Check the health of etcd via HTTP request."""
+    logger = container.logger()
     logger.info("🔍 Starting etcd health check...")
     try:
         etcd_url = os.getenv("ETCD_URL")
@@ -397,6 +504,7 @@ async def health_check_etcd():
 
 async def health_check_arango(container):
     """Check the health of ArangoDB using ArangoClient."""
+    logger = container.logger()
     logger.info("🔍 Starting ArangoDB health check...")
     try:
         # Get the config_service instance first, then call get_config
@@ -426,6 +534,7 @@ async def health_check_arango(container):
 
 async def health_check_kafka(container):
     """Check the health of Kafka by attempting to create a connection."""
+    logger = container.logger()
     logger.info("🔍 Starting Kafka health check...")
     try:
         kafka_config = await container.config_service().get_config(config_node_constants.KAFKA.value)
@@ -463,6 +572,7 @@ async def health_check_kafka(container):
 
 async def health_check_redis(container):
     """Check the health of Redis by attempting to connect and ping."""
+    logger = container.logger()
     logger.info("🔍 Starting Redis health check...")
     try:
         config_service = container.config_service()
@@ -489,6 +599,7 @@ async def health_check_redis(container):
 
 async def health_check_qdrant(container):
     """Check the health of Qdrant via HTTP request."""
+    logger = container.logger()
     logger.info("🔍 Starting Qdrant health check...")
     try:
         qdrant_config = await container.config_service().get_config(config_node_constants.QDRANT.value)
@@ -500,7 +611,7 @@ async def health_check_qdrant(container):
         logger.debug(f"Checking Qdrant health at endpoint: {host}:{port}")
         try:
             # Fetch collections to check connectivity
-            client.get_collections()
+            collections = client.get_collections()
             logger.info("Qdrant is healthy!")
         except Exception as e:
             error_msg = f"Qdrant health check failed: {str(e)}"
@@ -513,10 +624,11 @@ async def health_check_qdrant(container):
 
 async def health_check(container):
     """Run health checks sequentially using HTTP requests."""
+    logger = container.logger()
     logger.info("🏥 Starting health checks for all services...")
     try:
         # Run health checks sequentially
-        await health_check_etcd()
+        await health_check_etcd(container)
         logger.info("✅ etcd health check completed")
         
         await health_check_arango(container)
@@ -538,6 +650,9 @@ async def health_check(container):
 
 async def initialize_container(container) -> bool:
     """Initialize container resources with health checks."""
+        
+    logger = container.logger()
+    
     logger.info("🚀 Initializing application resources")
     try:
         logger.info("Running health checks for all services...")

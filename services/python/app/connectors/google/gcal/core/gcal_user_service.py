@@ -10,18 +10,16 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from app.config.configuration_service import ConfigurationService
-from app.utils.logger import create_logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 
-logger = create_logger(__name__)
 
 class GCalUserService:
     """GCalUserService class for interacting with Google Calendar API"""
 
-    def __init__(self, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter, credentials=None):
-        logger.info("🚀 Initializing GCalUserService")
+    def __init__(self, logger, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter, credentials=None):
+        self.logger = logger
         self.config_service = config
         self.service = None
         self.credentials = credentials
@@ -49,29 +47,29 @@ class GCalUserService:
                     pickle.dump(creds, token)
 
             self.service = build('calendar', 'v3', credentials=creds)
-            logger.info("✅ GCalUserService connected successfully")
+            self.logger.info("✅ GCalUserService connected successfully")
             return True
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Failed to connect to Individual Calendar Service: %s", str(e))
             return False
 
     async def connect_enterprise_user(self) -> bool:
         """Connect using OAuth2 credentials for enterprise user"""
         try:
-            logger.info("🚀 Connecting to Enterprise Calendar Service")
+            self.logger.info("🚀 Connecting to Enterprise Calendar Service")
             self.service = build(
                 'calendar',
                 'v3',
                 credentials=self.credentials,
                 cache_discovery=False
             )
-            logger.info("✅ GCalUserService connected successfully")
+            self.logger.info("✅ GCalUserService connected successfully")
             return True
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Failed to connect to Enterprise Calendar Service: %s", str(e))
             return False
 
@@ -79,7 +77,7 @@ class GCalUserService:
     async def list_calendars(self) -> List[Dict]:
         """List all calendars for the user"""
         try:
-            logger.info("🚀 Listing calendars")
+            self.logger.info("🚀 Listing calendars")
             calendars = []
             page_token = None
 
@@ -104,18 +102,18 @@ class GCalUserService:
                     if not page_token:
                         break
 
-            logger.info("✅ Found %s calendars", len(calendars))
+            self.logger.info("✅ Found %s calendars", len(calendars))
             return calendars
 
         except Exception as e:
-            logger.error("❌ Failed to list calendars: %s", str(e))
+            self.logger.error("❌ Failed to list calendars: %s", str(e))
             return []
 
     @exponential_backoff()
     async def list_events(self, calendar_id: str = 'primary') -> List[Dict]:
         """List all events in a calendar"""
         try:
-            logger.info(f"🚀 Listing events for calendar: {calendar_id}")
+            self.logger.info(f"🚀 Listing events for calendar: {calendar_id}")
             events = []
             page_token = None
             time_min = datetime.now(timezone.utc).isoformat()
@@ -151,18 +149,18 @@ class GCalUserService:
                     if not page_token:
                         break
 
-            logger.info("✅ Found %s events", len(events))
+            self.logger.info("✅ Found %s events", len(events))
             return events
 
         except Exception as e:
-            logger.error("❌ Failed to list events: %s", str(e))
+            self.logger.error("❌ Failed to list events: %s", str(e))
             return []
 
     @exponential_backoff()
     async def get_freebusy(self, calendar_ids: List[str], time_min: datetime, time_max: datetime) -> Dict:
         """Get free/busy information for calendars in a given time range"""
         try:
-            logger.info("🚀 Getting freebusy information")
+            self.logger.info("🚀 Getting freebusy information")
             async with self.google_limiter:
                 body = {
                     "timeMin": time_min.isoformat(),
@@ -182,23 +180,23 @@ class GCalUserService:
                         } for busy in busy_info.get('busy', [])]
                     }
 
-                logger.info("✅ Freebusy information fetched successfully")
+                self.logger.info("✅ Freebusy information fetched successfully")
                 return calendars
 
         except Exception as e:
-            logger.error("❌ Failed to get freebusy information: %s", str(e))
+            self.logger.error("❌ Failed to get freebusy information: %s", str(e))
             return {}
 
     async def disconnect(self):
         """Disconnect and cleanup Calendar service"""
         try:
-            logger.info("🔄 Disconnecting Calendar service")
+            self.logger.info("🔄 Disconnecting Calendar service")
             if self.service:
                 self.service.close()
                 self.service = None
             self.credentials = None
-            logger.info("✅ Calendar service disconnected successfully")
+            self.logger.info("✅ Calendar service disconnected successfully")
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to disconnect Calendar service: {str(e)}")
+            self.logger.error(f"❌ Failed to disconnect Calendar service: {str(e)}")
             return False

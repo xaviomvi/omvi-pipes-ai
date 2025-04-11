@@ -3,7 +3,6 @@
 # pylint: disable=E1101, W0718
 from arango import ArangoClient
 from app.config.configuration_service import ConfigurationService
-from app.utils.logger import create_logger
 from app.config.arangodb_constants import CollectionNames
 from app.config.configuration_service import config_node_constants
 import uuid
@@ -28,13 +27,11 @@ from app.schema.arango.edges import (
     basic_edge_schema
 )
 
-logger = create_logger(__name__)
-
 class BaseArangoService():
     """Base ArangoDB service class for interacting with the database"""
 
-    def __init__(self, arango_client: ArangoClient, config: ConfigurationService):
-        logger.info("🚀 Initializing ArangoService")
+    def __init__(self, logger, arango_client: ArangoClient, config: ConfigurationService):
+        self.logger = logger
         self.config_service = config
         self.client = arango_client
         self.db = None
@@ -99,7 +96,7 @@ class BaseArangoService():
     async def connect(self) -> bool:
         """Connect to ArangoDB and initialize collections"""
         try:
-            logger.info("🚀 Connecting to ArangoDB...")
+            self.logger.info("🚀 Connecting to ArangoDB...")
             arangodb_config = await self.config_service.get_config(config_node_constants.ARANGODB.value)
             arango_url = arangodb_config['url']
             arango_user = arangodb_config['username']
@@ -112,40 +109,40 @@ class BaseArangoService():
                 return False
 
             # Connect to system db to ensure our db exists
-            logger.debug("Connecting to system db")
+            self.logger.debug("Connecting to system db")
             sys_db = self.client.db(
                 '_system',
                 username=arango_user,
                 password=arango_password,
                 verify=True
             )
-            logger.debug("System DB: %s", sys_db)
+            self.logger.debug("System DB: %s", sys_db)
 
             # Check if database exists, but don't try to create if it does
-            logger.debug("Checking if our database exists")
+            self.logger.debug("Checking if our database exists")
             if not sys_db.has_database(arango_db):
                 try:
-                    logger.info(
+                    self.logger.info(
                         "🚀 Database %s does not exist. Creating...",
                         arango_db
                     )
                     sys_db.create_database(arango_db)
-                    logger.info("✅ Database created successfully")
+                    self.logger.info("✅ Database created successfully")
                 except Exception as e:
                     # If database creation fails but database exists, we can continue
                     if "duplicate database name" not in str(e):
                         raise
-                    logger.warning("Database already exists, continuing with connection")
+                    self.logger.warning("Database already exists, continuing with connection")
 
             # Connect to our database
-            logger.debug("Connecting to our database")
+            self.logger.debug("Connecting to our database")
             self.db = self.client.db(
                 arango_db,
                 username=arango_user,
                 password=arango_password,
                 verify=True
             )
-            logger.debug("Our DB: %s", self.db)
+            self.logger.debug("Our DB: %s", self.db)
 
             # Initialize collections
             try:
@@ -335,7 +332,7 @@ class BaseArangoService():
 
                 # Create the permissions graph
                 if not self.db.has_graph(CollectionNames.FILE_ACCESS_GRAPH.value):
-                    logger.info("🚀 Creating file access graph...")
+                    self.logger.info("🚀 Creating file access graph...")
                     graph = self.db.create_graph(CollectionNames.FILE_ACCESS_GRAPH.value)
 
                     # Define edge definitions for permissions and group membership
@@ -382,9 +379,9 @@ class BaseArangoService():
                         to_vertex_collections=[CollectionNames.FILES.value]
                     )
 
-                    logger.info("✅ File access graph created successfully")
+                    self.logger.info("✅ File access graph created successfully")
 
-                logger.info("✅ Collections initialized successfully")
+                self.logger.info("✅ Collections initialized successfully")
 
                 # Initialize departments collection with predefined department types
                 departments = [
@@ -407,18 +404,18 @@ class BaseArangoService():
                 ]
                 
                 if new_departments:
-                    logger.info(f"🚀 Inserting {len(new_departments)} departments")
+                    self.logger.info(f"🚀 Inserting {len(new_departments)} departments")
                     self._collections[CollectionNames.DEPARTMENTS.value].insert_many(new_departments)
-                    logger.info("✅ Departments initialized successfully")
+                    self.logger.info("✅ Departments initialized successfully")
                     
                 return True
 
             except Exception as e:
-                logger.error("❌ Error initializing collections: %s", str(e))
+                self.logger.error("❌ Error initializing collections: %s", str(e))
                 raise
 
         except Exception as e:
-            logger.error("❌ Failed to connect to ArangoDB: %s", str(e))
+            self.logger.error("❌ Failed to connect to ArangoDB: %s", str(e))
             self.client = None
             self.db = None
             # Reset collections
@@ -429,12 +426,12 @@ class BaseArangoService():
     async def disconnect(self):
         """Disconnect from ArangoDB"""
         try:
-            logger.info("🚀 Disconnecting from ArangoDB")
+            self.logger.info("🚀 Disconnecting from ArangoDB")
             if self.client:
                 self.client.close()
-            logger.info("✅ Disconnected from ArangoDB successfully")
+            self.logger.info("✅ Disconnected from ArangoDB successfully")
         except Exception as e:
-            logger.error("❌ Failed to disconnect from ArangoDB: %s", str(e))
+            self.logger.error("❌ Failed to disconnect from ArangoDB: %s", str(e))
             return False
 
     async def get_org_apps(self, org_id: str) -> list:
@@ -450,7 +447,7 @@ class BaseArangoService():
             cursor = self.db.aql.execute(query)
             return list(cursor)
         except Exception as e:
-            logger.error(f"Failed to get org apps: {str(e)}")
+            self.logger.error(f"Failed to get org apps: {str(e)}")
             raise
 
     async def get_user_apps(self, user_id: str) -> list:
@@ -465,7 +462,7 @@ class BaseArangoService():
             cursor = self.db.aql.execute(query)
             return list(cursor)
         except Exception as e:
-            logger.error(f"Failed to get user apps: {str(e)}")
+            self.logger.error(f"Failed to get user apps: {str(e)}")
             raise
 
     async def get_all_orgs(self, active: bool = True) -> list:
@@ -484,5 +481,5 @@ class BaseArangoService():
             cursor = self.db.aql.execute(query, bind_vars=bind_vars)
             return list(cursor)
         except Exception as e:
-            logger.error(f"Failed to get organizations: {str(e)}")
+            self.logger.error(f"Failed to get organizations: {str(e)}")
             raise

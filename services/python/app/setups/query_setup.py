@@ -8,16 +8,18 @@ from app.utils.logger import create_logger
 from app.modules.reranker.reranker import RerankerService
 from app.services.llm_config_handler import LLMConfigHandler
 
-logger = create_logger(__name__)
 
 class AppContainer(containers.DeclarativeContainer):
     """Dependency injection container for the application."""
     # Log when container is initialized
-    logger.info("🚀 Initializing AppContainer")
+    logger = providers.Singleton(create_logger, "Python Query Service")
+    
+    logger().info("🚀 Initializing AppContainer")
 
     # Initialize ConfigurationService first
     config_service = providers.Singleton(
-        ConfigurationService
+        ConfigurationService,
+        logger=logger
     )
     
     async def _fetch_arango_host(config_service):
@@ -34,14 +36,15 @@ class AppContainer(containers.DeclarativeContainer):
         _create_arango_client, config_service=config_service)
 
     # First create an async factory for the connected ArangoService
-    async def _create_arango_service(arango_client, config):
+    async def _create_arango_service(logger, arango_client, config):
         """Async factory to create and connect ArangoService"""
-        service = ArangoService(arango_client, config)
+        service = ArangoService(logger, arango_client, config)
         await service.connect()
         return service
 
     arango_service = providers.Resource(
         _create_arango_service,
+        logger=logger,
         arango_client=arango_client,
         config=config_service
     )
@@ -63,9 +66,10 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     # Vector search service
-    async def _create_retrieval_service(config_service, config):
+    async def _create_retrieval_service(config_service, config, logger):
         """Async factory for RetrievalService"""
         service = RetrievalService(
+            logger=logger,
             config_service=config_service,
             collection_name=config['collectionName'],
             qdrant_api_key=config['apiKey'],
@@ -77,11 +81,13 @@ class AppContainer(containers.DeclarativeContainer):
     retrieval_service = providers.Resource(
         _create_retrieval_service,
         config_service=config_service,
-        config=qdrant_config
+        config=qdrant_config,
+        logger=logger
     )
     
     llm_config_handler = providers.Singleton(
         LLMConfigHandler,
+        logger=logger,
         config_service=config_service,
         retrieval_service=retrieval_service
     )

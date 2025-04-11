@@ -12,7 +12,6 @@ from typing import Dict, List
 from googleapiclient.discovery import build
 import google.oauth2.credentials
 from app.config.configuration_service import ConfigurationService
-from app.utils.logger import create_logger
 from app.connectors.utils.decorators import exponential_backoff, token_refresh
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.gmail.core.gmail_drive_interface import GmailDriveInterface
@@ -24,20 +23,20 @@ from app.exceptions.connector_google_exceptions import (
 )
 from googleapiclient.errors import HttpError
 
-logger = create_logger(__name__)
-
 class GmailUserService:
     """GmailUserService class for interacting with Google Gmail API"""
 
-    def __init__(self, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter, google_token_handler, credentials=None, admin_service=None):
+    def __init__(self, logger, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter, google_token_handler, credentials=None, admin_service=None):
         """Initialize GmailUserService"""
         try:
-            logger.info("🚀 Initializing GmailUserService")
+            self.logger = logger
+            self.logger.info("🚀 Initializing GmailUserService")
             self.config_service = config
             self.service = None
             self.credentials = credentials
             self.google_token_handler = google_token_handler
             self.gmail_drive_interface = GmailDriveInterface(
+                logger=self.logger,
                 config=self.config_service,
                 google_token_handler=self.google_token_handler,
                 rate_limiter=rate_limiter,
@@ -53,7 +52,7 @@ class GmailUserService:
             self.user_id = None
         except Exception as e:
             raise GoogleMailError(
-                "Failed to initialize Gmail service",
+                "Failed to initialize Gmail service: " + str(e),
                 details={"error": str(e)}
             )
 
@@ -112,7 +111,7 @@ class GmailUserService:
                     creds_data.get('access_token_expiry_time', 0) / 1000,
                     tz=timezone.utc
                 )
-                logger.info("✅ Token expiry time: %s", self.token_expiry)
+                self.logger.info("✅ Token expiry time: %s", self.token_expiry)
             except Exception as e:
                 raise GoogleAuthError(
                     "Failed to set token expiry: " + str(e),
@@ -136,7 +135,7 @@ class GmailUserService:
                     }
                 )
 
-            logger.info("✅ GmailUserService connected successfully")
+            self.logger.info("✅ GmailUserService connected successfully")
             return True
 
         except (GoogleAuthError, MailOperationError):
@@ -154,16 +153,16 @@ class GmailUserService:
     async def _check_and_refresh_token(self):
         """Check token expiry and refresh if needed"""
         if not self.token_expiry:
-            # logger.warning("⚠️ Token expiry time not set.")
+            # self.logger.warning("⚠️ Token expiry time not set.")
             return
         
         if not self.org_id or not self.user_id:
-            logger.warning("⚠️ Org ID or User ID not set yet.")
+            self.logger.warning("⚠️ Org ID or User ID not set yet.")
             return
         
         now = datetime.now(timezone.utc)
         time_until_refresh = self.token_expiry - now - timedelta(minutes=20)
-        logger.info(f"Time until refresh: {time_until_refresh.total_seconds()} seconds")
+        self.logger.info(f"Time until refresh: {time_until_refresh.total_seconds()} seconds")
         
         if time_until_refresh.total_seconds() <= 0:
             await self.google_token_handler.refresh_token(self.org_id, self.user_id)
@@ -187,7 +186,7 @@ class GmailUserService:
                 tz=timezone.utc
             )
 
-            logger.info("✅ Token refreshed, new expiry: %s", self.token_expiry)
+            self.logger.info("✅ Token refreshed, new expiry: %s", self.token_expiry)
 
     async def connect_enterprise_user(self) -> bool:
         """Connect using OAuth2 credentials for enterprise user"""
@@ -210,7 +209,7 @@ class GmailUserService:
                     details={"error": str(e)}
                 )
 
-            logger.info("✅ GmailUserService connected successfully")
+            self.logger.info("✅ GmailUserService connected successfully")
             return True
 
         except (GoogleAuthError, MailOperationError):
@@ -224,7 +223,7 @@ class GmailUserService:
     async def disconnect(self):
         """Disconnect and cleanup Gmail service"""
         try:
-            logger.info("🔄 Disconnecting Gmail service")
+            self.logger.info("🔄 Disconnecting Gmail service")
 
             try:
                 if self.service:
@@ -239,7 +238,7 @@ class GmailUserService:
             # Clear credentials
             self.credentials = None
 
-            logger.info("✅ Gmail service disconnected successfully")
+            self.logger.info("✅ Gmail service disconnected successfully")
             return True
         except MailOperationError:
             raise
@@ -254,7 +253,7 @@ class GmailUserService:
     async def list_individual_user(self, org_id: str) -> List[Dict]:
         """Get individual user info"""
         try:
-            logger.info("🚀 Getting individual user info")
+            self.logger.info("🚀 Getting individual user info")
             try:
                 async with self.google_limiter:
                     user = self.service.users().getProfile(
@@ -277,7 +276,7 @@ class GmailUserService:
                     }
                 )
 
-            logger.info("✅ Individual user info fetched successfully")
+            self.logger.info("✅ Individual user info fetched successfully")
             
             try:
                 return [{
@@ -320,7 +319,7 @@ class GmailUserService:
     async def list_messages(self, query: str = 'newer_than:180d') -> List[Dict]:
         """Get list of messages"""
         try:
-            logger.info("🚀 Getting list of messages")
+            self.logger.info("🚀 Getting list of messages")
             messages = []
             page_token = None
 
@@ -365,7 +364,7 @@ class GmailUserService:
                 if not page_token:
                     break
 
-            logger.info("✅ Found %s messages", len(messages))
+            self.logger.info("✅ Found %s messages", len(messages))
             return messages
 
         except (GoogleAuthError, MailOperationError):
@@ -417,7 +416,7 @@ class GmailUserService:
                         decoded_content = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
                         return decoded_content
                     except Exception as e:
-                        logger.error(f"❌ Error decoding content: {str(e)}")
+                        self.logger.error(f"❌ Error decoding content: {str(e)}")
                         return ''
 
             return ''
@@ -476,7 +475,7 @@ class GmailUserService:
                     }
                 )
 
-            logger.info("✅ Successfully retrieved message %s", message.get('id'))
+            self.logger.info("✅ Successfully retrieved message %s", message.get('id'))
             return message
 
         except (GoogleAuthError, MailOperationError):
@@ -495,7 +494,7 @@ class GmailUserService:
     async def list_threads(self, query: str = 'newer_than:180d') -> List[Dict]:
         """Get list of unique threads"""
         try:
-            logger.info("🚀 Getting list of threads")
+            self.logger.info("🚀 Getting list of threads")
             threads = []
             page_token = None
 
@@ -540,7 +539,7 @@ class GmailUserService:
                 if not page_token:
                     break
 
-            logger.info("✅ Found %s threads", len(threads))
+            self.logger.info("✅ Found %s threads", len(threads))
             return threads
 
         except (GoogleAuthError, MailOperationError):
@@ -571,8 +570,8 @@ class GmailUserService:
             attachments = []
             failed_items = []
 
-            logger.info(f"🎯 Processing attachments for message: {message['id']}")
-            logger.info(f"🎯 Message: {message}")
+            self.logger.info(f"🎯 Processing attachments for message: {message['id']}")
+            self.logger.info(f"🎯 Message: {message}")
 
             # Process regular attachments
             if 'payload' in message and 'parts' in message['payload']:
@@ -599,7 +598,7 @@ class GmailUserService:
 
             # Process Drive attachments
             try:
-                logger.info(f"🎯 Processing Drive attachments for message: {message['id']}")
+                self.logger.info(f"🎯 Processing Drive attachments for message: {message['id']}")
                 
                 file_ids = await self.get_file_ids(message)
                 if file_ids:
@@ -629,7 +628,7 @@ class GmailUserService:
                                 'error': str(e)
                             })
             except Exception as e:
-                logger.error("Failed to process Drive attachments: %s", str(e))
+                self.logger.error("Failed to process Drive attachments: %s", str(e))
 
             if failed_items:
                 raise BatchOperationError(
@@ -641,7 +640,7 @@ class GmailUserService:
                     }
                 )
 
-            logger.info("✅ Found %s attachments", len(attachments))
+            self.logger.info("✅ Found %s attachments", len(attachments))
             return attachments
 
         except BatchOperationError:
@@ -670,7 +669,7 @@ class GmailUserService:
                         unencoded_data
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to decode content: {str(e)}")
+                    self.logger.warning(f"Failed to decode content: {str(e)}")
                     return []
 
             def process_part(part):
@@ -705,7 +704,7 @@ class GmailUserService:
             return list(dict.fromkeys(all_file_ids))
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Failed to get file ids for message %s: %s", 
                 message.get('id', 'unknown'), 
                 str(e)
@@ -717,9 +716,8 @@ class GmailUserService:
     async def create_gmail_user_watch(self, user_id="me") -> Dict:
         """Create user watch"""
         try:
-            logger.info("🚀 Creating user watch for user %s", user_id)
-            # topic = await self.config.get_config('google/auth/gmail_pub_topic')
-            topic = "projects/enterprise-search-456115/topics/enterprise-search-pub-sub"
+            self.logger.info("🚀 Creating user watch for user %s", user_id)
+            topic = "projects/agile-seeker-447812-p3/topics/gmail-connector"
 
             try:
                 async with self.google_limiter:
@@ -766,7 +764,7 @@ class GmailUserService:
                     }
                 )
 
-            logger.info("✅ User watch created successfully for %s", user_id)
+            self.logger.info("✅ User watch created successfully for %s", user_id)
             return response
 
         except (GoogleAuthError, MailOperationError):
@@ -785,7 +783,7 @@ class GmailUserService:
     async def fetch_gmail_changes(self, user_email: str, history_id: str) -> Dict:
         """Fetches new emails using Gmail API's history endpoint"""
         try:
-            logger.info("🚀 Fetching changes in user mail")
+            self.logger.info("🚀 Fetching changes in user mail")
             
             if not history_id:
                 raise MailOperationError(
@@ -853,8 +851,8 @@ class GmailUserService:
                     combined_response['history'] = []
                 combined_response['history'].extend(sent_response.get('history', []))
 
-            logger.info("✅ Fetched changes successfully for user %s", user_email)
-            logger.info(f"Combined response: {combined_response}")
+            self.logger.info("✅ Fetched changes successfully for user %s", user_email)
+            self.logger.info(f"Combined response: {combined_response}")
             return combined_response
 
         except (GoogleAuthError, MailOperationError):

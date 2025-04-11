@@ -1,4 +1,3 @@
-from app.utils.logger import create_logger
 from app.setups.connector_setup import AppContainer, initialize_container, initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
 from app.connectors.api.router import router
 from app.connectors.core.kafka_consumer import KafkaRouteConsumer
@@ -13,17 +12,12 @@ from app.config.arangodb_constants import Connectors
 from datetime import datetime, timezone, timedelta
 from app.api.middlewares.auth import authMiddleware
 
-
-logger = create_logger(__name__)
-
 container = AppContainer()
 
 async def get_initialized_container() -> AppContainer:
     """Dependency provider for initialized container"""
-    logger.debug("🔄 Getting initialized container")
     # Create container instance
     if not hasattr(get_initialized_container, 'initialized'):
-        logger.debug("🔧 First-time container initialization")
         await initialize_container(container)
         # Wire the container after initialization
         container.wire(modules=[
@@ -34,11 +28,11 @@ async def get_initialized_container() -> AppContainer:
             "app.core.signed_url"
         ])
         get_initialized_container.initialized = True
-        logger.debug("✅ Container initialization complete")
     return container
 
 async def resume_sync_services(app_container: AppContainer) -> None:
     """Resume sync services for users with active sync states"""
+    logger = app_container.logger()
     logger.debug("🔄 Checking for sync services to resume")
 
     try:
@@ -80,7 +74,6 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             logger.info("Found %d users for organization %s", len(users), org_id)
             
             enabled_apps = await arango_service.get_org_apps(org_id)
-            logger.info(f"Enabled Apps: {enabled_apps}")
             
             for app in enabled_apps:
                 if app['name'] == Connectors.GOOGLE_CALENDAR.value:
@@ -176,12 +169,13 @@ async def resume_sync_services(app_container: AppContainer) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Lifespan context manager for FastAPI"""
-    logger.debug("🚀 Starting application")
-    
+    """Lifespan context manager for FastAPI"""    
     # Initialize container
     app_container = await get_initialized_container()
     app.container = app_container
+        
+    logger = app_container.logger()
+    logger.debug("🚀 Starting application")
     
     # Define the routes that Kafka consumer should handle
     kafka_routes = [
@@ -199,6 +193,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Kafka Consumer - pass the app_container
     kafka_consumer = KafkaRouteConsumer(
+        logger=logger,
         config_service= app.container.config_service(),
         arango_service=await app.container.arango_service(),
         routes=kafka_routes,  # Pass the list of route patterns
@@ -213,7 +208,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     consume_task = asyncio.create_task(consumer.consume_messages())
     
     # Resume sync services
-    logger.debug(f"App Container: {app.container}")
     await resume_sync_services(app.container)
         
     yield
@@ -253,6 +247,7 @@ INCLUDE_PATHS = ["/api/v1/stream/record/"]
 
 @app.middleware("http")
 async def authenticate_requests(request: Request, call_next):
+    logger = app.container.logger()
     logger.info(f"Middleware request: {request.url.path}")
     # Apply middleware only to specific paths
     if not any(request.url.path.startswith(path) for path in INCLUDE_PATHS):
@@ -306,6 +301,7 @@ app.include_router(router)
 # Global error handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    logger = app.container.logger()
     logger.error("Global error: %s", str(exc), exc_info=True)
     return JSONResponse(
         status_code=500,

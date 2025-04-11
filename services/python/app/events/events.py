@@ -1,14 +1,14 @@
-from app.utils.logger import create_logger
 import aiohttp
 from io import BytesIO
 from app.config.arangodb_constants import EventTypes
 from app.config.arangodb_constants import CollectionNames
+import json
 
-logger = create_logger(__name__)
 
 class EventProcessor:
-    def __init__(self, processor, arango_service):
-        logger.info("🚀 Initializing EventProcessor")
+    def __init__(self, logger, processor, arango_service):
+        self.logger = logger
+        self.logger.info("🚀 Initializing EventProcessor")
         self.processor = processor
         self.arango_service = arango_service
 
@@ -25,7 +25,7 @@ class EventProcessor:
                 - metadata_route: Route to get metadata
         """
         try:
-            logger.info(f"📥 Processing event: {event_data}")
+            self.logger.info(f"📥 Processing event: {event_data}")
 
             # Extract event type and record ID
             event_type = event_data.get(
@@ -35,19 +35,19 @@ class EventProcessor:
             org_id = event_data.get('orgId')
 
             if not record_id:
-                logger.error("❌ No record ID provided in event data")
+                self.logger.error("❌ No record ID provided in event data")
                 return
             
             # Handle delete event
             if event_type == EventTypes.DELETE_RECORD.value:
-                logger.info(f"🗑️ Deleting embeddings for record {record_id}")
+                self.logger.info(f"🗑️ Deleting embeddings for record {record_id}")
                 await self.processor.indexing_pipeline.delete_embeddings(record_id)
                 return
 
             # For both create and update events, we need to process the document
             if event_type == EventTypes.UPDATE_RECORD.value:
                 # For updates, first delete existing embeddings
-                logger.info(f"""🔄 Updating record {record_id} - deleting existing embeddings""")
+                self.logger.info(f"""🔄 Updating record {record_id} - deleting existing embeddings""")
                 await self.processor.indexing_pipeline.delete_embeddings(record_id)
 
             # Update indexing status to IN_PROGRESS
@@ -57,6 +57,7 @@ class EventProcessor:
             # Update with new metadata fields
             doc.update({
                 "indexingStatus": "IN_PROGRESS",
+                "extractionStatus": "IN_PROGRESS"
             })
 
             docs = [doc]
@@ -72,27 +73,12 @@ class EventProcessor:
             if extension is None and mime_type != 'text/gmail_content':
                 extension = event_data['recordName'].split('.')[-1]
             
-            logger.info("🚀 Checking for mime_type")
-            logger.info("🚀 mime_type: %s", mime_type)
-            logger.info("🚀 extension: %s", extension)
+            self.logger.info("🚀 Checking for mime_type")
+            self.logger.info("🚀 mime_type: %s", mime_type)
+            self.logger.info("🚀 extension: %s", extension)
 
-            if mime_type == "application/vnd.google-apps.presentation":
-                logger.info("🚀 Processing Google Slides")
-                result = await self.processor.process_google_slides(record_id, record_version, org_id)
-                return result
-
-            if mime_type == "application/vnd.google-apps.document":
-                logger.info("🚀 Processing Google Docs")
-                result = await self.processor.process_google_docs(record_id, record_version, org_id)
-                return result
-
-            if mime_type == "application/vnd.google-apps.spreadsheet":
-                logger.info("🚀 Processing Google Sheets")
-                result = await self.processor.process_google_sheets(record_id, record_version, org_id)
-                return result
-            
             if mime_type == "text/gmail_content":
-                logger.info("🚀 Processing Gmail Message")
+                self.logger.info("🚀 Processing Gmail Message")
                 result = await self.processor.process_gmail_message(
                     recordName=f"Record-{record_id}",
                     recordId=record_id,
@@ -101,20 +87,62 @@ class EventProcessor:
                     orgId=org_id,
                     html_content=event_data.get('body'))
                 
-                logger.info(f"Content: {event_data.get('body')}")
+                self.logger.info(f"Content: {event_data.get('body')}")
                 return result
             
             if signed_url:
-                logger.debug(f"Signed URL: {signed_url}")
+                self.logger.debug(f"Signed URL: {signed_url}")
                 # Download file using signed URL
                 async with aiohttp.ClientSession() as session:
                     async with session.get(signed_url) as response:
                         if response.status != 200:
-                            logger.error(f"❌ Failed to download file: {response}")
+                            self.logger.error(f"❌ Failed to download file: {response}")
                             return
                         file_content = await response.read()
             else:
                 file_content = event_data.get('buffer')
+                
+            if mime_type == "application/vnd.google-apps.presentation":
+                self.logger.info("🚀 Processing Google Slides")
+                # Decode JSON content if it's streamed data
+                self.logger.debug(f"file_content type: {type(file_content)}")
+                if isinstance(file_content, bytes):
+                    try:
+                        file_content = json.loads(file_content.decode('utf-8'))
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Failed to decode Google Slides content: {str(e)}")
+                        raise
+                self.logger.debug(f"file_content: {file_content}")
+                result = await self.processor.process_google_slides(record_id, record_version, org_id, file_content)
+                return result
+
+            if mime_type == "application/vnd.google-apps.document":
+                self.logger.info("🚀 Processing Google Docs")
+                # Decode JSON content if it's streamed data
+                self.logger.debug(f"file_content: {file_content}")
+                if isinstance(file_content, bytes):
+                    try:
+                        file_content = json.loads(file_content.decode('utf-8'))
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Failed to decode Google Docs content: {str(e)}")
+                        raise
+                self.logger.debug(f"file_content: {file_content}")
+                result = await self.processor.process_google_docs(record_id, record_version, org_id, file_content)
+                return result
+
+            if mime_type == "application/vnd.google-apps.spreadsheet":
+                return None
+                self.logger.info("🚀 Processing Google Sheets")
+                # Decode JSON content if it's streamed data
+                if isinstance(file_content, bytes):
+                    try:
+                        file_content = json.loads(file_content.decode('utf-8'))
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Failed to decode Google Sheets content: {str(e)}")
+                        raise
+                result = await self.processor.process_google_sheets(record_id, record_version, org_id, file_content)
+                return result
+            
 
             if extension == "pdf":
                 result = await self.processor.process_pdf_document(
@@ -213,7 +241,7 @@ class EventProcessor:
                 )
 
             else:
-                logger.info(f"""🔴🔴🔴 Unsupported file extension: {
+                self.logger.info(f"""🔴🔴🔴 Unsupported file extension: {
                                extension} 🔴🔴🔴""")
                 doc = docs[0]
                 doc.update({
@@ -226,12 +254,12 @@ class EventProcessor:
                 return
 
 
-            logger.info(
+            self.logger.info(
                 f"✅ Successfully processed document for record {record_id}")
             return result
 
         except Exception as e:
             # Let the error bubble up to Kafka consumer
-            logger.error(f"❌ Error in event processor: {str(e)}")
+            self.logger.error(f"❌ Error in event processor: {str(e)}")
             raise
 
