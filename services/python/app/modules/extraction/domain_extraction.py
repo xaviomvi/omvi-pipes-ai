@@ -208,8 +208,8 @@ class DomainExtractor:
                 parsed_response = self.parser.parse(response_text)
 
                 # Process topics through similarity check
-                canonical_topics = await self.process_new_topics(parsed_response.topics)
-                parsed_response.topics = canonical_topics
+                # canonical_topics = await self.process_new_topics(parsed_response.topics)
+                # parsed_response.topics = canonical_topics
 
                 return parsed_response
 
