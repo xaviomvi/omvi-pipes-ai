@@ -378,6 +378,7 @@ class DriveUserService:
 
                 webhook_url = f"{webhook_endpoint.rstrip('/')}/drive/webhook"
                 expiration_time = datetime.now(timezone.utc) + timedelta(
+                    days=WebhookConfig.EXPIRATION_DAYS.value,
                     hours=WebhookConfig.EXPIRATION_HOURS.value,
                     minutes=WebhookConfig.EXPIRATION_MINUTES.value
                 )
@@ -437,26 +438,6 @@ class DriveUserService:
                     'expiration': expiration_time.isoformat()
                 }
 
-                # Store webhook data
-                try:
-                    os.makedirs('logs/webhook_headers', exist_ok=True)
-                    headers_log_path = 'logs/webhook_headers/headers_log.json'
-                    
-                    if not os.path.exists(headers_log_path):
-                        with open(headers_log_path, 'w') as f:
-                            json.dump([], f)
-
-                    with open(headers_log_path, 'r+') as f:
-                        channels = json.loads(f.read() or '[]')
-                        channels.append(data)
-                        f.seek(0)
-                        f.truncate()
-                        json.dump(channels, f, indent=2)
-                except Exception as e:
-                    self.logger.warning(
-                        "Failed to store webhook data: %s. Continuing anyway.", str(e)
-                    )
-
                 self.logger.info("✅ Changes watch created successfully")
                 return data
 
@@ -467,6 +448,19 @@ class DriveUserService:
                 "Unexpected error creating changes watch: " + str(e),
                 details={"error": str(e)}
             )
+            
+    async def stop_watch(self, channel_id: str, resource_id: str) -> bool:
+        """Stop a changes watch"""
+        try:
+            self.service.channels().stop(body={
+                'id': channel_id,
+                'resourceId': resource_id
+            }).execute()
+            self.logger.info("✅ Changes watch stopped successfully")
+            return True
+        except Exception as e:
+            self.logger.error("Failed to stop changes watch: %s", str(e))
+            return False
 
     @exponential_backoff()
     @token_refresh

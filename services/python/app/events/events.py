@@ -4,6 +4,7 @@ from app.config.arangodb_constants import EventTypes
 from app.config.arangodb_constants import CollectionNames
 import json
 import asyncio
+import io
 
 
 class EventProcessor:
@@ -77,6 +78,25 @@ class EventProcessor:
             self.logger.info("🚀 Checking for mime_type")
             self.logger.info("🚀 mime_type: %s", mime_type)
             self.logger.info("🚀 extension: %s", extension)
+            
+            supported_mime_types = ["text/gmail_content", 
+                                 "application/vnd.google-apps.presentation", 
+                                 "application/vnd.google-apps.document", 
+                                 "application/vnd.google-apps.spreadsheet"]
+            
+            supported_extensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "html", "pptx", "ppt", "md", "txt"]
+
+            if mime_type not in supported_mime_types and extension not in supported_extensions:
+                self.logger.info(f"🔴🔴🔴 Unsupported: Mime Type: {mime_type}, Extension: {extension} 🔴🔴🔴")
+                doc = docs[0]
+                doc.update({
+                    "indexingStatus": "FILE_TYPE_NOT_SUPPORTED",
+                    "extractionStatus": "FILE_TYPE_NOT_SUPPORTED"
+                })
+                docs = [doc]
+                await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)
+
+                return
 
             if mime_type == "text/gmail_content":
                 self.logger.info("🚀 Processing Gmail Message")
@@ -94,17 +114,18 @@ class EventProcessor:
             if signed_url:
                 self.logger.debug(f"Signed URL: {signed_url}")
                 # Download file using signed URL with chunked streaming
-                chunk_size = 1024 * 1024 * 2  # 2MB chunks
-                file_chunks = []
+                chunk_size = 1024 * 1024 * 8  # 8MB chunks
+                last_logged_size = 0
                 total_size = 0
-                
+                log_interval = chunk_size  # Log at same interval as chunk size
                 # Increase timeouts significantly
                 timeout = aiohttp.ClientTimeout(
                     total=1800,      # 30 minutes total
                     connect=60,      # 1 minute for initial connection
                     sock_read=300    # 5 minutes per chunk read
                 )
-                
+                # Pre-allocate a BytesIO buffer for better memory efficiency
+                file_buffer = io.BytesIO()
                 async with aiohttp.ClientSession(timeout=timeout) as session:
                     try:
                         async with session.get(signed_url) as response:
@@ -121,15 +142,19 @@ class EventProcessor:
                             self.logger.info("Starting chunked download...")
                             try:
                                 async for chunk in response.content.iter_chunked(chunk_size):
-                                    file_chunks.append(chunk)
+                                    file_buffer.write(chunk)
                                     total_size += len(chunk)
-                                    self.logger.debug(f"Total size so far: {total_size / (1024*1024):.2f} MB")
+                                    if total_size - last_logged_size >= log_interval:
+                                        self.logger.debug(f"Total size so far: {total_size / (1024*1024):.2f} MB")
+                                        last_logged_size = total_size
+                                
+                                # Get the final content and clear the buffer
+                                file_content = file_buffer.getvalue()
+                                file_buffer.close()
                             except asyncio.TimeoutError as e:
                                 self.logger.error(f"❌ Timeout during file download at {total_size / (1024*1024):.2f} MB: {repr(e)}")
                                 raise
                             
-                            # Combine chunks only when needed
-                            file_content = b''.join(file_chunks)
                             self.logger.info(f"✅ Download complete. Total size: {total_size / (1024*1024):.2f} MB")
                             
                     except aiohttp.ClientError as e:
@@ -283,8 +308,8 @@ class EventProcessor:
                                extension} 🔴🔴🔴""")
                 doc = docs[0]
                 doc.update({
-                    "indexingStatus": "FILE_TYPE_NOT_SUPPORTED"
-                    
+                    "indexingStatus": "FILE_TYPE_NOT_SUPPORTED",
+                    "extractionStatus": "FILE_TYPE_NOT_SUPPORTED"
                 })
                 docs = [doc]
                 await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)

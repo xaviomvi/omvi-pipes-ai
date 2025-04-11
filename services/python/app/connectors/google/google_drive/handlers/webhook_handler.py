@@ -23,8 +23,6 @@ class AbstractDriveWebhookHandler(ABC):
 
     async def _log_headers(self, headers: Dict) -> Dict:
         """Log webhook headers and return important headers"""
-        os.makedirs('logs/webhook_headers', exist_ok=True)
-        log_file_path = 'logs/webhook_headers/headers_log.json'
 
         important_headers = {
             'resource_id': headers.get('x-goog-resource-id'),
@@ -34,19 +32,7 @@ class AbstractDriveWebhookHandler(ABC):
             'timestamp': datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat(),
         }
 
-        try:
-            with open(log_file_path, 'r+') as f:
-                try:
-                    log_data = json.load(f)
-                except json.JSONDecodeError:
-                    log_data = []
-                log_data.append(important_headers)
-                f.seek(0)
-                json.dump(log_data, f, indent=4)
-                f.truncate()
-        except FileNotFoundError:
-            with open(log_file_path, 'w') as f:
-                json.dump([important_headers], f, indent=4)
+        self.logger.info(f"🚀 Important headers: {important_headers}")
 
         return important_headers
 
