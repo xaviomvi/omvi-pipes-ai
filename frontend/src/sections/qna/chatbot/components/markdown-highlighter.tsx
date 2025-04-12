@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 import { Icon } from '@iconify/react';
 import ReactMarkdown from 'react-markdown';
 import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 import { styled } from '@mui/material/styles';
@@ -157,7 +158,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   const [markdownContent, setMarkdownContent] = useState<string>('');
   const [documentReady, setDocumentReady] = useState<boolean>(false);
   const [processedCitations, setProcessedCitations] = useState<ProcessedCitation[]>([]);
-  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
 
   // Refs to manage state without causing re-renders
   const styleAddedRef = useRef<boolean>(false);
@@ -280,7 +280,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
 
     const highlightClass = `markdown-highlight highlight-${highlightId} markdown-highlight-${matchType}`;
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    let node;
     const nodesToWrap: { node: Text; startIndex: number; endIndex: number }[] = [];
     let found = false;
 
@@ -335,7 +334,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
 
           // Add active class to this one
           span.classList.add('markdown-highlight-active');
-          setActiveHighlightId(highlightId); // Update state
 
           // Optional: Scroll into view smoothly
           span.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
@@ -390,7 +388,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
             el.classList.remove('markdown-highlight-active');
           });
           span.classList.add('markdown-highlight-active');
-          setActiveHighlightId(highlightId);
           span.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
         });
 
@@ -471,7 +468,9 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           citationsToHighlight.forEach((citation) => {
             if (!citation.highlight?.content?.text || !citation.highlight.id) return;
 
+
             const { text } = citation.highlight.content;
+
             const highlightId = citation.highlight.id;
             let success = false;
 
@@ -620,7 +619,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     });
 
     highlightsAppliedRef.current = false;
-    setActiveHighlightId(null); // Clear active highlight state
     highlightingInProgressRef.current = false;
     console.log('Finished clearing highlights.');
   }, []); // No dependencies needed as it operates on refs and DOM
@@ -653,7 +651,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
 
         // Activate the target highlight
         highlightElement.classList.add('markdown-highlight-active');
-        setActiveHighlightId(highlightId); // Update state
 
         // Scroll into view
         highlightElement.scrollIntoView({

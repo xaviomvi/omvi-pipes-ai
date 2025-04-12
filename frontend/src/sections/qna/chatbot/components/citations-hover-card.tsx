@@ -23,28 +23,6 @@ interface CitationHoverCardProps {
   aggregatedCitations: CustomCitation[];
 }
 
-interface TrimmedTextProps {
-  text: string | undefined;
-  maxLength?: number;
-}
-
-const TrimmedText = ({ text, maxLength = 150 }: TrimmedTextProps) => {
-  if (!text) return null;
-  const trimmedText = text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
-
-  return (
-    <Typography
-      sx={{
-        fontSize: '0.8rem',
-        lineHeight: 1.4,
-        color: 'text.secondary',
-      }}
-    >
-      {trimmedText}
-    </Typography>
-  );
-};
-
 const CitationHoverCard = ({
   citation,
   isVisible,
