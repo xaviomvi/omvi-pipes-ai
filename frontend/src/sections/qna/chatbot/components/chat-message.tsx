@@ -1,10 +1,5 @@
 import type { Metadata, CustomCitation } from 'src/types/chat-bot';
-import type {
-  Record,
-  ChatMessageProps,
-  MessageContentProps,
-  StyledCitationProps,
-} from 'src/types/chat-message';
+import type { Record, ChatMessageProps, MessageContentProps } from 'src/types/chat-message';
 
 import remarkGfm from 'remark-gfm';
 import { Icon } from '@iconify/react';
@@ -67,50 +62,6 @@ const formatDate = (createdAt: Date) => {
     day: 'numeric',
   }).format(date);
 };
-
-const StyledCitation: React.FC<StyledCitationProps> = ({
-  children,
-  onMouseEnter,
-  onMouseLeave,
-}) => (
-  <Box
-    component="span"
-    onMouseEnter={onMouseEnter}
-    onMouseLeave={onMouseLeave}
-    sx={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      ml: 0.5,
-      cursor: 'pointer',
-      position: 'relative',
-      '&:hover .citation-number': {
-        bgcolor: 'primary.main',
-        color: 'white',
-      },
-    }}
-  >
-    <Box
-      component="span"
-      className="citation-number"
-      sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '16px',
-        height: '16px',
-        borderRadius: '50%',
-        bgcolor: 'grey.100',
-        color: 'text.secondary',
-        fontSize: '0.65rem',
-        fontWeight: 600,
-        transition: 'all 0.2s ease-in-out',
-        textDecoration: 'none',
-      }}
-    >
-      {children}
-    </Box>
-  </Box>
-);
 
 const MessageContent: React.FC<MessageContentProps> = ({
   content,
@@ -878,7 +829,12 @@ const ChatMessage = ({
         >
           Record Details
         </DialogTitle>
-        <DialogContent sx={{ p: 2.5, ...scrollableContainerStyle }}>
+        <DialogContent
+          sx={{
+            p: 2.5,
+            // ...scrollableContainerStyle
+          }}
+        >
           {selectedRecord && (
             <RecordDetails
               recordId={selectedRecord.recordId}

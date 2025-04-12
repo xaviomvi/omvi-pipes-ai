@@ -8,6 +8,8 @@ interface IBoundingBox {
 export interface ICitationMetadata {
   blockNum?: number | number[] | string;
   pageNum?: number;
+  sheetNum ?: number;
+  sheetName?: string;
   subcategoryLevel1?: string;
   subcategoryLevel2?: string;
   subcategoryLevel3?: string;
@@ -58,6 +60,8 @@ const boundingBoxSchema = new Schema<IBoundingBox>({
 const citationMetadataSchema = new Schema<ICitationMetadata>({
   blockNum: { type: Schema.Types.Mixed },
   pageNum: { type: Number },
+  sheetNum : {type: Number},
+  sheetName : {type : String},
   subcategoryLevel1: { type: String },
   subcategoryLevel2: { type: String },
   subcategoryLevel3: { type: String },

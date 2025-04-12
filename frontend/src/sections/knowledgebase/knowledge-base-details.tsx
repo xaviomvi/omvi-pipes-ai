@@ -258,7 +258,7 @@ export default function KnowledgeBaseDetails({
   // Get file icon based on extension
   const getFileIcon = (extension: string): React.ComponentProps<typeof IconifyIcon>['icon'] => {
     const ext = extension?.toLowerCase() || '';
-
+  
     switch (ext) {
       case 'pdf':
         return filePdfBoxIcon;
