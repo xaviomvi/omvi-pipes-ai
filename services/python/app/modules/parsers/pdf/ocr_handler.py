@@ -1,13 +1,14 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
-from app.utils.logger import create_logger
 import fitz
 from app.config.ai_models_named_constants import OCRProvider
 
-logger = create_logger(__name__)
 
 class OCRStrategy(ABC):
     """Abstract base class for OCR strategies"""
+
+    def __init__(self, logger):
+        self.logger = logger
 
     @abstractmethod
     async def process_page(self, page) -> Dict[str, Any]:
@@ -27,7 +28,7 @@ class OCRStrategy(ABC):
     def needs_ocr(self, page) -> bool:
         """Determine if a page needs OCR processing"""
         try:
-            logger.debug("🔍 Checking if page needs OCR")
+            self.logger.debug("🔍 Checking if page needs OCR")
 
             # Get page metrics
             text = page.get_text().strip()
@@ -44,11 +45,11 @@ class OCRStrategy(ABC):
                 # img tuple contains: (xref, smask, width, height, bpc, colorspace, ...)
                 width, height = img[2], img[3]
 
-                logger.debug(f"📸 Image {img_index + 1}:")
-                logger.debug(f"    Width: {width}, Height: {height}")
-                logger.debug(f"    Bits per component: {img[4]}")
-                logger.debug(f"    Colorspace: {img[5]}")
-                logger.debug(f"    XRef: {img[0]}")
+                self.logger.debug(f"📸 Image {img_index + 1}:")
+                self.logger.debug(f"    Width: {width}, Height: {height}")
+                self.logger.debug(f"    Bits per component: {img[4]}")
+                self.logger.debug(f"    Colorspace: {img[5]}")
+                self.logger.debug(f"    XRef: {img[0]}")
 
                 # Consider an image significant if it's larger than our minimum dimensions
                 if width > MIN_IMAGE_WIDTH and height > MIN_IMAGE_HEIGHT:
@@ -61,7 +62,7 @@ class OCRStrategy(ABC):
                                for w in words) / page_area if words else 0
             low_density = text_density < 0.01
 
-            logger.debug(f"📊 OCR metrics - Text length: {len(text)}, "
+            self.logger.debug(f"📊 OCR metrics - Text length: {len(text)}, "
                         f"Significant images: {significant_images}, "
                         f"Text density: {text_density:.4f}")
 
@@ -74,29 +75,29 @@ class OCRStrategy(ABC):
                     if pix.n - pix.alpha > 3:  # CMYK: convert to RGB
                         pix = fitz.Pixmap(fitz.csRGB, pix)
 
-                    logger.debug(
+                    self.logger.debug(
                         f"📸 Image {img_index + 1} pixel format: {pix.n} channels")
                     # Optionally save the image:
                     # pix.save(f"image_{img_index + 1}.png")
 
                     pix = None  # Free memory
                 except Exception as e:
-                    logger.error(f"""❌ Error processing image {
+                    self.logger.error(f"""❌ Error processing image {
                                  img_index + 1}: {str(e)}""")
 
             needs_ocr = (has_minimal_text and has_significant_images) or low_density
-            logger.debug(f"🔍 OCR need determination: {needs_ocr}")
+            self.logger.debug(f"🔍 OCR need determination: {needs_ocr}")
             return needs_ocr
 
         except Exception as e:
-            logger.error(f"❌ Error checking OCR need: {str(e)}")
+            self.logger.error(f"❌ Error checking OCR need: {str(e)}")
             return True
 
 
 class OCRHandler:
     """Factory and facade for OCR processing"""
 
-    def __init__(self, strategy_type: str, **kwargs):
+    def __init__(self, logger, strategy_type: str, **kwargs):
         """
         Initialize OCR handler with specified strategy
 
@@ -104,30 +105,33 @@ class OCRHandler:
             strategy_type: Type of OCR strategy ("pymupdf" or "azure")
             **kwargs: Strategy-specific configuration parameters
         """
-        logger.info(
+        self.logger = logger
+        self.logger.info(
             "🛠️ Initializing OCR handler with strategy: %s", strategy_type)
         self.strategy = self._create_strategy(strategy_type, **kwargs)
 
     def _create_strategy(self, strategy_type: str, **kwargs) -> OCRStrategy:
         """Factory method to create appropriate OCR strategy"""
-        logger.debug(f"🏭 Creating OCR strategy: {strategy_type}")
+        self.logger.debug(f"🏭 Creating OCR strategy: {strategy_type}")
 
         if strategy_type == OCRProvider.OCRMYPDF_PROVIDER.value:
-            logger.debug("📚 Creating OCRMYPDF OCR strategy")
+            self.logger.debug("📚 Creating OCRMYPDF OCR strategy")
             from app.modules.parsers.pdf.pymupdf_ocrmypdf_processor import PyMuPDFOCRStrategy
             return PyMuPDFOCRStrategy(
+                logger=self.logger,
                 language=kwargs.get("language", "eng")
             )
         elif strategy_type == OCRProvider.AZURE_PROVIDER.value:
-            logger.debug("☁️ Creating Azure OCR strategy")
+            self.logger.debug("☁️ Creating Azure OCR strategy")
             from app.modules.parsers.pdf.azure_document_intelligence_processor import AzureOCRStrategy
             return AzureOCRStrategy(
+                logger=self.logger,
                 endpoint=kwargs["endpoint"],
                 key=kwargs["key"],
                 model_id=kwargs.get("model_id", "prebuilt-document")
             )
         else:
-            logger.error(f"❌ Unsupported OCR strategy: {strategy_type}")
+            self.logger.error(f"❌ Unsupported OCR strategy: {strategy_type}")
             raise ValueError(f"Unsupported OCR strategy: {strategy_type}")
 
     async def process_document(self, content: bytes) -> Dict[str, Any]:
@@ -140,16 +144,16 @@ class OCRHandler:
         Returns:
             Dict containing extracted text and layout information
         """
-        logger.info("🚀 Starting document processing")
+        self.logger.info("🚀 Starting document processing")
         try:
-            logger.debug("📥 Loading document")
+            self.logger.debug("📥 Loading document")
             await self.strategy.load_document(content)
 
-            logger.debug("📊 Extracting text and layout")
+            self.logger.debug("📊 Extracting text and layout")
             result = await self.strategy.extract_text()
 
-            logger.info("✅ Document processing completed successfully")
+            self.logger.info("✅ Document processing completed successfully")
             return result
         except Exception as e:
-            logger.error(f"❌ Error processing document: {str(e)}")
+            self.logger.error(f"❌ Error processing document: {str(e)}")
             raise

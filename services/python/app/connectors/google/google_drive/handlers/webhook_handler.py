@@ -7,12 +7,11 @@ import os
 
 from app.config.configuration_service import ConfigurationService, config_node_constants, WebhookConfig
 from app.config.arangodb_constants import CollectionNames
-from app.utils.logger import create_logger
 
-logger = create_logger(__name__)
 
 class AbstractDriveWebhookHandler(ABC):
-    def __init__(self, config: ConfigurationService, arango_service, change_handler):
+    def __init__(self, logger, config: ConfigurationService, arango_service, change_handler):
+        self.logger = logger
         self.config_service = config
         self.arango_service = arango_service
         self.change_handler = change_handler
@@ -24,8 +23,6 @@ class AbstractDriveWebhookHandler(ABC):
 
     async def _log_headers(self, headers: Dict) -> Dict:
         """Log webhook headers and return important headers"""
-        os.makedirs('logs/webhook_headers', exist_ok=True)
-        log_file_path = 'logs/webhook_headers/headers_log.json'
 
         important_headers = {
             'resource_id': headers.get('x-goog-resource-id'),
@@ -35,19 +32,7 @@ class AbstractDriveWebhookHandler(ABC):
             'timestamp': datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat(),
         }
 
-        try:
-            with open(log_file_path, 'r+') as f:
-                try:
-                    log_data = json.load(f)
-                except json.JSONDecodeError:
-                    log_data = []
-                log_data.append(important_headers)
-                f.seek(0)
-                json.dump(log_data, f, indent=4)
-                f.truncate()
-        except FileNotFoundError:
-            with open(log_file_path, 'w') as f:
-                json.dump([important_headers], f, indent=4)
+        self.logger.info(f"🚀 Important headers: {important_headers}")
 
         return important_headers
 
@@ -70,8 +55,9 @@ class AbstractDriveWebhookHandler(ABC):
 class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
     """Handles webhooks for individual user accounts"""
 
-    def __init__(self, config: ConfigurationService, drive_user_service, arango_service, change_handler):
-        super().__init__(config, arango_service, change_handler)
+    def __init__(self, logger, config: ConfigurationService, drive_user_service, arango_service, change_handler):
+        super().__init__(logger, config, arango_service, change_handler)
+        self.logger = logger
         self.drive_user_service = drive_user_service
         self.arango_service = arango_service
         self.change_handler = change_handler
@@ -83,7 +69,7 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
 
             channel_id = headers.get('x-goog-channel-id')
             if not channel_id:
-                logger.error("No channel ID in notification")
+                self.logger.error("No channel ID in notification")
                 return False
 
             # Get token  for this channel
@@ -91,7 +77,7 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
                 channel_id=channel_id
             )
             if not token:
-                logger.info(f"No user found for channel {channel_id}")
+                self.logger.info(f"No user found for channel {channel_id}")
                 return False
 
             user_email = token['userEmail']
@@ -108,7 +94,7 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
             return True
 
         except Exception as e:
-            logger.error(f"Error processing individual notification: {str(e)}")
+            self.logger.error(f"Error processing individual notification: {str(e)}")
             return False
 
     async def _delayed_process_notifications(self, user_email: str = None):
@@ -129,12 +115,12 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
 
                 # Clear processed notifications for this user
                 self.pending_notifications.clear()
-                logger.info(f"🚀 Cleared processed notifications for user {user_email}")
+                self.logger.info(f"🚀 Cleared processed notifications for user {user_email}")
 
         except asyncio.CancelledError:
-            logger.info(f"Processing delayed for user {user_email}")
+            self.logger.info(f"Processing delayed for user {user_email}")
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "Error processing notifications for user %s: %s", user_email, str(e))
 
     async def _process_user_changes(self, user_email: str, notification: Dict):
@@ -172,7 +158,7 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
                 try:
                     await self.change_handler.process_change(change, user_service, org_id, user_id)
                 except Exception as e:
-                    logger.error(f"Error processing change: {str(e)}")
+                    self.logger.error(f"Error processing change: {str(e)}")
                     continue
 
         if new_token and new_token != page_token['token']:
@@ -182,7 +168,7 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
                 user_email=user_email,
                 token=new_token
             )
-            logger.info(f"🚀 Updated token for user {user_email}")
+            self.logger.info(f"🚀 Updated token for user {user_email}")
 
     async def handle_downtime(self, org_id):
         """Handle downtime for individual users"""
@@ -206,15 +192,16 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
             return success_count > 0
 
         except Exception as e:
-            logger.error(f"Individual downtime handling failed: {str(e)}")
+            self.logger.error(f"Individual downtime handling failed: {str(e)}")
             return False
 
 
 class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
     """Handles webhooks for enterprise/organization-wide processing"""
 
-    def __init__(self, config: ConfigurationService, drive_admin_service, arango_service, change_handler):
-        super().__init__(config, arango_service, change_handler)
+    def __init__(self, logger, config: ConfigurationService, drive_admin_service, arango_service, change_handler):
+        super().__init__(logger, config, arango_service, change_handler)
+        self.logger = logger
         self.drive_admin_service = drive_admin_service
         self.pending_notifications: Set[str] = set()
 
@@ -223,7 +210,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
             important_headers = await self._log_headers(headers)
 
             self.pending_notifications.add(json.dumps(important_headers))
-            logger.info("Added to pending notifications. Current count: %s", len(
+            self.logger.info("Added to pending notifications. Current count: %s", len(
                 self.pending_notifications))
 
             if self.scheduled_task and not self.scheduled_task.done():
@@ -236,7 +223,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
             return True
 
         except Exception as e:
-            logger.error(f"Error processing enterprise notification: {str(e)}")
+            self.logger.error(f"Error processing enterprise notification: {str(e)}")
             return False
 
     async def _delayed_process_notifications(self):
@@ -257,24 +244,24 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                     if channel_id not in channel_notifications:
                         channel_notifications[channel_id] = notification
 
-                logger.info("Processing notifications for %s channels",
+                self.logger.info("Processing notifications for %s channels",
                             len(channel_notifications))
                 await self._process_enterprise_change(channel_notifications)
 
                 self.pending_notifications.clear()
-                logger.info("✅ Completed processing all channel notifications")
+                self.logger.info("✅ Completed processing all channel notifications")
 
         except asyncio.CancelledError:
-            logger.info("Processing delayed for enterprise")
+            self.logger.info("Processing delayed for enterprise")
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "Error processing enterprise notifications: %s", str(e))
 
     async def _process_enterprise_change(self, channel_notifications):
         """Process changes for an organizational unit"""
         for channel_id, notification in channel_notifications.items():
             try:
-                logger.info("Processing changes for channel %s", channel_id)
+                self.logger.info("Processing changes for channel %s", channel_id)
                 resource_id = notification['resource_id']
                 page_token = await self.arango_service.get_page_token_db(
                     channel_id,
@@ -282,7 +269,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                 )
 
                 if not page_token:
-                    logger.error(
+                    self.logger.error(
                         "No page token found for channel %s", channel_id)
                     continue
                 user_service = await self.drive_admin_service.create_drive_user_service(page_token['userEmail'])
@@ -306,13 +293,13 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                 user_id = user.get('userId')
 
                 if changes:
-                    logger.info("Processing %s changes for channel %s",
+                    self.logger.info("Processing %s changes for channel %s",
                                 len(changes), channel_id)
                     for change in changes:
                         try:
                             await self.change_handler.process_change(change, user_service, org_id, user_id)
                         except Exception as e:
-                            logger.error("Error processing change: %s", str(e))
+                            self.logger.error("Error processing change: %s", str(e))
                             continue
 
                     if new_token and new_token != page_token['token']:
@@ -322,15 +309,15 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                             user_email=page_token['userEmail'],
                             token=new_token
                         )
-                        logger.info(
+                        self.logger.info(
                             "✅ Updated token for channel %s", channel_id)
 
                 else:
-                    logger.info(
+                    self.logger.info(
                         "ℹ️ No changes found for channel %s", channel_id)
 
             except Exception as e:
-                logger.error("Error processing channel %s: %s",
+                self.logger.error("Error processing channel %s: %s",
                              channel_id, str(e))
                 continue
 
@@ -354,12 +341,12 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                             await self.change_handler.process_change(change, user_service, org_id, user_id)
                         success_count += 1
                 except Exception as e:
-                    logger.error("Error processing user %s: %s",
+                    self.logger.error("Error processing user %s: %s",
                                  user['email'], str(e))
                     continue
 
             return success_count > 0
 
         except Exception as e:
-            logger.error("Enterprise downtime handling failed: %s", str(e))
+            self.logger.error("Enterprise downtime handling failed: %s", str(e))
             return False

@@ -9,7 +9,10 @@ import { userAdminOrSelfCheck } from '../middlewares/userAdminOrSelfCheck';
 // import { attachContainerMiddleware } from '../../auth/middlewares/attachContainer.middleware';
 import { accountTypeCheck } from '../middlewares/accountTypeCheck';
 import { smtpConfigCheck } from '../middlewares/smtpConfigCheck';
-import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
+import {
+  AuthenticatedServiceRequest,
+  AuthenticatedUserRequest,
+} from '../../../libs/middlewares/types';
 import { UserController } from '../controller/users.controller';
 import { metricsMiddleware } from '../../../libs/middlewares/prometheus.middleware';
 import { PrometheusService } from '../../../libs/services/prometheus/prometheus.service';
@@ -17,6 +20,8 @@ import { TokenScopes } from '../../../libs/enums/token-scopes.enum';
 import { FileProcessorFactory } from '../../../libs/middlewares/file_processor/fp.factory';
 import { FileProcessingType } from '../../../libs/middlewares/file_processor/fp.constant';
 import { AppConfig } from '../../tokens_manager/config/config';
+import { Users } from '../schema/users.schema';
+import { NotFoundError } from '../../../libs/errors/http.errors';
 
 const UserIdUrlParams = z.object({
   id: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid UserId'),
@@ -240,14 +245,31 @@ export function createUserRouter(container: Container) {
     authMiddleware.scopedTokenValidator(TokenScopes.USER_LOOKUP),
     ValidationMiddleware.validate(UserIdValidationSchema),
     metricsMiddleware(container),
-    userExists,
     async (
-      req: AuthenticatedUserRequest,
+      req: AuthenticatedServiceRequest,
       res: Response,
       next: NextFunction,
     ) => {
       try {
-        await userController.getUserById(req, res, next);
+        const userId = req.params.id;
+        const orgId = req.tokenPayload?.orgId;
+        try {
+          const user = await Users.findOne({
+            _id: userId,
+            orgId,
+            isDeleted: false,
+          })
+            .lean()
+            .exec();
+
+          if (!user) {
+            throw new NotFoundError('User not found');
+          }
+
+          res.json(user);
+        } catch (error) {
+          next(error);
+        }
       } catch (error) {
         next(error);
       }

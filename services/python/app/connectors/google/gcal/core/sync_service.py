@@ -4,24 +4,19 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone, timedelta
 import asyncio
-import uuid
-from typing import Dict, List, Optional
-import json
 
 from app.config.arangodb_constants import CollectionNames
-from app.utils.logger import create_logger
 from app.connectors.google.core.arango_service import ArangoService
 from app.connectors.google.gcal.core.gcal_admin_service import GCalAdminService
 from app.connectors.google.gcal.core.gcal_user_service import GCalUserService
 from app.connectors.core.kafka_service import KafkaService
 from app.config.configuration_service import ConfigurationService
 
-logger = create_logger(__name__)
-
 class GCalSyncProgress:
     """Class to track sync progress"""
 
-    def __init__(self):
+    def __init__(self, logger):
+        self.logger = logger
         self.total_calendars = 0
         self.processed_calendars = 0
         self.percentage = 0
@@ -73,7 +68,7 @@ class BaseGCalSyncService(ABC):
         """Disconnect from all services"""
         async with self._transition_lock:
             try:
-                logger.info("🚀 Disconnecting from app.services.modules")
+                self.logger.info("🚀 Disconnecting from app.services.modules")
                 self._stop_requested = True
 
                 # Wait for current operations to complete
@@ -88,11 +83,11 @@ class BaseGCalSyncService(ABC):
                 # Reset states
                 self._stop_requested = False  # Reset for next run
 
-                logger.info("✅ Successfully disconnected from app.services.modules")
+                self.logger.info("✅ Successfully disconnected from app.services.modules")
                 return True
 
             except Exception as e:
-                logger.error(
+                self.logger.error(
                     "❌ Failed to disconnect from app.services.modules: %s", str(e))
                 return False
 
@@ -114,7 +109,7 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
     async def connect_services(self, org_id: str) -> bool:
         """Connect to services for enterprise setup"""
         try:
-            logger.info("🚀 Connecting to enterprise services")
+            self.logger.info("🚀 Connecting to enterprise services")
 
             # Connect to Google Calendar Admin
             if not await self.gcal_admin_service.connect_admin(org_id):
@@ -124,17 +119,17 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
             if not await self.arango_service.connect():
                 raise Exception("Failed to connect to ArangoDB")
 
-            logger.info("✅ Enterprise services connected successfully")
+            self.logger.info("✅ Enterprise services connected successfully")
             return True
 
         except Exception as e:
-            logger.error("❌ Enterprise service connection failed: %s", str(e))
+            self.logger.error("❌ Enterprise service connection failed: %s", str(e))
             return False
 
     async def initialize(self, org_id: str) -> bool:
         """Initialize enterprise sync service"""
         try:
-            logger.info("🚀 Initializing enterprise sync service")
+            self.logger.info("🚀 Initializing enterprise sync service")
             if not await self.connect_services(org_id):
                 return False
 
@@ -145,11 +140,11 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
             source_users = await self.gcal_admin_service.list_enterprise_users(org_id)
             for user in source_users:
                 if not await self.arango_service.get_entity_id_by_email(user['email']):
-                    logger.info("New user found!")
+                    self.logger.info("New user found!")
                     users.append(user)
 
             if users:
-                logger.info("🚀 Found %s users", len(users))
+                self.logger.info("🚀 Found %s users", len(users))
                 await self.arango_service.batch_upsert_nodes(users, collection=CollectionNames.USERS.value)
 
             # Initialize Redis and Celery
@@ -159,7 +154,7 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
             # Check if sync is already running in Redis
             sync_hierarchy = await self.redis_service.get_sync_hierarchy()
             if sync_hierarchy and sync_hierarchy['status'] == 'IN_PROGRESS':
-                logger.info(
+                self.logger.info(
                     "🔄 Sync already RUNNING, Program likely crashed. Changing state to PAUSED")
                 sync_hierarchy['status'] = 'PAUSED'
                 await self.redis_service.store_sync_hierarchy(sync_hierarchy)
@@ -169,27 +164,27 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
                 try:
                     user_service = await self.gcal_admin_service.create_gcal_user_service(user['email'])
                     if not user_service:
-                        logger.warning(f"❌ Failed to create user service for: {
+                        self.logger.warning(f"❌ Failed to create user service for: {
                                        user['email']}")
                         continue
 
                     watch_response = await user_service.create_calendar_watch()
                     if not watch_response:
-                        logger.warning(f"❌ Failed to set up calendar watch for user: {
+                        self.logger.warning(f"❌ Failed to set up calendar watch for user: {
                                        user['email']}")
                         continue
 
-                    logger.info(f"✅ Calendar watch set up successfully for user: {
+                    self.logger.info(f"✅ Calendar watch set up successfully for user: {
                                 user['email']}")
                     await self.arango_service.store_calendar_watch_data(watch_response, user['email'])
 
                 except Exception as e:
-                    logger.error(f"❌ Error setting up calendar watch for user {
+                    self.logger.error(f"❌ Error setting up calendar watch for user {
                                  user['email']}: {str(e)}")
 
-            logger.info("✅ Sync service initialized successfully")
+            self.logger.info("✅ Sync service initialized successfully")
             return True
 
         except Exception as e:
-            logger.error("❌ Failed to initialize enterprise sync: %s", str(e))
+            self.logger.error("❌ Failed to initialize enterprise sync: %s", str(e))
             return False

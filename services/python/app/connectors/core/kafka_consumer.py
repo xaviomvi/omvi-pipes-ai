@@ -2,7 +2,6 @@ import asyncio
 import json
 from confluent_kafka import Consumer, KafkaError
 import httpx
-from app.utils.logger import create_logger
 from dependency_injector.wiring import inject
 from typing import Dict, List
 from app.config.arangodb_constants import CollectionNames, Connectors
@@ -15,10 +14,9 @@ from app.utils.time_conversion import get_epoch_timestamp_in_ms
 # Import required services
 from app.config.configuration_service import config_node_constants
 
-logger = create_logger(__name__)
-
 class KafkaRouteConsumer:
-    def __init__(self, config_service, arango_service, routes=[], app_container=None):
+    def __init__(self, logger, config_service, arango_service, routes=[], app_container=None):
+        self.logger = logger
         self.consumer = None
         self.running = False
         self.config_service = config_service
@@ -77,9 +75,9 @@ class KafkaRouteConsumer:
             time.sleep(2)
             # Subscribe to the two main topics
             self.consumer.subscribe(['sync-events', 'entity-events'])
-            logger.info("Successfully subscribed to topics: sync-events, entity-events")
+            self.logger.info("Successfully subscribed to topics: sync-events, entity-events")
         except Exception as e:
-            logger.error(f"Failed to create consumer: {e}")
+            self.logger.error(f"Failed to create consumer: {e}")
             raise
 
     def is_message_processed(self, message_id: str) -> bool:
@@ -104,7 +102,7 @@ class KafkaRouteConsumer:
             message_id = f"{message.topic()}-{message.partition()}-{message.offset()}"
 
             if self.is_message_processed(message_id):
-                logger.info(f"Message {message_id} already processed, skipping")
+                self.logger.info(f"Message {message_id} already processed, skipping")
                 return True
 
             topic = message.topic()
@@ -118,15 +116,15 @@ class KafkaRouteConsumer:
 
                     if isinstance(value, str):
                         value = json.loads(value)
-                    logger.debug(f"Type of value: {type(value)}")
+                    self.logger.debug(f"Type of value: {type(value)}")
                     event_type = value.get('eventType')
                 except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON: {e}")
+                    self.logger.error(f"Failed to parse JSON: {e}")
             else:
-                logger.error(f"Unexpected message value type: {type(message_value)}")
+                self.logger.error(f"Unexpected message value type: {type(message_value)}")
             
             if not event_type or topic not in self.route_mapping:
-                logger.error(f"Invalid topic or missing event_type: {topic}, {event_type}")
+                self.logger.error(f"Invalid topic or missing event_type: {topic}, {event_type}")
                 return False
 
             if topic == 'sync-events':
@@ -135,7 +133,7 @@ class KafkaRouteConsumer:
                 return await self._handle_entity_event(event_type, value)
 
         except Exception as e:
-            logger.error(f"Error processing message from topic {message.topic()}: {str(e)}")
+            self.logger.error(f"Error processing message from topic {message.topic()}: {str(e)}")
             return False
         finally:
             self.mark_message_processed(message_id)
@@ -143,12 +141,12 @@ class KafkaRouteConsumer:
     async def _handle_sync_event(self, event_type: str, value: dict) -> bool:
         """Handle sync-related events by calling appropriate routes"""
         try:
-            logger.info(f"Handling Sync event: {event_type}")
+            self.logger.info(f"Handling Sync event: {event_type}")
             
             # Get the route mapping for the event type
             route_info = self.route_mapping['sync-events'].get(event_type)
             if not route_info:
-                logger.error(f"Unknown sync event type: {event_type}")
+                self.logger.error(f"Unknown sync event type: {event_type}")
                 return False
 
             route_path, method = route_info
@@ -161,7 +159,7 @@ class KafkaRouteConsumer:
                     break
 
             if not route_handler:
-                logger.error(f"No handler found for route: {route} {method}")
+                self.logger.error(f"No handler found for route: {route} {method}")
                 return False
 
             # Format the route path with parameters from the value
@@ -171,8 +169,8 @@ class KafkaRouteConsumer:
             endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
             connector_endpoint = endpoints.get('connectors').get('endpoint')
             
-            logger.info(f"connector_endpoint: {connector_endpoint}")
-            logger.info(f"formatted_path: {formatted_path}")
+            self.logger.info(f"connector_endpoint: {connector_endpoint}")
+            self.logger.info(f"formatted_path: {formatted_path}")
             
             # Make HTTP request to the route
             async with httpx.AsyncClient() as client:
@@ -183,13 +181,13 @@ class KafkaRouteConsumer:
                     )
                     response.raise_for_status()
                 except Exception as e:
-                    logger.error(f"❌ HTTP request failed: {str(e)}")
+                    self.logger.error(f"❌ HTTP request failed: {repr(e)}")
                     return False
-            logger.info(f"✅ Successfully handled sync event: {event_type}")
+            self.logger.info(f"✅ Successfully handled sync event: {event_type}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Unable to handle sync properly: {str(e)}")
+            self.logger.error(f"❌ Unable to handle sync properly: {str(e)}")
             return False
 
 
@@ -197,7 +195,7 @@ class KafkaRouteConsumer:
         """Handle entity-related events by calling appropriate ArangoDB methods"""
         handler = self.route_mapping['entity-events'].get(event_type)
         if not handler:
-            logger.error(f"Unknown entity event type: {event_type}")
+            self.logger.error(f"Unknown entity event type: {event_type}")
             return False
 
         return await handler(value['payload'])
@@ -245,20 +243,20 @@ class KafkaRouteConsumer:
                     org_department_relations,
                     CollectionNames.ORG_DEPARTMENT_RELATION.value
                 )
-                logger.info(f"✅ Successfully created organization: {payload['orgId']} and relationships with departments")
+                self.logger.info(f"✅ Successfully created organization: {payload['orgId']} and relationships with departments")
             else:
-                logger.info(f"✅ Successfully created organization: {payload['orgId']}")
+                self.logger.info(f"✅ Successfully created organization: {payload['orgId']}")
             
             return True
 
         except Exception as e:
-            logger.error(f"❌ Error creating organization: {str(e)}")
+            self.logger.error(f"❌ Error creating organization: {str(e)}")
             return False
 
     async def handle_org_updated(self, payload: dict) -> bool:
         """Handle organization update event"""
         try:
-            logger.info(f"📥 Processing org updated event: {payload}")
+            self.logger.info(f"📥 Processing org updated event: {payload}")
             org_data = {
                 '_key': payload['orgId'],
                 'name': payload['registeredName'],
@@ -267,17 +265,17 @@ class KafkaRouteConsumer:
 
             # Batch upsert org
             await self.arango_service.batch_upsert_nodes([org_data], CollectionNames.ORGS.value)
-            logger.info(f"✅ Successfully updated organization: {payload['orgId']}")
+            self.logger.info(f"✅ Successfully updated organization: {payload['orgId']}")
             return True
 
         except Exception as e:
-            logger.error(f"❌ Error updating organization: {str(e)}")
+            self.logger.error(f"❌ Error updating organization: {str(e)}")
             return False
 
     async def handle_org_deleted(self, payload: dict) -> bool:
         """Handle organization deletion event"""
         try:
-            logger.info(f"📥 Processing org deleted event: {payload}")
+            self.logger.info(f"📥 Processing org deleted event: {payload}")
             org_data = {
                 '_key': payload['orgId'],
                 'isActive': False,
@@ -286,18 +284,18 @@ class KafkaRouteConsumer:
 
             # Batch upsert org with isActive = False
             await self.arango_service.batch_upsert_nodes([org_data], CollectionNames.ORGS.value)
-            logger.info(f"✅ Successfully soft-deleted organization: {payload['orgId']}")
+            self.logger.info(f"✅ Successfully soft-deleted organization: {payload['orgId']}")
             return True
 
         except Exception as e:
-            logger.error(f"❌ Error deleting organization: {str(e)}")
+            self.logger.error(f"❌ Error deleting organization: {str(e)}")
             return False
 
     # USER EVENTS
     async def handle_user_added(self, payload: dict) -> bool:
         """Handle user creation event"""
         try:
-            logger.info(f"📥 Processing user added event: {payload}")
+            self.logger.info(f"📥 Processing user added event: {payload}")
             # Check if user already exists by email
             existing_user = await self.arango_service.get_entity_id_by_email(
                 payload['email']
@@ -334,7 +332,7 @@ class KafkaRouteConsumer:
             org_id = payload['orgId']
             org = await self.arango_service.get_document(org_id, CollectionNames.ORGS.value)
             if not org:
-                logger.error(f"Organization not found: {org_id}")
+                self.logger.error(f"Organization not found: {org_id}")
                 return False
 
             # Batch upsert user
@@ -371,7 +369,7 @@ class KafkaRouteConsumer:
                     )
                     
                     if app['name'].lower() in ['calendar']:
-                            logger.info("Skipping init")
+                            self.logger.info("Skipping init")
                             continue
 
                     # Start sync for the specific user
@@ -380,24 +378,24 @@ class KafkaRouteConsumer:
                         {'path_params': {'user_email': payload['email']}}
                     )
 
-            logger.info(f"✅ Successfully created/updated user: {payload['email']}")
+            self.logger.info(f"✅ Successfully created/updated user: {payload['email']}")
             return True
 
         except Exception as e:
-            logger.error(f"❌ Error creating/updating user: {str(e)}")
+            self.logger.error(f"❌ Error creating/updating user: {str(e)}")
             return False
 
     async def handle_user_updated(self, payload: dict) -> bool:
         """Handle user update event"""
         try:
-            logger.info(f"📥 Processing user updated event: {payload}")
+            self.logger.info(f"📥 Processing user updated event: {payload}")
             # Find existing user by email
             existing_user = await self.arango_service.get_entity_id_by_email(
                 payload['email'], 
             )
 
             if not existing_user:
-                logger.error(f"User not found with email: {payload['email']}")
+                self.logger.error(f"User not found with email: {payload['email']}")
                 return False
             user_data = {
                 '_key': existing_user,
@@ -415,21 +413,21 @@ class KafkaRouteConsumer:
 
             # Batch upsert user
             await self.arango_service.batch_upsert_nodes([user_data], CollectionNames.USERS.value)
-            logger.info(f"✅ Successfully updated user: {payload['email']}")
+            self.logger.info(f"✅ Successfully updated user: {payload['email']}")
             return True
 
         except Exception as e:
-            logger.error(f"❌ Error updating user: {str(e)}")
+            self.logger.error(f"❌ Error updating user: {str(e)}")
             return False
 
     async def handle_user_deleted(self, payload: dict) -> bool:
         """Handle user deletion event"""
         try:
-            logger.info(f"📥 Processing user deleted event: {payload}")
+            self.logger.info(f"📥 Processing user deleted event: {payload}")
             # Find existing user by userId
             existing_user = await self.arango_service.get_entity_id_by_email(payload['email'])
             if not existing_user:
-                logger.error(f"User not found with mail: {payload['email']}")
+                self.logger.error(f"User not found with mail: {payload['email']}")
                 return False
 
             user_data = {
@@ -442,18 +440,18 @@ class KafkaRouteConsumer:
 
             # Batch upsert user with isActive = False
             await self.arango_service.batch_upsert_nodes([user_data], CollectionNames.USERS.value)
-            logger.info(f"✅ Successfully soft-deleted user: {payload['email']}")
+            self.logger.info(f"✅ Successfully soft-deleted user: {payload['email']}")
             return True
 
         except Exception as e:
-            logger.error(f"❌ Error deleting user: {str(e)}")
+            self.logger.error(f"❌ Error deleting user: {str(e)}")
             return False
 
     # APP EVENTS
     async def handle_app_enabled(self, payload: dict) -> bool:
         """Handle app enabled event"""
         try:
-            logger.info(f"📥 Processing app enabled event: {payload}")
+            self.logger.info(f"📥 Processing app enabled event: {payload}")
             org_id = payload['orgId']
             app_group = payload['appGroup']
             app_group_id = payload['appGroupId']
@@ -463,7 +461,7 @@ class KafkaRouteConsumer:
             # Get org details to check account type
             org = await self.arango_service.get_document(org_id, CollectionNames.ORGS.value)
             if not org:
-                logger.error(f"Organization not found: {org_id}")
+                self.logger.error(f"Organization not found: {org_id}")
                 return False
 
             # Create app entities
@@ -513,11 +511,11 @@ class KafkaRouteConsumer:
                     elif accountType == 'individual':
                         await initialize_individual_account_services_fn(org_id, self.app_container)
                     else:
-                        logger.error("Account Type not valid")
+                        self.logger.error("Account Type not valid")
                         return False
-                    logger.info(f"✅ Successfully initialized services for account type: {org['accountType']}")
+                    self.logger.info(f"✅ Successfully initialized services for account type: {org['accountType']}")
                 else:
-                    logger.warning("App container not provided, skipping service initialization")
+                    self.logger.warning("App container not provided, skipping service initialization")
 
                 user_type = 'enterprise' if org['accountType'] in ['enterprise', 'business'] else 'individual'
 
@@ -558,7 +556,7 @@ class KafkaRouteConsumer:
 
                     for app_name in enabled_apps:
                         if app_name in [Connectors.GOOGLE_CALENDAR.value]:
-                            logger.info(f"Skipping init for {app_name}")
+                            self.logger.info(f"Skipping init for {app_name}")
                             continue
 
                         # Initialize app (this will fetch and create users)
@@ -614,7 +612,7 @@ class KafkaRouteConsumer:
                     # First initialize each app
                     for app_name in enabled_apps:
                         if app_name in [Connectors.GOOGLE_CALENDAR.value]:
-                            logger.info(f"Skipping init for {app_name}")
+                            self.logger.info(f"Skipping init for {app_name}")
                             continue
 
                         # Initialize app
@@ -631,7 +629,7 @@ class KafkaRouteConsumer:
                                 if sync_action == 'immediate':
                                     # Start sync for individual user
                                     if app["name"] in [Connectors.GOOGLE_CALENDAR.value]:
-                                        logger.info("Skipping start")
+                                        self.logger.info("Skipping start")
                                         continue
                                     
                                     await self._handle_sync_event(
@@ -645,11 +643,11 @@ class KafkaRouteConsumer:
                                     )
                                     await asyncio.sleep(5)
 
-            logger.info(f"✅ Successfully enabled apps for org: {org_id}")
+            self.logger.info(f"✅ Successfully enabled apps for org: {org_id}")
             return True
 
         except Exception as e:
-            logger.error(f"❌ Error enabling apps: {str(e)}")
+            self.logger.error(f"❌ Error enabling apps: {str(e)}")
             return False
 
     async def handle_app_disabled(self, payload: dict) -> bool:
@@ -659,7 +657,7 @@ class KafkaRouteConsumer:
             apps = payload['apps']
             
             # Stop sync for each app
-            logger.info(f"📥 Processing app disabled event: {payload}")
+            self.logger.info(f"📥 Processing app disabled event: {payload}")
 
             # Set apps as inactive
             app_updates = []
@@ -683,26 +681,26 @@ class KafkaRouteConsumer:
                 CollectionNames.APPS.value
             )
 
-            logger.info(f"✅ Successfully disabled apps for org: {org_id}")
+            self.logger.info(f"✅ Successfully disabled apps for org: {org_id}")
             return True
 
         except Exception as e:
-            logger.error(f"❌ Error disabling apps: {str(e)}")
+            self.logger.error(f"❌ Error disabling apps: {str(e)}")
             return False
         
     async def handle_llm_configured(self, payload: dict) -> bool:
         """Handle LLM configured event"""
         try:
-            logger.info(f"📥 Processing LLM configured event in Query Service")
+            self.logger.info(f"📥 Processing LLM configured event in Query Service")
             return True
         except Exception as e:
-            logger.error(f"❌ Error handling LLM configured event: {str(e)}")
+            self.logger.error(f"❌ Error handling LLM configured event: {str(e)}")
             return False
 
     async def consume_messages(self):
         """Main consumption loop."""
         try:
-            logger.info("Starting Kafka consumer loop")
+            self.logger.info("Starting Kafka consumer loop")
             while self.running:
                 try:
                     message = self.consumer.poll(1.0)
@@ -715,29 +713,29 @@ class KafkaRouteConsumer:
                         if message.error().code() == KafkaError._PARTITION_EOF:
                             continue
                         else:
-                            logger.error(f"Kafka error: {message.error()}")
+                            self.logger.error(f"Kafka error: {message.error()}")
                             continue
 
-                    logger.info(f"Received message: {message}")
+                    self.logger.info(f"Received message: {message}")
                     success = await self.process_message(message)
 
                     if success:
                         self.consumer.commit(message)
-                        logger.info(f"Committed offset for topic-partition {message.topic()}-{message.partition()} at offset {message.offset()}")
+                        self.logger.info(f"Committed offset for topic-partition {message.topic()}-{message.partition()} at offset {message.offset()}")
 
                 except asyncio.CancelledError:
-                    logger.info("Kafka consumer task cancelled")
+                    self.logger.info("Kafka consumer task cancelled")
                     break
                 except Exception as e:
-                    logger.error(f"Error processing Kafka message: {e}")
+                    self.logger.error(f"Error processing Kafka message: {e}")
                     await asyncio.sleep(1)
 
         except Exception as e:
-            logger.error(f"Fatal error in consume_messages: {e}")
+            self.logger.error(f"Fatal error in consume_messages: {e}")
         finally:
             if self.consumer:
                 self.consumer.close()
-                logger.info("Kafka consumer closed")
+                self.logger.info("Kafka consumer closed")
 
     async def start(self):
         """Start the consumer."""

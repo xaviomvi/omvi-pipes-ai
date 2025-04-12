@@ -8,14 +8,11 @@ class DocxParser:
         self.metadata = None
 
     def parse(self, file_binary):
-        # Ensure file_binary is a bytes-like object
-        print(type(file_binary))
         # Create a DocumentStream directly from the bytes
         source = DocumentStream(name="content.docx", stream=file_binary)
 
         converter = DocumentConverter()
         doc = converter.convert(source)
-        print(doc.document)
         
         return doc.document
     

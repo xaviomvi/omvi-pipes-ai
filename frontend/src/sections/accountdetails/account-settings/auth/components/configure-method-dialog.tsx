@@ -1,5 +1,13 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
+
 import { useNavigate } from 'react-router-dom';
+import smtpIcon from '@iconify-icons/eva/email-outline';
+import samlIcon from '@iconify-icons/eva/shield-outline';
+import closeIcon from '@iconify-icons/eva/close-outline';
 import React, { useRef, useState, useEffect } from 'react';
+import googleIcon from '@iconify-icons/eva/google-outline';
+import azureIcon from '@iconify-icons/mdi/microsoft-azure';
+import microsoftIcon from '@iconify-icons/ri/microsoft-line';
 
 import {
   Box,
@@ -29,7 +37,7 @@ import type { MicrosoftAuthFormRef } from './microsoft-auth-form';
 // Method configurations
 interface MethodConfigType {
   [key: string]: {
-    icon: string;
+    icon: React.ComponentProps<typeof IconifyIcon>['icon'];
     title: string;
     color: string;
   };
@@ -37,27 +45,27 @@ interface MethodConfigType {
 
 const METHOD_CONFIG: MethodConfigType = {
   google: {
-    icon: 'eva:google-outline',
+    icon: googleIcon,
     title: 'Google',
     color: '#4285F4',
   },
   microsoft: {
-    icon: 'eva:monitor-outline',
+    icon: microsoftIcon,
     title: 'Microsoft',
     color: '#00A4EF',
   },
   azureAd: {
-    icon: 'eva:cloud-outline',
+    icon: azureIcon,
     title: 'Azure AD',
     color: '#0078D4',
   },
   samlSso: {
-    icon: 'eva:shield-outline',
+    icon: samlIcon,
     title: 'SAML SSO',
     color: '#FF6500',
   },
   smtp: {
-    icon: 'eva:email-outline',
+    icon: smtpIcon,
     title: 'SMTP',
     color: '#2E7D32',
   },
@@ -205,7 +213,7 @@ const ConfigureMethodDialog: React.FC<ConfigureMethodDialogProps> = ({
               sx={{ color: theme.palette.text.secondary }}
               aria-label="close"
             >
-              <Iconify icon="eva:close-outline" width={20} height={20} />
+              <Iconify icon={closeIcon} width={20} height={20} />
             </IconButton>
           </DialogTitle>
 

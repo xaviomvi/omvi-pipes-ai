@@ -2,15 +2,12 @@ import uvicorn
 import asyncio
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from app.utils.logger import create_logger
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from datetime import datetime, timezone, timedelta
 from app.config.configuration_service import config_node_constants
 from app.setups.indexing_setup import AppContainer, initialize_container
 import httpx
-
-logger = create_logger(__name__)
 
 container = AppContainer()
 container_lock = asyncio.Lock()
@@ -20,21 +17,21 @@ async def get_initialized_container() -> AppContainer:
     if not hasattr(get_initialized_container, 'initialized'):
         async with container_lock:
             if not hasattr(get_initialized_container, 'initialized'):  # Double-check inside lock
-                logger.debug("🔧 First-time container initialization")
                 await initialize_container(container)
                 container.wire(modules=[
                     "app.modules.retrieval.retrieval_service"
                 ])
                 get_initialized_container.initialized = True
-                logger.debug("✅ Container initialization complete")
     return container
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan context manager for FastAPI"""
-    logger.info("🚀 Starting application")
+
     container = await get_initialized_container()
     app.container = container
+    logger = app.container.logger()
+    logger.info("🚀 Starting application")
     consumer = await container.kafka_consumer()
     consume_task = asyncio.create_task(consumer.consume_messages())
 
@@ -104,8 +101,6 @@ async def health_check():
 
 def run(host: str = "0.0.0.0", port: int = 8091, reload: bool = True):
     """Run the application"""
-    logger.info(f"🚀 Running Application on {host}:{port}")
-
     uvicorn.run(
         "app.indexing_main:app",
         host=host,

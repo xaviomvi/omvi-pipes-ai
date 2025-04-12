@@ -3,20 +3,18 @@
 # pylint: disable=E1101, W0718
 from arango import ArangoClient
 from app.config.configuration_service import ConfigurationService
-from app.utils.logger import create_logger
-import uuid
+
 from typing import Dict, List, Optional
 from app.config.arangodb_constants import CollectionNames
 from arango.database import TransactionDatabase
 from app.config.configuration_service import config_node_constants
 
-logger = create_logger(__name__)
-
 class ArangoService():
     """ArangoDB service for interacting with the database"""
 
-    def __init__(self, arango_client: ArangoClient, config: ConfigurationService):
-        logger.info("🚀 Initializing ArangoService")
+    def __init__(self, logger, arango_client: ArangoClient, config: ConfigurationService):
+        self.logger = logger 
+        self.logger.info("🚀 Initializing ArangoService")
         self.config_service = config
         self.client = arango_client
         self.db = None
@@ -24,7 +22,7 @@ class ArangoService():
     async def connect(self) -> bool:
         """Connect to ArangoDB and initialize collections"""
         try:
-            logger.info("🚀 Connecting to ArangoDB...")
+            self.logger.info("🚀 Connecting to ArangoDB...")
             arangodb_config = await self.config_service.get_config(config_node_constants.ARANGODB.value)
             arango_url = arangodb_config['url']
             arango_user = arangodb_config['username']
@@ -34,31 +32,31 @@ class ArangoService():
             if not isinstance(arango_url, str):
                 raise ValueError("ArangoDB URL must be a string")
             if not self.client:
-                logger.error("ArangoDB client not initialized")
+                self.logger.error("ArangoDB client not initialized")
                 return False
 
             # Connect to system db to ensure our db exists
-            logger.debug("Connecting to system db")
+            self.logger.debug("Connecting to system db")
             sys_db = self.client.db(
                 '_system',
                 username=arango_user,
                 password=arango_password,
                 verify=True
             )
-            logger.debug("System DB: %s", sys_db)
+            self.logger.debug("System DB: %s", sys_db)
 
             # # Create our database if it doesn't exist
-            # logger.debug("Checking if our database exists")
+            # self.logger.debug("Checking if our database exists")
             # if not sys_db.has_database(arango_db):
-            #     logger.info(
+            #     self.logger.info(
             #         "🚀 Database %s does not exist. Creating...",
             #         arango_db
             #     )
             #     sys_db.create_database(arango_db)
-            #     logger.info("✅ Database created successfully")
+            #     self.logger.info("✅ Database created successfully")
                 
             # Connect to our database
-            logger.debug("Connecting to our database")
+            self.logger.debug("Connecting to our database")
             self.db = self.client.db(
                 arango_db,
                 username=arango_user,
@@ -69,7 +67,7 @@ class ArangoService():
             return True
 
         except Exception as e:
-            logger.error("❌ Failed to connect to ArangoDB: %s", str(e))
+            self.logger.error("❌ Failed to connect to ArangoDB: %s", str(e))
             self.client = None
             self.db = None
 
@@ -78,12 +76,12 @@ class ArangoService():
     async def disconnect(self):
         """Disconnect from ArangoDB"""
         try:
-            logger.info("🚀 Disconnecting from ArangoDB")
+            self.logger.info("🚀 Disconnecting from ArangoDB")
             if self.client:
                 self.client.close()
-            logger.info("✅ Disconnected from ArangoDB successfully")
+            self.logger.info("✅ Disconnected from ArangoDB successfully")
         except Exception as e:
-            logger.error("❌ Failed to disconnect from ArangoDB: %s", str(e))
+            self.logger.error("❌ Failed to disconnect from ArangoDB: %s", str(e))
             return False
 
     async def get_key_by_external_file_id(self, external_file_id: str, transaction: Optional[TransactionDatabase] = None) -> Optional[str]:
@@ -98,7 +96,7 @@ class ArangoService():
             Optional[str]: Internal file key if found, None otherwise
         """
         try:
-            logger.info(
+            self.logger.info(
                 "🚀 Retrieving internal key for external file ID %s", external_file_id)
 
             query = f"""
@@ -112,16 +110,16 @@ class ArangoService():
             result = next(cursor, None)
 
             if result:
-                logger.info(
+                self.logger.info(
                     "✅ Successfully retrieved internal key for external file ID %s", external_file_id)
                 return result
             else:
-                logger.warning(
+                self.logger.warning(
                     "⚠️ No internal key found for external file ID %s", external_file_id)
                 return None
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Failed to retrieve internal key for external file ID %s: %s",
                 external_file_id,
                 str(e)
@@ -140,7 +138,7 @@ class ArangoService():
             Optional[str]: Internal message key if found, None otherwise
         """
         try:
-            logger.info(
+            self.logger.info(
                 "🚀 Retrieving internal key for external message ID %s", external_message_id)
 
             query = f"""
@@ -154,16 +152,16 @@ class ArangoService():
             result = next(cursor, None)
 
             if result:
-                logger.info(
+                self.logger.info(
                     "✅ Successfully retrieved internal key for external message ID %s", external_message_id)
                 return result
             else:
-                logger.warning(
+                self.logger.warning(
                     "⚠️ No internal key found for external message ID %s", external_message_id)
                 return None
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Failed to retrieve internal key for external message ID %s: %s",
                 external_message_id,
                 str(e)
@@ -182,7 +180,7 @@ class ArangoService():
             Optional[str]: Internal attachment key if found, None otherwise
         """
         try:
-            logger.info(
+            self.logger.info(
                 "🚀 Retrieving internal key for external attachment ID %s", external_attachment_id)
 
             query = """
@@ -196,16 +194,16 @@ class ArangoService():
             result = next(cursor, None)
 
             if result:
-                logger.info(
+                self.logger.info(
                     "✅ Successfully retrieved internal key for external attachment ID %s", external_attachment_id)
                 return result
             else:
-                logger.warning(
+                self.logger.warning(
                     "⚠️ No internal key found for external attachment ID %s", external_attachment_id)
                 return None
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Failed to retrieve internal key for external attachment ID %s: %s",
                 external_attachment_id,
                 str(e)
@@ -225,13 +223,13 @@ class ArangoService():
             result = list(cursor)
             return result[0] if result else None
         except Exception as e:
-            logger.error("❌ Error getting document: %s", str(e))
+            self.logger.error("❌ Error getting document: %s", str(e))
             return None
 
     async def batch_upsert_nodes(self, nodes: List[Dict], collection: str, transaction: Optional[TransactionDatabase] = None):
         """Batch upsert multiple nodes using Python-Arango SDK methods"""
         try:
-            logger.info("🚀 Batch upserting nodes: %s", collection)
+            self.logger.info("🚀 Batch upserting nodes: %s", collection)
 
             batch_query = """
             FOR node IN @nodes
@@ -254,12 +252,12 @@ class ArangoService():
                 bind_vars=bind_vars
             )
             results = list(cursor)
-            logger.info("✅ Successfully upserted %d nodes in collection '%s'.", len(
+            self.logger.info("✅ Successfully upserted %d nodes in collection '%s'.", len(
                 results), collection)
             return True
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Batch upsert failed: %s",
                 str(e)
             )
@@ -270,7 +268,7 @@ class ArangoService():
     async def batch_create_edges(self, edges: List[Dict], collection: str, transaction: Optional[TransactionDatabase] = None):
         """Batch create PARENT_CHILD relationships"""
         try:
-            logger.info("🚀 Batch creating edges: %s", collection)
+            self.logger.info("🚀 Batch creating edges: %s", collection)
 
             batch_query = """
             FOR edge IN @edges
@@ -286,11 +284,11 @@ class ArangoService():
 
             cursor = db.aql.execute(batch_query, bind_vars=bind_vars)
             results = list(cursor)
-            logger.info("✅ Successfully created %d edges in collection '%s'.", len(
+            self.logger.info("✅ Successfully created %d edges in collection '%s'.", len(
                 results), collection)
             return True
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Batch edge creation failed: %s",
                 str(e)
             )
@@ -308,7 +306,7 @@ class ArangoService():
             result = next(cursor, None)
             return result
         except Exception as e:
-            logger.error(f"Error getting user by user ID: {str(e)}")
+            self.logger.error(f"Error getting user by user ID: {str(e)}")
             return None
 
     async def get_departments(self, org_id: Optional[str] = None) -> List[str]:

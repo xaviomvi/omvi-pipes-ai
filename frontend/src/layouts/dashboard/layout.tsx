@@ -15,6 +15,8 @@ import { useSettingsContext } from 'src/components/settings';
 
 import { getOrgLogo, getOrgIdFromToken } from 'src/sections/accountdetails/utils';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { Main } from './main';
 import { NavMobile } from './nav-mobile';
 import { layoutClasses } from '../classes';
@@ -44,6 +46,7 @@ export type DashboardLayoutProps = {
 export function DashboardLayout({ sx, children, header, data }: DashboardLayoutProps) {
   const theme = useTheme();
   const mobileNavOpen = useBoolean();
+  const { user } = useAuthContext();
   const settings = useSettingsContext();
   const navColorVars = useNavColorVars(theme, settings);
   const layoutQuery: Breakpoint = 'sm';
@@ -57,19 +60,25 @@ export function DashboardLayout({ sx, children, header, data }: DashboardLayoutP
   const isNavHorizontal = settings.navLayout === 'horizontal';
   const isNavVertical = isNavMini || settings.navLayout === 'vertical';
   const [customLogo, setCustomLogo] = useState<string | null>('');
+  const isBusiness =
+    user?.accountType === 'business' ||
+    user?.accountType === 'organization' ||
+    user?.role === 'business';
   useEffect(() => {
     const fetchLogo = async () => {
       try {
         const orgId = await getOrgIdFromToken();
-        const logoUrl = await getOrgLogo(orgId);
-        setCustomLogo(logoUrl);
+        if (isBusiness) {
+          const logoUrl = await getOrgLogo(orgId);
+          setCustomLogo(logoUrl);
+        }
       } catch (err) {
         console.error(err, 'error in fetching logo');
       }
     };
 
     fetchLogo();
-  }, []);
+  }, [isBusiness]);
 
   return (
     <LayoutSection

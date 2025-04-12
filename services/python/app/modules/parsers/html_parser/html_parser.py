@@ -77,10 +77,6 @@ if __name__ == "__main__":
         # Parse HTML string
         doc = parser.parse_string(html_content)
         print("String parsing result:", doc)
-        
-        # Parse HTML file (uncomment to test)
-        # doc = parser.parse_file("path/to/file.html")
-        # print("File parsing result:", doc)
-        
+                
     except ValueError as e:
         print(f"Error: {e}")

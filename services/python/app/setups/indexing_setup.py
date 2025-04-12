@@ -26,9 +26,6 @@ from app.modules.parsers.excel.excel_parser import ExcelParser
 from app.modules.parsers.excel.xls_parser import XLSParser
 from app.modules.parsers.csv.csv_parser import CSVParser
 from app.modules.parsers.html_parser.html_parser import HTMLParser
-from app.modules.parsers.google_files.google_docs_parser import GoogleDocsParser
-from app.modules.parsers.google_files.google_slides_parser import GoogleSlidesParser
-from app.modules.parsers.google_files.google_sheets_parser import GoogleSheetsParser
 from app.modules.parsers.markdown.markdown_parser import MarkdownParser
 from app.modules.parsers.pptx.pptx_parser import PPTXParser
 
@@ -36,17 +33,18 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-logger = create_logger(__name__)
 
 class AppContainer(containers.DeclarativeContainer):
     """Dependency injection container for the application."""
     # Log when container is initialized
-    logger.info("🚀 Initializing AppContainer")
-    logger.info("🔧 Environment: dev")
-
-    # Initialize ConfigurationService first
+    logger = providers.Singleton(create_logger, "Python Indexing Service")
+    
+    logger().info("🚀 Initializing AppContainer")
+    
+    # Core services that don't depend on account type
     config_service = providers.Singleton(
-        ConfigurationService
+        ConfigurationService,
+        logger=logger
     )
 
     async def _fetch_arango_host(config_service):
@@ -63,14 +61,15 @@ class AppContainer(containers.DeclarativeContainer):
         _create_arango_client, config_service=config_service)
 
     # First create an async factory for the connected ArangoService
-    async def _create_arango_service(arango_client, config):
+    async def _create_arango_service(logger, arango_client, config):
         """Async factory to create and connect ArangoService"""
-        service = ArangoService(arango_client, config)
+        service = ArangoService(logger, arango_client, config)
         await service.connect()
         return service
 
     arango_service = providers.Resource(
         _create_arango_service,
+        logger=logger,
         arango_client=arango_client,
         config=config_service
     )
@@ -92,9 +91,10 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     # Indexing pipeline
-    async def _create_indexing_pipeline(arango_service, config):
+    async def _create_indexing_pipeline(logger, arango_service, config):
         """Async factory for IndexingPipeline"""
         pipeline = IndexingPipeline(
+            logger=logger,
             arango_service=arango_service,
             collection_name=config['collectionName'],
             qdrant_api_key=config['apiKey'],
@@ -105,19 +105,21 @@ class AppContainer(containers.DeclarativeContainer):
 
     indexing_pipeline = providers.Resource(
         _create_indexing_pipeline,
+        logger=logger,
         arango_service=arango_service,
         config=qdrant_config
     )
 
     # Domain extraction service - depends on arango_service
-    async def _create_domain_extractor(arango_service, config_service):
+    async def _create_domain_extractor(logger, arango_service, config_service):
         """Async factory for DomainExtractor"""
-        extractor = DomainExtractor(arango_service, config_service)
+        extractor = DomainExtractor(logger, arango_service, config_service)
         # Add any necessary async initialization
         return extractor
 
     domain_extractor = providers.Resource(
         _create_domain_extractor,
+        logger=logger,
         arango_service=arango_service,
         config_service=config_service
     )
@@ -133,11 +135,8 @@ class AppContainer(containers.DeclarativeContainer):
             'md': MarkdownParser(),
             'csv': CSVParser(),
             'excel': ExcelParser(),
-            'xls': XLSParser(),
-            'google_docs': GoogleDocsParser(),
-            'google_slides': GoogleSlidesParser(),
-            'google_sheets': GoogleSheetsParser()
-        }
+            'xls': XLSParser()
+            }
         return parsers
 
     parsers = providers.Resource(
@@ -145,9 +144,10 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     # Processor - depends on domain_extractor, indexing_pipeline, and arango_service
-    async def _create_processor(config_service, domain_extractor, indexing_pipeline, arango_service, parsers):
+    async def _create_processor(logger, config_service, domain_extractor, indexing_pipeline, arango_service, parsers):
         """Async factory for Processor"""
         processor = Processor(
+            logger=logger,
             config_service=config_service,
             domain_extractor=domain_extractor,
             indexing_pipeline=indexing_pipeline,
@@ -159,6 +159,7 @@ class AppContainer(containers.DeclarativeContainer):
 
     processor = providers.Resource(
         _create_processor,
+        logger=logger,
         config_service=config_service,
         domain_extractor=domain_extractor,
         indexing_pipeline=indexing_pipeline,
@@ -167,27 +168,29 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     # Event processor - depends on processor
-    async def _create_event_processor(processor, arango_service):
+    async def _create_event_processor(logger, processor, arango_service):
         """Async factory for EventProcessor"""
-        event_processor = EventProcessor(processor=processor, arango_service=arango_service)
+        event_processor = EventProcessor(logger=logger,processor=processor, arango_service=arango_service)
         # Add any necessary async initialization
         return event_processor
 
     event_processor = providers.Resource(
         _create_event_processor,
+        logger=logger,
         processor=processor,
         arango_service=arango_service
     )
 
     # Kafka consumer with async initialization
-    async def _create_kafka_consumer(config_service, event_processor):
+    async def _create_kafka_consumer(logger, config_service, event_processor):
         """Async factory for KafkaConsumerManager"""
-        consumer = KafkaConsumerManager(config_service=config_service, event_processor=event_processor)
+        consumer = KafkaConsumerManager(logger=logger, config_service=config_service, event_processor=event_processor)
         # Add any necessary async initialization
         return consumer
 
     kafka_consumer = providers.Resource(
         _create_kafka_consumer,
+        logger=logger,
         config_service=config_service,
         event_processor=event_processor
     )
@@ -201,8 +204,9 @@ class AppContainer(containers.DeclarativeContainer):
         ]
     )
     
-async def health_check_etcd():
+async def health_check_etcd(container):
     """Check the health of etcd via HTTP request."""
+    logger = container.logger()
     logger.info("🔍 Starting etcd health check...")
     try:
         etcd_url = os.getenv("ETCD_URL")
@@ -235,6 +239,7 @@ async def health_check_etcd():
 
 async def health_check_arango(container):
     """Check the health of ArangoDB using ArangoClient."""
+    logger = container.logger()
     logger.info("🔍 Starting ArangoDB health check...")
     try:
         # Get the config_service instance first, then call get_config
@@ -264,6 +269,7 @@ async def health_check_arango(container):
 
 async def health_check_kafka(container):
     """Check the health of Kafka by attempting to create a connection."""
+    logger = container.logger()
     logger.info("🔍 Starting Kafka health check...")
     try:
         kafka_config = await container.config_service().get_config(config_node_constants.KAFKA.value)
@@ -302,6 +308,7 @@ async def health_check_kafka(container):
 
 async def health_check_redis(container):
     """Check the health of Redis by attempting to connect and ping."""
+    logger = container.logger()
     logger.info("🔍 Starting Redis health check...")
     try:
         redis_config = await container.config_service().get_config(config_node_constants.REDIS.value)
@@ -327,6 +334,7 @@ async def health_check_redis(container):
 
 async def health_check_qdrant(container):
     """Check the health of Qdrant via HTTP request."""
+    logger = container.logger()
     logger.info("🔍 Starting Qdrant health check...")
     try:
         qdrant_config = await container.config_service().get_config(config_node_constants.QDRANT.value)
@@ -351,10 +359,11 @@ async def health_check_qdrant(container):
 
 async def health_check(container):
     """Run health checks sequentially using HTTP requests."""
+    logger = container.logger()
     logger.info("🏥 Starting health checks for all services...")
     try:
         # Run health checks sequentially
-        await health_check_etcd()
+        await health_check_etcd(container)
         logger.info("✅ etcd health check completed")
         
         await health_check_arango(container)
@@ -376,6 +385,7 @@ async def health_check(container):
 
 async def initialize_container(container: AppContainer) -> bool:
     """Initialize container resources"""
+    logger = container.logger()
     logger.info("🚀 Initializing application resources")
 
     try:

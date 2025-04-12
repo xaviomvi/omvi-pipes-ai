@@ -1,8 +1,14 @@
 import { z as zod } from 'zod';
 import { useForm } from 'react-hook-form';
 import { useState, useEffect } from 'react';
+import loginIcon from '@iconify-icons/mdi/login';
+import eyeFillIcon from '@iconify-icons/ri/eye-fill';
 import { zodResolver } from '@hookform/resolvers/zod';
+import key2FillIcon from '@iconify-icons/ri/key-2-fill';
 import { useLocation, useNavigate } from 'react-router-dom';
+import eyeOffFillIcon from '@iconify-icons/ri/eye-off-fill';
+import lockPasswordFillIcon from '@iconify-icons/ri/lock-password-fill';
+import shieldKeyholeFillIcon from '@iconify-icons/ri/shield-keyhole-fill';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -68,29 +74,30 @@ export default function ResetPassword() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     let token = params.get('token');
-    
+
     // Check if token is in hash fragment
     if (!token && location.hash) {
       // Handle format like #token=xyz
       if (location.hash.includes('token=')) {
         token = location.hash.split('token=')[1];
-        
+
         // Remove any additional hash parameters if present
         if (token.includes('&')) {
           token = token.split('&')[0];
         }
       }
     }
-    
+
     if (token) {
       setResetToken(token);
       setIsValidRoute(true);
     } else {
       setIsValidRoute(false);
-      setErrorMsg('Password reset token is missing. This page is only accessible from a password reset email link.');
+      setErrorMsg(
+        'Password reset token is missing. This page is only accessible from a password reset email link.'
+      );
     }
   }, [location]);
-
 
   const methods = useForm<ResetPasswordSchemaType>({
     resolver: zodResolver(ResetPasswordSchema),
@@ -112,7 +119,7 @@ export default function ResetPassword() {
         setErrorMsg('Password reset token is missing. Please use the link from your email.');
         return;
       }
-      
+
       setIsSubmitting(true);
       const { newPassword } = data;
 
@@ -121,14 +128,17 @@ export default function ResetPassword() {
       // Show success message
       setErrorMsg('');
       setSuccessMsg('Password has been reset successfully. Redirecting to login...');
-      
+
       // Redirect after a short delay
       setTimeout(() => {
         router.replace('/auth/sign-in');
       }, 2000);
-      
     } catch (error) {
-      setErrorMsg(typeof error === 'string' ? error : (error as ErrorResponse).errorMessage || 'Failed to reset password. Please try again.');
+      setErrorMsg(
+        typeof error === 'string'
+          ? error
+          : (error as ErrorResponse).errorMessage || 'Failed to reset password. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -159,10 +169,9 @@ export default function ResetPassword() {
             </Typography>
 
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {isValidRoute 
-                ? 'Please enter your new password below' 
+              {isValidRoute
+                ? 'Please enter your new password below'
                 : 'This page is only accessible from a password reset email link'}
-
             </Typography>
           </Box>
 
@@ -179,7 +188,7 @@ export default function ResetPassword() {
                 {errorMsg}
               </Alert>
             </Grow>
-          )}          
+          )}
           {!!successMsg && (
             <Grow in>
               <Alert
@@ -197,15 +206,15 @@ export default function ResetPassword() {
           {!isValidRoute ? (
             <Box sx={{ textAlign: 'center', mt: 3 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                If you need to reset your password, please return to the sign-in page and 
-                use the &quot;Forgot Password&quot; option.
+                If you need to reset your password, please return to the sign-in page and use the
+                &quot;Forgot Password&quot; option.
               </Typography>
               <Button
                 fullWidth
                 size="large"
                 variant="contained"
                 onClick={handleNavigateToSignIn}
-                startIcon={<Iconify icon="mdi:login" />}
+                startIcon={<Iconify icon={loginIcon} />}
                 sx={{
                   height: 48,
                   bgcolor: 'primary.main',
@@ -234,22 +243,26 @@ export default function ResetPassword() {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="ri:lock-password-fill" width={24} sx={{ color: 'text.secondary' }} />
+                        <Iconify
+                          icon={lockPasswordFillIcon}
+                          width={24}
+                          sx={{ color: 'text.secondary' }}
+                        />
                       </InputAdornment>
                     ),
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton 
-                          onClick={() => setShowNewPassword(!showNewPassword)} 
+                        <IconButton
+                          onClick={() => setShowNewPassword(!showNewPassword)}
                           edge="end"
-                          sx={{ 
+                          sx={{
                             color: (theme) => alpha(theme.palette.primary.main, 0.8),
                             '&:hover': {
                               backgroundColor: (theme) => alpha(theme.palette.primary.lighter, 0.2),
-                            }
+                            },
                           }}
                         >
-                          <Iconify icon={showNewPassword ? 'ri:eye-fill' : 'ri:eye-off-fill'} />
+                          <Iconify icon={showNewPassword ? eyeFillIcon : eyeOffFillIcon} />
                         </IconButton>
                       </InputAdornment>
                     ),
@@ -273,22 +286,26 @@ export default function ResetPassword() {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Iconify icon="ri:shield-keyhole-fill" width={24} sx={{ color: 'text.secondary' }} />
+                        <Iconify
+                          icon={shieldKeyholeFillIcon}
+                          width={24}
+                          sx={{ color: 'text.secondary' }}
+                        />
                       </InputAdornment>
                     ),
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton 
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                        <IconButton
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                           edge="end"
-                          sx={{ 
+                          sx={{
                             color: (theme) => alpha(theme.palette.primary.main, 0.8),
                             '&:hover': {
                               backgroundColor: (theme) => alpha(theme.palette.primary.lighter, 0.2),
-                            }
+                            },
                           }}
                         >
-                          <Iconify icon={showConfirmPassword ? 'ri:eye-fill' : 'ri:eye-off-fill'} />
+                          <Iconify icon={showConfirmPassword ? eyeFillIcon : eyeOffFillIcon} />
                         </IconButton>
                       </InputAdornment>
                     ),
@@ -300,7 +317,7 @@ export default function ResetPassword() {
                     },
                   }}
                 />
-                
+
                 <LoadingButton
                   fullWidth
                   size="large"
@@ -320,9 +337,9 @@ export default function ResetPassword() {
                     },
                     '&.Mui-disabled': {
                       bgcolor: (theme) => alpha(theme.palette.primary.main, 0.4),
-                    }
+                    },
                   }}
-                  startIcon={<Iconify icon="ri:key-2-fill" />}
+                  startIcon={<Iconify icon={key2FillIcon} />}
                 >
                   Reset Password
                 </LoadingButton>

@@ -1,80 +1,32 @@
 """Google Slides Parser module for parsing Google Slides content"""
 
 from typing import Dict, List, Optional, Any
-from app.utils.logger import create_logger
 from app.connectors.utils.decorators import exponential_backoff
-from .parser_admin_service import ParserAdminService
-from .parser_user_service import ParserUserService
-
-logger = create_logger(__name__)
+from app.connectors.google.admin.google_admin_service import GoogleAdminService
+from app.modules.parsers.google_files.parser_user_service import ParserUserService
 
 class GoogleSlidesParser:
     """Parser class for Google Slides content"""
 
-    def __init__(self, admin_service: Optional[ParserAdminService] = None, user_service: Optional[ParserUserService] = None):
+    def __init__(self, logger, admin_service: Optional[GoogleAdminService] = None, user_service: Optional[ParserUserService] = None):
         """Initialize with either admin or user service"""
+        self.logger = logger
         self.admin_service = admin_service
         self.user_service = user_service
         self.service = None
 
-        # Set the appropriate service
-        if user_service and user_service.slides_service:
+    async def connect_service(self, user_email: str = None, org_id: str = None, user_id: str = None):
+        if self.user_service:
+            if not await self.user_service.connect_individual_user(org_id, user_id):
+                self.logger.error("❌ Failed to connect to Google Slides service")
+                return None
+            
+            self.service = self.user_service.slides_service
+            self.logger.info("🚀 Connected to Google Slides service: %s", self.service)
+        elif self.admin_service:
+            user_service = await self.admin_service.create_parser_user_service(user_email)
             self.service = user_service.slides_service
-        elif admin_service and admin_service.slides_service:
-            self.service = admin_service.slides_service
-
-    @exponential_backoff()
-    async def get_presentation_metadata(self, presentation_id: str) -> Dict[str, Any]:
-        """Get metadata about the presentation"""
-        try:
-            if not self.service:
-                logger.error("❌ No valid service available for parsing")
-                return None
-
-            presentation = self.service.presentations().get(
-                presentationId=presentation_id
-            ).execute()
-
-            return {
-                'title': presentation.get('title', ''),
-                'locale': presentation.get('locale', ''),
-                'slideCount': len(presentation.get('slides', [])),
-                'presentationId': presentation_id,
-                'revisionId': presentation.get('revisionId', ''),
-                'pageSize': presentation.get('pageSize', {})
-            }
-
-        except Exception as e:
-            logger.error("❌ Failed to get presentation metadata: %s", str(e))
-            return None
-
-    @exponential_backoff()
-    async def parse_slide_content(self, presentation_id: str, slide_id: str) -> Dict[str, Any]:
-        """Parse content from a specific slide"""
-        try:
-            if not self.service:
-                logger.error("❌ No valid service available for parsing")
-                return None
-
-            # Get the specific slide content
-            presentation = self.service.presentations().get(
-                presentationId=presentation_id,
-                fields=f"slides(objectId,slideProperties,pageElements)"
-            ).execute()
-
-            # Find the specific slide
-            slide = next((s for s in presentation.get('slides', [])
-                         if s.get('objectId') == slide_id), None)
-
-            if not slide:
-                logger.error(f"❌ Slide {slide_id} not found")
-                return None
-
-            return await self._process_slide(slide)
-
-        except Exception as e:
-            logger.error("❌ Failed to parse slide content: %s", str(e))
-            return None
+            self.logger.info("🚀 Connected to Google Slides service: %s", self.service)
 
     async def _process_slide(self, slide: Dict) -> Dict[str, Any]:
         """Process individual slide content"""
@@ -83,6 +35,12 @@ class GoogleSlidesParser:
                 'slideId': slide.get('objectId', ''),
                 'layout': slide.get('slideProperties', {}).get('layoutObjectId', ''),
                 'masterObjectId': slide.get('slideProperties', {}).get('masterObjectId', ''),
+                'notesPageId': slide.get('slideProperties', {}).get('notesPage', {}).get('notesProperties', {}).get('speakerNotesObjectId', ''),
+                'slideProperties': {
+                    'displayName': slide.get('slideProperties', {}).get('displayName', ''),
+                    'layoutProperties': slide.get('slideProperties', {}).get('layoutProperties', {}),
+                    'masterProperties': slide.get('slideProperties', {}).get('masterProperties', {})
+                },
                 'elements': []
             }
 
@@ -94,7 +52,7 @@ class GoogleSlidesParser:
             return slide_data
 
         except Exception as e:
-            logger.error("❌ Failed to process slide: %s", str(e))
+            self.logger.error("❌ Failed to process slide: %s", str(e))
             return None
 
     async def _process_element(self, element: Dict) -> Dict[str, Any]:
@@ -122,7 +80,7 @@ class GoogleSlidesParser:
             return element_data
 
         except Exception as e:
-            logger.error("❌ Failed to process element: %s", str(e))
+            self.logger.error("❌ Failed to process element: %s", str(e))
             return None
 
     def _get_element_type(self, element: Dict) -> str:
@@ -252,23 +210,38 @@ class GoogleSlidesParser:
         """Process an entire presentation including all slides"""
         try:
             if not self.service:
-                logger.error("❌ No valid service available for parsing")
+                self.logger.error("❌ No valid service available for parsing")
                 return None
 
-            # Get presentation metadata
-            metadata = await self.get_presentation_metadata(presentation_id)
-            if not metadata:
-                return None
-
-            # Get all slides
+            # Get presentation data
             presentation = self.service.presentations().get(
                 presentationId=presentation_id
             ).execute()
 
+            # Extract presentation metadata
+            metadata = {
+                'presentationId': presentation.get('presentationId', ''),
+                'title': presentation.get('title', ''),
+                'locale': presentation.get('locale', ''),
+                'revisionId': presentation.get('revisionId', ''),
+                'pageSize': presentation.get('pageSize', {}),
+                'masterCount': len(presentation.get('masters', [])),
+                'layoutCount': len(presentation.get('layouts', [])),
+                'hasNotesMaster': bool(presentation.get('notesMaster'))
+            }
+
             processed_slides = []
-            for slide in presentation.get('slides', []):
+            for index, slide in enumerate(presentation.get('slides', []), 1):
                 slide_data = await self._process_slide(slide)
                 if slide_data:
+                    # Add slide number and additional metadata
+                    slide_data.update({
+                        'slideNumber': index,
+                        'totalSlides': len(presentation.get('slides', [])),
+                        'hasNotesPage': bool(slide.get('slideProperties', {}).get('notesPage')),
+                        'masterProperties': slide.get('slideProperties', {}).get('masterProperties', {}),
+                        'layoutProperties': slide.get('slideProperties', {}).get('layoutProperties', {})
+                    })
                     processed_slides.append(slide_data)
 
             return {
@@ -276,11 +249,12 @@ class GoogleSlidesParser:
                 'slides': processed_slides,
                 'summary': {
                     'totalSlides': len(processed_slides),
-                    'hasNotes': any(slide.get('slideProperties', {}).get('notesPage')
-                                    for slide in presentation.get('slides', []))
+                    'hasNotes': any(slide.get('hasNotesPage') for slide in processed_slides),
+                    'presentationTitle': metadata['title'],
+                    'locale': metadata['locale']
                 }
             }
 
         except Exception as e:
-            logger.error("❌ Failed to process presentation: %s", str(e))
+            self.logger.error("❌ Failed to process presentation: %s", str(e))
             return None

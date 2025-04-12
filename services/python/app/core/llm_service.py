@@ -3,14 +3,13 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from langchain.chat_models.base import BaseChatModel
 from langchain.callbacks.base import BaseCallbackHandler
-from app.utils.logger import create_logger
+
 from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
 from app.config.ai_models_named_constants import AzureOpenAILLM
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_anthropic import ChatAnthropic
 from langchain_aws import ChatBedrock
 
-logger = create_logger(__name__)
 
 class BaseLLMConfig(BaseModel):
     """Base configuration for all LLM providers"""
@@ -44,8 +43,9 @@ class AwsBedrockLLMConfig(BaseLLMConfig):
 class CostTrackingCallback(BaseCallbackHandler):
     """Callback handler for tracking LLM usage and costs"""
     
-    def __init__(self):
+    def __init__(self, logger):
         super().__init__()
+        self.logger = logger
         # Azure GPT-4 pricing (per 1K tokens)
         self.cost_per_1k_tokens = {
             "gpt-4": {"input": 0.03, "output": 0.06},
@@ -71,7 +71,7 @@ class CostTrackingCallback(BaseCallbackHandler):
     def calculate_cost(self, model: str) -> float:
         """Calculate cost based on token usage"""
         if model not in self.cost_per_1k_tokens:
-            logger.warning(f"Unknown model for cost calculation: {model}")
+            self.logger.warning(f"Unknown model for cost calculation: {model}")
             return 0.0
 
         rates = self.cost_per_1k_tokens[model]
@@ -83,9 +83,9 @@ class LLMFactory:
     """Factory for creating LLM instances with cost tracking"""
 
     @staticmethod
-    def create_llm(config: BaseLLMConfig) -> BaseChatModel:
+    def create_llm(logger, config: BaseLLMConfig) -> BaseChatModel:
         """Create an LLM instance based on configuration"""
-        cost_callback = CostTrackingCallback()
+        cost_callback = CostTrackingCallback(logger)
 
         if isinstance(config, AzureLLMConfig):
             return AzureChatOpenAI(

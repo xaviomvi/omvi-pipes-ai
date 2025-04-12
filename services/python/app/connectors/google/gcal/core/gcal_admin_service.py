@@ -7,20 +7,18 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from app.config.configuration_service import ConfigurationService, config_node_constants, Routes, TokenScopes
 from app.connectors.google.gcal.core.gcal_user_service import GCalUserService
-from app.utils.logger import create_logger
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.config.arangodb_constants import CollectionNames
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
 from uuid import uuid4
 
-logger = create_logger(__name__)
-
 
 class GCalAdminService:
     """GCalAdminService class for interacting with Google Calendar API"""
 
-    def __init__(self, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter):
+    def __init__(self, logger, config: ConfigurationService, rate_limiter: GoogleAPIRateLimiter):
+        self.logger = logger
         self.config_service = config
         self.rate_limiter = rate_limiter
         self.google_limiter = self.rate_limiter.google_limiter
@@ -52,7 +50,7 @@ class GCalAdminService:
             return True
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "❌ Failed to connect to Calendar Admin Service: %s", str(e))
             return False
 
@@ -61,7 +59,7 @@ class GCalAdminService:
     async def list_enterprise_users(self, org_id: str) -> List[Dict]:
         """List all users in the domain for enterprise setup"""
         try:
-            logger.info("🚀 Listing domain users")
+            self.logger.info("🚀 Listing domain users")
             users = []
             page_token = None
 
@@ -96,9 +94,9 @@ class GCalAdminService:
                     if not page_token:
                         break
 
-            logger.info("✅ Found %s active users in domain", len(users))
+            self.logger.info("✅ Found %s active users in domain", len(users))
             return users
 
         except Exception as e:
-            logger.error("❌ Failed to list domain users: %s", str(e))
+            self.logger.error("❌ Failed to list domain users: %s", str(e))
             return []

@@ -1,34 +1,42 @@
 """Google Docs Parser module for parsing Google Docs content"""
 
-from typing import Dict, Optional
-from app.utils.logger import create_logger
+from typing import Dict, Optional, List, Tuple
 from app.connectors.utils.decorators import exponential_backoff
-from .parser_admin_service import ParserAdminService
-from .parser_user_service import ParserUserService
-
-logger = create_logger(__name__)
+from app.connectors.google.admin.google_admin_service import GoogleAdminService
+from app.modules.parsers.google_files.parser_user_service import ParserUserService
 
 class GoogleDocsParser:
     """Parser class for Google Docs content"""
 
-    def __init__(self, admin_service: Optional[ParserAdminService] = None, user_service: Optional[ParserUserService] = None):
+    def __init__(self, logger, admin_service: Optional[GoogleAdminService] = None, user_service: Optional[ParserUserService] = None):
         """Initialize with either admin or user service"""
+        self.logger = logger
         self.admin_service = admin_service
         self.user_service = user_service
         self.service = None
 
-        # Set the appropriate service
-        if user_service and user_service.docs_service:
+    async def connect_service(self, user_email: str = None, org_id: str = None, user_id: str = None):
+        if self.user_service:
+            if not await self.user_service.connect_individual_user(org_id, user_id):
+                self.logger.error("❌ Failed to connect to Google Docs service")
+                return None
+
+            self.service = self.user_service.docs_service
+            self.logger.info("🚀 Connected to Google Docs service: %s", self.service)
+        elif self.admin_service:
+            user_service = await self.admin_service.create_parser_user_service(user_email)
             self.service = user_service.docs_service
-        elif admin_service and admin_service.docs_service:
-            self.service = admin_service.docs_service
+            self.logger.info("🚀 Connected to Google Docs service: %s", self.service)
 
     @exponential_backoff()
     async def parse_doc_content(self, doc_id: str) -> Optional[Dict]:
         """Parse detailed content from a Google Doc including structural elements"""
         try:
+            if not self.service:
+                self.logger.error("❌ No valid service available for parsing")
+                return None
             # Fetch the document
-            document = self.docs_service.documents().get(documentId=doc_id).execute()
+            document = self.service.documents().get(documentId=doc_id).execute()
 
             # Initialize content structure
             content = {
@@ -176,8 +184,56 @@ class GoogleDocsParser:
                         footer_content['content'].append(text)
                 content['footers'].append(footer_content)
 
+            self.logger.debug("✅ Google Docs content parsed successfully")
             return content
 
         except Exception as e:
-            logger.error("❌ Failed to parse document %s: %s", doc_id, str(e))
+            self.logger.error(f"❌ Error parsing Google Docs content: {str(e)}")
             return None
+
+    def order_document_content(self, content: Dict) -> Tuple[List, List, List]:
+        """
+        Orders document content chronologically by start and end indices.
+        
+        Args:
+            content: Dictionary containing parsed document content
+            
+        Returns:
+            Tuple containing:
+            - List of ordered content elements
+            - List of headers
+            - List of footers
+        """
+        all_content = []
+        
+        # Add paragraphs
+        for para in content['elements']:
+            all_content.append({
+                'type': 'paragraph',
+                'start_index': para['start_index'],
+                'end_index': para['end_index'],
+                'content': para
+            })
+
+        # Add tables
+        for table in content['tables']:
+            all_content.append({
+                'type': 'table',
+                'start_index': table['start_index'],
+                'end_index': table['end_index'],
+                'content': table
+            })
+
+        # Add images
+        for image in content['images']:
+            all_content.append({
+                'type': 'image',
+                'start_index': image['start_index'],
+                'end_index': image['end_index'],
+                'content': image
+            })
+
+        # Sort all content by start_index and end_index
+        all_content.sort(key=lambda x: (x['start_index'], x['end_index']))
+        
+        return all_content, content['headers'], content['footers']

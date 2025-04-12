@@ -311,7 +311,7 @@ export default function Invites() {
                           }}
                         >
                           <Iconify
-                            icon="eva:email-outline"
+                            icon={emailIcon}
                             width={20}
                             height={20}
                             sx={{ color: theme.palette.warning.main }}

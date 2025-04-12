@@ -1,3 +1,8 @@
+import dangerBoldIcon from '@iconify-icons/solar/danger-bold';
+import infoCircleBoldIcon from '@iconify-icons/solar/info-circle-bold';
+import checkCircleBoldIcon from '@iconify-icons/solar/check-circle-bold';
+import dangerTriangleBoldIcon from '@iconify-icons/solar/danger-triangle-bold';
+
 import Portal from '@mui/material/Portal';
 
 import { Iconify } from '../iconify';
@@ -40,10 +45,10 @@ export function Snackbar() {
         }}
         icons={{
           loading: <span className={toasterClasses.loadingIcon} />,
-          info: <Iconify className={toasterClasses.iconSvg} icon="solar:info-circle-bold" />,
-          success: <Iconify className={toasterClasses.iconSvg} icon="solar:check-circle-bold" />,
-          warning: <Iconify className={toasterClasses.iconSvg} icon="solar:danger-triangle-bold" />,
-          error: <Iconify className={toasterClasses.iconSvg} icon="solar:danger-bold" />,
+          info: <Iconify className={toasterClasses.iconSvg} icon={infoCircleBoldIcon} />,
+          success: <Iconify className={toasterClasses.iconSvg} icon={checkCircleBoldIcon} />,
+          warning: <Iconify className={toasterClasses.iconSvg} icon={dangerTriangleBoldIcon} />,
+          error: <Iconify className={toasterClasses.iconSvg} icon={dangerBoldIcon} />,
         }}
       />
     </Portal>

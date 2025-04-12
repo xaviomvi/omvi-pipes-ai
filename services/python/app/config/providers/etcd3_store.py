@@ -65,6 +65,7 @@ class Etcd3DistributedKeyValueStore(DistributedKeyValueStore[T], Generic[T]):
             cert_key=cert_key,
             cert_cert=cert_cert
         )
+        self.client = None
         self.connection_manager = Etcd3ConnectionManager(config)
         self.serializer = serializer
         self.deserializer = deserializer
@@ -75,7 +76,8 @@ class Etcd3DistributedKeyValueStore(DistributedKeyValueStore[T], Generic[T]):
         """Get the ETCD client, ensuring connection is available."""
         logger.debug("🔄 Getting ETCD client")
         client = await self.connection_manager.get_client()
-        logger.debug("✅ Got ETCD client: ")
+        logger.debug("✅ Got ETCD client: %s", client)
+        self.client = client
         return client
 
     async def create_key(self, key: str, value: T, ttl: Optional[int] = None) -> bool:

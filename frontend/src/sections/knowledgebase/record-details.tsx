@@ -1,5 +1,6 @@
 // RecordDetails.js
 import type { User } from 'src/context/UserContext';
+import type { Icon as IconifyIcon } from '@iconify/react';
 
 import { Icon } from '@iconify/react';
 import dbIcon from '@iconify-icons/mdi/database';
@@ -12,8 +13,17 @@ import accountIcon from '@iconify-icons/mdi/account';
 import clockIcon from '@iconify-icons/mdi/clock-outline';
 import { useParams, useNavigate } from 'react-router-dom';
 import arrowLeftIcon from '@iconify-icons/mdi/arrow-left';
+import filePdfBoxIcon from '@iconify-icons/mdi/file-pdf-box';
+import fileWordBoxIcon from '@iconify-icons/mdi/file-word-box';
 import trashCanIcon from '@iconify-icons/mdi/trash-can-outline';
+import fileExcelBoxIcon from '@iconify-icons/mdi/file-excel-box';
+import fileImageBoxIcon from '@iconify-icons/mdi/file-image-box';
 import fileAlertIcon from '@iconify-icons/mdi/file-alert-outline';
+import fileTextBoxIcon from '@iconify-icons/mdi/file-text-outline';
+import fileCodeBoxIcon from '@iconify-icons/mdi/file-code-outline';
+import fileArchiveBoxIcon from '@iconify-icons/mdi/archive-outline';
+import fileDocumentBoxIcon from '@iconify-icons/mdi/file-document-box';
+import filePowerpointBoxIcon from '@iconify-icons/mdi/file-powerpoint-box';
 
 import {
   Box,
@@ -886,38 +896,38 @@ const formatFileSize = (bytes: number): string => {
 };
 
 // Get file icon based on extension
-function getFileIcon(extension: string): string {
+function getFileIcon(extension: string): React.ComponentProps<typeof IconifyIcon>['icon'] {
   const ext = extension?.toLowerCase() || '';
 
   switch (ext) {
     case 'pdf':
-      return 'mdi:file-pdf-box';
+      return filePdfBoxIcon;
     case 'doc':
     case 'docx':
-      return 'mdi:file-word-box';
+      return fileWordBoxIcon;
     case 'xls':
     case 'xlsx':
-      return 'mdi:file-excel-box';
+      return fileExcelBoxIcon;
     case 'ppt':
     case 'pptx':
-      return 'mdi:file-powerpoint-box';
+      return filePowerpointBoxIcon;
     case 'jpg':
     case 'jpeg':
     case 'png':
     case 'gif':
-      return 'mdi:file-image-box';
+      return fileImageBoxIcon;
     case 'zip':
     case 'rar':
     case '7z':
-      return 'mdi:file-archive-box';
+      return fileArchiveBoxIcon;
     case 'txt':
-      return 'mdi:file-text-box';
+      return fileTextBoxIcon;
     case 'html':
     case 'css':
     case 'js':
-      return 'mdi:file-code-box';
+      return fileCodeBoxIcon;
     default:
-      return 'mdi:file-document-box';
+      return fileDocumentBoxIcon;
   }
 }
 

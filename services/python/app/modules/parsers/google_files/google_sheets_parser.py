@@ -1,35 +1,37 @@
 """Google Sheets Parser module for parsing Google Sheets content"""
 
 from typing import Dict, List, Optional, Any
-from app.utils.logger import create_logger
 from app.connectors.utils.decorators import exponential_backoff
-from .parser_admin_service import ParserAdminService
-from .parser_user_service import ParserUserService
-
-logger = create_logger(__name__)
+from app.connectors.google.admin.google_admin_service import GoogleAdminService
+from app.modules.parsers.google_files.parser_user_service import ParserUserService
 
 class GoogleSheetsParser:
     """Parser class for Google Sheets content"""
 
-    def __init__(self, admin_service: Optional[ParserAdminService] = None, user_service: Optional[ParserUserService] = None):
+    def __init__(self, logger, admin_service: Optional[GoogleAdminService] = None, user_service: Optional[ParserUserService] = None):
         """Initialize with either admin or user service"""
+        self.logger = logger
         self.admin_service = admin_service
         self.user_service = user_service
         self.service = None
 
-        # Set the appropriate service
-        if user_service and user_service.sheets_service:
+    async def connect_service(self, user_email: str = None, org_id: str = None, user_id: str = None):
+        if self.user_service:
+            if not await self.user_service.connect_individual_user(org_id, user_id):
+                self.logger.error("❌ Failed to connect to Google Sheets service")
+                return None
+            
+            self.service = self.user_service.sheets_service
+            self.logger.info("🚀 Connected to Google Sheets service: %s", self.service)
+        elif self.admin_service:
+            user_service = await self.admin_service.create_parser_user_service(user_email)
             self.service = user_service.sheets_service
-        elif admin_service and admin_service.sheets_service:
-            self.service = admin_service.sheets_service
+            self.logger.info("🚀 Connected to Google Sheets service: %s", self.service)
 
     @exponential_backoff()
     async def get_spreadsheet_metadata(self, spreadsheet_id: str) -> Dict[str, Any]:
         """Get metadata about the spreadsheet including sheet names"""
         try:
-            if not self.service:
-                logger.error("❌ No valid service available for parsing")
-                return None
 
             spreadsheet = self.service.spreadsheets().get(
                 spreadsheetId=spreadsheet_id
@@ -49,7 +51,7 @@ class GoogleSheetsParser:
             }
 
         except Exception as e:
-            logger.error("❌ Failed to get spreadsheet metadata: %s", str(e))
+            self.logger.error("❌ Failed to get spreadsheet metadata: %s", str(e))
             return None
 
     def _get_column_letter(self, column_number: int) -> str:
@@ -64,10 +66,6 @@ class GoogleSheetsParser:
     async def get_sheet_data(self, spreadsheet_id: str, range_name: str) -> Dict[str, Any]:
         """Get sheet data including formatting"""
         try:
-            if not self.service:
-                logger.error("❌ No valid service available for parsing")
-                return None
-
             # Get values and formatting in one batch request
             batch_request = self.service.spreadsheets().get(
                 spreadsheetId=spreadsheet_id,
@@ -107,7 +105,7 @@ class GoogleSheetsParser:
             return processed_data
 
         except Exception as e:
-            logger.error("❌ Failed to get sheet data: %s", str(e))
+            self.logger.error("❌ Failed to get sheet data: %s", str(e))
             return None
 
     def _process_cell(self, cell: Dict, header: str, row: int, col: int) -> Dict[str, Any]:
@@ -254,7 +252,7 @@ class GoogleSheetsParser:
         """Process an entire spreadsheet including all sheets"""
         try:
             if not self.service:
-                logger.error("❌ No valid service available for parsing")
+                self.logger.error("❌ No valid service available for parsing")
                 return None
 
             # Get spreadsheet metadata
@@ -272,7 +270,7 @@ class GoogleSheetsParser:
                 # Adjust range as needed
                 range_name = f"'{sheet_name}'!A1:Z1000"
 
-                logger.info(f"Processing sheet: {sheet_name}")
+                self.logger.info(f"Processing sheet: {sheet_name}")
 
                 # Get sheet data
                 sheet_data = await self.get_sheet_data(spreadsheet_id, range_name)
@@ -303,5 +301,5 @@ class GoogleSheetsParser:
             }
 
         except Exception as e:
-            logger.error("❌ Failed to process spreadsheet: %s", str(e))
+            self.logger.error("❌ Failed to process spreadsheet: %s", str(e))
             return None

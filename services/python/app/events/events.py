@@ -1,14 +1,16 @@
-from app.utils.logger import create_logger
 import aiohttp
 from io import BytesIO
 from app.config.arangodb_constants import EventTypes
 from app.config.arangodb_constants import CollectionNames
+import json
+import asyncio
+import io
 
-logger = create_logger(__name__)
 
 class EventProcessor:
-    def __init__(self, processor, arango_service):
-        logger.info("🚀 Initializing EventProcessor")
+    def __init__(self, logger, processor, arango_service):
+        self.logger = logger
+        self.logger.info("🚀 Initializing EventProcessor")
         self.processor = processor
         self.arango_service = arango_service
 
@@ -25,7 +27,7 @@ class EventProcessor:
                 - metadata_route: Route to get metadata
         """
         try:
-            logger.info(f"📥 Processing event: {event_data}")
+            self.logger.info(f"📥 Processing event: {event_data}")
 
             # Extract event type and record ID
             event_type = event_data.get(
@@ -35,19 +37,19 @@ class EventProcessor:
             org_id = event_data.get('orgId')
 
             if not record_id:
-                logger.error("❌ No record ID provided in event data")
+                self.logger.error("❌ No record ID provided in event data")
                 return
             
             # Handle delete event
             if event_type == EventTypes.DELETE_RECORD.value:
-                logger.info(f"🗑️ Deleting embeddings for record {record_id}")
+                self.logger.info(f"🗑️ Deleting embeddings for record {record_id}")
                 await self.processor.indexing_pipeline.delete_embeddings(record_id)
                 return
 
             # For both create and update events, we need to process the document
             if event_type == EventTypes.UPDATE_RECORD.value:
                 # For updates, first delete existing embeddings
-                logger.info(f"""🔄 Updating record {record_id} - deleting existing embeddings""")
+                self.logger.info(f"""🔄 Updating record {record_id} - deleting existing embeddings""")
                 await self.processor.indexing_pipeline.delete_embeddings(record_id)
 
             # Update indexing status to IN_PROGRESS
@@ -57,6 +59,7 @@ class EventProcessor:
             # Update with new metadata fields
             doc.update({
                 "indexingStatus": "IN_PROGRESS",
+                "extractionStatus": "IN_PROGRESS"
             })
 
             docs = [doc]
@@ -72,27 +75,31 @@ class EventProcessor:
             if extension is None and mime_type != 'text/gmail_content':
                 extension = event_data['recordName'].split('.')[-1]
             
-            logger.info("🚀 Checking for mime_type")
-            logger.info("🚀 mime_type: %s", mime_type)
-            logger.info("🚀 extension: %s", extension)
-
-            if mime_type == "application/vnd.google-apps.presentation":
-                logger.info("🚀 Processing Google Slides")
-                result = await self.processor.process_google_slides(record_id, record_version, org_id)
-                return result
-
-            if mime_type == "application/vnd.google-apps.document":
-                logger.info("🚀 Processing Google Docs")
-                result = await self.processor.process_google_docs(record_id, record_version, org_id)
-                return result
-
-            if mime_type == "application/vnd.google-apps.spreadsheet":
-                logger.info("🚀 Processing Google Sheets")
-                result = await self.processor.process_google_sheets(record_id, record_version, org_id)
-                return result
+            self.logger.info("🚀 Checking for mime_type")
+            self.logger.info("🚀 mime_type: %s", mime_type)
+            self.logger.info("🚀 extension: %s", extension)
             
+            supported_mime_types = ["text/gmail_content", 
+                                 "application/vnd.google-apps.presentation", 
+                                 "application/vnd.google-apps.document", 
+                                 "application/vnd.google-apps.spreadsheet"]
+            
+            supported_extensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "html", "pptx", "ppt", "md", "txt"]
+
+            if mime_type not in supported_mime_types and extension not in supported_extensions:
+                self.logger.info(f"🔴🔴🔴 Unsupported: Mime Type: {mime_type}, Extension: {extension} 🔴🔴🔴")
+                doc = docs[0]
+                doc.update({
+                    "indexingStatus": "FILE_TYPE_NOT_SUPPORTED",
+                    "extractionStatus": "FILE_TYPE_NOT_SUPPORTED"
+                })
+                docs = [doc]
+                await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)
+
+                return
+
             if mime_type == "text/gmail_content":
-                logger.info("🚀 Processing Gmail Message")
+                self.logger.info("🚀 Processing Gmail Message")
                 result = await self.processor.process_gmail_message(
                     recordName=f"Record-{record_id}",
                     recordId=record_id,
@@ -101,20 +108,103 @@ class EventProcessor:
                     orgId=org_id,
                     html_content=event_data.get('body'))
                 
-                logger.info(f"Content: {event_data.get('body')}")
+                self.logger.info(f"Content: {event_data.get('body')}")
                 return result
             
             if signed_url:
-                logger.debug(f"Signed URL: {signed_url}")
-                # Download file using signed URL
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(signed_url) as response:
-                        if response.status != 200:
-                            logger.error(f"❌ Failed to download file: {response}")
-                            return
-                        file_content = await response.read()
+                self.logger.debug(f"Signed URL: {signed_url}")
+                # Download file using signed URL with chunked streaming
+                chunk_size = 1024 * 1024 * 8  # 8MB chunks
+                last_logged_size = 0
+                total_size = 0
+                log_interval = chunk_size  # Log at same interval as chunk size
+                # Increase timeouts significantly
+                timeout = aiohttp.ClientTimeout(
+                    total=1800,      # 30 minutes total
+                    connect=60,      # 1 minute for initial connection
+                    sock_read=300    # 5 minutes per chunk read
+                )
+                # Pre-allocate a BytesIO buffer for better memory efficiency
+                file_buffer = io.BytesIO()
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    try:
+                        async with session.get(signed_url) as response:
+                            if response.status != 200:
+                                self.logger.error(f"❌ Failed to download file: {response.status}")
+                                self.logger.error(f"Response headers: {response.headers}")
+                                return
+                            
+                            # Get content length if available
+                            content_length = response.headers.get('Content-Length')
+                            if content_length:
+                                self.logger.info(f"Expected file size: {int(content_length) / (1024*1024):.2f} MB")
+                            
+                            self.logger.info("Starting chunked download...")
+                            try:
+                                async for chunk in response.content.iter_chunked(chunk_size):
+                                    file_buffer.write(chunk)
+                                    total_size += len(chunk)
+                                    if total_size - last_logged_size >= log_interval:
+                                        self.logger.debug(f"Total size so far: {total_size / (1024*1024):.2f} MB")
+                                        last_logged_size = total_size
+                                
+                                # Get the final content and clear the buffer
+                                file_content = file_buffer.getvalue()
+                                file_buffer.close()
+                            except asyncio.TimeoutError as e:
+                                self.logger.error(f"❌ Timeout during file download at {total_size / (1024*1024):.2f} MB: {repr(e)}")
+                                raise
+                            
+                            self.logger.info(f"✅ Download complete. Total size: {total_size / (1024*1024):.2f} MB")
+                            
+                    except aiohttp.ClientError as e:
+                        self.logger.error(f"❌ Network error during download: {repr(e)}")
+                        raise
+                    except Exception as e:
+                        self.logger.error(f"❌ Unexpected error during download: {repr(e)}")
+                        raise
             else:
                 file_content = event_data.get('buffer')
+            
+            self.logger.debug(f"file_content type: {type(file_content)}")
+                
+            if mime_type == "application/vnd.google-apps.presentation":
+                self.logger.info("🚀 Processing Google Slides")
+                # Decode JSON content if it's streamed data
+                if isinstance(file_content, bytes):
+                    try:
+                        file_content = json.loads(file_content.decode('utf-8'))
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Failed to decode Google Slides content: {str(e)}")
+                        raise
+                result = await self.processor.process_google_slides(record_id, record_version, org_id, file_content)
+                return result
+
+            if mime_type == "application/vnd.google-apps.document":
+                self.logger.info("🚀 Processing Google Docs")
+                # Decode JSON content if it's streamed data
+                if isinstance(file_content, bytes):
+                    try:
+                        file_content = json.loads(file_content.decode('utf-8'))
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Failed to decode Google Docs content: {str(e)}")
+                        raise
+                result = await self.processor.process_google_docs(record_id, record_version, org_id, file_content)
+                return result
+
+            if mime_type == "application/vnd.google-apps.spreadsheet":
+                return None
+                self.logger.info("🚀 Processing Google Sheets")
+                # Decode JSON content if it's streamed data
+                if isinstance(file_content, bytes):
+                    try:
+                        file_content = json.loads(file_content.decode('utf-8'))
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Failed to decode Google Sheets content: {str(e)}")
+                        raise
+                result = await self.processor.process_google_sheets(record_id, record_version, org_id, file_content)
+                return result
+            
 
             if extension == "pdf":
                 result = await self.processor.process_pdf_document(
@@ -213,12 +303,12 @@ class EventProcessor:
                 )
 
             else:
-                logger.info(f"""🔴🔴🔴 Unsupported file extension: {
+                self.logger.info(f"""🔴🔴🔴 Unsupported file extension: {
                                extension} 🔴🔴🔴""")
                 doc = docs[0]
                 doc.update({
-                    "indexingStatus": "FILE_TYPE_NOT_SUPPORTED"
-                    
+                    "indexingStatus": "FILE_TYPE_NOT_SUPPORTED",
+                    "extractionStatus": "FILE_TYPE_NOT_SUPPORTED"
                 })
                 docs = [doc]
                 await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)
@@ -226,12 +316,11 @@ class EventProcessor:
                 return
 
 
-            logger.info(
+            self.logger.info(
                 f"✅ Successfully processed document for record {record_id}")
             return result
 
         except Exception as e:
             # Let the error bubble up to Kafka consumer
-            logger.error(f"❌ Error in event processor: {str(e)}")
+            self.logger.error(f"❌ Error in event processor: {repr(e)}")
             raise
-

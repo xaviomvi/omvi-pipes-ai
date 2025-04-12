@@ -1,26 +1,25 @@
 from datetime import datetime, timezone
-from app.utils.logger import create_logger
 import uuid
 from app.config.configuration_service import config_node_constants
 from app.config.arangodb_constants import (CollectionNames, Connectors, 
                                            RecordTypes, OriginTypes, EventTypes)
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
-logger = create_logger(__name__)
 
 class GmailChangeHandler:
-    def __init__(self, config_service, arango_service):
+    def __init__(self, config_service, arango_service, logger):
         self.config_service = config_service
         self.arango_service = arango_service
+        self.logger = logger
         
 
     async def process_changes(self, user_service, changes, org_id, user) -> bool:
         """Process changes since last sync time"""
-        logger.info("🚀 Processing changes")
+        self.logger.info("🚀 Processing changes")
         try:
             user_id = user.get('userId')
             for change in changes.get('history', []):
-                logger.info(f"🚀 Processing change: {change}")
+                self.logger.info(f"🚀 Processing change: {change}")
 
                 account_type = await self.arango_service.get_account_type(org_id)
 
@@ -245,7 +244,7 @@ class GmailChangeHandler:
 
                         except Exception as e:
                             txn.abort_transaction()
-                            logger.error(
+                            self.logger.error(
                                 f"❌ Error processing message addition: {str(e)}")
                             continue
                         
@@ -272,7 +271,7 @@ class GmailChangeHandler:
                         # SEND KAFKA EVENT FOR INDEXING
                         await self.arango_service.kafka_service.send_event_to_kafka(
                             message_event)
-                        logger.info("📨 Sent Kafka reindexing event for record %s", record["_key"])
+                        self.logger.info("📨 Sent Kafka reindexing event for record %s", record["_key"])
                         
                         if attachments:
                             for attachment in attachments:
@@ -293,7 +292,7 @@ class GmailChangeHandler:
                                     "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
                                 }
                                 await self.arango_service.kafka_service.send_event_to_kafka(attachment_event)
-                                logger.info(
+                                self.logger.info(
                                     "📨 Sent Kafka Indexing event for attachment %s", attachment_key)
 
                 # Handle message deletions
@@ -360,15 +359,15 @@ class GmailChangeHandler:
 
                             except Exception as e:
                                 txn.abort_transaction()
-                                logger.error(
+                                self.logger.error(
                                     f"❌ Error processing message deletion: {str(e)}")
                                 continue
 
                         except Exception as e:
-                            logger.error(
+                            self.logger.error(
                                 f"❌ Error processing message deletion: {str(e)}")
                             continue
             return True
         except Exception as e:
-            logger.error(f"❌ Error processing changes: {str(e)}")
+            self.logger.error(f"❌ Error processing changes: {str(e)}")
             return False
