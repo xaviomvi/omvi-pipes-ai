@@ -23,7 +23,6 @@ import {
   RELATIONSHIP_TYPE,
 } from '../constants/record.constants';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
-import { configPaths } from '../../configuration_manager/paths/paths';
 import { AppConfig } from '../../tokens_manager/config/config';
 import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
 import { HttpMethod } from '../../../libs/enums/http-methods.enum';
@@ -99,11 +98,7 @@ export const createRecords =
         // Generate a unique ID for the record
         const key: string = uuidv4();
 
-        const frontendUrl =
-          (await keyValueStoreService.get<string>(configPaths.url.frontend)) ||
-          appConfig.frontendUrl;
-
-        const webUrl = `${frontendUrl}/record/${key}`;
+        const webUrl = `/record/${key}`;
 
         // Get document ID from storage
         const { documentId, documentName } =

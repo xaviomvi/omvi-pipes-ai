@@ -447,8 +447,8 @@ const ChatSidebar = ({
               </IconButton>
             </Tooltip>
             <Tooltip title="New Chat">
-              <IconButton size="small">
-                <Icon icon={chatIcon} onClick={handleNewChat} />
+              <IconButton size="small" onClick={handleNewChat}>
+                <Icon icon={chatIcon}  />
               </IconButton>
             </Tooltip>
           </>

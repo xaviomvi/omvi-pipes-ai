@@ -762,6 +762,7 @@ const HtmlViewer: React.FC<HtmlViewerProps> = ({ url, html, buffer, sx = {}, cit
             if (bestNode && bestScore > 0) {
               // Wrap the best matching node
               const { parentElement } = bestNode as Text;
+
               if (!parentElement) return false;
 
               const wrapper = document.createElement('span');
@@ -1054,7 +1055,9 @@ const HtmlViewer: React.FC<HtmlViewerProps> = ({ url, html, buffer, sx = {}, cit
     citationsArray.forEach((citation) => {
       if (!citation.highlight) return;
 
+
       const { text } = citation.highlight.content;
+
       if (!text || text.length < 4) {
         return;
       }

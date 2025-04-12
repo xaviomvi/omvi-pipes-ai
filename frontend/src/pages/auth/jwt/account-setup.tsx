@@ -33,7 +33,7 @@ export default function Page() {
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
-    severity: 'success' as 'success' | 'error',
+    severity: 'success' as 'success' | 'error' | 'warning',
   });
 
   // Show dialog on first load
@@ -50,7 +50,7 @@ export default function Page() {
           setSnackbar({
             open: true,
             message: `Set up account to continue`,
-            severity: 'error',
+            severity: 'warning',
           });
           navigate('/auth/sign-up');
         } else {

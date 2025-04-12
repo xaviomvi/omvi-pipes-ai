@@ -90,15 +90,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
           reader.readAsText(response.data);
           const text = await textPromise;
 
-          let filename = record.recordName || `document-${externalRecordId}`;
-          const contentDisposition = response.headers['content-disposition'];
-          if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
-            if (filenameMatch && filenameMatch[1]) {
-              filename = filenameMatch[1];
-            }
-          }
-
+         
           try {
             // Try to parse as JSON to check for signedUrl property
             const jsonData = JSON.parse(text);
@@ -138,16 +130,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
           }
         );
 
-        // Extract filename from content-disposition header
-        let filename = record.recordName || `document-${recordId}`;
-        const contentDisposition = response.headers['content-disposition'];
-        if (contentDisposition) {
-          const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
-          if (filenameMatch && filenameMatch[1]) {
-            filename = filenameMatch[1];
-          }
-        }
-
+      
         // Convert blob directly to ArrayBuffer
         const bufferReader = new FileReader();
         const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
@@ -220,7 +203,13 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
   }
 
   const { record } = recordData;
-  const webUrl = record.fileRecord?.webUrl;
+  let webUrl = record.fileRecord?.webUrl;
+  if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
+    const baseUrl = `${window.location.protocol}//${window.location.host}`;
+    const newWebUrl = baseUrl + webUrl;
+    webUrl = newWebUrl;
+  }
+  console.log(webUrl)
 
   return (
     <Paper
