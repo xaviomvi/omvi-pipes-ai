@@ -3,6 +3,7 @@ import type { DocumentContent } from 'src/sections/knowledgebase/types/search-re
 import type { Position, HighlightType, ProcessedCitation } from 'src/types/pdf-highlighter';
 
 import { Icon } from '@iconify/react';
+import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 import { styled } from '@mui/material/styles';
@@ -945,7 +946,7 @@ const TextViewer: React.FC<TextViewerProps> = ({ url, text, buffer, sx = {}, cit
 
       {error && (
         <ErrorOverlay>
-          <Icon icon="mdi:alert-circle-outline" style={{ fontSize: 40, marginBottom: 16 }} />
+          <Icon icon={alertCircleIcon} style={{ fontSize: 40, marginBottom: 16 }} />
           <Typography variant="body1">Error: {error}</Typography>
         </ErrorOverlay>
       )}

@@ -7,6 +7,7 @@ import type { Position, HighlightType, ProcessedCitation } from 'src/types/pdf-h
 import remarkGfm from 'remark-gfm';
 import { Icon } from '@iconify/react';
 import ReactMarkdown from 'react-markdown';
+import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 import { styled } from '@mui/material/styles';
@@ -470,7 +471,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           citationsToHighlight.forEach((citation) => {
             if (!citation.highlight?.content?.text || !citation.highlight.id) return;
 
-            const {text} = citation.highlight.content;
+            const { text } = citation.highlight.content;
             const highlightId = citation.highlight.id;
             let success = false;
 
@@ -484,7 +485,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
 
             // Assuming sortedElements is an array or array-like (e.g., NodeList)
             // with a .length property and indexed access.
-            for (let i = 0; i < sortedElements.length; i+=1) {
+            for (let i = 0; i < sortedElements.length; i += 1) {
               const element = sortedElements[i]; // Get the current element by index
 
               // Check if the text is potentially present first
@@ -960,7 +961,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
 
       {error && !loading && (
         <ErrorOverlay>
-          <Icon icon="mdi:alert-circle-outline" style={{ fontSize: 40, marginBottom: 16 }} />
+          <Icon icon={alertCircleIcon} style={{ fontSize: 40, marginBottom: 16 }} />
           <Typography variant="h6">Loading Error</Typography>
           <Typography variant="body1">{error}</Typography>
         </ErrorOverlay>

@@ -1,3 +1,5 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
+
 import { Icon } from '@iconify/react';
 import tagIcon from '@iconify-icons/mdi/tag';
 import closeIcon from '@iconify-icons/mdi/close';
@@ -11,9 +13,13 @@ import viewModuleIcon from '@iconify-icons/mdi/view-module';
 import filterMenuIcon from '@iconify-icons/mdi/filter-menu';
 import filterRemoveIcon from '@iconify-icons/mdi/filter-remove';
 import filterVariantIcon from '@iconify-icons/mdi/filter-variant';
+import circleOutlineIcon from '@iconify-icons/mdi/circle-outline';
+import progressClockIcon from '@iconify-icons/mdi/progress-clock';
 import officeBuildingIcon from '@iconify-icons/mdi/office-building';
 import formatListIcon from '@iconify-icons/mdi/format-list-bulleted';
 import closeCircleIcon from '@iconify-icons/mdi/close-circle-outline';
+import alertCircleOutlineIcon from '@iconify-icons/mdi/alert-circle-outline';
+import checkCircleOutlineIcon from '@iconify-icons/mdi/check-circle-outline';
 
 import { alpha, styled, useTheme } from '@mui/material/styles';
 import {
@@ -296,13 +302,12 @@ const IconButtonStyled = styled(IconButton)(({ theme }) => ({
 }));
 
 // Status icons mapping
-const statusIcons: Record<string, string> = {
-  NOT_STARTED: 'mdi:circle-outline',
-  IN_PROGRESS: 'mdi:progress-clock',
-  FAILED: 'mdi:alert-circle-outline',
-  COMPLETED: 'mdi:check-circle-outline',
+const statusIcons: Record<string, React.ComponentProps<typeof IconifyIcon>['icon']> = {
+  NOT_STARTED: circleOutlineIcon,
+  IN_PROGRESS: progressClockIcon,
+  FAILED: alertCircleOutlineIcon,
+  COMPLETED: checkCircleOutlineIcon,
 };
-
 // Helper function to format labels
 const formatLabel = (label: string): string => {
   if (!label) return '';

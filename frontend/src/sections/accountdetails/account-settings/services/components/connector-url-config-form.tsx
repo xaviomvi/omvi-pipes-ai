@@ -1,6 +1,7 @@
 import closeIcon from '@iconify-icons/mdi/close';
 import pencilIcon from '@iconify-icons/mdi/pencil';
-import serverIcon from '@iconify-icons/mdi/server-outline';
+import serverIcon from '@iconify-icons/mdi/server';
+import infoIcon from '@iconify-icons/mdi/information-outline';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -207,7 +208,7 @@ const ConnectorUrlConfigForm = forwardRef<ConnectorUrlConfigFormRef, ConnectorUr
           }}
         >
           <Iconify
-            icon="mdi:information-outline"
+            icon={infoIcon}
             width={20}
             height={20}
             color={theme.palette.info.main}

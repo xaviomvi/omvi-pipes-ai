@@ -3,6 +3,7 @@ import closeIcon from '@iconify-icons/mdi/close';
 import poundIcon from '@iconify-icons/mdi/pound';
 import pencilIcon from '@iconify-icons/mdi/pencil';
 import serverIcon from '@iconify-icons/mdi/server';
+import infoIcon from '@iconify-icons/mdi/information-outline';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -238,7 +239,7 @@ const QdrantConfigForm = forwardRef<QdrantConfigFormRef, QdrantConfigFormProps>(
           }}
         >
           <Iconify
-            icon="mdi:information-outline"
+            icon={infoIcon}
             width={20}
             height={20}
             color={theme.palette.info.main}
