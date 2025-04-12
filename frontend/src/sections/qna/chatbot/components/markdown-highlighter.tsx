@@ -1,12 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import ReactMarkdown, { Components } from 'react-markdown';
+import type { Theme } from '@mui/material';
+import type { Components } from 'react-markdown';
+import type { CustomCitation } from 'src/types/chat-bot';
+import type { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
+import type { Position, HighlightType, ProcessedCitation } from 'src/types/pdf-highlighter';
+
 import remarkGfm from 'remark-gfm';
-import { Box, CircularProgress, Typography, Paper, Theme } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import { Icon } from '@iconify/react';
-import { HighlightType, Position, ProcessedCitation } from 'src/types/pdf-highlighter';
-import { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
-import { CustomCitation } from 'src/types/chat-bot';
+import ReactMarkdown from 'react-markdown';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+
+import { styled } from '@mui/material/styles';
+import { Box, Paper, Typography, CircularProgress } from '@mui/material';
+
 import CitationSidebar from './highlighter-sidebar';
 
 // Props type definition - updated to include buffer
@@ -465,7 +470,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
           citationsToHighlight.forEach((citation) => {
             if (!citation.highlight?.content?.text || !citation.highlight.id) return;
 
-            const text = citation.highlight.content.text;
+            const {text} = citation.highlight.content;
             const highlightId = citation.highlight.id;
             let success = false;
 

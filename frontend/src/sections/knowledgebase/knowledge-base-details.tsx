@@ -2,8 +2,6 @@ import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router';
-import axios from 'src/utils/axios';
-import { CONFIG } from 'src/config-global';
 import { useDropzone } from 'react-dropzone';
 import closeIcon from '@iconify-icons/mdi/close';
 import React, { useState, useEffect } from 'react';
@@ -50,6 +48,9 @@ import {
   CircularProgress,
 } from '@mui/material';
 
+import axios from 'src/utils/axios';
+
+import { CONFIG } from 'src/config-global';
 import { useUsers } from 'src/context/UserContext';
 
 import DeleteRecordDialog from './delete-record-dialog';
