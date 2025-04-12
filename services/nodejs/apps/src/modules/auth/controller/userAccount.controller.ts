@@ -544,9 +544,8 @@ export class UserAccountController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const { newPassword } = req.body;
-
-      if (!newPassword) {
+      const { password } = req.body;
+      if (!password) {
         throw new BadRequestError('password is required');
       }
       const orgId = req.tokenPayload?.orgId;
@@ -559,7 +558,7 @@ export class UserAccountController {
       if (userFindResult.statusCode !== 200) {
         throw new NotFoundError(userFindResult.data);
       }
-      await this.updatePassword(userId, orgId, newPassword, req.ip!);
+      await this.updatePassword(userId, orgId, password, req.ip!);
 
       res.status(200).send({ data: 'password reset' });
       return;

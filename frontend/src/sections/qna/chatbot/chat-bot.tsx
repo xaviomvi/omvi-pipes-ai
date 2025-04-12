@@ -24,13 +24,13 @@ import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
 
 import ChatInput from './components/chat-input';
 import ChatSidebar from './components/chat-sidebar';
+import HtmlViewer from './components/html-highlighter';
+import TextViewer from './components/text-highlighter';
 import ExcelViewer from './components/excel-highlighter';
 import ChatMessagesArea from './components/chat-message-area';
 import PdfHighlighterComp from './components/pdf-highlighter';
-import DocxHighlighterComp from './components/docx-highlighter';
 import MarkdownViewer from './components/markdown-highlighter';
-import HtmlViewer from './components/html-highlighter';
-import TextViewer from './components/text-highlighter';
+import DocxHighlighterComp from './components/docx-highlighter';
 
 const DRAWER_WIDTH = 300;
 
