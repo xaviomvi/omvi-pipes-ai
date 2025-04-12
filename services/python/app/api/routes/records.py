@@ -12,9 +12,9 @@ async def get_arango_service(request: Request) -> ArangoService:
     arango_service = await container.arango_service()
     return arango_service
 
-@router.get("/check-record-access/{record_id}")
+@router.get("/records/{record_id}")
 @inject
-async def check_record_access(
+async def get_record_by_id(
     record_id: str,
     request: Request,
     arango_service: ArangoService = Depends(get_arango_service)
@@ -30,7 +30,14 @@ async def check_record_access(
             org_id=request.state.user.get('orgId'),
             record_id=record_id
         )
-        return has_access
+        logger.info(f"🚀 has_access: {has_access}")
+        if has_access:
+            return has_access
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="You do not have access to this record"
+            )
     except Exception as e:
         logger.error(f"Error checking record access: {str(e)}")
         raise HTTPException(
