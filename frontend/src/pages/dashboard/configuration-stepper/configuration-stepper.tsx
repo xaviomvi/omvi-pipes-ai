@@ -125,7 +125,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
     } catch (error) {
       setSnackbar({
         open: true,
-        message: `Failed to update on borading status`,
+        message: `Failed to update on boarding status`,
         severity: 'error',
       });
       throw error;

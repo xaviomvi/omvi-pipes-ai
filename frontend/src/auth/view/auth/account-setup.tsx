@@ -19,7 +19,7 @@ import buildingIcon from '@iconify-icons/mdi/building';
 import lockCheckIcon from '@iconify-icons/mdi/lock-check';
 import mapMarkerIcon from '@iconify-icons/mdi/map-marker';
 import accountCircleIcon from '@iconify-icons/mdi/account-circle';
-import { useForm, Controller, FormProvider, useFormContext } from 'react-hook-form';
+import { useForm, Controller, FormProvider } from 'react-hook-form';
 
 import {
   Box,
@@ -46,8 +46,6 @@ import { OrgExists, AccountSetUp } from 'src/auth/context/jwt';
 // Import the AccountType type
 export type AccountType = 'individual' | 'business';
 
-// Constants
-const SUPPORTED_COUNTRIES = ['US', 'UK', 'CA', 'AU'] as const;
 
 // Styled components using the theme
 const StyledTextField = styled(TextField)(({ theme }) => ({
@@ -155,7 +153,6 @@ interface PasswordSectionProps {
 const PasswordSection = ({ control }: PasswordSectionProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { watch } = useFormContext();
 
   return (
     <>
@@ -276,7 +273,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
-    severity: 'success' as 'success' | 'error',
+    severity: 'success' as 'success' | 'error' | 'warning',
   });
 
   useEffect(() => {
@@ -287,7 +284,7 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
           setSnackbar({
             open: true,
             message: `Set up account to continue`,
-            severity: 'error',
+            severity: 'warning',
           });
           navigate('/auth/sign-up');
         } else {

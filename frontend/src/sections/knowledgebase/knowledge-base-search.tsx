@@ -5,12 +5,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   alpha, 
+  Alert, 
   Button, 
   styled, 
   Divider, 
-  useTheme, 
-  Snackbar,
-  Alert
+  useTheme,
+  Snackbar
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -22,14 +22,14 @@ import KnowledgeSearch from './knowledge-search';
 import { ORIGIN } from './constants/knowledge-search';
 import KnowledgeSearchSideBar from './knowledge-search-sidebar';
 import DocxViewer from '../qna/chatbot/components/docx-highlighter';
+import HtmlViewer from '../qna/chatbot/components/html-highlighter';
+import TextViewer from '../qna/chatbot/components/text-highlighter';
 import ExcelViewer from '../qna/chatbot/components/excel-highlighter';
 import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
+import MarkdownViewer from '../qna/chatbot/components/markdown-highlighter';
 
 import type { Filters } from './types/knowledge-base';
 import type { PipesHub, SearchResult, AggregatedDocument } from './types/search-response';
-import HtmlViewer from '../qna/chatbot/components/html-highlighter';
-import TextViewer from '../qna/chatbot/components/text-highlighter';
-import MarkdownViewer from '../qna/chatbot/components/markdown-highlighter';
 
 // Constants for sidebar widths - must match with the sidebar component
 const SIDEBAR_EXPANDED_WIDTH = 300;

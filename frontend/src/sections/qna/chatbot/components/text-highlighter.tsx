@@ -1,10 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, CircularProgress, Typography, Paper } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import type { CustomCitation } from 'src/types/chat-bot';
+import type { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
+import type { Position, HighlightType, ProcessedCitation } from 'src/types/pdf-highlighter';
+
 import { Icon } from '@iconify/react';
-import { HighlightType, Position, ProcessedCitation } from 'src/types/pdf-highlighter';
-import { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
-import { CustomCitation } from 'src/types/chat-bot';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+
+import { styled } from '@mui/material/styles';
+import { Box, Paper, Typography, CircularProgress } from '@mui/material';
+
 import CitationSidebar from './highlighter-sidebar';
 
 type TextViewerProps = {
@@ -145,7 +148,6 @@ const TextViewer: React.FC<TextViewerProps> = ({ url, text, buffer, sx = {}, cit
   const [processedCitations, setProcessedCitations] = useState<ProcessedCitation[]>([]);
   const styleAddedRef = useRef<boolean>(false);
   const processingCitationsRef = useRef<boolean>(false);
-  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
   const highlightAppliersRef = useRef<(() => void)[]>([]);
 
   // STEP 1: Load text content
@@ -491,8 +493,6 @@ const TextViewer: React.FC<TextViewerProps> = ({ url, text, buffer, sx = {}, cit
       element.classList.add('text-highlight-active');
       element.classList.add('highlight-pulse');
 
-      // Update active highlight ID
-      setActiveHighlightId(highlightId);
 
       // Scroll into view with offset to ensure visibility
       element.scrollIntoView({
@@ -881,8 +881,6 @@ const TextViewer: React.FC<TextViewerProps> = ({ url, text, buffer, sx = {}, cit
       highlightElement.classList.add('text-highlight-active');
       highlightElement.classList.add('highlight-pulse');
 
-      // Update active highlight ID
-      setActiveHighlightId(highlightId);
 
       // Scroll to the highlight
       highlightElement.scrollIntoView({
@@ -911,7 +909,6 @@ const TextViewer: React.FC<TextViewerProps> = ({ url, text, buffer, sx = {}, cit
             block: 'center',
           });
 
-          setActiveHighlightId(`${highlightId}-chunk-${i}`);
           return;
         }
       }

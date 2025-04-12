@@ -152,7 +152,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
   const renderAttemptedRef = useRef<boolean>(false);
   const styleAddedRef = useRef<boolean>(false);
   const processingCitationsRef = useRef<boolean>(false);
-  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
   const highlightAppliersRef = useRef<(() => void)[]>([]);
 
   // STEP 1: Render document only once
@@ -516,8 +515,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
       element.classList.add('docx-highlight-active');
       element.classList.add('highlight-pulse');
 
-      // Update active highlight ID
-      setActiveHighlightId(highlightId);
 
       // Scroll into view with offset to ensure visibility
       element.scrollIntoView({
@@ -724,8 +721,7 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
     // Clear existing highlights
     clearHighlights();
 
-    // Apply new highlights
-    let successCount = 0;
+
 
     citationsArray.forEach((citation) => {
       if (!citation.highlight) return;
@@ -765,7 +761,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
           // Highlight the best match
           if (highlightTextInElement(exactMatches[0], text, citation.highlight.id, 'exact')) {
             matchFound = true;
-            successCount += 1;
             return;
           }
         }
@@ -797,7 +792,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
               )
             ) {
               matchFound = true;
-              successCount += 1;
               return;
             }
           }
@@ -838,7 +832,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
           });
 
           if (chunkMatchCount > 0) {
-            successCount += 0.5;
             matchFound = true;
           }
         }
@@ -885,7 +878,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
               )
             ) {
               matchFound = true;
-              successCount += 0.2; // Partial credit for fuzzy matches
             }
           }
         }
@@ -948,8 +940,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
       highlightElement.classList.add('docx-highlight-active');
       highlightElement.classList.add('highlight-pulse');
 
-      // Update active highlight ID
-      setActiveHighlightId(highlightId);
 
       // Scroll to the highlight
       highlightElement.scrollIntoView({
@@ -978,7 +968,6 @@ const DocxViewer: React.FC<DocxViewerProps> = ({
             block: 'center',
           });
 
-          setActiveHighlightId(`${highlightId}-chunk-${i}`);
           return;
         }
       }

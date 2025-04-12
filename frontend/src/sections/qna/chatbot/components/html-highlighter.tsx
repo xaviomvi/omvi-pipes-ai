@@ -1,11 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, CircularProgress, Typography, Paper } from '@mui/material';
-import { styled } from '@mui/material/styles';
-import { Icon } from '@iconify/react';
-import { HighlightType, Position, ProcessedCitation } from 'src/types/pdf-highlighter';
-import { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
-import { CustomCitation } from 'src/types/chat-bot';
+import type { CustomCitation } from 'src/types/chat-bot';
+import type { DocumentContent } from 'src/sections/knowledgebase/types/search-response';
+import type { Position, HighlightType, ProcessedCitation } from 'src/types/pdf-highlighter';
+
 import DOMPurify from 'dompurify';
+import { Icon } from '@iconify/react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+
+import { styled } from '@mui/material/styles';
+import { Box, Paper, Typography, CircularProgress } from '@mui/material';
+
 import CitationSidebar from './highlighter-sidebar';
 
 type HtmlViewerProps = {
@@ -757,7 +760,7 @@ const HtmlViewer: React.FC<HtmlViewerProps> = ({ url, html, buffer, sx = {}, cit
 
             if (bestNode && bestScore > 0) {
               // Wrap the best matching node
-              const parentElement = (bestNode as Text).parentElement;
+              const {parentElement} = (bestNode as Text);
               if (!parentElement) return false;
 
               const wrapper = document.createElement('span');
@@ -1050,7 +1053,7 @@ const HtmlViewer: React.FC<HtmlViewerProps> = ({ url, html, buffer, sx = {}, cit
     citationsArray.forEach((citation) => {
       if (!citation.highlight) return;
 
-      const text = citation.highlight.content.text;
+      const {text} = citation.highlight.content;
       if (!text || text.length < 4) {
         return;
       }

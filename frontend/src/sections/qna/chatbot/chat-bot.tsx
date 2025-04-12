@@ -24,13 +24,13 @@ import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
 
 import ChatInput from './components/chat-input';
 import ChatSidebar from './components/chat-sidebar';
+import HtmlViewer from './components/html-highlighter';
+import TextViewer from './components/text-highlighter';
 import ExcelViewer from './components/excel-highlighter';
 import ChatMessagesArea from './components/chat-message-area';
 import PdfHighlighterComp from './components/pdf-highlighter';
-import DocxHighlighterComp from './components/docx-highlighter';
 import MarkdownViewer from './components/markdown-highlighter';
-import HtmlViewer from './components/html-highlighter';
-import TextViewer from './components/text-highlighter';
+import DocxHighlighterComp from './components/docx-highlighter';
 
 const DRAWER_WIDTH = 300;
 
@@ -95,12 +95,21 @@ const ChatInterface = () => {
   const [isExcel, setIsExcel] = useState<boolean>(false);
   const [isViewerReady, setIsViewerReady] = useState<boolean>(false);
   const [transitioning, setTransitioning] = useState<boolean>(false);
-  const [fileBuffer, setFileBuffer] = useState<ArrayBuffer>();
+  const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>();
   const [isPdf, setIsPdf] = useState<boolean>(false);
   const [isDocx, setIsDocx] = useState<boolean>(false);
   const [isMarkdown, setIsMarkdown] = useState<boolean>(false);
   const [isHtml, setIsHtml] = useState<boolean>(false);
   const [isTextFile, setIsTextFile] = useState<boolean>(false);
+  const [loadingConversations, setLoadingConversations] = useState<{ [key: string]: boolean }>({});
+
+  const isCurrentConversationLoading = useCallback(
+    () =>
+      currentConversationId
+        ? loadingConversations[currentConversationId]
+        : loadingConversations.new,
+    [currentConversationId, loadingConversations]
+  );
 
   const formatMessage = useCallback((apiMessage: Message): FormattedMessage | null => {
     if (!apiMessage) return null;
@@ -153,6 +162,7 @@ const ChatInterface = () => {
     setTransitioning(true);
     setIsViewerReady(false);
     setPdfUrl(null);
+    setFileBuffer(null);
 
     // Delay clearing other states to ensure clean unmount
     setTimeout(() => {
@@ -160,6 +170,7 @@ const ChatInterface = () => {
       setIsExcel(false);
       setAggregatedCitations(null);
       setTransitioning(false);
+      setFileBuffer(null);
     }, 100);
   };
 
@@ -181,6 +192,7 @@ const ChatInterface = () => {
     setDrawerOpen(false);
     setOpenPdfView(true);
     setAggregatedCitations(citations);
+    setFileBuffer(null);
 
     try {
       const recordId = citationMeta?.recordId;
@@ -286,7 +298,7 @@ const ChatInterface = () => {
     setIsDocx(['docx'].includes(citationMeta?.extension));
     setIsMarkdown(['md'].includes(citationMeta?.extension));
     setIsHtml(['html'].includes(citationMeta?.extension));
-    setIsHtml(['txt'].includes(citationMeta?.extension));
+    setIsTextFile(['txt'].includes(citationMeta?.extension));
     setIsExcel(isExcelOrCSV);
     setIsPdf(citationMeta?.extension === 'pdf');
     if (openPdfView && isExcel !== isExcelFile) {
@@ -343,6 +355,7 @@ const ChatInterface = () => {
 
   // Handle new chat creation
   const handleNewChat = useCallback((): void => {
+    setIsLoadingConversation(false);
     setCurrentConversationId(null);
     setSelectedChat(null);
     setMessages([]);
@@ -354,7 +367,13 @@ const ChatInterface = () => {
 
   const handleSendMessage = useCallback(async (): Promise<void> => {
     const trimmedInput = inputValue.trim();
-    if (!trimmedInput || isLoading) return;
+    if (!trimmedInput) return;
+
+    const conversationKey = currentConversationId || 'new';
+    setLoadingConversations((prev) => ({
+      ...prev,
+      [conversationKey]: true,
+    }));
 
     const tempUserMessage = {
       type: 'user',
@@ -371,8 +390,9 @@ const ChatInterface = () => {
     };
 
     try {
-      setIsLoading(true);
+      // setIsLoading(true);
       setInputValue('');
+      setMessages((prev) => [...prev, tempUserMessage]);
 
       let response;
       if (!currentConversationId) {
@@ -395,13 +415,19 @@ const ChatInterface = () => {
         navigate(`/${conversation._id}`);
 
         // For new conversation, get all messages in order
-        const formattedMessages = conversation.messages
+        // Get the bot response from the conversation
+        const botMessage = conversation.messages
+          .filter((msg) => msg.messageType === 'bot_response')
           .map(formatMessage)
-          .filter(Boolean) as FormattedMessage[];
-        setMessages(formattedMessages);
+          .pop();
+
+        if (botMessage) {
+          // Update messages by keeping the temp user message and adding the bot response
+          setMessages((prev) => [...prev, botMessage]);
+        }
       } else {
         // For existing conversation, append messages in order
-        setMessages((prev) => [...prev, tempUserMessage]);
+        // setMessages((prev) => [...prev, tempUserMessage]);
 
         // Continue existing conversation
         response = await axios.post<{ conversation: Conversation }>(
@@ -449,9 +475,13 @@ const ChatInterface = () => {
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
-      setIsLoading(false);
+      // setIsLoading(false);
+      setLoadingConversations((prev) => ({
+        ...prev,
+        [conversationKey]: false,
+      }));
     }
-  }, [inputValue, isLoading, currentConversationId, formatMessage, navigate, messages]);
+  }, [inputValue, currentConversationId, formatMessage, navigate, messages]);
 
   // Update handleRegenerateMessage
   const handleRegenerateMessage = useCallback(
@@ -682,7 +712,7 @@ const ChatInterface = () => {
 
           <ChatMessagesArea
             messages={messages}
-            isLoading={isLoading}
+            isLoading={isCurrentConversationLoading()}
             expandedCitations={expandedCitations}
             onToggleCitations={toggleCitations}
             onRegenerateMessage={handleRegenerateMessage}
@@ -705,7 +735,7 @@ const ChatInterface = () => {
               value={inputValue}
               onChange={handleInputChange}
               onSubmit={handleSendMessage}
-              isLoading={isLoading}
+              isLoading={isCurrentConversationLoading()}
             />
           </Box>
         </Box>

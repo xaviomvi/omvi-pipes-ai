@@ -147,7 +147,7 @@ export const highlightText = (text: string, query: string, theme: any) => {
 };
 
 function isDocViewable(extension: string) {
-  const viewableExtensions = ['pdf', 'xlsx', 'xls', 'csv', 'docx', 'html', 'txt','md'];
+  const viewableExtensions = ['pdf', 'xlsx', 'xls', 'csv', 'docx', 'html', 'txt', 'md'];
   return viewableExtensions.includes(extension);
 }
 
@@ -244,7 +244,14 @@ const KnowledgeSearch = ({
     const { recordId } = record.metadata;
     const recordMeta = recordsMap[recordId];
     const { webUrl } = recordMeta;
-    window.open(webUrl, '_blank'); // Opens in a new tab/window
+    if (recordMeta.origin === 'UPLOAD' && !webUrl.startsWith('http')) {
+      const baseUrl = `${window.location.protocol}//${window.location.host}`;
+      const newWebUrl = baseUrl + webUrl;
+      window.open(newWebUrl,'_blank');
+    } else {
+      window.open(webUrl, '_blank'); // Opens in a new tab/window
+    }
+   
   };
 
   // Function to get record details for metadata display
