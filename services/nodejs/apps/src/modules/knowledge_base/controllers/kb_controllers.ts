@@ -238,7 +238,7 @@ export const getRecordById =
 
       try {
         const aiCommand = new AIServiceCommand({
-          uri: `${aiBackendUrl}/api/v1/check-record-access/${recordId}`,
+          uri: `${aiBackendUrl}/api/v1/records/${recordId}`,
           method: HttpMethod.GET,
           headers: req.headers as Record<string, string>,
           // body: { query, limit },
@@ -1050,7 +1050,7 @@ export const reindexRecord =
 
       try {
         const aiCommand = new AIServiceCommand({
-          uri: `${aiBackendUrl}/api/v1/check-record-access/${recordId}`,
+          uri: `${aiBackendUrl}/api/v1/records/${recordId}`,
           method: HttpMethod.GET,
           headers: req.headers as Record<string, string>,
           // body: { query, limit },
