@@ -596,26 +596,26 @@ class IndexingPipeline:
                 )
 
             # Process documents into chunks
-            try:
-                chunks = self.text_splitter.split_documents(documents)
-                if not chunks:
-                    raise ChunkingError("No chunks were generated from the documents")
-            except Exception as e:
-                raise ChunkingError(
-                    "Failed to split documents into chunks: " + str(e),
-                    details={"error": str(e)}
-                )
+            # try:
+            #     chunks = self.text_splitter.split_documents(documents)
+            #     if not chunks:
+            #         raise ChunkingError("No chunks were generated from the documents")
+            # except Exception as e:
+            #     raise ChunkingError(
+            #         "Failed to split documents into chunks: " + str(e),
+            #         details={"error": str(e)}
+            #     )
 
             # Create and store embeddings
             try:
-                await self._create_embeddings(chunks)
+                await self._create_embeddings(documents)
             except Exception as e:
                 raise EmbeddingError(
                     "Failed to create or store embeddings: " + str(e),
                     details={"error": str(e)}
                 )
 
-            return chunks
+            return documents
 
         except IndexingError:
             # Re-raise any of our custom exceptions
