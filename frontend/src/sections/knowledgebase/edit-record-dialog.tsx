@@ -1,8 +1,20 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
+
 import { Icon } from '@iconify/react';
 import closeIcon from '@iconify-icons/carbon/close';
 import infoIcon from '@iconify-icons/eva/info-outline';
 import React, { useRef, useState, useEffect } from 'react';
+import filePdfBoxIcon from '@iconify-icons/mdi/file-pdf-box';
+import fileWordBoxIcon from '@iconify-icons/mdi/file-word-box';
 import cloudIcon from '@iconify-icons/eva/cloud-upload-outline';
+import fileExcelBoxIcon from '@iconify-icons/mdi/file-excel-box';
+import fileImageBoxIcon from '@iconify-icons/mdi/file-image-box';
+import fileTextBoxIcon from '@iconify-icons/mdi/file-text-outline';
+import fileCodeBoxIcon from '@iconify-icons/mdi/file-code-outline';
+import fileArchiveBoxIcon from '@iconify-icons/mdi/archive-outline';
+import filePowerpointBoxIcon from '@iconify-icons/mdi/file-powerpoint-box';
+import fileDocumentOutlineIcon from '@iconify-icons/mdi/file-document-outline';
+import fileDelimitedOutlineIcon from '@iconify-icons/mdi/file-delimited-outline';
 
 import {
   Box,
@@ -24,7 +36,6 @@ import {
 import axios from 'src/utils/axios';
 
 import type { Record } from './types/record-details';
-
 // Define a constant for maximum file size (30MB)
 const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB in bytes
 
@@ -255,40 +266,40 @@ const SingleFileUploadDialog: React.FC<SingleFileUploadDialogProps> = ({
   };
 
   // Get file icon based on extension
-  const getFileIcon = (extension: string): string => {
+  const getFileIcon = (extension: string): React.ComponentProps<typeof IconifyIcon>['icon'] => {
     const ext = extension?.toLowerCase() || '';
 
     switch (ext) {
       case 'pdf':
-        return 'mdi:file-pdf-box';
+        return filePdfBoxIcon;
       case 'doc':
       case 'docx':
-        return 'mdi:file-word-box';
+        return fileWordBoxIcon;
       case 'xls':
       case 'xlsx':
-        return 'mdi:file-excel-box';
+        return fileExcelBoxIcon;
       case 'ppt':
       case 'pptx':
-        return 'mdi:file-powerpoint-box';
+        return filePowerpointBoxIcon;
       case 'jpg':
       case 'jpeg':
       case 'png':
       case 'gif':
-        return 'mdi:file-image-box';
+        return fileImageBoxIcon;
       case 'zip':
       case 'rar':
       case '7z':
-        return 'mdi:file-archive-box';
+        return fileArchiveBoxIcon;
       case 'txt':
-        return 'mdi:file-text-box';
+        return fileTextBoxIcon;
       case 'html':
       case 'css':
       case 'js':
-        return 'mdi:file-code-box';
+        return fileCodeBoxIcon;
       case 'csv':
-        return 'mdi:file-delimited-outline';
+        return fileDelimitedOutlineIcon;
       default:
-        return 'mdi:file-document-outline';
+        return fileDocumentOutlineIcon;
     }
   };
 

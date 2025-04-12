@@ -11,6 +11,7 @@ import pencilIcon from '@iconify-icons/mdi/pencil';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import cubeIcon from '@iconify-icons/mdi/cube-outline';
+import infoIcon from '@iconify-icons/mdi/info-outline';
 import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
@@ -661,7 +662,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
           }}
         >
           <Iconify
-            icon="mdi:information-outline"
+            icon={infoIcon}
             width={20}
             height={20}
             color={theme.palette.info.main}
@@ -740,7 +741,7 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Iconify icon="mdi:identifier" width={18} height={18} />
+                            <Iconify icon={idIcon} width={18} height={18} />
                           </InputAdornment>
                         ),
                       }}

@@ -1,6 +1,11 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
+
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import emailIcon from '@iconify-icons/mdi/email-outline';
 import { useNavigate, useLocation } from 'react-router-dom';
+import accountGroupIcon from '@iconify-icons/mdi/account-group';
+import accountMultipleIcon from '@iconify-icons/mdi/account-multiple';
 
 import {
   Box,
@@ -105,30 +110,35 @@ export default function UsersAndGroups() {
     );
   }
 
-  const TabItem = (label: string, count: number, icon: string, isActive: boolean) => (
-    <Stack 
-      direction="row" 
-      alignItems="center" 
-      spacing={1.5} 
-      sx={{ 
+  const TabItem = (
+    label: string,
+    count: number,
+    icon: React.ComponentProps<typeof IconifyIcon>['icon'],
+    isActive: boolean
+  ) => (
+    <Stack
+      direction="row"
+      alignItems="center"
+      spacing={1.5}
+      sx={{
         py: 0.75,
         opacity: isActive ? 1 : 0.7,
         transition: 'all 0.2s ease-in-out',
       }}
     >
-      <Iconify 
-        icon={icon} 
-        width={20} 
-        height={20} 
-        sx={{ 
-          color: isActive ? 'primary.main' : 'text.secondary'
-        }} 
+      <Iconify
+        icon={icon}
+        width={20}
+        height={20}
+        sx={{
+          color: isActive ? 'primary.main' : 'text.secondary',
+        }}
       />
-      <Typography 
-        variant="body2" 
-        sx={{ 
+      <Typography
+        variant="body2"
+        sx={{
           fontWeight: isActive ? 600 : 400,
-          color: isActive ? 'text.primary' : 'text.secondary'
+          color: isActive ? 'text.primary' : 'text.secondary',
         }}
       >
         {label}
@@ -137,8 +147,8 @@ export default function UsersAndGroups() {
         <Chip
           size="small"
           label={count}
-          color={isActive ? "primary" : "default"}
-          variant={isActive ? "filled" : "outlined"}
+          color={isActive ? 'primary' : 'default'}
+          variant={isActive ? 'filled' : 'outlined'}
           sx={{
             height: 20,
             minWidth: 20,
@@ -152,59 +162,59 @@ export default function UsersAndGroups() {
   );
 
   return (
-    <Box sx={{ p: 3 }}>     
+    <Box sx={{ p: 3 }}>
       {/* Main Content Container */}
-        {/* Tabs Section */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', }}>
-          <Tabs 
-            value={tabValue} 
-            onChange={handleTabChange} 
-            aria-label="users and groups tabs"
-            sx={{
-              px: 3,
+      {/* Tabs Section */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          aria-label="users and groups tabs"
+          sx={{
+            px: 3,
+            minHeight: 56,
+            '& .MuiTabs-indicator': {
+              height: 3,
+              borderTopLeftRadius: 3,
+              borderTopRightRadius: 3,
+            },
+            '& .MuiTab-root': {
               minHeight: 56,
-              '& .MuiTabs-indicator': {
-                height: 3,
-                borderTopLeftRadius: 3,
-                borderTopRightRadius: 3,
+              fontWeight: 500,
+              borderBottom: '3px solid transparent',
+              transition: 'all 0.1s ease-in-out',
+              '&:hover': {
+                color: 'primary.main',
               },
-              '& .MuiTab-root': {
-                minHeight: 56,
-                fontWeight: 500,
-                borderBottom: '3px solid transparent',
-                transition: 'all 0.1s ease-in-out',
-                '&:hover': {
-                  color: 'primary.main',
-                },
-              },
-            }}
-          >
-            <Tab 
-              label={TabItem("Users", userCount, "mdi:account-multiple", tabValue === 0)} 
-              disableRipple
-              sx={{ textTransform: 'none' }}
-            />
-            <Tab 
-              label={TabItem("Groups", groupCount, "mdi:account-group", tabValue === 1)} 
-              disableRipple
-              sx={{ textTransform: 'none' }}
-            />
-            <Tab 
-              label={TabItem("Invites", invitesCount, "mdi:email-outline", tabValue === 2)} 
-              disableRipple
-              sx={{ textTransform: 'none' }}
-            />
-          </Tabs>
-        </Box>
-        
-        <Divider />
-        
-        {/* Tab Content Section */}
-        <Box sx={{ p: 3 }}>
-          {tabValue === 0 && <Users />}
-          {tabValue === 1 && <Groups />}
-          {tabValue === 2 && <Invites />}
-        </Box>
+            },
+          }}
+        >
+          <Tab
+            label={TabItem('Users', userCount, accountMultipleIcon, tabValue === 0)}
+            disableRipple
+            sx={{ textTransform: 'none' }}
+          />
+          <Tab
+            label={TabItem('Groups', groupCount, accountGroupIcon, tabValue === 1)}
+            disableRipple
+            sx={{ textTransform: 'none' }}
+          />
+          <Tab
+            label={TabItem('Invites', invitesCount, emailIcon, tabValue === 2)}
+            disableRipple
+            sx={{ textTransform: 'none' }}
+          />
+        </Tabs>
+      </Box>
+
+      <Divider />
+
+      {/* Tab Content Section */}
+      <Box sx={{ p: 3 }}>
+        {tabValue === 0 && <Users />}
+        {tabValue === 1 && <Groups />}
+        {tabValue === 2 && <Invites />}
+      </Box>
     </Box>
   );
 }

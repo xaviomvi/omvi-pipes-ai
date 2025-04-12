@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import robotIcon from '@iconify-icons/mdi/robot';
 import settingsIcon from '@iconify-icons/eva/settings-2-outline';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -211,7 +212,7 @@ const AiModelsSettings = () => {
             const displayName = MODEL_TYPE_NAMES[model.type] || model.type.toUpperCase();
             const description =
               MODEL_TYPE_DESCRIPTIONS[model.type] || 'AI model for advanced capabilities';
-            const icon = MODEL_TYPE_ICONS[model.type] || 'mdi:robot';
+            const icon = MODEL_TYPE_ICONS[model.type] || robotIcon;
             const color = getModelColor(model.type);
             const configCount = model.configurations.length;
 

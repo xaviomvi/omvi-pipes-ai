@@ -1,3 +1,4 @@
+import type { Icon as IconifyIcon } from '@iconify/react';
 import type { GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import { Icon } from '@iconify/react';
@@ -9,12 +10,37 @@ import uploadIcon from '@iconify-icons/mdi/upload';
 import eyeIcon from '@iconify-icons/mdi/eye-outline';
 import magnifyIcon from '@iconify-icons/mdi/magnify';
 import refreshIcon from '@iconify-icons/mdi/refresh';
+import databaseIcon from '@iconify-icons/mdi/database';
 import cloudIcon from '@iconify-icons/mdi/cloud-upload';
 import dotsIcon from '@iconify-icons/mdi/dots-vertical';
+import codeJsonIcon from '@iconify-icons/mdi/code-json';
+import languageCIcon from '@iconify-icons/mdi/language-c';
+import folderIcon from '@iconify-icons/mdi/folder-outline';
 import viewColumnIcon from '@iconify-icons/mdi/view-column';
+import languageGoIcon from '@iconify-icons/mdi/language-go';
+import filePdfBoxIcon from '@iconify-icons/mdi/file-pdf-box';
+import languagePhpIcon from '@iconify-icons/mdi/language-php';
 import downloadIcon from '@iconify-icons/mdi/download-outline';
+import fileWordBoxIcon from '@iconify-icons/mdi/file-word-box';
 import trashCanIcon from '@iconify-icons/mdi/trash-can-outline';
 import filePlusIcon from '@iconify-icons/mdi/file-plus-outline';
+import languageCss3Icon from '@iconify-icons/mdi/language-css3';
+import languageJavaIcon from '@iconify-icons/mdi/language-java';
+import languageRubyIcon from '@iconify-icons/mdi/language-ruby';
+import emailOutlineIcon from '@iconify-icons/mdi/email-outline';
+import fileExcelBoxIcon from '@iconify-icons/mdi/file-excel-box';
+import fileImageBoxIcon from '@iconify-icons/mdi/file-image-box';
+import languageHtml5Icon from '@iconify-icons/mdi/language-html5';
+import fileArchiveBoxIcon from '@iconify-icons/mdi/archive-outline';
+import languagePythonIcon from '@iconify-icons/mdi/language-python';
+import noteTextOutlineIcon from '@iconify-icons/mdi/note-text-outline';
+import fileCodeOutlineIcon from '@iconify-icons/mdi/file-code-outline';
+import languageMarkdownIcon from '@iconify-icons/mdi/language-markdown';
+import fileMusicOutlineIcon from '@iconify-icons/mdi/file-music-outline';
+import fileVideoOutlineIcon from '@iconify-icons/mdi/file-video-outline';
+import filePowerpointBoxIcon from '@iconify-icons/mdi/file-powerpoint-box';
+import languageJavascriptIcon from '@iconify-icons/mdi/language-javascript';
+import fileDocumentOutlineIcon from '@iconify-icons/mdi/file-document-outline';
 
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -57,7 +83,6 @@ import DeleteRecordDialog from './delete-record-dialog';
 import { handleDownloadDocument, uploadKnowledgeBaseFiles } from './utils';
 
 import type { Record, KnowledgeBaseDetailsProps } from './types/knowledge-base';
-
 
 interface ColumnVisibilityModel {
   [key: string]: boolean;
@@ -231,87 +256,87 @@ export default function KnowledgeBaseDetails({
   };
 
   // Get file icon based on extension
-  const getFileIcon = (extension: string): string => {
+  const getFileIcon = (extension: string): React.ComponentProps<typeof IconifyIcon>['icon'] => {
     const ext = extension?.toLowerCase() || '';
-  
+
     switch (ext) {
       case 'pdf':
-        return 'mdi:file-pdf-box';
+        return filePdfBoxIcon;
       case 'doc':
       case 'docx':
-        return 'mdi:file-word-box';
+        return fileWordBoxIcon;
       case 'xls':
       case 'xlsx':
       case 'csv':
-        return 'mdi:file-excel-box';
+        return fileExcelBoxIcon;
       case 'ppt':
       case 'pptx':
-        return 'mdi:file-powerpoint-box';
+        return filePowerpointBoxIcon;
       case 'jpg':
       case 'jpeg':
       case 'png':
       case 'gif':
       case 'svg':
       case 'webp':
-        return 'mdi:file-image-box';
+        return fileImageBoxIcon;
       case 'zip':
       case 'rar':
       case '7z':
       case 'tar':
       case 'gz':
-        return 'mdi:file-archive-box';
+        return fileArchiveBoxIcon;
       case 'txt':
-        return 'mdi:note-text-outline'; // Changed to a more visible text icon
+        return noteTextOutlineIcon; // Changed to a more visible text icon
       case 'rtf':
-        return 'mdi:file-document-outline';
+        return fileDocumentOutlineIcon;
       case 'md':
-        return 'mdi:language-markdown'; // More specific markdown icon
+        return languageMarkdownIcon; // More specific markdown icon
       case 'html':
       case 'htm':
-        return 'mdi:language-html5';
+        return languageHtml5Icon;
       case 'css':
-        return 'mdi:language-css3';
+        return languageCss3Icon;
       case 'js':
       case 'ts':
       case 'jsx':
       case 'tsx':
-        return 'mdi:language-javascript';
+        return languageJavascriptIcon;
       case 'json':
-        return 'mdi:code-json';
+        return codeJsonIcon;
       case 'xml':
-        return 'mdi:file-code-outline';
+        return fileCodeOutlineIcon;
       case 'py':
-        return 'mdi:language-python';
+        return languagePythonIcon;
       case 'java':
-        return 'mdi:language-java';
+        return languageJavaIcon;
       case 'c':
       case 'cpp':
       case 'cs':
-        return 'mdi:language-c';
+        return languageCIcon;
       case 'php':
-        return 'mdi:language-php';
+        return languagePhpIcon;
       case 'rb':
-        return 'mdi:language-ruby';
+        return languageRubyIcon;
       case 'go':
-        return 'mdi:language-go';
+        return languageGoIcon;
       case 'sql':
-        return 'mdi:database';
+        return databaseIcon;
       case 'mp3':
       case 'wav':
       case 'ogg':
       case 'flac':
-        return 'mdi:file-music-outline';
+        return fileMusicOutlineIcon;
       case 'mp4':
       case 'avi':
       case 'mov':
       case 'wmv':
       case 'mkv':
-        return 'mdi:file-video-outline';
+        return fileVideoOutlineIcon;
       case 'eml':
       case 'msg':
-        return 'mdi:email-outline';
+        return emailOutlineIcon;
       default:
-        return 'mdi:file-document-outline';
+        return fileDocumentOutlineIcon;
     }
   };
 
@@ -417,7 +442,7 @@ export default function KnowledgeBaseDetails({
             }}
           >
             <Icon
-              icon={extension ? getFileIcon(extension) : 'mdi:folder-outline'}
+              icon={extension ? getFileIcon(extension) : folderIcon}
               style={{
                 fontSize: '20px',
                 color: getFileIconColor(extension),
@@ -699,7 +724,7 @@ export default function KnowledgeBaseDetails({
               ? [
                   {
                     label: 'Retry Indexing',
-                    icon: 'mdi:refresh',
+                    icon: { refreshIcon },
                     color: '#ff9800', // Orange color for caution/retry
                     onClick: () => handleRetryIndexing(params.row.id),
                   },
@@ -725,9 +750,11 @@ export default function KnowledgeBaseDetails({
 
         const handleRetryIndexing = (recordId: string) => {
           try {
-            const response = axios.post(`${CONFIG.backendUrl}/api/v1/knowledgeBase/reindex/record/${recordId}`);
+            const response = axios.post(
+              `${CONFIG.backendUrl}/api/v1/knowledgeBase/reindex/record/${recordId}`
+            );
           } catch (error) {
-            console.log("error in re indexing", error)
+            console.log('error in re indexing', error);
           }
         };
 

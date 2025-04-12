@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import robotIcon from '@iconify-icons/mdi/robot';
 import closeIcon from '@iconify-icons/eva/close-outline';
 
 import {
@@ -85,9 +86,9 @@ const ConfigureModelDialog = ({ open, onClose, onSave, modelType }: ConfigureMod
   };
 
   // Get the icon for the current model type
-  const getModelIcon = (type: string | null) => {
-    if (!type) return 'mdi:robot';
-    return MODEL_TYPE_ICONS[type] || 'mdi:robot';
+  const getModelIcon = (type: any) => {
+    if (!type) return robotIcon;
+    return MODEL_TYPE_ICONS[type] || robotIcon;
   };
 
   // Get the title for the current model type

@@ -4,6 +4,7 @@ import type { Position, HighlightType, ProcessedCitation } from 'src/types/pdf-h
 
 import DOMPurify from 'dompurify';
 import { Icon } from '@iconify/react';
+import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 import { styled } from '@mui/material/styles';
@@ -760,7 +761,7 @@ const HtmlViewer: React.FC<HtmlViewerProps> = ({ url, html, buffer, sx = {}, cit
 
             if (bestNode && bestScore > 0) {
               // Wrap the best matching node
-              const {parentElement} = (bestNode as Text);
+              const { parentElement } = bestNode as Text;
               if (!parentElement) return false;
 
               const wrapper = document.createElement('span');
@@ -1053,7 +1054,7 @@ const HtmlViewer: React.FC<HtmlViewerProps> = ({ url, html, buffer, sx = {}, cit
     citationsArray.forEach((citation) => {
       if (!citation.highlight) return;
 
-      const {text} = citation.highlight.content;
+      const { text } = citation.highlight.content;
       if (!text || text.length < 4) {
         return;
       }
@@ -1268,7 +1269,7 @@ const HtmlViewer: React.FC<HtmlViewerProps> = ({ url, html, buffer, sx = {}, cit
 
       {error && (
         <ErrorOverlay>
-          <Icon icon="mdi:alert-circle-outline" style={{ fontSize: 40, marginBottom: 16 }} />
+          <Icon icon={alertCircleIcon} style={{ fontSize: 40, marginBottom: 16 }} />
           <Typography variant="body1">Error: {error}</Typography>
         </ErrorOverlay>
       )}
