@@ -9,7 +9,7 @@ from app.setups.connector_setup import AppContainer
 from app.utils.logger import create_logger
 from fastapi.responses import StreamingResponse
 import os
-from app.connectors.utils.decorators import token_refresh
+from app.utils.llm import get_llm
 from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.config.arangodb_constants import CollectionNames, RecordRelations, Connectors, RecordTypes
 from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
@@ -453,7 +453,7 @@ async def get_signed_url(
         # Return as JSON instead of plain text
         return {"signedUrl": signed_url}
     except Exception as e:
-        logger.error(f"Error getting signed URL: {str(e)}")
+        logger.error(f"Error getting signed URL: {repr(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
 async def get_google_docs_parser(request: Request):
@@ -494,6 +494,7 @@ async def download_file(
     google_token_handler=Depends(Provide[AppContainer.google_token_handler]),
     arango_service=Depends(Provide[AppContainer.arango_service]),
     signed_url_handler=Depends(Provide[AppContainer.signed_url_handler]),
+    config_service=Depends(Provide[AppContainer.config_service]),
 ):
     
     async def get_service_account_credentials(user_id):
@@ -637,9 +638,41 @@ async def download_file(
                     )
 
                 if mime_type == "application/vnd.google-apps.spreadsheet":
-                    logger.info("NOT SUPPORTED")
+                    logger.info("🚀 Processing Google Sheets")
+                    google_sheets_parser = await get_google_sheets_parser(request)
+                    await google_sheets_parser.connect_service(user_email, org_id, user_id)
+                    llm = await get_llm(logger, config_service)
+                    # List and process spreadsheets
+                    parsed_result = await google_sheets_parser.parse_spreadsheet(file_id)
+                    all_sheet_results = []
+                    for sheet_idx, sheet in enumerate(parsed_result['sheets'], 1):
+                        sheet_name = sheet['name']
+                        logger.info(f"Processing sheet: {sheet_name}")
+                        
+                        # Process sheet with summaries
+                        sheet_data = await google_sheets_parser.process_sheet_with_summaries(llm, sheet_name, file_id)
+                        if sheet_data is None:
+                            continue
+                        
+                        sheet_entry = {
+                            "number": f"S{sheet_idx}",
+                            "name": sheet_data['sheet_name'],
+                            "type": "sheet",
+                            "row_count": len(sheet_data['tables']),
+                            "column_count": max((len(table['headers']) for table in sheet_data['tables']), default=0)
+                        }
+                        
+                        all_sheet_results.append(sheet_entry)
+                        
+                    result = {
+                        'parsed_result': parsed_result,
+                        'all_sheet_results': all_sheet_results
+                    }
+                                 
+                    # Convert result to JSON and return as StreamingResponse
+                    json_data = json.dumps(result).encode('utf-8')
                     return StreamingResponse(
-                        iter([b'null']),
+                        iter([json_data]),
                         media_type='application/json'
                     )
                 

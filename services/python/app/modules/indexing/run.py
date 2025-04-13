@@ -97,7 +97,14 @@ class CustomChunker(SemanticChunker):
                     
                     # Update block numbers to reflect merged state
                     if len(group) > 1:
-                        merged_metadata['blockNum'] = [doc.metadata.get('blockNum', 0) for doc in group]
+                        block_nums = []
+                        for doc in group:
+                            nums = doc.metadata.get('blockNum', [])
+                            if isinstance(nums, list):
+                                block_nums.extend(nums)
+                            else:
+                                block_nums.append(nums)
+                        merged_metadata['blockNum'] = sorted(list(set(block_nums)))  # Remove duplicates and sort
 
                     # Create merged document with separate bounding_box attribute
                     merged_documents.append(Document(
@@ -121,7 +128,14 @@ class CustomChunker(SemanticChunker):
                     try:
                         merged_metadata = self._merge_metadata(metadata_list)
                         if len(group) > 1:
-                            merged_metadata['blockNum'] = f"{group[0].metadata.get('blockNum', 0)}-{group[-1].metadata.get('blockNum', 0)}"
+                            block_nums = []
+                            for doc in group:
+                                nums = doc.metadata.get('blockNum', [])
+                                if isinstance(nums, list):
+                                    block_nums.extend(nums)
+                                else:
+                                    block_nums.append(nums)
+                            merged_metadata['blockNum'] = sorted(list(set(block_nums)))  # Remove duplicates and sort
 
                         merged_documents.append(Document(
                             page_content=merged_text,
@@ -239,14 +253,7 @@ class CustomChunker(SemanticChunker):
                     # Handle confidence score - keep maximum
                     elif field == 'confidence_score':
                         merged_metadata[field] = max(field_values)
-                        
-                    # Handle block numbers - keep range if different
-                    elif field == 'blockNum':
-                        if len(set(field_values)) > 1:
-                            merged_metadata[field] = f"{field_values[0]}-{field_values[-1]}"
-                        else:
-                            merged_metadata[field] = field_values[0]
-                            
+                                                    
                     # For all other fields
                     else:
                         unique_values = set(
@@ -562,7 +569,7 @@ class IndexingPipeline:
                 details={"error": str(e)}
             )
 
-    async def index_documents(self, sentences: List[Dict[str, Any]]):
+    async def index_documents(self, sentences: List[Dict[str, Any]], merge_documents: bool = True):
         """
         Main method to index documents through the entire pipeline.
 
@@ -596,15 +603,16 @@ class IndexingPipeline:
                 )
 
             # Process documents into chunks
-            # try:
-            #     chunks = self.text_splitter.split_documents(documents)
-            #     if not chunks:
-            #         raise ChunkingError("No chunks were generated from the documents")
-            # except Exception as e:
-            #     raise ChunkingError(
-            #         "Failed to split documents into chunks: " + str(e),
-            #         details={"error": str(e)}
-            #     )
+            if merge_documents:
+                try:
+                    documents = self.text_splitter.split_documents(documents)
+                    if not documents:
+                        raise ChunkingError("No chunks were generated from the documents")
+                except Exception as e:
+                    raise ChunkingError(
+                        "Failed to split documents into chunks: " + str(e),
+                        details={"error": str(e)}
+                    )
 
             # Create and store embeddings
             try:
@@ -650,9 +658,9 @@ class IndexingPipeline:
                 'recordVersion': meta.get('version', ''),
                 'origin': meta.get('origin', ''),
                 'connector': meta.get('connectorName', ''),
-                'blockNum': meta.get('blockNum', 0),
+                'blockNum': meta.get('blockNum', [0]),
                 'blockText': meta.get('blockText', ''),
-                'blockType': meta.get('blockType', 'paragraph'),
+                'blockType': meta.get('blockType', 'text'),
                 'departments': meta.get('departments', []),
                 'topics': meta.get('topics', []),
                 'categories': meta.get('categories', []),

@@ -204,7 +204,7 @@ class KafkaConsumerManager:
                         return False
                     
                 except Exception as e:
-                    self.logger.error(f"Error getting signed URL: {str(e)}")
+                    self.logger.error(f"Error getting signed URL: {repr(e)}")
                     return False
             else:
                 self.logger.warning(f"No signedUrlRoute found in payload")
