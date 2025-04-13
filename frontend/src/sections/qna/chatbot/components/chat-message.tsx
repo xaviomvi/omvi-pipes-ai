@@ -165,7 +165,6 @@ const MessageContent: React.FC<MessageContentProps> = ({
             const citationNumber = parseInt(citationMatch[1], 10);
             const citation = citationNumberMap[citationNumber];
             const citationId = `${lineIndex}-${partIndex}`;
-            console.log(citation);
             if (!citation) return null;
             return (
               <Box

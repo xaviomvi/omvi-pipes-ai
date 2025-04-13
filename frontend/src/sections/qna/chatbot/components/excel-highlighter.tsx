@@ -234,21 +234,20 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
     }
   }, []);
 
-  const scrollToRow = useCallback((blockNum: any): void => {
+  const scrollToRow = useCallback((num: number): void => {
     if (!tableRef.current || !mountedRef.current) return;
-
     const tableRows = tableRef.current.getElementsByTagName('tr');
-    if (tableRows[blockNum[0]]) {
+    if (tableRows[num]) {
       requestAnimationFrame(() => {
         if (!mountedRef.current) return;
 
-        tableRows[blockNum[0]].scrollIntoView({
+        tableRows[num].scrollIntoView({
           behavior: 'smooth',
           block: 'center',
         });
 
-        tableRows[blockNum[0]].style.transition = 'background-color 0.5s ease';
-        tableRows[blockNum[0]].style.backgroundColor = 'rgba(46, 125, 50, 0.2)';
+        tableRows[num].style.transition = 'background-color 0.5s ease';
+        tableRows[num].style.backgroundColor = 'rgba(46, 125, 50, 0.2)';
       });
     }
   }, []);
@@ -442,6 +441,7 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
   useEffect(() => {
     if (isInitialized && citations.length > 0 && !highlightedRow && mountedRef.current) {
       const firstCitation = citations[0];
+      
       const { blockNum, extension } = firstCitation.metadata;
       if (blockNum[0]) {
         const highlightedRowNum = extension === 'csv' ? blockNum[0] : blockNum[0] - 1;
