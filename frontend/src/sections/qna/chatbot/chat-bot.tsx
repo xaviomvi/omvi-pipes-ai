@@ -332,6 +332,7 @@ const ChatInterface = () => {
     //   setAggregatedCitations([]);
     // }, 50); // Match this with your transition duration
     resetViewerStates();
+    setFileBuffer(null);
   };
 
   // const onViewPdf = (url, citations) => {
@@ -364,6 +365,7 @@ const ChatInterface = () => {
     setInputValue('');
     setShouldRefreshSidebar(true);
     navigate(`/`); // Navigate to base chat route
+    setFileBuffer(null);
   }, [navigate]);
 
   const handleSendMessage = useCallback(async (): Promise<void> => {
