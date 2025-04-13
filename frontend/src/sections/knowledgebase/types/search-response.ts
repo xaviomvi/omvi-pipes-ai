@@ -102,6 +102,7 @@ export interface SearchFilters {
   department?: string[];
   moduleId?: string[];
   appSpecificRecordType?: string[];
+  app?: string[];
 }
 
 export interface KnowledgeSearchProps {

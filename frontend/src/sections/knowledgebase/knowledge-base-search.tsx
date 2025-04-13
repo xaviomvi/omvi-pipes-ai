@@ -1,6 +1,6 @@
 import { Icon } from '@iconify/react';
 import closeIcon from '@iconify-icons/mdi/close';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Box, 
   alpha, 
@@ -31,7 +31,7 @@ import type { Filters } from './types/knowledge-base';
 import type { PipesHub, SearchResult, AggregatedDocument } from './types/search-response';
 
 // Constants for sidebar widths - must match with the sidebar component
-const SIDEBAR_EXPANDED_WIDTH = 300;
+const SIDEBAR_EXPANDED_WIDTH = 320;
 const SIDEBAR_COLLAPSED_WIDTH = 64;
 
 // Styled Close Button for the citation viewer
@@ -67,10 +67,12 @@ function getDocumentType(extension: string) {
 
 export default function KnowledgeBaseSearch() {
   const theme = useTheme();
+  // Make sure the filters state has app property instead of connector
   const [filters, setFilters] = useState<Filters>({
     department: [],
     moduleId: [],
     appSpecificRecordType: [],
+    app: [], // Updated to use app instead of connector
   });
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [topK, setTopK] = useState<number>(10);
@@ -90,6 +92,9 @@ export default function KnowledgeBaseSearch() {
   const [recordsMap, setRecordsMap] = useState<Record<string, PipesHub.Record>>({});
   const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
   
+  // Prevent rapid filter changes
+  const isFilterChanging = useRef(false);
+  
   // Snackbar state
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -101,7 +106,24 @@ export default function KnowledgeBaseSearch() {
   const isCitationViewerOpen = isPdf || isExcel || isDocx || isHtml || isTextFile || isMarkdown;
 
   const handleFilterChange = (newFilters: Filters) => {
-    setFilters(newFilters);
+    // If a filter operation is already in progress, return
+    if (isFilterChanging.current) return;
+    
+    isFilterChanging.current = true;
+    
+    // Use requestAnimationFrame to batch updates
+    requestAnimationFrame(() => {
+      // Use setter with callback to prevent potential stale state issues
+      setFilters((prevFilters) => ({
+        ...prevFilters,
+        ...newFilters
+      }));
+      
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        isFilterChanging.current = false;
+      }, 50);
+    });
   };
 
   const aggregateCitationsByRecordId = useCallback(
@@ -549,8 +571,8 @@ export default function KnowledgeBaseSearch() {
             ? `calc(100% - ${SIDEBAR_EXPANDED_WIDTH}px)`
             : `calc(100% - ${SIDEBAR_COLLAPSED_WIDTH}px)`,
           transition: theme.transitions.create('width', {
-            duration: '0.3s',
-            easing: theme.transitions.easing.easeInOut,
+            duration: '0.25s', // Reduced from 0.3s
+            easing: theme.transitions.easing.sharp, // Changed from easeInOut to sharp
           }),
           display: 'flex',
           position: 'relative',
@@ -562,8 +584,8 @@ export default function KnowledgeBaseSearch() {
             width: isCitationViewerOpen ? '50%' : '100%',
             height: '100%',
             transition: theme.transitions.create('width', {
-              duration: '0.3s',
-              easing: theme.transitions.easing.easeInOut,
+              duration: '0.25s', // Reduced from 0.3s
+              easing: theme.transitions.easing.sharp, // Changed from easeInOut to sharp
             }),
             overflow: 'auto',
             maxHeight: '100%',
