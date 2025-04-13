@@ -616,14 +616,14 @@ export default function RecordDetails() {
                             mb: 0.75,
                           }}
                         >
-                          Categories
+                          Document Category
                         </Typography>
                         {renderChips(metadata.categories)}
                       </Box>
                     )}
 
                     {/* Subcategories1 */}
-                    {/* {metadata?.subcategories1 && metadata.subcategories1.length > 0 && (
+                    {metadata?.subcategories1 && metadata.subcategories1.length > 0 && (
                       <Box>
                         <Typography
                           variant="caption"
@@ -637,14 +637,14 @@ export default function RecordDetails() {
                             mb: 0.75,
                           }}
                         >
-                          Web Development
+                         Document Sub-category Level 1
                         </Typography>
                         {renderChips(metadata.subcategories1)}
                       </Box>
-                    )} */}
+                    )}
  
                     {/* Subcategories2 */}
-                    {/* {metadata?.subcategories2 && metadata.subcategories2.length > 0 && (
+                    {metadata?.subcategories2 && metadata.subcategories2.length > 0 && (
                       <Box>
                         <Typography
                           variant="caption"
@@ -658,14 +658,14 @@ export default function RecordDetails() {
                             mb: 0.75,
                           }}
                         >
-                          Technologies
+                          Document Sub-category Level 2
                         </Typography>
                         {renderChips(metadata.subcategories2)}
                       </Box>
-                    )} */}
+                    )}
 
                     {/* Subcategories3 */}
-                    {/* {metadata?.subcategories3 && metadata.subcategories3.length > 0 && (
+                    {metadata?.subcategories3 && metadata.subcategories3.length > 0 && (
                       <Box>
                         <Typography
                           variant="caption"
@@ -679,11 +679,11 @@ export default function RecordDetails() {
                             mb: 0.75,
                           }}
                         >
-                          Focus Areas
+                          Document Sub-category Level 3
                         </Typography>
                         {renderChips(metadata.subcategories3)}
                       </Box>
-                    )} */}
+                    )}
 
                     {/* Topics */}
                     {metadata?.topics && metadata.topics.length > 0 && (

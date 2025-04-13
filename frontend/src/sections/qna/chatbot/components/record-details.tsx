@@ -460,14 +460,14 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
                   }}
                 >
                   <Icon icon={categoryIcon} width={16} height={16} />
-                  Categories
+                  Document Category
                 </Typography>
                 {renderChips(recordData.metadata.categories)}
               </Box>
             )}
 
             {/* Web Development */}
-            {/* {recordData.metadata.subcategories1 &&
+            {recordData.metadata.subcategories1 &&
               recordData.metadata.subcategories1.length > 0 && (
                 <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
                   <Typography
@@ -478,14 +478,14 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
                       color: 'text.secondary',
                     }}
                   >
-                    Web Development
+                   Document Sub-category level 1
                   </Typography>
                   {renderChips(recordData.metadata.subcategories1)}
                 </Box>
-              )} */}
+              )}
 
             {/* Technologies */}
-            {/* {recordData.metadata.subcategories2 &&
+            {recordData.metadata.subcategories2 &&
               recordData.metadata.subcategories2.length > 0 && (
                 <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
                   <Typography
@@ -496,14 +496,14 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
                       color: 'text.secondary',
                     }}
                   >
-                    Technologies
+                   Document Sub-category level 2
                   </Typography>
                   {renderChips(recordData.metadata.subcategories2)}
                 </Box>
-              )} */}
+              )}
 
             {/* Focus Areas */}
-            {/* {recordData.metadata.subcategories3 &&
+            {recordData.metadata.subcategories3 &&
               recordData.metadata.subcategories3.length > 0 && (
                 <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
                   <Typography
@@ -514,11 +514,11 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
                       color: 'text.secondary',
                     }}
                   >
-                    Focus Areas
+                    Document Sub-category level 3
                   </Typography>
                   {renderChips(recordData.metadata.subcategories3)}
                 </Box>
-              )} */}
+              )}
 
             {/* Topics */}
             {recordData.metadata.topics && recordData.metadata.topics.length > 0 && (

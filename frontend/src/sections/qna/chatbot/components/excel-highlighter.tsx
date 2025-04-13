@@ -238,17 +238,17 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
     if (!tableRef.current || !mountedRef.current) return;
 
     const tableRows = tableRef.current.getElementsByTagName('tr');
-    if (tableRows[blockNum]) {
+    if (tableRows[blockNum[0]]) {
       requestAnimationFrame(() => {
         if (!mountedRef.current) return;
 
-        tableRows[blockNum].scrollIntoView({
+        tableRows[blockNum[0]].scrollIntoView({
           behavior: 'smooth',
           block: 'center',
         });
 
-        tableRows[blockNum].style.transition = 'background-color 0.5s ease';
-        tableRows[blockNum].style.backgroundColor = 'rgba(46, 125, 50, 0.2)';
+        tableRows[blockNum[0]].style.transition = 'background-color 0.5s ease';
+        tableRows[blockNum[0]].style.backgroundColor = 'rgba(46, 125, 50, 0.2)';
       });
     }
   }, []);
@@ -259,8 +259,8 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
       const { blockNum } = citation.metadata;
       if (blockNum) {
         setSelectedCitation(citation.metadata._id);
-        setHighlightedRow(blockNum);
-        scrollToRow(blockNum);
+        setHighlightedRow(blockNum[0]);
+        scrollToRow(blockNum[0]);
       }
     },
     [scrollToRow]
@@ -442,9 +442,9 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
       const firstCitation = citations[0];
       const { blockNum } = firstCitation.metadata;
       if (blockNum) {
-        setHighlightedRow(blockNum);
+        setHighlightedRow(blockNum[0]);
         setSelectedCitation(firstCitation.metadata._id);
-        scrollToRow(blockNum);
+        scrollToRow(blockNum[0]);
       }
     }
   }, [citations, isInitialized, highlightedRow, scrollToRow]);
@@ -589,7 +589,7 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
                      {citation.metadata.sheetName}
                   </Typography>
                   <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
-                    Row {citation.metadata.blockNum}
+                    Row {citation.metadata.blockNum[0]}
                   </Typography>
                 </Box>
               </ListItem>

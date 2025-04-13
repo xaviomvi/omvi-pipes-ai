@@ -164,7 +164,7 @@ const CitationHoverCard = ({
             {citation.metadata?.pageNum && (
               <Chip
                 size="small"
-                label={citation.metadata?.pageNum ? `Page ${citation.metadata?.pageNum}` : ''}
+                label={citation.metadata?.pageNum[0] ? `Page ${citation.metadata?.pageNum[0]}` : ''}
                 variant="outlined"
                 sx={{
                   height: '20px',

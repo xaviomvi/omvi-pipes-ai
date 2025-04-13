@@ -45,8 +45,8 @@ export interface BoundingBox {
 
 export interface Metadata {
   _id: string;
-  blockNum: number;
-  pageNum: number;
+  blockNum: number[];
+  pageNum: number[];
   subcategoryLevel1: string;
   subcategoryLevel2: string;
   subcategoryLevel3: string;

@@ -128,7 +128,7 @@ const processHighlight = (citation: DocumentContent): HighlightType | null => {
       y2: boundingBox[2].y * PAGE_HEIGHT,
       width: PAGE_WIDTH,
       height: PAGE_HEIGHT,
-      pageNumber: citation.metadata?.pageNum || 1,
+      pageNumber: citation.metadata?.pageNum[0] || 1,
     };
 
     return {

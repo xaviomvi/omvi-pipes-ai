@@ -18,7 +18,8 @@ import chatIcon from '@iconify-icons/mdi/chat-outline';
 import dotsIcon from '@iconify-icons/mdi/dots-vertical';
 import archiveIcon from '@iconify-icons/mdi/archive-outline';
 import messageIcon from '@iconify-icons/mdi/message-outline';
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import emptyIcon from '@iconify-icons/mdi/comment-question-outline';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 
 import {
   Box,
@@ -26,6 +27,7 @@ import {
   Menu,
   Alert,
   Tooltip,
+  Button,
   ListItem,
   MenuItem,
   Snackbar,
@@ -51,10 +53,13 @@ const ChatSidebar = ({
   shouldRefresh,
   onRefreshComplete,
 }: ChatSidebarProps) => {
+  // Use useRef for values that shouldn't trigger re-renders when changed
+  const isMounted = useRef(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [initialLoading, setInitialLoading] = useState<boolean>(true);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [selectedChat, setSelectedChat] = useState<Conversation | null>(null);
   const [editingChat, setEditingChat] = useState<Conversation | null>(null);
@@ -63,7 +68,6 @@ const ChatSidebar = ({
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState<boolean>(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  // const [sharedConversations, setSharedConversations] = useState([]);
   const [activeTab, setActiveTab] = useState<'my' | 'shared'>('my');
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
@@ -73,71 +77,106 @@ const ChatSidebar = ({
 
   const [archiveDialogOpen, setArchiveDialogOpen] = useState<boolean>(false);
 
-  const fetchConversations = useCallback(async (pageNum: number): Promise<void> => {
-    setIsLoading(true);
-    try {
-      const response = await axiosInstance.get<ConversationsResponse>('/api/v1/conversations/', {
-        // params: {
-        //   page: pageNum,
-        //   limit: 20,
-        //   shared: activeTab === 'shared'
-        // },
-      });
+  // Memoize fetch function to prevent recreation on each render
+  const fetchConversations = useCallback(
+    async (pageNum: number): Promise<void> => {
+      if (!isMounted.current) return;
 
-      const {
-        conversations: newConversations = [],
-        pagination = {
-          page: 1,
-          limit: 20,
-          totalCount: 0,
-          totalPages: 1,
-          hasNextPage: false,
-          hasPrevPage: false,
-        },
-      } = response.data;
+      setIsLoading(true);
+      try {
+        const response = await axiosInstance.get<ConversationsResponse>('/api/v1/conversations/', {
+          params: {
+            page: pageNum,
+            limit: 20,
+            shared: activeTab === 'shared',
+          },
+        });
 
-      if (pageNum === 1) {
-        setConversations(newConversations);
-      } else {
-        setConversations((prev) => [...prev, ...newConversations]);
+        const {
+          conversations: newConversations = [],
+          pagination = {
+            page: 1,
+            limit: 20,
+            totalCount: 0,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
+        } = response.data;
+
+        if (!isMounted.current) return;
+
+        if (pageNum === 1) {
+          setConversations(newConversations);
+        } else {
+          setConversations((prev) => [...prev, ...newConversations]);
+        }
+
+        setHasMore(pagination.hasNextPage || false);
+        setPage(pageNum);
+      } catch (error) {
+        if (!isMounted.current) return;
+
+        setHasMore(false);
+        setSnackbar({
+          open: true,
+          message: 'Failed to fetch conversations. Please try again later.',
+          severity: 'error',
+        });
+      } finally {
+        if (isMounted.current) {
+          setIsLoading(false);
+          setInitialLoading(false);
+        }
       }
+    },
+    [activeTab]
+  ); // Only depend on activeTab
 
-      setHasMore(pagination.hasNextPage || false);
-      setPage(pageNum);
-    } catch (error) {
-      setHasMore(false);
-      setSnackbar({
-        open: true,
-        message: 'Failed to fetch conversations',
-        severity: 'error',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line
+  // Clean up effect to prevent state updates after unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
 
+  // Handle refresh logic
   useEffect(() => {
-    if (shouldRefresh) {
+    if (shouldRefresh && isMounted.current) {
       fetchConversations(1).then(() => {
-        onRefreshComplete?.();
+        if (isMounted.current && onRefreshComplete) {
+          onRefreshComplete();
+        }
       });
     }
   }, [shouldRefresh, fetchConversations, onRefreshComplete]);
 
-  // Menu handling
-  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>, chat: Conversation): void => {
-    event.stopPropagation();
-    setMenuAnchor(event.currentTarget);
-    setSelectedChat(chat);
-  };
+  // Initial fetch and tab change effect
+  useEffect(() => {
+    if (isMounted.current) {
+      setPage(1);
+      setInitialLoading(true);
+      fetchConversations(1);
+    }
+  }, [activeTab, fetchConversations]);
 
-  const handleMenuClose = () => {
+  // Menu handling
+  const handleMenuOpen = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>, chat: Conversation): void => {
+      event.stopPropagation();
+      setMenuAnchor(event.currentTarget);
+      setSelectedChat(chat);
+    },
+    []
+  );
+
+  const handleMenuClose = useCallback(() => {
     setMenuAnchor(null);
     setSelectedChat(null);
-  };
+  }, []);
 
-  // Grouped conversations logic
+  // Memoize grouped conversations to prevent unnecessary recalculations
   const groupedConversations = useMemo(() => {
     const groups: ConversationGroup = {
       Today: [],
@@ -176,80 +215,90 @@ const ChatSidebar = ({
     return Object.fromEntries(Object.entries(groups).filter(([_, chats]) => chats.length > 0));
   }, [conversations]);
 
-  // const memoizedConversations = useMemo(() => conversations, [conversations]);
+  const handleListItemClick = useCallback(
+    (chat: Conversation): void => {
+      if (onChatSelect) onChatSelect(chat);
+    },
+    [onChatSelect]
+  );
 
-  useEffect(() => {
-    setPage(1);
-    fetchConversations(1);
-  }, [fetchConversations, activeTab]);
-
-  const handleListItemClick = (chat: Conversation): void => {
-    onChatSelect?.(chat);
-  };
-
-  const handleNewChat = (): void => {
+  const handleNewChat = useCallback((): void => {
     handleMenuClose();
-    onNewChat?.();
-  };
+    if (onNewChat) onNewChat();
+  }, [handleMenuClose, onNewChat]);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>): void => {
-    const target = e.target as HTMLDivElement;
-    const bottom = Math.abs(target.scrollHeight - target.scrollTop - target.clientHeight) < 1;
+  const handleScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>): void => {
+      if (!hasMore || isLoading) return;
 
-    if (bottom && hasMore && !isLoading) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      fetchConversations(nextPage);
-    }
-  };
+      const target = e.target as HTMLDivElement;
+      const bottom = Math.abs(target.scrollHeight - target.scrollTop - target.clientHeight) < 1;
 
-  const handleEditStart = (chat: Conversation): void => {
-    setEditingChat(chat);
-    setEditTitle(chat.title || '');
-    handleMenuClose();
-  };
+      if (bottom) {
+        const nextPage = page + 1;
+        setPage(nextPage);
+        fetchConversations(nextPage);
+      }
+    },
+    [hasMore, isLoading, page, fetchConversations]
+  );
 
-  const handleEditCancel = (): void => {
+  const handleEditStart = useCallback(
+    (chat: Conversation): void => {
+      setEditingChat(chat);
+      setEditTitle(chat.title || '');
+      handleMenuClose();
+    },
+    [handleMenuClose]
+  );
+
+  const handleEditCancel = useCallback((): void => {
     setEditingChat(null);
     setEditTitle('');
-  };
+  }, []);
 
-  const handleEditSubmit = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
-    if (!editingChat || !editTitle.trim()) return;
+  const handleEditSubmit = useCallback(
+    async (e: React.FormEvent): Promise<void> => {
+      e.preventDefault();
+      if (!editingChat || !editTitle.trim()) return;
 
-    try {
-      await axiosInstance.patch(`/api/v1/conversations/${editingChat._id}/title`, {
-        title: editTitle.trim(),
-      });
+      try {
+        await axiosInstance.patch(`/api/v1/conversations/${editingChat._id}/title`, {
+          title: editTitle.trim(),
+        });
 
-      setConversations((prev) =>
-        prev.map((chat) =>
-          chat._id === editingChat._id ? { ...chat, title: editTitle.trim() } : chat
-        )
-      );
+        setConversations((prev) =>
+          prev.map((chat) =>
+            chat._id === editingChat._id ? { ...chat, title: editTitle.trim() } : chat
+          )
+        );
 
-      setSnackbar({
-        open: true,
-        message: 'Conversation renamed successfully',
-        severity: 'success',
-      });
-      handleEditCancel();
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Failed to rename conversation',
-        severity: 'error',
-      });
-    }
-  };
+        setSnackbar({
+          open: true,
+          message: 'Conversation renamed successfully',
+          severity: 'success',
+        });
+        handleEditCancel();
+      } catch (error) {
+        setSnackbar({
+          open: true,
+          message: 'Failed to rename conversation. Please try again.',
+          severity: 'error',
+        });
+      }
+    },
+    [editingChat, editTitle, handleEditCancel]
+  );
 
-  const handleDeleteClick = (chat: Conversation): void => {
-    setDeleteDialog({ open: true, chat });
-    handleMenuClose();
-  };
+  const handleDeleteClick = useCallback(
+    (chat: Conversation): void => {
+      setDeleteDialog({ open: true, chat });
+      handleMenuClose();
+    },
+    [handleMenuClose]
+  );
 
-  const handleDeleteConfirm = async (): Promise<void> => {
+  const handleDeleteConfirm = useCallback(async (): Promise<void> => {
     if (!deleteDialog.chat) return;
     setIsDeleting(true);
 
@@ -258,8 +307,8 @@ const ChatSidebar = ({
 
       setConversations((prev) => prev.filter((chat) => chat._id !== deleteDialog.chat?._id));
 
-      if (selectedId === deleteDialog.chat._id) {
-        onNewChat?.();
+      if (selectedId === deleteDialog.chat._id && onNewChat) {
+        onNewChat();
       }
 
       setSnackbar({
@@ -270,156 +319,222 @@ const ChatSidebar = ({
     } catch (error) {
       setSnackbar({
         open: true,
-        message: 'Failed to delete conversation',
+        message: 'Failed to delete conversation. Please try again.',
         severity: 'error',
       });
     } finally {
       setIsDeleting(false);
       setDeleteDialog({ open: false, chat: null });
     }
-  };
+  }, [deleteDialog.chat, selectedId, onNewChat]);
 
-  const renderChatItem = (chat: Conversation) => (
-    <ListItem
-      key={chat._id}
-      disablePadding
-      secondaryAction={
-        editingChat?._id !== chat._id && (
-          <IconButton edge="end" size="small" onClick={(e) => handleMenuOpen(e, chat)}>
-            <Icon icon={dotsIcon} />
-          </IconButton>
-        )
+  const handleArchive = useCallback(
+    async (chat: Conversation): Promise<void> => {
+      try {
+        await axiosInstance.patch(`/api/v1/conversations/${chat._id}/archive`);
+        await fetchConversations(1); // Refresh conversations after archiving
+        handleMenuClose();
+        if (onNewChat) onNewChat();
+        setSnackbar({
+          open: true,
+          message: 'Conversation archived successfully',
+          severity: 'success',
+        });
+      } catch (error) {
+        setSnackbar({
+          open: true,
+          message: 'Failed to archive conversation. Please try again.',
+          severity: 'error',
+        });
       }
-    >
-      {editingChat?._id === chat._id ? (
-        <Box
-          component="form"
-          onSubmit={handleEditSubmit}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            width: '100%',
-            px: 1,
-          }}
-        >
-          <TextField
-            size="small"
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            autoFocus
-            fullWidth
-            variant="outlined"
-            placeholder="Enter conversation title"
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 1,
-              },
-            }}
-          />
-          <IconButton size="small" color="primary" type="submit" disabled={!editTitle.trim()}>
-            <Icon icon={checkIcon} />
-          </IconButton>
-          <IconButton size="small" onClick={handleEditCancel}>
-            <Icon icon={closeIcon} />
-          </IconButton>
-        </Box>
-      ) : (
-        <ListItemButton
-          selected={selectedId === chat._id}
-          onClick={() => handleListItemClick(chat)}
-          sx={{
-            borderRadius: 1,
-            py: 1,
-            '&.Mui-selected': {
-              bgcolor: 'action.selected',
-            },
-            '&:hover': {
-              bgcolor: 'action.hover',
-            },
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-            <Icon icon={messageIcon} />
-            <Typography
-              variant="body2"
-              noWrap
-              sx={{
-                flex: 1,
-                color: 'text.primary',
-              }}
-            >
-              {chat.title || 'New conversation'}
-            </Typography>
-          </Box>
-        </ListItemButton>
-      )}
-    </ListItem>
+    },
+    [fetchConversations, handleMenuClose, onNewChat]
   );
-
-  const handleArchive = async (chat: Conversation): Promise<void> => {
-    try {
-      await axiosInstance.patch(`/api/v1/conversations/${chat._id}/archive`);
-      await fetchConversations(1); // Refresh conversations after archiving
-      handleMenuClose();
-      onNewChat?.();
-      setSnackbar({
-        open: true,
-        message: 'Conversation archived successfully',
-        severity: 'success',
-      });
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Failed to archive conversation',
-        severity: 'error',
-      });
-    }
-  };
 
   const handleUnarchive = useCallback(async (): Promise<void> => {
     await fetchConversations(1); // Refresh conversations after unarchiving
   }, [fetchConversations]);
 
-  const handleShareConversation = (conversationId: string): void => {
-    setSelectedConversationId(conversationId);
-    setIsShareDialogOpen(true);
-  };
+  const handleShareConversation = useCallback(
+    (conversationId: string): void => {
+      setSelectedConversationId(conversationId);
+      setIsShareDialogOpen(true);
+      handleMenuClose();
+    },
+    [handleMenuClose]
+  );
 
-  const handleShareDialogClose = (): void => {
+  const handleShareDialogClose = useCallback((): void => {
     setIsShareDialogOpen(false);
     setSelectedConversationId(null);
-  };
+  }, []);
 
-  // Update menu items
-  const menuItems = [
-    {
-      icon: editIcon,
-      label: 'Rename',
-      onClick: () => selectedChat && handleEditStart(selectedChat),
-      show: activeTab === 'my',
-    },
-    {
-      icon: archiveIcon,
-      label: 'Archive',
-      onClick: () => selectedChat && handleArchive(selectedChat),
-      show: activeTab === 'my',
-    },
-    {
-      icon: deleteIcon,
-      label: 'Delete',
-      onClick: () => selectedChat && handleDeleteClick(selectedChat),
-      color: 'error',
-      show: activeTab === 'my',
-    },
-    {
-      icon: shareIcon,
-      label: 'Share',
-      onClick: () => selectedChat && handleShareConversation(selectedChat._id),
-      color: 'error',
-      show: activeTab === 'my',
-    },
-  ];
+  // Memoize the EmptyState component to prevent unnecessary re-renders
+  const EmptyState = useMemo(
+    () => () => (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          height: '100%',
+          p: 3,
+        }}
+      >
+        <Icon
+          icon={emptyIcon}
+          style={{ fontSize: '72px', color: 'rgba(0, 0, 0, 0.2)', marginBottom: '16px' }}
+        />
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          {activeTab === 'my' ? 'No conversations yet' : 'No shared conversations'}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: '240px' }}>
+          {activeTab === 'my'
+            ? 'Start a new conversation to begin chatting with PipesHub Agent'
+            : 'When someone shares a conversation with you, it will appear here'}
+        </Typography>
+        {activeTab === 'my' && (
+          <Button variant="contained" startIcon={<Icon icon={chatIcon} />} onClick={handleNewChat}>
+            Start a conversation
+          </Button>
+        )}
+      </Box>
+    ),
+    [activeTab, handleNewChat]
+  );
+
+  // Memoize the ChatItem component to prevent unnecessary re-renders
+  const renderChatItem = useCallback(
+    (chat: Conversation) => (
+      <ListItem
+        key={chat._id}
+        disablePadding
+        secondaryAction={
+          editingChat?._id !== chat._id && (
+            <IconButton edge="end" size="small" onClick={(e) => handleMenuOpen(e, chat)}>
+              <Icon icon={dotsIcon} />
+            </IconButton>
+          )
+        }
+      >
+        {editingChat?._id === chat._id ? (
+          <Box
+            component="form"
+            onSubmit={handleEditSubmit}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              width: '100%',
+              px: 1,
+            }}
+          >
+            <TextField
+              size="small"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              autoFocus
+              fullWidth
+              variant="outlined"
+              placeholder="Enter conversation title"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 1,
+                },
+              }}
+            />
+            <IconButton size="small" color="primary" type="submit" disabled={!editTitle.trim()}>
+              <Icon icon={checkIcon} />
+            </IconButton>
+            <IconButton size="small" onClick={handleEditCancel}>
+              <Icon icon={closeIcon} />
+            </IconButton>
+          </Box>
+        ) : (
+          <ListItemButton
+            selected={selectedId === chat._id}
+            onClick={() => handleListItemClick(chat)}
+            sx={{
+              borderRadius: 1,
+              py: 1,
+              '&.Mui-selected': {
+                bgcolor: 'action.selected',
+              },
+              '&:hover': {
+                bgcolor: 'action.hover',
+              },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+              <Icon icon={messageIcon} />
+              <Typography
+                variant="body2"
+                noWrap
+                sx={{
+                  flex: 1,
+                  color: 'text.primary',
+                }}
+              >
+                {chat.title || 'New conversation'}
+              </Typography>
+            </Box>
+          </ListItemButton>
+        )}
+      </ListItem>
+    ),
+    [
+      editingChat,
+      editTitle,
+      handleEditCancel,
+      handleEditSubmit,
+      handleMenuOpen,
+      handleListItemClick,
+      selectedId,
+    ]
+  );
+
+  // Memoize menu items to prevent recreating this array on every render
+  const menuItems = useMemo(
+    () =>
+      [
+        {
+          icon: editIcon,
+          label: 'Rename',
+          onClick: () => selectedChat && handleEditStart(selectedChat),
+          show: activeTab === 'my',
+        },
+        {
+          icon: archiveIcon,
+          label: 'Archive',
+          onClick: () => selectedChat && handleArchive(selectedChat),
+          show: activeTab === 'my',
+        },
+        {
+          icon: deleteIcon,
+          label: 'Delete',
+          onClick: () => selectedChat && handleDeleteClick(selectedChat),
+          color: 'error',
+          show: activeTab === 'my',
+        },
+        {
+          icon: shareIcon,
+          label: 'Share',
+          onClick: () => selectedChat && handleShareConversation(selectedChat._id),
+          color: 'primary',
+          show: activeTab === 'my',
+        },
+      ].filter((item) => item.show),
+    [
+      activeTab,
+      selectedChat,
+      handleEditStart,
+      handleArchive,
+      handleDeleteClick,
+      handleShareConversation,
+    ]
+  );
 
   return (
     <Box
@@ -448,7 +563,7 @@ const ChatSidebar = ({
             </Tooltip>
             <Tooltip title="New Chat">
               <IconButton size="small" onClick={handleNewChat}>
-                <Icon icon={chatIcon}  />
+                <Icon icon={chatIcon} />
               </IconButton>
             </Tooltip>
           </>
@@ -504,59 +619,57 @@ const ChatSidebar = ({
         </Box>
       </Box>
 
-      {/* New Chat Button */}
-      {/* <Box sx={{ p: 2 }}>
-        <Button
-          fullWidth
-          variant="outlined"
-          startIcon={<Icon icon="mdi:plus" />}
-          onClick={handleNewChat}
-          sx={{
-            justifyContent: 'flex-start',
-            color: 'text.primary',
-            borderColor: 'divider',
-            '&:hover': {
-              borderColor: 'primary.main',
-              bgcolor: 'action.hover',
-            },
-          }}
-        >
-          New chat
-        </Button>
-      </Box> */}
-
-      {/* <Divider sx={{ my: 1 }} /> */}
-
       {/* Conversations List */}
       <Box
         sx={{
           flexGrow: 1,
           overflowY: 'auto',
           px: 1,
+          display: 'flex',
+          flexDirection: 'column',
         }}
         onScroll={handleScroll}
       >
-        {Object.entries(groupedConversations).map(([group, chats]) => (
-          <React.Fragment key={group}>
-            <Typography
-              variant="caption"
-              sx={{
-                px: 2,
-                py: 1,
-                display: 'block',
-                color: 'text.secondary',
-                fontWeight: 500,
-              }}
-            >
-              {group}
+        {initialLoading ? (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+            }}
+          >
+            <CircularProgress size={40} thickness={4} sx={{ mb: 2 }} />
+            <Typography variant="body2" color="text.secondary">
+              Loading conversations...
             </Typography>
-            <List dense disablePadding>
-              {chats.map((chat) => renderChatItem(chat))}
-            </List>
-          </React.Fragment>
-        ))}
+          </Box>
+        ) : Object.keys(groupedConversations).length === 0 ? (
+          <EmptyState />
+        ) : (
+          Object.entries(groupedConversations).map(([group, chats]) => (
+            <React.Fragment key={group}>
+              <Typography
+                variant="caption"
+                sx={{
+                  px: 2,
+                  py: 1,
+                  display: 'block',
+                  color: 'text.secondary',
+                  fontWeight: 500,
+                }}
+              >
+                {group}
+              </Typography>
+              <List dense disablePadding>
+                {chats.map(renderChatItem)}
+              </List>
+            </React.Fragment>
+          ))
+        )}
 
-        {isLoading && (
+        {isLoading && !initialLoading && (
           <Box display="flex" justifyContent="center" p={2}>
             <CircularProgress size={24} />
           </Box>
