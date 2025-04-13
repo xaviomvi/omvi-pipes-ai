@@ -19,8 +19,8 @@ export interface DocumentMetadata {
   recordId: string;
   recordName: string;
   orgId: string;
-  blockNum: number;
-  pageNum: number;
+  blockNum: number[];
+  pageNum: number[];
   subcategoryLevel1: string;
   subcategoryLevel2: string;
   subcategoryLevel3: string;
