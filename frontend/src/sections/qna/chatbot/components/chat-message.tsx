@@ -1,10 +1,6 @@
 import type { Metadata, CustomCitation } from 'src/types/chat-bot';
 
-import type {
-  Record,
-  ChatMessageProps,
-  MessageContentProps,
-} from 'src/types/chat-message';
+import type { Record, ChatMessageProps, MessageContentProps } from 'src/types/chat-message';
 
 import remarkGfm from 'remark-gfm';
 import { Icon } from '@iconify/react';
@@ -12,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import refreshIcon from '@iconify-icons/mdi/refresh';
 import loadingIcon from '@iconify-icons/mdi/loading';
 import downIcon from '@iconify-icons/mdi/chevron-down';
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo, useState, useCallback } from 'react';
 import robotIcon from '@iconify-icons/mdi/robot-outline';
 import rightIcon from '@iconify-icons/mdi/chevron-right';
 import accountIcon from '@iconify-icons/mdi/account-outline';
@@ -34,12 +30,13 @@ import {
   DialogTitle,
   DialogContent,
   CircularProgress,
+  ClickAwayListener,
+  Popper,
 } from '@mui/material';
 
 import RecordDetails from './record-details';
 import MessageFeedback from './message-feedback';
 import CitationHoverCard from './citations-hover-card';
-import scrollableContainerStyle from '../../utils/styles/scrollbar';
 
 const formatTime = (createdAt: Date) => {
   const date = new Date(createdAt);
@@ -80,6 +77,12 @@ const MessageContent: React.FC<MessageContentProps> = ({
   const [hoveredRecordCitations, setHoveredRecordCitations] = useState<CustomCitation[]>([]);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Create a map of refs for each citation number
+  const citationRefs = useRef<{ [key: string]: HTMLElement | null }>({});
+
+  // Current citation data
+  const [hoveredCitation, setHoveredCitation] = useState<CustomCitation | null>(null);
+
   // Create a mapping from citation number to the actual citation object
   const citationNumberMap = useMemo(() => {
     const result: { [key: number]: CustomCitation } = {};
@@ -96,40 +99,46 @@ const MessageContent: React.FC<MessageContentProps> = ({
   // Split content by newlines first
   const lines = useMemo(() => content.split('\n'), [content]);
 
-  const handleMouseEnter = (citationRef: string, citationId: string) => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-
-    const citationNumber = parseInt(citationRef.replace(/[[\]]/g, ''), 10);
-    const citation = citationNumberMap[citationNumber];
-
-    if (citation) {
-      if (citation.metadata?.recordId) {
-        const recordCitations = aggregatedCitations[citation.metadata.recordId] || [];
-        setHoveredRecordCitations(recordCitations);
+  const handleMouseEnter = useCallback(
+    (citationRef: string, citationId: string) => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
       }
-      setHoveredCitationId(citationId);
-    }
-  };
 
-  const handleMouseLeave = () => {
+      const citationNumber = parseInt(citationRef.replace(/[[\]]/g, ''), 10);
+      const citation = citationNumberMap[citationNumber];
+
+      if (citation) {
+        if (citation.metadata?.recordId) {
+          const recordCitations = aggregatedCitations[citation.metadata.recordId] || [];
+          setHoveredRecordCitations(recordCitations);
+        }
+        setHoveredCitation(citation);
+        setHoveredCitationId(citationId);
+      }
+    },
+    [citationNumberMap, aggregatedCitations]
+  );
+
+  const handleMouseLeave = useCallback(() => {
     hoverTimeoutRef.current = setTimeout(() => {
       setHoveredCitationId(null);
       setHoveredRecordCitations([]);
+      setHoveredCitation(null);
     }, 300); // Increased from 100ms to 300ms for smoother hover
-  };
+  }, []);
 
-  const handleHoverCardMouseEnter = () => {
+  const handleHoverCardMouseEnter = useCallback(() => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
     }
-  };
+  }, []);
 
-  const handleCloseHoverCard = () => {
+  const handleCloseHoverCard = useCallback(() => {
     setHoveredCitationId(null);
     setHoveredRecordCitations([]);
-  };
+    setHoveredCitation(null);
+  }, []);
 
   // Render line with markdown and citations
   const renderLineWithMarkdown = (line: string, lineIndex: number) => {
@@ -156,118 +165,67 @@ const MessageContent: React.FC<MessageContentProps> = ({
             const citationNumber = parseInt(citationMatch[1], 10);
             const citation = citationNumberMap[citationNumber];
             const citationId = `${lineIndex}-${partIndex}`;
-
+            console.log(citation);
+            if (!citation) return null;
             return (
-              <Tooltip
-                key={citationId}
-                title="View source details"
-                placement="top"
-                arrow
-                enterDelay={500}
-                componentsProps={{
-                  tooltip: {
-                    sx: {
-                      bgcolor: 'background.paper',
-                      color: 'text.primary',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                      borderRadius: '8px',
-                      p: 1,
-                      fontSize: '0.7rem',
-                      fontWeight: 500,
-                      border: '1px solid',
-                      borderColor: 'divider',
+              <Box
+                component="span"
+                onMouseEnter={() => handleMouseEnter(part, citationId)}
+                onMouseLeave={handleMouseLeave}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  ml: 0.5,
+                  mr: 0.25,
+                  cursor: 'pointer',
+                  position: 'relative',
+                  '&:hover': {
+                    '& .citation-number': {
+                      transform: 'scale(1.15) translateY(-1px)',
+                      bgcolor: 'primary.main',
+                      color: 'white',
+                      boxShadow: '0 3px 8px rgba(25, 118, 210, 0.3)',
                     },
                   },
-                  arrow: {
-                    sx: {
-                      color: 'background.paper',
-                    },
+                  // Add invisible hit area for smoother hover
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: -8,
+                    right: -8,
+                    bottom: -8,
+                    left: -8,
+                    zIndex: -1,
                   },
                 }}
               >
                 <Box
                   component="span"
-                  onMouseEnter={() => handleMouseEnter(part, citationId)}
-                  onMouseLeave={handleMouseLeave}
+                  className={`citation-number citation-number-${citationId}`}
+                  ref={(el: any) => {
+                    citationRefs.current[citationId] = el;
+                  }}
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    ml: 0.5,
-                    mr: 0.25,
-                    cursor: 'pointer',
-                    position: 'relative',
-                    '&:hover': {
-                      '& .citation-number': {
-                        transform: 'scale(1.15) translateY(-1px)',
-                        bgcolor: 'primary.main',
-                        color: 'white',
-                        boxShadow: '0 3px 8px rgba(25, 118, 210, 0.3)',
-                      },
-                    },
-                    // Add invisible hit area for smoother hover
-                    '&::after': {
-                      content: '""',
-                      position: 'absolute',
-                      top: -8,
-                      right: -8,
-                      bottom: -8,
-                      left: -8,
-                      zIndex: -1,
-                    },
+                    justifyContent: 'center',
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    bgcolor: 'rgba(25, 118, 210, 0.08)',
+                    color: 'primary.main',
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    textDecoration: 'none',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                    border: '1px solid',
+                    borderColor: 'rgba(25, 118, 210, 0.12)',
                   }}
                 >
-                  <Box
-                    component="span"
-                    className="citation-number"
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '18px',
-                      height: '18px',
-                      borderRadius: '50%',
-                      bgcolor: 'rgba(25, 118, 210, 0.08)',
-                      color: 'primary.main',
-                      fontSize: '0.65rem',
-                      fontWeight: 600,
-                      transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                      textDecoration: 'none',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                      border: '1px solid',
-                      borderColor: 'rgba(25, 118, 210, 0.12)',
-                    }}
-                  >
-                    {citationNumber}
-                  </Box>
-                  {hoveredCitationId === citationId && citation && (
-                    <Fade in timeout={150}>
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          left: 0,
-                          bottom: '100%',
-                          zIndex: 1400,
-                          mb: 1,
-                          maxWidth: '350px',
-                          width: 'max-content',
-                          opacity: 1,
-                        }}
-                        onMouseEnter={handleHoverCardMouseEnter}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        <CitationHoverCard
-                          citation={citation}
-                          isVisible={Boolean(true)}
-                          onRecordClick={onRecordClick}
-                          onClose={handleCloseHoverCard}
-                          aggregatedCitations={hoveredRecordCitations}
-                          onViewPdf={onViewPdf}
-                        />
-                      </Box>
-                    </Fade>
-                  )}
+                  {citationNumber}
                 </Box>
-              </Tooltip>
+              </Box>
             );
           }
 
@@ -421,6 +379,72 @@ const MessageContent: React.FC<MessageContentProps> = ({
       >
         {lines.map((line, lineIndex) => renderLineWithMarkdown(line, lineIndex))}
       </Typography>
+
+      {/* Popper for Citation Hover Card */}
+      {hoveredCitationId && hoveredCitation && (
+        <Popper
+          open={Boolean(hoveredCitationId)}
+          anchorEl={citationRefs.current[hoveredCitationId]}
+          placement="bottom-start"
+          modifiers={[
+            {
+              name: 'offset',
+              options: {
+                offset: [0, 8], // x, y offset
+              },
+            },
+            {
+              name: 'flip',
+              enabled: true,
+              options: {
+                altBoundary: true,
+                rootBoundary: 'viewport',
+                padding: 8,
+              },
+            },
+            {
+              name: 'preventOverflow',
+              enabled: true,
+              options: {
+                altAxis: true,
+                altBoundary: true,
+                boundary: 'viewport',
+                padding: 16,
+              },
+            },
+          ]}
+          sx={{
+            zIndex: 9999,
+            maxWidth: '95vw',
+            width: '380px',
+            // Important to prevent layout shifts
+            position: 'fixed',
+            pointerEvents: 'none', // This ensures the popper doesn't affect layout
+          }}
+        >
+          <ClickAwayListener onClickAway={handleCloseHoverCard}>
+            <Box
+              onMouseEnter={handleHoverCardMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              sx={{
+                pointerEvents: 'auto', // Re-enable pointer events for the card itself
+              }}
+            >
+              <CitationHoverCard
+                citation={hoveredCitation}
+                isVisible={Boolean(hoveredCitationId)}
+                onRecordClick={(record) => {
+                  handleCloseHoverCard();
+                  onRecordClick(record);
+                }}
+                onClose={handleCloseHoverCard}
+                aggregatedCitations={hoveredRecordCitations}
+                onViewPdf={onViewPdf}
+              />
+            </Box>
+          </ClickAwayListener>
+        </Popper>
+      )}
     </Box>
   );
 };
