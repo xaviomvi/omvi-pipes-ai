@@ -67,6 +67,8 @@ export const createConversation =
     async function createConversationUtil(
       session?: ClientSession | null,
     ): Promise<any> {
+      const userQueryMessage = buildUserQueryMessage(req.body.query);
+
       const aiCommandOptions: AICommandOptions = {
         uri: `${appConfig.aiBackend}/api/v1/chat`,
         method: HttpMethod.POST,
@@ -111,7 +113,7 @@ export const createConversation =
       );
 
       const messages = [
-        buildUserQueryMessage(req.body.query),
+        userQueryMessage,
         buildAIResponseMessage(aiResponseData, citations),
       ];
 
@@ -252,6 +254,8 @@ export const addMessage =
           previousConversations,
         });
 
+        const userQueryMessage = buildUserQueryMessage(req.body.query);
+
         logger.debug('Sending query to AI service', {
           requestId,
           payload: {
@@ -298,7 +302,7 @@ export const addMessage =
         );
 
         const messages = [
-          buildUserQueryMessage(req.body.query),
+          userQueryMessage,
           buildAIResponseMessage(aiResponseData, savedCitations),
         ];
 
