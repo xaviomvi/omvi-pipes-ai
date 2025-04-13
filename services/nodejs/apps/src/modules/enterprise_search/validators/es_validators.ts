@@ -67,6 +67,7 @@ export const addMessageParamsSchema = enterpriseSearchCreateSchema.extend({
     }),
   }),
   body: z.object({
+    query: z.string().min(1, { message: 'Query is required' }),
     filters: z
       .object({
         apps: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
