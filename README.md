@@ -84,27 +84,41 @@ Beyond search, our platform allows enterprises to create custom apps and AI agen
 - Highly available and scalable Kubernetes deployment
 - PageRank
   
-## Docs
-Link: https://docs.pipeshub.com/
 
 ### 📦 Developer Build
 
-# Clone the repository
+#### 🔁 Clone the repository
+
+```bash
 git clone https://github.com/pipeshub-ai/pipeshub-ai.git
+```
 
-# Navigate to the deployment folder
+#### 📁 Navigate to the deployment folder
+
+```bash
 cd pipeshub-ai/deployment/docker-compose
+```
 
-# Copy and update the environment file
+#### 🛠️ Copy and update the environment file
+
+```bash
 cp .env.template .env
-# 👉 Edit the .env file to set secrets, passwords, and the public URLs
-#    of the Frontend and Connector services (required for webhook notifications and real-time updates)
+```
 
-# Start the development deployment with build
+> 👉 Edit the `.env` file to set secrets, passwords, and the public URLs of the **Frontend** and **Connector** services  
+> _(Required for webhook notifications and real-time updates)_
+
+#### 🚀 Start the development deployment with build
+
+```bash
 docker compose -f docker-compose.dev.yml -p pipeshub-ai up --build -d
+```
 
-# To stop the services
+#### 🛑 To stop the services
+
+```bash
 docker compose -f docker-compose.dev.yml -p pipeshub-ai down
+```
 
 ## 🚀 Deployment Guide
 
