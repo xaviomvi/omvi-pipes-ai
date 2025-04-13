@@ -32,6 +32,7 @@ import PdfHighlighterComp from './components/pdf-highlighter';
 import MarkdownViewer from './components/markdown-highlighter';
 import DocxHighlighterComp from './components/docx-highlighter';
 
+
 const DRAWER_WIDTH = 300;
 
 const StyledCloseButton = styled(Button)(({ theme }) => ({

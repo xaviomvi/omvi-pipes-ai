@@ -1,4 +1,5 @@
 import type { Metadata, CustomCitation } from 'src/types/chat-bot';
+
 import type {
   Record,
   ChatMessageProps,
@@ -66,8 +67,6 @@ const formatDate = (createdAt: Date) => {
     day: 'numeric',
   }).format(date);
 };
-
-
 
 const MessageContent: React.FC<MessageContentProps> = ({
   content,
@@ -835,7 +834,12 @@ const ChatMessage = ({
         >
           Record Details
         </DialogTitle>
-        <DialogContent sx={{ p: 2.5, ...scrollableContainerStyle }}>
+        <DialogContent
+          sx={{
+            p: 2.5,
+            // ...scrollableContainerStyle
+          }}
+        >
           {selectedRecord && (
             <RecordDetails
               recordId={selectedRecord.recordId}

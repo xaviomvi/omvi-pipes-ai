@@ -198,6 +198,14 @@ export class Application {
       }),
     );
 
+    this.app.use((_req, res, next) => {
+      res.setHeader(
+        'Content-Security-Policy',
+        "script-src 'self' https://cdnjs.cloudflare.com http://cdnjs.cloudflare.com; worker-src 'self' blob:;",
+      );
+      next();
+    });
+
     // Body parsing
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));

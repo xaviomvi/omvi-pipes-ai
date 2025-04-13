@@ -12,6 +12,11 @@ import openNewIcon from '@iconify-icons/mdi/open-in-new';
 import filePdfIcon from '@iconify-icons/mdi/file-pdf-box';
 import fileIcon from '@iconify-icons/mdi/file-text-outline';
 import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
+import tagIcon from '@iconify-icons/mdi/tag';
+import categoryIcon from '@iconify-icons/mdi/shape';
+import languageIcon from '@iconify-icons/mdi/translate';
+import departmentIcon from '@iconify-icons/mdi/domain';
+import topicIcon from '@iconify-icons/mdi/bookmark-outline';
 
 import {
   Box,
@@ -23,6 +28,8 @@ import {
   Typography,
   IconButton,
   CircularProgress,
+  useTheme,
+  alpha,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -40,6 +47,7 @@ interface RecordDetailsProps {
 }
 
 const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetailsProps) => {
+  const theme = useTheme();
   const [recordData, setRecordData] = useState<RecordDetailsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +98,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
           reader.readAsText(response.data);
           const text = await textPromise;
 
-         
+
           try {
             // Try to parse as JSON to check for signedUrl property
             const jsonData = JSON.parse(text);
@@ -129,8 +137,6 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             responseType: 'blob',
           }
         );
-
-      
         // Convert blob directly to ArrayBuffer
         const bufferReader = new FileReader();
         const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
@@ -162,6 +168,33 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
       URL.revokeObjectURL(pdfUrl);
       setPdfUrl(null);
     }
+  };
+
+  // Helper function to render metadata chips with consistent styling
+  const renderChips = (items:any) => {
+    if (!items || items.length === 0) return null;
+
+    return (
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        {items.map((item : any) => (
+          <Chip
+            key={item.id}
+            label={item.name}
+            size="small"
+            sx={{
+              height: 22,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
+              color: theme.palette.primary.main,
+              '&:hover': {
+                bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
+              },
+            }}
+          />
+        ))}
+      </Box>
+    );
   };
 
   if (loading) {
@@ -202,14 +235,16 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
     return null;
   }
 
-  const { record } = recordData;
+  const { record, metadata } = recordData;
+
+
   let webUrl = record.fileRecord?.webUrl;
   if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
     const baseUrl = `${window.location.protocol}//${window.location.host}`;
     const newWebUrl = baseUrl + webUrl;
     webUrl = newWebUrl;
   }
-  console.log(webUrl)
+
 
   return (
     <Paper
@@ -222,7 +257,17 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
         position: 'relative',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          bgcolor: alpha(theme.palette.primary.main, 0.03),
+          p: 2.5,
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+          position: 'relative',
+        }}
+      >
         <Typography
           variant="h5"
           sx={{
@@ -233,12 +278,21 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             color: 'text.primary',
           }}
         >
-          <Icon icon={fileIcon} width={24} height={24} />
-          Record Details
+          <Icon
+            icon={fileIcon}
+            width={22}
+            height={22}
+            style={{ color: theme.palette.primary.main }}
+          />
+          {record.recordName}
           {webUrl && (
             <Tooltip title="View document">
-              <IconButton onClick={() => window.open(webUrl, '_blank', 'noopener,noreferrer')}>
-                <Icon icon={linkIcon} color="blue" width={24} height={24} />
+              <IconButton
+                onClick={() => window.open(webUrl, '_blank', 'noopener,noreferrer')}
+                size="small"
+                sx={{ ml: 0.5 }}
+              >
+                <Icon icon={linkIcon} color={theme.palette.primary.main} width={18} height={18} />
               </IconButton>
             </Tooltip>
           )}
@@ -267,11 +321,13 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
 
       <Divider sx={{ mb: 2 }} />
 
+      {/* Basic Record Information */}
       <Box
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
           gap: 1,
+          mb: 3,
         }}
       >
         {[
@@ -296,6 +352,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
               borderRadius: 1,
               display: 'flex',
               flexDirection: 'column',
+              p: 1,
             }}
           >
             <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 600 }}>
@@ -309,7 +366,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
 
         {/* Knowledge Base */}
         {recordData.knowledgeBase && (
-          <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+          <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' }, p: 1 }}>
             <Typography
               variant="body2"
               sx={{
@@ -328,7 +385,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
 
         {/* Permissions */}
         {recordData.permissions && (
-          <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+          <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' }, p: 1 }}>
             <Typography
               variant="body2"
               sx={{
@@ -339,84 +396,245 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             >
               Permissions
             </Typography>
-            <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {recordData.permissions.length > 0 ? (
                 recordData.permissions.map((permission: Permissions) => (
                   <Chip
-                    key={permission.relationship} // Add a key to avoid React warnings
+                    key={permission.id || permission.relationship}
                     label={permission.relationship}
                     size="small"
                     sx={{
                       height: 22,
                       fontSize: '0.75rem',
                       fontWeight: 500,
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      color: theme.palette.primary.main,
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      },
                     }}
                   />
                 ))
               ) : (
                 <Typography variant="body2">No permissions assigned</Typography>
               )}
-            </Typography>
-          </Box>
-        )}
-
-        {/* File Record Details */}
-        {record.fileRecord && (
-          <Box gridColumn="1 / -1" sx={{ mt: 2 }}>
-            <Typography
-              variant="subtitle1"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                mb: 1,
-                fontWeight: 600,
-                color: 'text.primary',
-              }}
-            >
-              <Icon icon={fileDocIcon} width={20} height={20} />
-              File Information
-            </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                gap: 2,
-              }}
-            >
-              <Typography variant="body2">
-                <strong>File Name:</strong> {record.fileRecord.name}
-              </Typography>
-              <Typography variant="body2">
-                <strong>File Extension:</strong> {record.fileRecord.extension}
-              </Typography>
-              <Typography variant="body2">
-                <strong>MIME Type:</strong> {record.fileRecord.mimeType}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Size:</strong> {(record.fileRecord.sizeInBytes / 1024).toFixed(2)} KB
-              </Typography>
-              {record.fileRecord.extension.toLowerCase() === 'pdf' && (
-                <Box gridColumn="1 / -1">
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<Icon icon={filePdfIcon} />}
-                    onClick={handleOpenPDFViewer}
-                    sx={{
-                      mt: 1,
-                      textTransform: 'none',
-                      borderRadius: 2,
-                    }}
-                  >
-                    View Document
-                  </Button>
-                </Box>
-              )}
             </Box>
           </Box>
         )}
       </Box>
+
+      {/* Metadata Section */}
+      {recordData.metadata && (
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+            {/* Departments */}
+            {recordData.metadata.departments && recordData.metadata.departments.length > 0 && (
+              <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    mb: 1,
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                  }}
+                >
+                  <Icon icon={departmentIcon} width={16} height={16} />
+                  Departments
+                </Typography>
+                {renderChips(recordData.metadata.departments)}
+              </Box>
+            )}
+
+            {/* Categories */}
+            {recordData.metadata.categories && recordData.metadata.categories.length > 0 && (
+              <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    mb: 1,
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                  }}
+                >
+                  <Icon icon={categoryIcon} width={16} height={16} />
+                  Categories
+                </Typography>
+                {renderChips(recordData.metadata.categories)}
+              </Box>
+            )}
+
+            {/* Web Development */}
+            {/* {recordData.metadata.subcategories1 &&
+              recordData.metadata.subcategories1.length > 0 && (
+                <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      mb: 1,
+                      fontWeight: 600,
+                      color: 'text.secondary',
+                    }}
+                  >
+                    Web Development
+                  </Typography>
+                  {renderChips(recordData.metadata.subcategories1)}
+                </Box>
+              )} */}
+
+            {/* Technologies */}
+            {/* {recordData.metadata.subcategories2 &&
+              recordData.metadata.subcategories2.length > 0 && (
+                <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      mb: 1,
+                      fontWeight: 600,
+                      color: 'text.secondary',
+                    }}
+                  >
+                    Technologies
+                  </Typography>
+                  {renderChips(recordData.metadata.subcategories2)}
+                </Box>
+              )} */}
+
+            {/* Focus Areas */}
+            {/* {recordData.metadata.subcategories3 &&
+              recordData.metadata.subcategories3.length > 0 && (
+                <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      mb: 1,
+                      fontWeight: 600,
+                      color: 'text.secondary',
+                    }}
+                  >
+                    Focus Areas
+                  </Typography>
+                  {renderChips(recordData.metadata.subcategories3)}
+                </Box>
+              )} */}
+
+            {/* Topics */}
+            {recordData.metadata.topics && recordData.metadata.topics.length > 0 && (
+              <Box
+                sx={{
+                  p: 1,
+                  bgcolor: 'background.default',
+                  borderRadius: 1,
+                  gridColumn: { xs: 'auto', md: '1 / -1' },
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    mb: 1,
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                  }}
+                >
+                  <Icon icon={topicIcon} width={16} height={16} />
+                  Topics
+                </Typography>
+                {renderChips(recordData.metadata.topics)}
+              </Box>
+            )}
+
+            {/* Languages */}
+            {recordData.metadata.languages && recordData.metadata.languages.length > 0 && (
+              <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    mb: 1,
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                  }}
+                >
+                  <Icon icon={languageIcon} width={16} height={16} />
+                  Languages
+                </Typography>
+                {renderChips(recordData.metadata.languages)}
+              </Box>
+            )}
+          </Box>
+        </Box>
+      )}
+
+      {/* File Record Details */}
+      {record.fileRecord && (
+        <Box>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              mb: 1,
+              fontWeight: 600,
+              color: 'text.primary',
+            }}
+          >
+            <Icon icon={fileDocIcon} width={20} height={20} />
+            File Information
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 2,
+              bgcolor: 'background.default',
+              p: 2,
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant="body2">
+              <strong>File Name:</strong> {record.fileRecord.name}
+            </Typography>
+            <Typography variant="body2">
+              <strong>File Extension:</strong> {record.fileRecord.extension}
+            </Typography>
+            <Typography variant="body2">
+              <strong>MIME Type:</strong> {record.fileRecord.mimeType}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Size:</strong> {(record.fileRecord.sizeInBytes / 1024).toFixed(2)} KB
+            </Typography>
+            {record.fileRecord.extension.toLowerCase() === 'pdf' && (
+              <Box gridColumn="1 / -1">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Icon icon={filePdfIcon} />}
+                  onClick={handleOpenPDFViewer}
+                  sx={{
+                    mt: 1,
+                    textTransform: 'none',
+                    borderRadius: 2,
+                  }}
+                >
+                  View Document
+                </Button>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      )}
+
       {(pdfUrl || fileBuffer) && (
         <PDFViewer
           open={isPDFViewerOpen}

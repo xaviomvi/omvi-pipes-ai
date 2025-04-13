@@ -162,6 +162,11 @@ const CitationHoverCard = ({
     }
   };
 
+  function isDocViewable(extension: string) {
+    const viewableExtensions = ['pdf', 'xlsx', 'xls', 'csv', 'docx', 'html', 'txt', 'md'];
+    return viewableExtensions.includes(extension);
+  }
+
   return (
     <Fade in={isVisible}>
       <Card
@@ -220,46 +225,50 @@ const CitationHoverCard = ({
               </span>
             </Typography>
 
-            <Button
-              size="small"
-              variant="outlined"
-              color="primary"
-              onClick={handleOpenPdf}
-              sx={{
-                py: 0.5,
-                px: 1,
-                minWidth: '64px', // Fixed minimum width for button
-                height: '28px',
-                borderRadius: '4px',
-                textTransform: 'none',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                ml: 1, // Add margin to separate from text
-                flexShrink: 0, // Prevent button from shrinking
-              }}
-            >
-              <Icon
-                icon={eyeIcon}
-                width={14}
-                height={14}
-                style={{ marginRight: '4px', flexShrink: 0 }}
-              />
-              View
-            </Button>
+            {isDocViewable(citation.metadata.extension) && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="primary"
+                onClick={handleOpenPdf}
+                sx={{
+                  py: 0.5,
+                  px: 1,
+                  minWidth: '64px', // Fixed minimum width for button
+                  height: '28px',
+                  borderRadius: '4px',
+                  textTransform: 'none',
+                  fontSize: '0.75rem',
+                  fontWeight: 500,
+                  ml: 1, // Add margin to separate from text
+                  flexShrink: 0, // Prevent button from shrinking
+                }}
+              >
+                <Icon
+                  icon={eyeIcon}
+                  width={14}
+                  height={14}
+                  style={{ marginRight: '4px', flexShrink: 0 }}
+                />
+                View
+              </Button>
+            )}
           </Box>
           {/* Document Metadata */}
           <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 0.5 }}>
-            <Chip
-              size="small"
-              label={`Page ${citation.metadata?.pageNum || 1}`}
-              variant="outlined"
-              sx={{
-                height: '20px',
-                fontSize: '0.7rem',
-                fontWeight: 400,
-                bgcolor: 'transparent',
-              }}
-            />
+            {citation.metadata?.pageNum && (
+              <Chip
+                size="small"
+                label={citation.metadata?.pageNum ? `Page ${citation.metadata?.pageNum}` : ''}
+                variant="outlined"
+                sx={{
+                  height: '20px',
+                  fontSize: '0.7rem',
+                  fontWeight: 400,
+                  bgcolor: 'transparent',
+                }}
+              />
+            )}
             {citation.metadata?.extension && (
               <Chip
                 size="small"

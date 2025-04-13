@@ -67,13 +67,13 @@ async def askAI(request: Request, query_info: ChatQuery,
                     detail="Failed to initialize LLM service. LLM configuration is missing."
                 )
                 
-        logger.debug("useDecomposition", query_info.useDecomposition)
+        logger.debug(f"useDecomposition {query_info.useDecomposition}")
         if query_info.useDecomposition:
             decomposition_service = QueryDecompositionService(llm, logger=logger)
             decomposition_result = await decomposition_service.decompose_query(query_info.query)
             decomposed_queries = decomposition_result["queries"]
             
-            logger.debug("decomposed_queries", decomposed_queries)
+            logger.debug(f"decomposed_queries {decomposed_queries}")
             if not decomposed_queries:
                 all_queries = [{'query': query_info.query}]
             else:
@@ -176,7 +176,7 @@ async def askAI(request: Request, query_info: ChatQuery,
         
         # Add current query with context
         messages.append({"role": "user", "content": rendered_form})
-        
+        logger.debug(f"Messages to LLM {messages}")
         # Make async LLM call
         response = await llm.ainvoke(messages)
         logger.debug(f"llm response: {response}")

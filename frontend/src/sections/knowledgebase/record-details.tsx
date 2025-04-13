@@ -1,4 +1,4 @@
-// RecordDetails.js
+// RecordDetails.js - Modified to display metadata as chips
 import type { User } from 'src/context/UserContext';
 import type { Icon as IconifyIcon } from '@iconify/react';
 
@@ -160,7 +160,8 @@ export default function RecordDetails() {
     );
   }
 
-  const { record, knowledgeBase, permissions } = recordData;
+  const { record, knowledgeBase, permissions, metadata } = recordData;
+  console.log(metadata);
   const createdAt = new Date(record.createdAtTimestamp).toLocaleString();
   const updatedAt = new Date(record.updatedAtTimestamp).toLocaleString();
 
@@ -172,6 +173,33 @@ export default function RecordDetails() {
   // Get file icon
   const fileIcon = getFileIcon(fileRecord?.extension || '');
   const fileIconColor = getFileIconColor(fileRecord?.extension || '');
+
+  // Render chips function for metadata items
+  const renderChips = (items : any) => {
+    if (!items || items.length === 0) return null;
+
+    return (
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        {items.map((item : any) => (
+          <Chip
+            key={item.id || item._id}
+            label={item.name}
+            size="small"
+            sx={{
+              height: 22,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
+              color: theme.palette.primary.main,
+              '&:hover': {
+                bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
+              },
+            }}
+          />
+        ))}
+      </Box>
+    );
+  };
 
   return (
     <>
@@ -273,21 +301,6 @@ export default function RecordDetails() {
                 >
                   Delete
                 </Button>
-                {/* <Button
-                  onClick={toggleChat}
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    borderRadius: 1,
-                    textTransform: 'none',
-                    fontSize: '0.875rem',
-                    height: 36,
-                    fontWeight: 500,
-                    px: 2,
-                  }}
-                >
-                  {isChatOpen ? 'Close Assistant' : 'Open chat'}
-                </Button> */}
               </Stack>
             </Box>
 
@@ -404,10 +417,10 @@ export default function RecordDetails() {
                                 height: 22,
                                 fontSize: '0.75rem',
                                 fontWeight: 500,
-                                bgcolor: alpha(theme.palette.primary.main, 0.08), // Dynamic theme color
-                                color: theme.palette.primary.main, // Ensure text matches theme color
+                                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                color: theme.palette.primary.main,
                                 '&:hover': {
-                                  bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
+                                  bgcolor: alpha(theme.palette.primary.main, 0.08),
                                 },
                               }}
                             />
@@ -510,6 +523,11 @@ export default function RecordDetails() {
                                     height: 22,
                                     fontSize: '0.75rem',
                                     fontWeight: 500,
+                                    bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                    color: theme.palette.primary.main,
+                                    '&:hover': {
+                                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                    },
                                   }}
                                 />
                               ))
@@ -563,7 +581,8 @@ export default function RecordDetails() {
 
                 <CardContent sx={{ p: 3, flexGrow: 1 }}>
                   <Stack spacing={3}>
-                    {record.departments && record.departments.length > 0 && (
+                    {/* Departments */}
+                    {metadata?.departments && metadata.departments.length > 0 && (
                       <Box>
                         <Typography
                           variant="caption"
@@ -579,29 +598,12 @@ export default function RecordDetails() {
                         >
                           Departments
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          {record.departments.map((dept) => (
-                            <Chip
-                              key={dept._id}
-                              label={dept.name}
-                              size="small"
-                              sx={{
-                                height: 22,
-                                fontSize: '0.75rem',
-                                fontWeight: 500,
-                                bgcolor: alpha(theme.palette.primary.main, 0.08), // Dynamic theme color
-                                color: theme.palette.primary.main, // Ensure text matches theme color
-                                '&:hover': {
-                                  bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
-                                },
-                              }}
-                            />
-                          ))}
-                        </Box>
+                        {renderChips(metadata.departments)}
                       </Box>
                     )}
 
-                    {record.appSpecificRecordType && record.appSpecificRecordType.length > 0 && (
+                    {/* Categories */}
+                    {metadata?.categories && metadata.categories.length > 0 && (
                       <Box>
                         <Typography
                           variant="caption"
@@ -617,82 +619,12 @@ export default function RecordDetails() {
                         >
                           Categories
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          {record.appSpecificRecordType.map((type) => (
-                            <Chip
-                              key={type._id}
-                              label={type.name}
-                              size="small"
-                              sx={{
-                                height: 22,
-                                fontSize: '0.75rem',
-                                fontWeight: 500,
-                                bgcolor: alpha(theme.palette.primary.main, 0.08), // Dynamic theme color
-                                color: theme.palette.primary.main, // Ensure text matches theme color
-                                '&:hover': {
-                                  bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
-                                },
-                              }}
-                            />
-                          ))}
-                        </Box>
+                        {renderChips(metadata.categories)}
                       </Box>
                     )}
 
-                    <Box>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        gutterBottom
-                        sx={{
-                          textTransform: 'uppercase',
-                          fontWeight: 500,
-                          letterSpacing: '0.5px',
-                          display: 'block',
-                          mb: 0.75,
-                        }}
-                      >
-                        Modules
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {record.modules && record.modules.length > 0 ? (
-                          record.modules.map((module) => (
-                            <Chip
-                              key={module._id}
-                              label={module.name}
-                              size="small"
-                              sx={{
-                                height: 22,
-                                fontSize: '0.75rem',
-                                fontWeight: 500,
-                                bgcolor: alpha(theme.palette.primary.main, 0.08), // Dynamic theme color
-                                color: theme.palette.primary.main, // Ensure text matches theme color
-                                '&:hover': {
-                                  bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
-                                },
-                              }}
-                            />
-                          ))
-                        ) : (
-                          <Chip
-                            label="All Products"
-                            size="small"
-                            sx={{
-                              height: 22,
-                              fontSize: '0.75rem',
-                              fontWeight: 500,
-                              bgcolor: alpha(theme.palette.primary.main, 0.08), // Dynamic theme color
-                              color: theme.palette.primary.main, // Ensure text matches theme color
-                              '&:hover': {
-                                bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
-                              },
-                            }}
-                          />
-                        )}
-                      </Box>
-                    </Box>
-
-                    {record.searchTags && record.searchTags.length > 0 && (
+                    {/* Subcategories1 */}
+                    {/* {metadata?.subcategories1 && metadata.subcategories1.length > 0 && (
                       <Box>
                         <Typography
                           variant="caption"
@@ -706,22 +638,129 @@ export default function RecordDetails() {
                             mb: 0.75,
                           }}
                         >
-                          Search Tags
+                          Web Development
+                        </Typography>
+                        {renderChips(metadata.subcategories1)}
+                      </Box>
+                    )} */}
+ 
+                    {/* Subcategories2 */}
+                    {/* {metadata?.subcategories2 && metadata.subcategories2.length > 0 && (
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          gutterBottom
+                          sx={{
+                            textTransform: 'uppercase',
+                            fontWeight: 500,
+                            letterSpacing: '0.5px',
+                            display: 'block',
+                            mb: 0.75,
+                          }}
+                        >
+                          Technologies
+                        </Typography>
+                        {renderChips(metadata.subcategories2)}
+                      </Box>
+                    )} */}
+
+                    {/* Subcategories3 */}
+                    {/* {metadata?.subcategories3 && metadata.subcategories3.length > 0 && (
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          gutterBottom
+                          sx={{
+                            textTransform: 'uppercase',
+                            fontWeight: 500,
+                            letterSpacing: '0.5px',
+                            display: 'block',
+                            mb: 0.75,
+                          }}
+                        >
+                          Focus Areas
+                        </Typography>
+                        {renderChips(metadata.subcategories3)}
+                      </Box>
+                    )} */}
+
+                    {/* Topics */}
+                    {metadata?.topics && metadata.topics.length > 0 && (
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          gutterBottom
+                          sx={{
+                            textTransform: 'uppercase',
+                            fontWeight: 500,
+                            letterSpacing: '0.5px',
+                            display: 'block',
+                            mb: 0.75,
+                          }}
+                        >
+                          Topics
+                        </Typography>
+                        {renderChips(metadata.topics)}
+                      </Box>
+                    )}
+
+                    {/* Languages */}
+                    {metadata?.languages && metadata.languages.length > 0 && (
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          gutterBottom
+                          sx={{
+                            textTransform: 'uppercase',
+                            fontWeight: 500,
+                            letterSpacing: '0.5px',
+                            display: 'block',
+                            mb: 0.75,
+                          }}
+                        >
+                          Languages
+                        </Typography>
+                        {renderChips(metadata.languages)}
+                      </Box>
+                    )}
+
+                    <Divider />
+
+                    {/* Original department section from the record */}
+                    {record.departments && record.departments.length > 0 && (
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          gutterBottom
+                          sx={{
+                            textTransform: 'uppercase',
+                            fontWeight: 500,
+                            letterSpacing: '0.5px',
+                            display: 'block',
+                            mb: 0.75,
+                          }}
+                        >
+                          Record Departments
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          {record.searchTags.map((tag) => (
+                          {record.departments.map((dept) => (
                             <Chip
-                              key={tag._id}
-                              label={tag.name}
+                              key={dept._id}
+                              label={dept.name}
                               size="small"
                               sx={{
                                 height: 22,
                                 fontSize: '0.75rem',
                                 fontWeight: 500,
-                                bgcolor: alpha(theme.palette.primary.main, 0.08), // Dynamic theme color
-                                color: theme.palette.primary.main, // Ensure text matches theme color
+                                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                color: theme.palette.primary.main,
                                 '&:hover': {
-                                  bgcolor: alpha(theme.palette.primary.main, 0.08), // Prevent color change on hover
+                                  bgcolor: alpha(theme.palette.primary.main, 0.08),
                                 },
                               }}
                             />
@@ -730,7 +769,46 @@ export default function RecordDetails() {
                       </Box>
                     )}
 
-                    <Divider />
+                    {/* Original categories from the record */}
+                    {record.appSpecificRecordType && record.appSpecificRecordType.length > 0 && (
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          gutterBottom
+                          sx={{
+                            textTransform: 'uppercase',
+                            fontWeight: 500,
+                            letterSpacing: '0.5px',
+                            display: 'block',
+                            mb: 0.75,
+                          }}
+                        >
+                          Record Categories
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {record.appSpecificRecordType.map((type) => (
+                            <Chip
+                              key={type._id}
+                              label={type.name}
+                              size="small"
+                              sx={{
+                                height: 22,
+                                fontSize: '0.75rem',
+                                fontWeight: 500,
+                                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                color: theme.palette.primary.main,
+                                '&:hover': {
+                                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                },
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+
+                    {/* Original modules from the record */}
 
                     {record.createdBy && (
                       <Box>
