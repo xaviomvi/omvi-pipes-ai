@@ -83,6 +83,28 @@ Beyond search, our platform allows enterprises to create custom apps and AI agen
 - Personalized Search
 - Highly available and scalable Kubernetes deployment
 - PageRank
+  
+## Docs
+Link: https://docs.pipeshub.com/
+
+### 📦 Developer Build
+
+# Clone the repository
+git clone https://github.com/pipeshub-ai/pipeshub-ai.git
+
+# Navigate to the deployment folder
+cd pipeshub-ai/deployment/docker-compose
+
+# Copy and update the environment file
+cp .env.template .env
+# 👉 Edit the .env file to set secrets, passwords, and the public URLs
+#    of the Frontend and Connector services (required for webhook notifications and real-time updates)
+
+# Start the development deployment with build
+docker compose -f docker-compose.dev.yml -p pipeshub-ai up --build -d
+
+# To stop the services
+docker compose -f docker-compose.dev.yml -p pipeshub-ai down
 
 ## 🚀 Deployment Guide
 
@@ -110,24 +132,4 @@ docker compose -f docker-compose.prod.yml -p pipeshub-ai up -d
 # To stop the services
 docker compose -f docker-compose.prod.yml -p pipeshub-ai down
 
-### 📦 Developer Build
 
-# Clone the repository
-git clone https://github.com/pipeshub-ai/pipeshub-ai.git
-
-# Navigate to the deployment folder
-cd pipeshub-ai/deployment/docker-compose
-
-# Copy and update the environment file
-cp .env.template .env
-# 👉 Edit the .env file to set secrets, passwords, and the public URLs
-#    of the Frontend and Connector services (required for webhook notifications and real-time updates)
-
-# Start the development deployment with build
-docker compose -f docker-compose.dev.yml -p pipeshub-ai up --build -d
-
-# To stop the services
-docker compose -f docker-compose.dev.yml -p pipeshub-ai down
-
-## Docs
-Link: https://docs.pipeshub.com/
