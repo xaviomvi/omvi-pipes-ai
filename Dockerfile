@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     apt-get install -y libreoffice && \
+    apt-get install -y ocrmypdf tesseract-ocr ghostscript unpaper qpdf && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -29,6 +30,9 @@ RUN python -c "from langchain_huggingface import HuggingFaceEmbeddings; \
 
 RUN python -c "from langchain_qdrant import FastEmbedSparse; \
     model = FastEmbedSparse(model_name='Qdrant/BM25')"
+
+RUN python -c "from sentence_transformers import CrossEncoder; \
+    model = CrossEncoder(model_name='BAAI/bge-reranker-base')"
 
 WORKDIR /app
 
