@@ -395,6 +395,7 @@ class Processor:
                     for row in table['rows']:
                         combined_texts.append(f"{row_counter}. {row['natural_language_text']}")
                         row_counter += 1
+                        self.logger.info(f"row_counter: {row_counter}")
                         
             combined_text = "\n".join(combined_texts)
             if combined_text:
@@ -410,23 +411,27 @@ class Processor:
                     self.logger.error(f"❌ Error extracting metadata: {str(e)}")
                     domain_metadata = None
                     
-            for sheet_idx, sheet_name in enumerate(parsed_result['sheet_names'], 1):
-                for table in parsed_result['tables']:
+            for sheet_idx, sheet_result in enumerate(all_sheets_result, 1):
+                self.logger.info(f"sheet_name: {sheet_result['sheet_name']}")
+                for table in sheet_result['tables']:
                     for row in table['rows']:
                         row_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in row['raw_data'].items()}
+                        self.logger.info(f"row_num: {row['row_num']}")
+                        self.logger.info(f"row_data: {row_data}")
                         sentence_data.append({
                             'text': row['natural_language_text'],
                             'bounding_box': None,
                             'metadata': {
                                 **domain_metadata,
                                 "recordId": record_id,
-                                "sheetName": sheet_name,
+                                "sheetName": sheet_result['sheet_name'],
                                 "sheetNum": [sheet_idx],
                                 "blockNum": [int(row['row_num'])],
                                 "blockType": "table_row",
                                 "blockText": json.dumps(row_data)
                             }
                         })
+                        
                         
             # Index sentences if available
             if sentence_data:
@@ -926,7 +931,7 @@ class Processor:
             numbered_items = []
             sentence_data = []
 
-            # Process each sheet using process_sheet_with_summaries
+            # Process each sheet
             self.logger.debug("📝 Processing sheets")
             for sheet_idx, sheet_name in enumerate(excel_result['sheet_names'], 1):
                 sheet_data = await parser.process_sheet_with_summaries(llm, sheet_name)

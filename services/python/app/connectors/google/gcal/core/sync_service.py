@@ -11,6 +11,7 @@ from app.connectors.google.gcal.core.gcal_admin_service import GCalAdminService
 from app.connectors.google.gcal.core.gcal_user_service import GCalUserService
 from app.connectors.core.kafka_service import KafkaService
 from app.config.configuration_service import ConfigurationService
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 class GCalSyncProgress:
     """Class to track sync progress"""
@@ -21,7 +22,7 @@ class GCalSyncProgress:
         self.processed_calendars = 0
         self.percentage = 0
         self.status = "initializing"
-        self.lastUpdatedTimestampAtSource = datetime.now(timezone.utc).isoformat()
+        self.lastUpdatedTimestampAtSource = get_epoch_timestamp_in_ms()
 
 
 class BaseGCalSyncService(ABC):

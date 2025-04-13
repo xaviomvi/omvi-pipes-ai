@@ -12,6 +12,8 @@ IMPORTANT: You MUST select department values that MATCH THESE LIST VALUES VERBAT
    - Category should be broad area (e.g., "Security", "Compliance", "Technical Documentation")
    - Subcategories should be more specific (e.g., "Access Control", "Data Privacy", "API Documentation")
    - Subcategory levels indicates the depth of the subcategory, so level 1 is the most general, level 2 is more specific, and level 3 is the most specific
+   - Do not provide comma-separated values for subcategories
+   - Do not include "Other" in the subcategory
 
 3. Languages:
    - List all languages found in the content

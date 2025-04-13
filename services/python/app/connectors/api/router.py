@@ -654,16 +654,11 @@ async def download_file(
                         if sheet_data is None:
                             continue
                         
-                        sheet_entry = {
-                            "number": f"S{sheet_idx}",
-                            "name": sheet_data['sheet_name'],
-                            "type": "sheet",
-                            "row_count": len(sheet_data['tables']),
-                            "column_count": max((len(table['headers']) for table in sheet_data['tables']), default=0)
-                        }
+                        all_sheet_results.append(sheet_data)
                         
-                        all_sheet_results.append(sheet_entry)
-                        
+                    logger.info(f"all_sheet_results: {all_sheet_results}")
+                    logger.info(f"parsed_result: {parsed_result}")
+                    
                     result = {
                         'parsed_result': parsed_result,
                         'all_sheet_results': all_sheet_results

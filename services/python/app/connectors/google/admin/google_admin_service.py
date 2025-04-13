@@ -522,8 +522,8 @@ class GoogleAdminService:
             if not group_key or not user_key:
                 self.logger.error(f"Group {group_email} or user {user_email} not found in ArangoDB")
                 return
-
-            current_timestamp = int(datetime.now(timezone.utc).timestamp())
+            
+            current_timestamp = get_epoch_timestamp_in_ms()
 
             
             # Create BELONGS_TO edge
