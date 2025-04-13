@@ -425,7 +425,7 @@ class Processor:
                                 **domain_metadata,
                                 "recordId": record_id,
                                 "sheetName": sheet_result['sheet_name'],
-                                "sheetNum": [sheet_idx],
+                                "sheetNum": sheet_idx,
                                 "blockNum": [int(row['row_num'])],
                                 "blockType": "table_row",
                                 "blockText": json.dumps(row_data)
@@ -966,7 +966,7 @@ class Processor:
                                 **({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in domain_metadata.items()}),
                                     "recordId": recordId,
                                     "sheetName": sheet_name,
-                                    "sheetNum": [sheet_idx],
+                                    "sheetNum": sheet_idx,
                                     "blockNum": [int(row['row_num'])],
                                     "blockType": "table_row",
                                     "blockText": json.dumps(row_data)  # Include entire row data
