@@ -1,3 +1,5 @@
+// Updated CitationHoverCard component to work with Popper
+
 import type { Record } from 'src/types/chat-message';
 import type { Metadata, CustomCitation } from 'src/types/chat-bot';
 
@@ -46,116 +48,18 @@ const CitationHoverCard = ({
         ),
       };
       onRecordClick(record);
-      onClose();
     }
   };
 
-  const handleOpenPdf = async () => {
+  const handleOpenPdf = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (citation?.metadata?.recordId) {
       try {
         const isExcelOrCSV = ['csv', 'xlsx', 'xls'].includes(citation.metadata?.extension);
-        console.log(isExcelOrCSV);
-        // const recordId = citation.metadata?.recordId;
-        // const response = await axios.get(`/api/v1/knowledgebase/record/${recordId}`);
-        // const { record } = response.data;
-        // const { externalRecordId } = record;
-        // const fileName = record.recordName;
-        // const downloadResponse = await axios.get(`/api/v1/document/${externalRecordId}/download`);
-        // const url = downloadResponse.data.signedUrl;
-        // onViewPdf(url, aggregatedCitations, isExcelOrCSV);
         const citationMeta = citation.metadata;
         onViewPdf('', citationMeta, aggregatedCitations, isExcelOrCSV);
-        // if (record.origin === ORIGIN.UPLOAD) {
-        //   try {
-        //     const downloadResponse = await axios.get(
-        //       `/api/v1/document/${externalRecordId}/download`,
-        //       { responseType: 'blob' }
-        //     );
-
-        //     // Read the blob response as text to check if it's JSON with signedUrl
-        //     const reader = new FileReader();
-        //     const textPromise = new Promise<string>((resolve) => {
-        //       reader.onload = () => {
-        //         resolve(reader.result?.toString() || '');
-        //       };
-        //     });
-
-        //     reader.readAsText(downloadResponse.data);
-        //     const text = await textPromise;
-
-        //     let filename = fileName || `document-${externalRecordId}`;
-        //     const contentDisposition = downloadResponse.headers['content-disposition'];
-        //     if (contentDisposition) {
-        //       const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
-        //       if (filenameMatch && filenameMatch[1]) {
-        //         filename = filenameMatch[1];
-        //       }
-        //     }
-
-        //     try {
-        //       // Try to parse as JSON to check for signedUrl property
-        //       const jsonData = JSON.parse(text);
-        //       if (jsonData && jsonData.signedUrl) {
-        //         onViewPdf(jsonData.signedUrl, aggregatedCitations, isExcelOrCSV);
-        //       }
-        //     } catch (e) {
-        //       // Case 2: Local storage - Return buffer
-        //       const bufferReader = new FileReader();
-        //       const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
-        //         bufferReader.onload = () => {
-        //           resolve(bufferReader.result as ArrayBuffer);
-        //         };
-        //         bufferReader.readAsArrayBuffer(downloadResponse.data);
-        //       });
-
-        //       const buffer = await arrayBufferPromise;
-        //       onViewPdf('', aggregatedCitations, isExcelOrCSV, buffer);
-        //     }
-        //   } catch (error) {
-        //     console.error('Error downloading document:', error);
-        //     throw new Error('Failed to download document');
-        //   }
-        // } else if (record.origin === ORIGIN.CONNECTOR) {
-        //   try {
-        //     const connectorResponse = await axios.get(
-        //       `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
-        //       {
-        //         responseType: 'blob',
-        //       }
-        //     );
-
-        //     // Extract filename from content-disposition header
-        //     let filename = record.recordName || `document-${recordId}`;
-        //     const contentDisposition = connectorResponse.headers['content-disposition'];
-        //     if (contentDisposition) {
-        //       const filenameMatch = contentDisposition.match(/filename="?([^"]*)"?/);
-        //       if (filenameMatch && filenameMatch[1]) {
-        //         filename = filenameMatch[1];
-        //       }
-        //     }
-
-        //     // Convert blob directly to ArrayBuffer
-        //     const bufferReader = new FileReader();
-        //     const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
-        //       bufferReader.onload = () => {
-        //         // Create a copy of the buffer to prevent detachment issues
-        //         const originalBuffer = bufferReader.result as ArrayBuffer;
-        //         const bufferCopy = originalBuffer.slice(0);
-        //         resolve(bufferCopy);
-        //       };
-        //       bufferReader.onerror = () => {
-        //         reject(new Error('Failed to read blob as array buffer'));
-        //       };
-        //       bufferReader.readAsArrayBuffer(connectorResponse.data);
-        //     });
-
-        //     const buffer = await arrayBufferPromise;
-        //     onViewPdf('', aggregatedCitations, isExcelOrCSV, buffer);
-        //   } catch (err) {
-        //     console.error('Error downloading document:', err);
-        //     throw new Error(`Failed to download document: ${err.message}`);
-        //   }
-        // }
       } catch (err) {
         console.error('Failed to fetch document:', err);
       }
@@ -168,21 +72,22 @@ const CitationHoverCard = ({
   }
 
   return (
-    <Fade in={isVisible}>
+    <Fade in={isVisible} timeout={150}>
       <Card
+        elevation={4}
         sx={{
-          position: 'absolute',
-          zIndex: 1400,
-          width: '380px',
           maxHeight: '320px',
           p: 1.5,
-          mt: 1,
-          boxShadow: '0 2px 14px rgba(0, 0, 0, 0.08)',
-          borderRadius: '6px',
+          mt: 0.5,
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
           border: '1px solid',
           borderColor: 'divider',
           bgcolor: 'background.paper',
           overflow: 'auto',
+          // Prevent card from affecting layout
+          position: 'relative',
+          transformOrigin: 'top left',
         }}
       >
         <Stack spacing={1.5}>
