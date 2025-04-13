@@ -256,11 +256,13 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
   const handleCitationClick = useCallback(
     (citation: DocumentContent): void => {
       if (!mountedRef.current) return;
-      const { blockNum } = citation.metadata;
-      if (blockNum) {
+      const { blockNum, extension } = citation.metadata;
+      if (blockNum[0]) {
+        const highlightedRowNum = extension === 'csv' ? blockNum[0] : blockNum[0] - 1;
+
         setSelectedCitation(citation.metadata._id);
-        setHighlightedRow(blockNum[0]);
-        scrollToRow(blockNum[0]);
+        setHighlightedRow(highlightedRowNum);
+        scrollToRow(highlightedRowNum);
       }
     },
     [scrollToRow]
@@ -440,11 +442,12 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
   useEffect(() => {
     if (isInitialized && citations.length > 0 && !highlightedRow && mountedRef.current) {
       const firstCitation = citations[0];
-      const { blockNum } = firstCitation.metadata;
-      if (blockNum) {
-        setHighlightedRow(blockNum[0]);
+      const { blockNum, extension } = firstCitation.metadata;
+      if (blockNum[0]) {
+        const highlightedRowNum = extension === 'csv' ? blockNum[0] : blockNum[0] - 1;
+        setHighlightedRow(highlightedRowNum);
         setSelectedCitation(firstCitation.metadata._id);
-        scrollToRow(blockNum[0]);
+        scrollToRow(highlightedRowNum);
       }
     }
   }, [citations, isInitialized, highlightedRow, scrollToRow]);
@@ -586,10 +589,13 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
                     {citation.content}
                   </Typography>
                   <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
-                     {citation.metadata.sheetName}
+                    {citation.metadata.sheetName}
                   </Typography>
                   <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
-                    Row {citation.metadata.blockNum[0]}
+                    Row{' '}
+                    {citation.metadata.extension === 'csv'
+                      ? citation.metadata.blockNum[0]
+                      : citation.metadata.blockNum[0] - 1}
                   </Typography>
                 </Box>
               </ListItem>
