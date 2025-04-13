@@ -14,6 +14,7 @@ import shieldIcon from '@iconify-icons/mdi/shield-lock';
 import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 import mapMarkerIcon from '@iconify-icons/mdi/map-marker';
 import infoIcon from '@iconify-icons/mdi/information-outline';
+import warningIcon from '@iconify-icons/mdi/alert-circle';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -116,6 +117,7 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
       endpointSuffix: 'core.windows.net',
       containerName: '',
     });
+    const [showStorageTypeWarning, setShowStorageTypeWarning] = useState(false);
 
     // Expose the handleSave method to the parent component
     useImperativeHandle(ref, () => ({
@@ -200,6 +202,15 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
 
       onValidationChange(isValid && isEditing && hasChanges);
     }, [formData, errors, onValidationChange, isEditing, originalData]);
+
+    // Check if storage type has changed and show warning
+    useEffect(() => {
+      if (isEditing && formData.storageType !== originalData.storageType) {
+        setShowStorageTypeWarning(true);
+      } else {
+        setShowStorageTypeWarning(false);
+      }
+    }, [formData.storageType, originalData.storageType, isEditing]);
 
     // Handle input change
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -414,6 +425,25 @@ const StorageServiceForm = forwardRef<StorageServiceFormRef, StorageServiceFormP
             {isEditing ? 'Cancel' : 'Edit'}
           </Button>
         </Box>
+
+        {showStorageTypeWarning && (
+          <Alert 
+            severity="warning" 
+            sx={{ 
+              mb: 3,
+              borderRadius: 1,
+              display: 'flex',
+              alignItems: 'center',
+              bgcolor: alpha(theme.palette.warning.main, 0.1),
+              border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`,
+            }}
+            icon={<Iconify icon={warningIcon} width={24} height={24} />}
+          >
+            <Typography variant="body2">
+              <strong>Warning:</strong> Changing the storage type will prevent access to data stored using the current storage type ({originalData.storageType === 'local' ? 'Local Storage' : originalData.storageType === 's3' ? 'Amazon S3' : 'Azure Blob Storage'}).
+            </Typography>
+          </Alert>
+        )}
 
         <Grid container spacing={2.5}>
           <Grid item xs={12}>
