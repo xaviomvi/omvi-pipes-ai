@@ -15,6 +15,8 @@ export const buildUserQueryMessage = (query: string): IMessage => ({
   messageType: 'user_query',
   content: query,
   contentFormat: 'MARKDOWN',
+  createdAt: new Date(),
+  updatedAt: new Date(),
 });
 
 export const buildAIResponseMessage = (
