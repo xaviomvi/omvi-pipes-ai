@@ -98,6 +98,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
           reader.readAsText(response.data);
           const text = await textPromise;
 
+
           try {
             // Try to parse as JSON to check for signedUrl property
             const jsonData = JSON.parse(text);
@@ -136,7 +137,6 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             responseType: 'blob',
           }
         );
-
         // Convert blob directly to ArrayBuffer
         const bufferReader = new FileReader();
         const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
@@ -236,12 +236,15 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
   }
 
   const { record, metadata } = recordData;
+
+
   let webUrl = record.fileRecord?.webUrl;
   if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
     const baseUrl = `${window.location.protocol}//${window.location.host}`;
     const newWebUrl = baseUrl + webUrl;
     webUrl = newWebUrl;
   }
+
 
   return (
     <Paper

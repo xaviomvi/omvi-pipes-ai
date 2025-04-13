@@ -1,5 +1,10 @@
 import type { Metadata, CustomCitation } from 'src/types/chat-bot';
-import type { Record, ChatMessageProps, MessageContentProps } from 'src/types/chat-message';
+
+import type {
+  Record,
+  ChatMessageProps,
+  MessageContentProps,
+} from 'src/types/chat-message';
 
 import remarkGfm from 'remark-gfm';
 import { Icon } from '@iconify/react';
