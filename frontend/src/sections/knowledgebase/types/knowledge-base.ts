@@ -54,6 +54,7 @@ export interface Filters {
   appSpecificRecordType?: string[];
   status?: string[];
   connector?: string[];
+  app?:string[];
 }
 
 export interface FilterHeaderProps {

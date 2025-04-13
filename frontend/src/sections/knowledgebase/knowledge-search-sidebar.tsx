@@ -7,7 +7,7 @@ import jiraIcon from '@iconify-icons/mdi/jira';
 import closeIcon from '@iconify-icons/mdi/close';
 import gmailIcon from '@iconify-icons/mdi/gmail';
 import slackIcon from '@iconify-icons/mdi/slack';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import upIcon from '@iconify-icons/mdi/chevron-up';
 import magnifyIcon from '@iconify-icons/mdi/magnify';
 import dropboxIcon from '@iconify-icons/mdi/dropbox';
@@ -53,15 +53,15 @@ import type { RecordCategories } from './types/record-categories';
 import type { Filters, KnowledgeSearchSideBarProps } from './types/knowledge-base';
 
 // Connector definitions for app sources
-const connectors = [
-  { id: 'DRIVE', name: 'Google Drive', icon: googleDriveIcon, color: '#4285F4' },
-  { id: 'GMAIL', name: 'Gmail', icon: gmailIcon, color: '#EA4335' },
-  { id: 'SLACK', name: 'Slack', icon: slackIcon, color: '#4A154B' },
-  { id: 'JIRA', name: 'Jira', icon: jiraIcon, color: '#0052CC' },
-  { id: 'SALESFORCE', name: 'Salesforce', icon: salesforceIcon, color: '#00A1E0' },
-  { id: 'DROPBOX', name: 'Dropbox', icon: dropboxIcon, color: '#0061FF' },
-  { id: 'TEAMS', name: 'Microsoft Teams', icon: microsoftTeamsIcon, color: '#6264A7' },
-  { id: 'ONEDRIVE', name: 'OneDrive', icon: microsoftOnedriveIcon, color: '#0078D4' },
+const apps = [
+  { id: 'drive', name: 'Google Drive', icon: googleDriveIcon, color: '#4285F4' },
+  { id: 'gmail', name: 'Gmail', icon: gmailIcon, color: '#EA4335' },
+  { id: 'slack', name: 'Slack', icon: slackIcon, color: '#4A154B' },
+  { id: 'jira', name: 'Jira', icon: jiraIcon, color: '#0052CC' },
+  { id: 'salesforce', name: 'Salesforce', icon: salesforceIcon, color: '#00A1E0' },
+  { id: 'dropbox', name: 'Dropbox', icon: dropboxIcon, color: '#0061FF' },
+  { id: 'teams', name: 'Microsoft Teams', icon: microsoftTeamsIcon, color: '#6264A7' },
+  { id: 'onedrive', name: 'OneDrive', icon: microsoftOnedriveIcon, color: '#0078D4' },
 ];
 
 // Constants
@@ -87,7 +87,7 @@ interface FilterSectionComponentProps {
   activeFilters?: string[];
 }
 
-// Custom styled components with smooth transitions
+// Custom styled components with optimized transitions
 const OpenedDrawer = styled(Drawer, { shouldForwardProp: (prop) => prop !== 'open' })(
   ({ theme, open }) => ({
     width: open ? drawerWidth : closedDrawerWidth,
@@ -96,9 +96,10 @@ const OpenedDrawer = styled(Drawer, { shouldForwardProp: (prop) => prop !== 'ope
     boxSizing: 'border-box',
     '& .MuiDrawer-paper': {
       width: open ? drawerWidth : closedDrawerWidth,
+      // Reduced transition duration and changed easing
       transition: theme.transitions.create('width', {
-        easing: theme.transitions.easing.easeInOut,
-        duration: '0.35s',
+        easing: theme.transitions.easing.sharp,
+        duration: '0.25s',
       }),
       overflowX: 'hidden',
       borderRight: 'none',
@@ -122,12 +123,11 @@ const FilterSection = styled(Paper)(({ theme }) => ({
   borderRadius: theme.shape.borderRadius,
   marginBottom: theme.spacing(1.5),
   overflow: 'hidden',
-  transition: theme.transitions.create(['background-color', 'box-shadow'], {
-    duration: '0.25s',
-    easing: theme.transitions.easing.easeInOut,
-  }),
+  // Removed the transition
   border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
   boxShadow: 'none',
+  // Add will-change for better GPU acceleration
+  willChange: 'transform',
 }));
 
 // Updated to accept the expanded prop properly with a type
@@ -146,10 +146,7 @@ const FilterHeader = styled('div', {
   '&:hover': {
     backgroundColor: alpha(theme.palette.primary.main, 0.08),
   },
-  transition: theme.transitions.create('background-color', {
-    duration: '0.2s',
-    easing: theme.transitions.easing.easeInOut,
-  }),
+  // Removed the transition
 }));
 
 const FilterContent = styled(Collapse)(({ theme }) => ({
@@ -166,9 +163,10 @@ const FilterContent = styled(Collapse)(({ theme }) => ({
     backgroundColor: alpha(theme.palette.text.secondary, 0.2),
     borderRadius: '4px',
   },
-  transition: theme.transitions.create(['height', 'opacity'], {
-    duration: '0.3s',
-    easing: theme.transitions.easing.easeInOut,
+  // Optimized transition with faster duration and sharper easing
+  transition: theme.transitions.create(['height'], {
+    duration: '0.2s',
+    easing: theme.transitions.easing.sharp,
   }),
 }));
 
@@ -214,9 +212,10 @@ const FiltersContainer = styled(Box)(({ theme }) => ({
     backgroundColor: alpha(theme.palette.text.secondary, 0.15),
     borderRadius: '10px',
   },
+  // Optimized transition with faster duration
   transition: theme.transitions.create('opacity', {
-    duration: '0.3s',
-    easing: theme.transitions.easing.easeInOut,
+    duration: '0.2s',
+    easing: theme.transitions.easing.sharp,
   }),
 }));
 
@@ -227,9 +226,10 @@ const FilterChip = styled(Chip)(({ theme }) => ({
   backgroundColor: alpha(theme.palette.primary.main, 0.08),
   color: theme.palette.primary.dark,
   border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
-  transition: theme.transitions.create(['background-color', 'box-shadow'], {
-    duration: '0.2s',
-    easing: theme.transitions.easing.easeInOut,
+  // Optimized transition with faster duration
+  transition: theme.transitions.create(['background-color'], {
+    duration: '0.1s',
+    easing: theme.transitions.easing.sharp,
   }),
   '&:hover': {
     backgroundColor: alpha(theme.palette.primary.main, 0.12),
@@ -249,17 +249,7 @@ const ActiveFiltersContainer = styled(Paper)(({ theme }) => ({
   backgroundColor: alpha(theme.palette.background.default, 0.5),
   borderRadius: theme.shape.borderRadius,
   border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
-  animation: 'fadeIn 0.3s ease-in-out',
-  '@keyframes fadeIn': {
-    '0%': {
-      opacity: 0,
-      transform: 'translateY(-10px)',
-    },
-    '100%': {
-      opacity: 1,
-      transform: 'translateY(0)',
-    },
-  },
+  // Removed animation to reduce flickering
 }));
 
 const ClearFiltersButton = styled(Button)(({ theme }) => ({
@@ -269,9 +259,9 @@ const ClearFiltersButton = styled(Button)(({ theme }) => ({
   textTransform: 'none',
   color: theme.palette.primary.main,
   fontWeight: 500,
-  transition: theme.transitions.create(['background-color', 'color'], {
-    duration: '0.15s',
-    easing: theme.transitions.easing.easeInOut,
+  transition: theme.transitions.create(['background-color'], {
+    duration: '0.1s',
+    easing: theme.transitions.easing.sharp,
   }),
 }));
 
@@ -283,10 +273,7 @@ const FormControlLabelStyled = styled(FormControlLabel)(({ theme }) => ({
     fontWeight: 400,
   },
   opacity: 1,
-  transition: theme.transitions.create('opacity', {
-    duration: '0.2s',
-    easing: theme.transitions.easing.easeInOut,
-  }),
+  // Removed the transition
   '&:hover': {
     opacity: 0.9,
   },
@@ -297,23 +284,14 @@ const CollapsedButtonContainer = styled(Box)(({ theme }) => ({
   flexDirection: 'column',
   alignItems: 'center',
   paddingTop: theme.spacing(2),
-  animation: 'fadeInRight 0.3s ease-in-out',
-  '@keyframes fadeInRight': {
-    '0%': {
-      opacity: 0,
-      transform: 'translateX(-10px)',
-    },
-    '100%': {
-      opacity: 1,
-      transform: 'translateX(0)',
-    },
-  },
+  // Removed animation to reduce flickering
 }));
 
 const IconButtonStyled = styled(IconButton)(({ theme }) => ({
-  transition: theme.transitions.create(['background-color', 'transform', 'color'], {
-    duration: '0.15s',
-    easing: theme.transitions.easing.easeInOut,
+  // Simplified transition with reduced properties
+  transition: theme.transitions.create(['background-color'], {
+    duration: '0.1s',
+    easing: theme.transitions.easing.sharp,
   }),
   '&:hover': {
     transform: 'scale(1.05)',
@@ -364,8 +342,10 @@ export default function KnowledgeSearchSideBar({
   const [recordCategories, setRecordCategories] = useState<RecordCategories[]>([]);
   const [modules, setModules] = useState<Modules[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  // Add a ref to track if a filter operation is in progress
+  const isFilterChanging = useRef(false);
   const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
-    connectors: true,
+    apps: true,
     departments: false,
     modules: false,
     categories: false,
@@ -542,18 +522,33 @@ export default function KnowledgeSearchSideBar({
   };
 
   const handleFilterChange = (filterType: keyof Filters, value: string) => {
-    // Safely access the current filter array with a fallback to empty array if undefined
-    const currentFilterValues = filters[filterType] || [];
+    // If a filter operation is already in progress, return to prevent flickering
+    if (isFilterChanging.current) return;
 
-    // Create updated filters
-    const updatedFilters = {
-      ...filters,
-      [filterType]: currentFilterValues.includes(value)
-        ? currentFilterValues.filter((item: string) => item !== value)
-        : [...currentFilterValues, value],
-    };
+    // Set the flag to indicate a filter operation is in progress
+    isFilterChanging.current = true;
 
-    onFilterChange(updatedFilters);
+    // Use requestAnimationFrame to batch UI updates
+    requestAnimationFrame(() => {
+      // Safely access the current filter array with a fallback to empty array if undefined
+      const currentFilterValues = filters[filterType] || [];
+
+      // Create updated filters
+      const updatedFilters = {
+        ...filters,
+        [filterType]: currentFilterValues.includes(value)
+          ? currentFilterValues.filter((item: string) => item !== value)
+          : [...currentFilterValues, value],
+      };
+
+      // Call the onFilterChange with the updated filters
+      onFilterChange(updatedFilters);
+
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        isFilterChanging.current = false;
+      }, 50);
+    });
   };
 
   // Handle click on collapsed filter icon
@@ -587,8 +582,8 @@ export default function KnowledgeSearchSideBar({
         return modules.find((m) => m._id === id)?.name || id;
       case 'appSpecificRecordType':
         return recordCategories.find((c) => c._id === id)?.name || id;
-      case 'connector':
-        return connectors.find((c) => c.id === id)?.name || id;
+      case 'app':
+        return apps.find((c) => c.id === id)?.name || id;
       default:
         return id;
     }
@@ -596,20 +591,42 @@ export default function KnowledgeSearchSideBar({
 
   // Clear a specific filter
   const clearFilter = (type: keyof Filters, value: string) => {
-    const updatedFilters = {
-      ...filters,
-      [type]: (filters[type] || []).filter((item) => item !== value),
-    };
-    onFilterChange(updatedFilters);
+    // If a filter operation is already in progress, return
+    if (isFilterChanging.current) return;
+
+    isFilterChanging.current = true;
+
+    requestAnimationFrame(() => {
+      const updatedFilters = {
+        ...filters,
+        [type]: (filters[type] || []).filter((item) => item !== value),
+      };
+      onFilterChange(updatedFilters);
+
+      setTimeout(() => {
+        isFilterChanging.current = false;
+      }, 50);
+    });
   };
 
   // Clear all filters
   const clearAllFilters = () => {
-    onFilterChange({
-      department: [],
-      moduleId: [],
-      appSpecificRecordType: [],
-      connector: [],
+    // If a filter operation is already in progress, return
+    if (isFilterChanging.current) return;
+
+    isFilterChanging.current = true;
+
+    requestAnimationFrame(() => {
+      onFilterChange({
+        department: [],
+        moduleId: [],
+        appSpecificRecordType: [],
+        app: [],
+      });
+
+      setTimeout(() => {
+        isFilterChanging.current = false;
+      }, 50);
     });
   };
 
@@ -648,6 +665,7 @@ export default function KnowledgeSearchSideBar({
             variant="text"
             size="small"
             onClick={clearAllFilters}
+            disableRipple // Disable ripple effect to reduce flickering
             startIcon={<Icon icon={closeCircleIcon} fontSize="small" />}
           >
             Clear All
@@ -677,9 +695,10 @@ export default function KnowledgeSearchSideBar({
         <IconButtonStyled
           color="primary"
           sx={{ mb: 2 }}
-          onClick={() => handleCollapsedFilterClick('connectors', 'connector')}
+          onClick={() => handleCollapsedFilterClick('apps', 'app')}
+          disableRipple // Disable ripple effect to reduce flickering
         >
-          <Badge badgeContent={getActiveFilterCount('connector')} color="primary">
+          <Badge badgeContent={getActiveFilterCount('app')} color="primary">
             <Icon icon={appIcon} />
           </Badge>
         </IconButtonStyled>
@@ -689,6 +708,7 @@ export default function KnowledgeSearchSideBar({
           color="primary"
           sx={{ mb: 2 }}
           onClick={() => handleCollapsedFilterClick('departments', 'department')}
+          disableRipple // Disable ripple effect to reduce flickering
         >
           <Badge badgeContent={getActiveFilterCount('department')} color="primary">
             <Icon icon={officeBuildingIcon} />
@@ -700,6 +720,7 @@ export default function KnowledgeSearchSideBar({
           color="primary"
           sx={{ mb: 2 }}
           onClick={() => handleCollapsedFilterClick('modules', 'moduleId')}
+          disableRipple // Disable ripple effect to reduce flickering
         >
           <Badge badgeContent={getActiveFilterCount('moduleId')} color="primary">
             <Icon icon={viewModuleIcon} />
@@ -711,6 +732,7 @@ export default function KnowledgeSearchSideBar({
           color="primary"
           sx={{ mb: 2 }}
           onClick={() => handleCollapsedFilterClick('categories', 'appSpecificRecordType')}
+          disableRipple // Disable ripple effect to reduce flickering
         >
           <Badge badgeContent={getActiveFilterCount('appSpecificRecordType')} color="primary">
             <Icon icon={formatListIcon} />
@@ -723,6 +745,7 @@ export default function KnowledgeSearchSideBar({
           <IconButtonStyled
             color="error"
             onClick={clearAllFilters}
+            disableRipple // Disable ripple effect to reduce flickering
             sx={{
               mt: 2,
               bgcolor: alpha(theme.palette.error.main, 0.1),
@@ -797,8 +820,10 @@ export default function KnowledgeSearchSideBar({
                     control={
                       <FilterCheckbox
                         checked={isChecked}
-                        onChange={() => handleFilterChange(filterType, itemId)}
+                        // Use onClick instead of onChange for immediate response
+                        onClick={() => handleFilterChange(filterType, itemId)}
                         size="small"
+                        disableRipple // Disable ripple effect to reduce flickering
                         sx={{
                           color: isChecked ? theme.palette.primary.main : undefined,
                         }}
@@ -853,6 +878,7 @@ export default function KnowledgeSearchSideBar({
               <IconButtonStyled
                 onClick={handleDrawerToggle}
                 size="small"
+                disableRipple // Disable ripple effect to reduce flickering
                 sx={{ color: theme.palette.text.secondary }}
               >
                 <Icon icon={leftIcon} width={20} height={20} />
@@ -863,6 +889,7 @@ export default function KnowledgeSearchSideBar({
           <Tooltip title="Expand sidebar" placement="right">
             <IconButtonStyled
               onClick={handleDrawerToggle}
+              disableRipple // Disable ripple effect to reduce flickering
               sx={{ mx: 'auto', color: theme.palette.primary.main }}
             >
               <Icon icon={rightIcon} width={20} height={20} />
@@ -890,7 +917,11 @@ export default function KnowledgeSearchSideBar({
               ),
               endAdornment: searchTerm ? (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchTerm('')}>
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchTerm('')}
+                    disableRipple // Disable ripple effect to reduce flickering
+                  >
                     <Icon icon={closeIcon} fontSize="small" />
                   </IconButton>
                 </InputAdornment>
@@ -901,28 +932,28 @@ export default function KnowledgeSearchSideBar({
           {renderActiveFilters()}
 
           <FilterSectionComponent
-            id="connectors"
+            id="apps"
             icon={appIcon}
             label="App Sources"
-            filterType="connector"
-            items={connectors}
-            renderItemLabel={(connector) => (
+            filterType="app"
+            items={apps}
+            renderItemLabel={(app) => (
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Icon
-                  icon={connector.icon}
+                  icon={app.icon}
                   style={{
                     marginRight: theme.spacing(1),
-                    color: connector.color,
+                    color: app.color,
                   }}
                 />
-                <Typography variant="body2">{connector.name}</Typography>
+                <Typography variant="body2">{app.name}</Typography>
               </Box>
             )}
           />
 
           {/* <FilterSectionComponent
             id="departments"
-            icon="mdi:office-building"
+            icon={officeBuildingIcon}
             label="Departments"
             filterType="department"
             items={departments}
@@ -930,7 +961,7 @@ export default function KnowledgeSearchSideBar({
 
           {/* <FilterSectionComponent
             id="modules"
-            icon="mdi:view-module"
+            icon={viewModuleIcon}
             label="Modules"
             filterType="moduleId"
             items={modules}
@@ -938,7 +969,7 @@ export default function KnowledgeSearchSideBar({
 
           {/* <FilterSectionComponent
             id="categories"
-            icon="mdi:format-list-bulleted"
+            icon={formatListIcon}
             label="Record Categories"
             filterType="appSpecificRecordType"
             items={recordCategories}
