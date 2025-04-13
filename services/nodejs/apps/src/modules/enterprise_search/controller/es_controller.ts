@@ -1125,7 +1125,8 @@ export const regenerateAnswers =
         const lastMessage: IMessageDocument = conversation.messages[
           conversation.messages.length - 1
         ] as IMessageDocument;
-        if (lastMessage._id?.toString() === messageId) {
+
+        if (lastMessage._id?.toString() !== messageId) {
           throw new BadRequestError(
             'Can only regenerate the last message in the conversation',
           );
