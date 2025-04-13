@@ -72,6 +72,8 @@ import {
   DialogActions,
   FormControlLabel,
   CircularProgress,
+  Snackbar,
+  useTheme,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -141,6 +143,12 @@ export default function KnowledgeBaseDetails({
     recordId: '',
     recordName: '',
   });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning',
+  });
+  const theme = useTheme();
 
   // State for action menu
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
@@ -258,7 +266,7 @@ export default function KnowledgeBaseDetails({
   // Get file icon based on extension
   const getFileIcon = (extension: string): React.ComponentProps<typeof IconifyIcon>['icon'] => {
     const ext = extension?.toLowerCase() || '';
-  
+
     switch (ext) {
       case 'pdf':
         return filePdfBoxIcon;
@@ -724,8 +732,8 @@ export default function KnowledgeBaseDetails({
               ? [
                   {
                     label: 'Retry Indexing',
-                    icon: { refreshIcon },
-                    color: '#ff9800', // Orange color for caution/retry
+                    icon: refreshIcon,
+                    color: '#ff9800',
                     onClick: () => handleRetryIndexing(params.row.id),
                   },
                 ]
@@ -748,13 +756,27 @@ export default function KnowledgeBaseDetails({
           showActionMenu(event.currentTarget, items);
         };
 
-        const handleRetryIndexing = (recordId: string) => {
+        const handleRetryIndexing = async (recordId: string) => {
           try {
-            const response = axios.post(
+            const response = await axios.post(
               `${CONFIG.backendUrl}/api/v1/knowledgeBase/reindex/record/${recordId}`
             );
+            console.log(response);
+            setSnackbar({
+              open: true,
+              message: response.data.reindexResponse.success
+                ? 'File reindexing started'
+                : 'Failed to start reindexing',
+              severity: response.data.reindexResponse.success ? 'success' : 'error',
+            });
+            console.log(response.data.reindexResponse.success);
           } catch (error) {
             console.log('error in re indexing', error);
+            setSnackbar({
+              open: true,
+              message: 'Failed to start reindexing',
+              severity: 'error',
+            });
           }
         };
 
@@ -1471,13 +1493,15 @@ export default function KnowledgeBaseDetails({
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         transitionDuration={200}
       >
-        {menuItems.map((item, index) => {
-          const isDangerItem = index > 0 && item.isDanger;
+        {menuItems
+          .map((item, index) => {
+            const isDangerItem = index > 0 && item.isDanger;
 
-          return (
-            <React.Fragment key={index}>
-              {isDangerItem && <Divider sx={{ my: 0.75, opacity: 0.6 }} />}
+            return [
+              // If it's a danger item and not the first item, add a divider before it
+              isDangerItem && <Divider key={`divider-${index}`} sx={{ my: 0.75, opacity: 0.6 }} />,
               <MenuItem
+                key={`item-${index}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   item.onClick();
@@ -1499,8 +1523,8 @@ export default function KnowledgeBaseDetails({
                       }
                     : {
                         '&:hover': {
-                          bgcolor: (theme) =>
-                            theme.palette.mode === 'dark'
+                          bgcolor: (theme1) =>
+                            theme1.palette.mode === 'dark'
                               ? alpha('#fff', 0.06)
                               : alpha('#000', 0.04),
                           transform: 'translateX(2px)',
@@ -1525,10 +1549,11 @@ export default function KnowledgeBaseDetails({
                     letterSpacing: '0.01em',
                   }}
                 />
-              </MenuItem>
-            </React.Fragment>
-          );
-        })}
+              </MenuItem>,
+            ].filter(Boolean); // Filter out null/undefined elements (when isDangerItem is false)
+          })
+          .flat()}{' '}
+        {/* Flatten the array to remove nested arrays */}
       </Menu>
       {/* Delete Record Dialog */}
       <DeleteRecordDialog
@@ -1538,6 +1563,27 @@ export default function KnowledgeBaseDetails({
         recordId={deleteDialogData.recordId}
         recordName={deleteDialogData.recordName}
       />
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: 7 }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          sx={{
+            width: '100%',
+            ...(snackbar.severity === 'success' && {
+              bgcolor: theme.palette.success.main,
+              color: theme.palette.success.contrastText,
+            }),
+          }}
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
