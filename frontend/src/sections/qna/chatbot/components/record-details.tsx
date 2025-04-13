@@ -98,7 +98,6 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
           reader.readAsText(response.data);
           const text = await textPromise;
 
-
           try {
             // Try to parse as JSON to check for signedUrl property
             const jsonData = JSON.parse(text);
@@ -171,12 +170,12 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
   };
 
   // Helper function to render metadata chips with consistent styling
-  const renderChips = (items:any) => {
+  const renderChips = (items: any) => {
     if (!items || items.length === 0) return null;
 
     return (
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-        {items.map((item : any) => (
+        {items.map((item: any) => (
           <Chip
             key={item.id}
             label={item.name}
@@ -237,14 +236,12 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
 
   const { record, metadata } = recordData;
 
-
   let webUrl = record.fileRecord?.webUrl;
   if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
     const baseUrl = `${window.location.protocol}//${window.location.host}`;
     const newWebUrl = baseUrl + webUrl;
     webUrl = newWebUrl;
   }
-
 
   return (
     <Paper
@@ -365,7 +362,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
         ))}
 
         {/* Knowledge Base */}
-        {recordData.knowledgeBase && (
+        {recordData?.knowledgeBase && (
           <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' }, p: 1 }}>
             <Typography
               variant="body2"
@@ -378,13 +375,13 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
               Knowledge Base
             </Typography>
             <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
-              {recordData.knowledgeBase.name}
+              {recordData?.knowledgeBase?.name}
             </Typography>
           </Box>
         )}
 
         {/* Permissions */}
-        {recordData.permissions && (
+        {recordData?.permissions && (
           <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' }, p: 1 }}>
             <Typography
               variant="body2"
@@ -397,11 +394,11 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
               Permissions
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {recordData.permissions.length > 0 ? (
-                recordData.permissions.map((permission: Permissions) => (
+              {recordData?.permissions?.length > 0 ? (
+                recordData?.permissions?.map((permission: Permissions) => (
                   <Chip
-                    key={permission.id || permission.relationship}
-                    label={permission.relationship}
+                    key={permission?.id || permission?.relationship}
+                    label={permission?.relationship}
                     size="small"
                     sx={{
                       height: 22,
@@ -424,7 +421,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
       </Box>
 
       {/* Metadata Section */}
-      {recordData.metadata && (
+      {recordData?.metadata && (
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
             {/* Departments */}
@@ -605,16 +602,19 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             <Typography variant="body2">
               <strong>File Name:</strong> {record.fileRecord.name}
             </Typography>
-            <Typography variant="body2">
-              <strong>File Extension:</strong> {record.fileRecord.extension}
-            </Typography>
+            {record.fileRecord?.extension && (
+              <Typography variant="body2">
+                <strong>File Extension:</strong> {record.fileRecord?.extension}
+              </Typography>
+            )}
+
             <Typography variant="body2">
               <strong>MIME Type:</strong> {record.fileRecord.mimeType}
             </Typography>
             <Typography variant="body2">
               <strong>Size:</strong> {(record.fileRecord.sizeInBytes / 1024).toFixed(2)} KB
             </Typography>
-            {record.fileRecord.extension.toLowerCase() === 'pdf' && (
+            {record.fileRecord?.extension.toLowerCase() === 'pdf' && (
               <Box gridColumn="1 / -1">
                 <Button
                   variant="contained"

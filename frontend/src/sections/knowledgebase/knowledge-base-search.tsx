@@ -587,7 +587,7 @@ export default function KnowledgeBaseSearch() {
           <Box
             id="document-container"
             sx={{
-              width: '80%',
+              width: '65%',
               height: '100%',
               position: 'relative',
               display: 'flex',
