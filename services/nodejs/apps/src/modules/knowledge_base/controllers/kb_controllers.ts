@@ -1063,7 +1063,7 @@ export const reindexRecord =
         const recordData = aiResponse.data;
         const record = recordData.record;
 
-        const reindexResponse = recordRelationService.reindexRecord(
+        const reindexResponse =  await recordRelationService.reindexRecord(
           recordId,
           record,
           keyValueStoreService,

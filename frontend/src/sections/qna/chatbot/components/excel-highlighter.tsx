@@ -259,8 +259,8 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
       const { blockNum } = citation.metadata;
       if (blockNum) {
         setSelectedCitation(citation.metadata._id);
-        setHighlightedRow(blockNum - 1);
-        scrollToRow(blockNum - 1);
+        setHighlightedRow(blockNum);
+        scrollToRow(blockNum);
       }
     },
     [scrollToRow]
@@ -442,9 +442,9 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
       const firstCitation = citations[0];
       const { blockNum } = firstCitation.metadata;
       if (blockNum) {
-        setHighlightedRow(blockNum - 1);
+        setHighlightedRow(blockNum);
         setSelectedCitation(firstCitation.metadata._id);
-        scrollToRow(blockNum - 1);
+        scrollToRow(blockNum);
       }
     }
   }, [citations, isInitialized, highlightedRow, scrollToRow]);
