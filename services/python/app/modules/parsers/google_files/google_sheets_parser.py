@@ -173,6 +173,7 @@ class GoogleSheetsParser:
                 range=range_name
             ).execute()
             values = result.get('values', [])
+            self.logger.info(f"values: {values}")
 
             if not values:
                 return tables
@@ -182,66 +183,132 @@ class GoogleSheetsParser:
                 if start_row >= len(values):
                     return None
 
-                # Find table boundaries
+                # Find the last column of the table
                 max_col = start_col
+                for col in range(start_col, len(values[start_row]) if start_row < len(values) else 0):
+                    has_data = False
+                    for row in range(start_row, len(values)):
+                        if row < len(values) and col < len(values[row]):
+                            if values[row][col]:
+                                has_data = True
+                                max_col = col
+                                break
+                    if not has_data:
+                        break
+
+                # Find the last row of the table
                 max_row = start_row
-                
-                # Find max_col
-                for row in values[start_row:]:
-                    for col_idx, cell in enumerate(row[start_col:], start_col):
-                        if cell:
-                            max_col = max(max_col, col_idx)
-                            max_row = max(max_row, start_row + values[start_row:].index(row))
+                for row in range(start_row, len(values)):
+                    has_data = False
+                    for col in range(start_col, max_col + 1):
+                        if row < len(values) and col < len(values[row]):
+                            if values[row][col]:
+                                has_data = True
+                                max_row = row
+                                break
+                    if not has_data:
+                        break
+
+                # Extract table data
+                table_values = []
+                for row in range(start_row, max_row + 1):
+                    table_row = []
+                    for col in range(start_col, max_col + 1):
+                        value = values[row][col] if row < len(values) and col < len(values[row]) else ""
+                        table_row.append(value)
+                    table_values.append(table_row)
+
+                # Denormalize the extracted table
+                denormalized_values = self.denormalize_sheet(table_values)
 
                 # Process table data
                 table_data = []
                 headers = []
 
-                # Process header row
-                if start_row < len(values) and start_col < len(values[start_row]):
-                    header_row = values[start_row][start_col:max_col+1]
-                    headers = header_row
-                    for col_idx, value in enumerate(header_row, start_col):
-                        visited_cells.add((start_row, col_idx))
+                # Process header row using denormalized values
+                header_cells = []
+                for col in range(len(denormalized_values[0])):
+                    value = denormalized_values[0][col]
+                    header_cell = self._process_cell(value, None, start_row + 1, start_col + col + 1)
+                    header_cells.append(header_cell)
+                    if value:
+                        visited_cells.add((start_row, start_col + col))
 
-                # Process data rows
-                for row_idx in range(start_row + 1, max_row + 1):
-                    if row_idx >= len(values):
-                        break
-                        
+                # Only consider it a header row if at least one cell has data
+                if any(cell['value'] is not None for cell in header_cells):
+                    headers = [cell['value'] for cell in header_cells]
+                    table_data.append(header_cells)
+                else:
+                    return None
+
+                # Process data rows using denormalized values
+                for row_idx in range(1, len(denormalized_values)):
                     row_data = []
-                    row = values[row_idx]
-                    for col_idx in range(start_col, max_col + 1):
-                        value = row[col_idx] if col_idx < len(row) else None
-                        header = headers[col_idx - start_col] if col_idx - start_col < len(headers) else None
-                        cell_data = self._process_cell(value, header, row_idx + 1, col_idx + 1)
+                    for col_idx in range(len(denormalized_values[row_idx])):
+                        value = denormalized_values[row_idx][col_idx]
+                        header = headers[col_idx] if col_idx < len(headers) else None
+                        cell_data = self._process_cell(value, header, start_row + row_idx + 1, start_col + col_idx + 1)
                         row_data.append(cell_data)
                         if value:
-                            visited_cells.add((row_idx, col_idx))
+                            visited_cells.add((start_row + row_idx, start_col + col_idx))
                     table_data.append(row_data)
 
                 return {
                     'headers': headers,
-                    'data': table_data,
+                    'data': table_data[1:] if table_data else [],
                     'start_row': start_row + 1,
                     'start_col': start_col + 1,
                     'end_row': max_row + 1,
                     'end_col': max_col + 1
                 }
 
-            # Find all tables
+            # Find all tables in the sheet
             for row_idx, row in enumerate(values):
                 for col_idx, cell in enumerate(row):
-                    if cell and (row_idx, col_idx) not in visited_cells:
+                    if (cell and isinstance(cell, str) and 
+                        (row_idx, col_idx) not in visited_cells):
                         table = get_table(row_idx, col_idx)
-                        if table and table['data']:
+                        if table and table['data']:  # Only add if table has data
                             tables.append(table)
 
             return tables
 
         except Exception as e:
+            self.logger.error(f"❌ Error finding tables: {str(e)}")
             raise
-    
+
+    def denormalize_sheet(self, values: List[List[str]]) -> List[List[str]]:
+        """Fill merged/empty cells by propagating values down and right."""
+        if not values:
+            return values
+
+        max_cols = max(len(row) for row in values)
+        
+        # Normalize row lengths
+        for row in values:
+            while len(row) < max_cols:
+                row.append("")
+
+        # Fill right (across columns) - useful if headings span across columns
+        for row in values:
+            last_val = ""
+            for col_idx in range(len(row)):
+                if row[col_idx]:
+                    last_val = row[col_idx]
+                elif last_val:
+                    row[col_idx] = last_val
+
+        # Fill down (across rows) - useful for section headers like 'IG FEED'
+        for col_idx in range(max_cols):
+            last_val = ""
+            for row_idx in range(len(values)):
+                if values[row_idx][col_idx]:
+                    last_val = values[row_idx][col_idx]
+                elif last_val:
+                    values[row_idx][col_idx] = last_val
+
+        return values
+
     def _process_cell(self, value: Any, header: str, row: int, col: int) -> Dict[str, Any]:
         """Process a single cell and return its data"""
         return {
@@ -327,31 +394,24 @@ class GoogleSheetsParser:
             self.llm = llm
             # Get tables in the sheet
             tables = await self.get_tables_in_sheet(sheet_name, spreadsheet_id)
-            self.logger.info("3")
             # Process each table
             processed_tables = []
             for table in tables:
-                self.logger.info("4")
                 # Get table summary
                 table_summary = await self.get_table_summary(table)
-                self.logger.info("5")
                 # Process rows in batches of 20
                 processed_rows = []
                 batch_size = 20
-                self.logger.info("6")
                 for i in range(0, len(table['data']), batch_size):
                     batch = table['data'][i:i + batch_size]
                     row_texts = await self.get_rows_text(batch, table_summary)
-                    self.logger.info("7")
                     # Add processed rows to results
                     for row, row_text in zip(batch, row_texts):
-                        self.logger.info("8")
                         processed_rows.append({
                             'raw_data': {cell['header']: cell['value'] for cell in row},
                             'natural_language_text': row_text,
                             'row_num': row[0]['row']
                         })
-                    self.logger.info("9")
                 processed_tables.append({
                     'headers': table['headers'],
                     'summary': table_summary,
@@ -363,7 +423,9 @@ class GoogleSheetsParser:
                         'end_col': table['end_col']
                     }
                 })
-            self.logger.info("10")
+            for table in processed_tables:
+                self.logger.info(f"table rows: {len(table['rows'])}")
+                self.logger.info(f"table rows: {table['rows']}")
             return {
                 'sheet_name': sheet_name,
                 'tables': processed_tables

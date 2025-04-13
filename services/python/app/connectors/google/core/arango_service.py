@@ -41,7 +41,7 @@ class ArangoService(BaseArangoService):
                 'resourceId': resource_id,
                 'userEmail': user_email,
                 'token': token,
-                'createdAt': int(datetime.now(timezone(timedelta(hours=5, minutes=30))).timestamp()),
+                'createdAtTimestamp': get_epoch_timestamp_in_ms()
             }
 
             # Upsert to handle updates to existing channel tokens
@@ -1374,7 +1374,7 @@ class ArangoService(BaseArangoService):
             
             update_data = {
                 'sync_state': state,
-                'last_sync_update': datetime.now(timezone.utc).isoformat()
+                'last_sync_update': get_epoch_timestamp_in_ms()
             }
                             
             query = """

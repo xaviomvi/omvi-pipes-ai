@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Set
 import asyncio
-from datetime import datetime, timezone, timedelta
 import json
-import os
-
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 from app.config.configuration_service import ConfigurationService, config_node_constants, WebhookConfig
 from app.config.arangodb_constants import CollectionNames
 
@@ -20,6 +18,7 @@ class AbstractDriveWebhookHandler(ABC):
         self.processing_lock = asyncio.Lock()
         self.scheduled_task = None
         self.last_notification_time = None
+        self.processed_message_numbers = set()
 
     async def _log_headers(self, headers: Dict) -> Dict:
         """Log webhook headers and return important headers"""
@@ -29,11 +28,18 @@ class AbstractDriveWebhookHandler(ABC):
             'changed_id': headers.get('x-goog-changed'),
             'resource_state': headers.get('x-goog-resource-state'),
             'channel_id': headers.get('x-goog-channel-id'),
-            'timestamp': datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat(),
+            'message_id': headers.get('x-goog-message-number'),
+            'timestamp': get_epoch_timestamp_in_ms(),
         }
 
         self.logger.info(f"🚀 Important headers: {important_headers}")
 
+        message_number = important_headers.get('message_id')
+        if message_number and message_number in self.processed_message_numbers:
+            self.logger.info(f"Skipping duplicate message number: {message_number}")
+            return None
+        if message_number:
+            self.processed_message_numbers.add(message_number)
         return important_headers
 
     @abstractmethod
@@ -66,6 +72,8 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
     async def process_notification(self, headers: Dict) -> bool:
         try:
             important_headers = await self._log_headers(headers)
+            if not important_headers:
+                return True
 
             channel_id = headers.get('x-goog-channel-id')
             if not channel_id:
@@ -208,6 +216,8 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
     async def process_notification(self, headers: Dict) -> bool:
         try:
             important_headers = await self._log_headers(headers)
+            if not important_headers:
+                return True
 
             self.pending_notifications.add(json.dumps(important_headers))
             self.logger.info("Added to pending notifications. Current count: %s", len(

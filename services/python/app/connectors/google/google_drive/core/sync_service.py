@@ -26,8 +26,7 @@ class DriveSyncProgress:
         self.processed_files = 0
         self.percentage = 0
         self.status = "initializing"
-        self.lastUpdatedTimestampAtSource = datetime.now(
-            timezone(timedelta(hours=5, minutes=30))).isoformat()
+        self.lastUpdatedTimestampAtSource = get_epoch_timestamp_in_ms()
 
 class BaseDriveSyncService(ABC):
     """Abstract base class for sync services"""
