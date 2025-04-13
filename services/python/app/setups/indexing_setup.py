@@ -28,6 +28,7 @@ from app.modules.parsers.csv.csv_parser import CSVParser
 from app.modules.parsers.html_parser.html_parser import HTMLParser
 from app.modules.parsers.markdown.markdown_parser import MarkdownParser
 from app.modules.parsers.pptx.pptx_parser import PPTXParser
+from app.modules.parsers.pptx.ppt_parser import PPTParser
 
 from dotenv import load_dotenv
 
@@ -131,6 +132,7 @@ class AppContainer(containers.DeclarativeContainer):
             'docx': DocxParser(),
             'doc': DocParser(),
             'pptx': PPTXParser(),
+            'ppt': PPTParser(),
             'html': HTMLParser(),
             'md': MarkdownParser(),
             'csv': CSVParser(),

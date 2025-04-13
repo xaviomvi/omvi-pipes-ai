@@ -193,7 +193,6 @@ class EventProcessor:
                 return result
 
             if mime_type == "application/vnd.google-apps.spreadsheet":
-                return None
                 self.logger.info("🚀 Processing Google Sheets")
                 # Decode JSON content if it's streamed data
                 if isinstance(file_content, bytes):
@@ -281,6 +280,16 @@ class EventProcessor:
                     source=connector,
                     orgId=org_id,
                     pptx_binary=file_content
+                )
+                
+            elif extension == "ppt":
+                result = await self.processor.process_ppt_document(
+                    recordName=f"Record-{record_id}",
+                    recordId=record_id,
+                    version=record_version,
+                    source=connector,
+                    orgId=org_id,
+                    ppt_binary=file_content
                 )
                 
             elif extension == "md":

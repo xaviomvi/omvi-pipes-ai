@@ -326,8 +326,8 @@ class Processor:
                                 'metadata': {
                                     **(domain_metadata or {}),
                                     "recordId": record_id,
-                                    "blockType": "paragraph",
-                                    "blockNum": idx,
+                                    "blockType": "text",
+                                    "blockNum": [idx],
                                     "blockText": json.dumps(full_context),
                                     "start_index": item['start_index'],
                                     "end_index": item['end_index']
@@ -351,7 +351,7 @@ class Processor:
                                     **(domain_metadata or {}),
                                     "recordId": record_id,
                                     "blockType": "table_cell",
-                                    "blockNum": idx,
+                                    "blockNum": [idx],
                                     "row": cell['row'],
                                     "column": cell['column'],
                                     "start_index": cell['start_index'],
@@ -376,10 +376,74 @@ class Processor:
             self.logger.error(f"❌ Error processing Google Docs document: {str(e)}")
             raise
 
-    async def process_google_sheets(self, record_id, record_version, orgId):
+    async def process_google_sheets(self, record_id, record_version, orgId, content):
         self.logger.info("🚀 Processing Google Sheets")
-        # Implement Google Sheets processing logic here
-        return {"status": "success", "message": "Google Sheets processed successfully"}
+        try:
+            # Initialize Google Docs parser
+            self.logger.debug("📄 Processing Google Sheets content")
+            
+            all_sheets_result = content['all_sheet_results']
+            parsed_result = content['parsed_result']
+
+            combined_texts = []
+            row_counter = 1
+            domain_metadata = None
+            sentence_data = []
+            
+            for sheet_result in all_sheets_result:
+                for table in sheet_result['tables']:
+                    for row in table['rows']:
+                        combined_texts.append(f"{row_counter}. {row['natural_language_text']}")
+                        row_counter += 1
+                        
+            combined_text = "\n".join(combined_texts)
+            if combined_text:
+                try:
+                    self.logger.info(f"🎯 Extracting metadata from Excel content")
+                    metadata = await self.domain_extractor.extract_metadata(combined_text, orgId)
+                    self.logger.info(f"✅ Extracted metadata: {metadata}")
+                    record = await self.domain_extractor.save_metadata_to_arango(record_id, metadata)
+                    file = await self.arango_service.get_document(record_id, CollectionNames.FILES.value)
+
+                    domain_metadata = {**record, **file}
+                except Exception as e:
+                    self.logger.error(f"❌ Error extracting metadata: {str(e)}")
+                    domain_metadata = None
+                    
+            for sheet_idx, sheet_name in enumerate(parsed_result['sheet_names'], 1):
+                for table in parsed_result['tables']:
+                    for row in table['rows']:
+                        row_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in row['raw_data'].items()}
+                        sentence_data.append({
+                            'text': row['natural_language_text'],
+                            'bounding_box': None,
+                            'metadata': {
+                                **domain_metadata,
+                                "recordId": record_id,
+                                "sheetName": sheet_name,
+                                "sheetNum": [sheet_idx],
+                                "blockNum": [int(row['row_num'])],
+                                "blockType": "table_row",
+                                "blockText": json.dumps(row_data)
+                            }
+                        })
+                        
+            # Index sentences if available
+            if sentence_data:
+                self.logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
+                pipeline = self.indexing_pipeline
+                await pipeline.index_documents(sentence_data, merge_documents=False)
+    
+
+            self.logger.info("✅ Google sheets processing completed successfully")
+            return {
+                "formatted_content": combined_text,
+                "numbered_items": [],
+                "metadata": metadata
+            }
+        except Exception as e:
+            self.logger.error(f"❌ Error processing Google Sheets document: {str(e)}")
+            raise
     
     async def process_gmail_message(self, recordName, recordId, version, source, orgId, html_content):
         self.logger.info("🚀 Processing Gmail Message")
@@ -454,9 +518,9 @@ class Processor:
                             **(domain_metadata or {}),
                             "recordId": recordId,
                             "blockType": context.get('label', 'text'),
-                            "blockNum": idx,
+                            "blockNum": [idx],
                             "blockText": json.dumps(full_context),  # Include full context
-                            "slideNumber": context.get('slide_number'),
+                            # "slideNumber": context.get('slide_number'),
                             "level": context.get('level')
                         }
                     })
@@ -623,6 +687,15 @@ class Processor:
             if sentences:
                 self.logger.debug("📑 Creating semantic sentences")
 
+                # Define block type mapping
+                BLOCK_TYPE_MAP = {
+                    0: "text",
+                    1: "image",
+                    2: "table",
+                    3: "list",
+                    4: "header"
+                }
+
                 # Prepare sentences for indexing with separated metadata
                 sentence_data = [{
                     'text': s["content"].strip(),
@@ -631,9 +704,9 @@ class Processor:
                         **ocr_result.get("metadata"),
                         "recordId": recordId,
                         "blockText": s["content"].strip(),
-                        "blockType": s.get("block_type", 0),
-                        "blockNum": s.get("block_number", 0),
-                        "pageNum": s.get("page_number", 0)
+                        "blockType": BLOCK_TYPE_MAP.get(s.get("block_type", 0)),
+                        "blockNum": [int(s.get("block_number", 0))],
+                        "pageNum": [int(s.get("page_number", 0))]
                     }
                 } for idx, s in enumerate(sentences) if s.get("content")]
 
@@ -763,10 +836,10 @@ class Processor:
                             **(domain_metadata or {}),
                             "recordId": recordId,
                             "blockType": context.get('label', 'text'),
-                            "blockNum": idx,
+                            "blockNum": [idx],
                             "blockText": json.dumps(full_context),  # Include full context
-                            "slideNumber": context.get('slide_number'),
-                            "level": context.get('level')
+                            # "slideNumber": context.get('slide_number'),
+                            # "level": context.get('level')
                         }
                     })
 
@@ -886,19 +959,19 @@ class Processor:
                             'bounding_box': None,
                             'metadata': {
                                 **({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in domain_metadata.items()}),
-                                "recordId": recordId,
-                                "sheetName": sheet_data['sheet_name'],
-                                "sheetNum": sheet_idx,
-                                "blockNum": row['row_num'],  # Use actual row number
-                                "blockType": "table_row",
-                                "blockText": json.dumps(row_data)  # Include entire row data
+                                    "recordId": recordId,
+                                    "sheetName": sheet_name,
+                                    "sheetNum": [sheet_idx],
+                                    "blockNum": [int(row['row_num'])],
+                                    "blockType": "table_row",
+                                    "blockText": json.dumps(row_data)  # Include entire row data
                             }
                         })
             # Index sentences if available
             if sentence_data:
                 self.logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
                 pipeline = self.indexing_pipeline
-                await pipeline.index_documents(sentence_data)
+                await pipeline.index_documents(sentence_data, merge_documents=False)
             # Prepare metadata
             self.logger.debug("📋 Preparing metadata")
             metadata = {
@@ -1042,7 +1115,7 @@ class Processor:
                             "recordId": recordId,
                             "blockType": "table_row",
                             "blockText": json.dumps(row),
-                            "blockNum": idx  
+                            "blockNum": [idx]
                         }
                     })
 
@@ -1050,7 +1123,7 @@ class Processor:
             if sentence_data:
                 self.logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
                 pipeline = self.indexing_pipeline
-                await pipeline.index_documents(sentence_data)
+                await pipeline.index_documents(sentence_data, merge_documents=False)
 
             # Prepare metadata
             self.logger.debug("📋 Preparing metadata")
@@ -1120,15 +1193,20 @@ class Processor:
             
             # Get page number from the item's page reference
             page_no = None
-            if 'page' in item:
-                page_ref = item['page']
-                if isinstance(page_ref, dict) and '$ref' in page_ref:
-                    page_path = page_ref['$ref']
+            if 'prov' in item:
+                prov = item['prov']
+                if isinstance(prov, list) and len(prov) > 0:
+                    # Take the first page number from the prov list
+                    page_no = prov[0].get('page_no')
+                elif isinstance(prov, dict) and '$ref' in prov:
+                    # Handle legacy reference format if needed
+                    page_path = prov['$ref']
                     page_index = int(page_path.split('/')[-1])
                     pages = doc_dict.get('pages', [])
                     if page_index < len(pages):
+                        self.logger.debug(f"Page index: {page_index}, Page: {pages[page_index]}")
                         page_no = pages[page_index].get('page_no')
-            
+                        
             # Create context for current item
             current_context = {
                 'ref': item.get('self_ref'),
@@ -1233,10 +1311,10 @@ class Processor:
                             **(domain_metadata or {}),
                             "recordId": recordId,
                             "blockType": context.get('label', 'text'),
-                            "blockNum": idx,
+                            "blockNum": [idx],
                             "blockText": json.dumps(full_context),
-                            "pageNum": context.get('pageNum'),  # Add page number
-                            "level": context.get('level')
+                            "pageNum": [int(context.get('pageNum'))],  # Add page number
+                            "level": [int(context.get('level'))]
                         }
                     })
 
@@ -1374,9 +1452,9 @@ class Processor:
                             **(domain_metadata or {}),
                             "recordId": recordId,
                             "blockType": item.get('label', 'text'),
-                            "blockNum": idx,
+                            "blockNum": [idx],
                             "blockText": json.dumps(full_context),  # Include full context
-                            "level": item.get('level'),
+                            "level": [int(item.get('level'))],
                             "codeLanguage": item.get('language') if item.get('label') == 'code' else None
                         }
                     })
@@ -1507,8 +1585,8 @@ class Processor:
                     'metadata': {
                         **(domain_metadata or {}),
                         "recordId": recordId,
-                        "blockType": "paragraph",
-                        "blockNum": idx,
+                        "blockType": 'text',
+                        "blockNum": [idx],
                         "blockText": json.dumps(full_context)
                     }
                 })
@@ -1612,6 +1690,8 @@ class Processor:
                 except (IndexError, ValueError):
                     return
 
+                self.logger.debug(f"item_type: {item_type}")
+                
                 items = doc_dict.get(item_type, [])
                 if item_index >= len(items):
                     return
@@ -1619,13 +1699,19 @@ class Processor:
                 
                 # Get page number from the item's page reference
                 page_no = None
-                if 'page' in item:
-                    page_ref = item['page']
-                    if isinstance(page_ref, dict) and '$ref' in page_ref:
-                        page_path = page_ref['$ref']
+                self.logger.debug(f"Item: {item}")
+                if 'prov' in item:
+                    prov = item['prov']
+                    if isinstance(prov, list) and len(prov) > 0:
+                        # Take the first page number from the prov list
+                        page_no = prov[0].get('page_no')
+                    elif isinstance(prov, dict) and '$ref' in prov:
+                        # Handle legacy reference format if needed
+                        page_path = prov['$ref']
                         page_index = int(page_path.split('/')[-1])
                         pages = doc_dict.get('pages', [])
                         if page_index < len(pages):
+                            self.logger.debug(f"Page index: {page_index}, Page: {pages[page_index]}")
                             page_no = pages[page_index].get('page_no')
                 
                 # Create context for current item
@@ -1718,6 +1804,8 @@ class Processor:
                         "previous": previous_context,
                         "current": item['text'].strip()
                     }
+                    pageNum = context.get('pageNum')
+                    pageNum = int(pageNum) if pageNum else None
 
                     sentence_data.append({
                         'text': item['text'].strip(),
@@ -1726,10 +1814,9 @@ class Processor:
                             **(domain_metadata or {}),
                             "recordId": recordId,
                             "blockType": context.get('label', 'text'),
-                            "blockNum": idx,
+                            "blockNum": [idx],
                             "blockText": json.dumps(full_context),
-                            "pageNum": context.get('pageNum'),  # Add page number
-                            "level": context.get('level')
+                            "pageNum": [pageNum],  # Add page number
                         }
                     })
 
@@ -1787,3 +1874,23 @@ class Processor:
         except Exception as e:
             self.logger.error(f"❌ Error processing PPTX document: {str(e)}")
             raise
+
+    async def process_ppt_document(self, recordName, recordId, version, source, orgId, ppt_binary):
+        """Process PPT document and extract structured content
+
+        Args:
+            recordName (str): Name of the record
+            recordId (str): ID of the record
+            version (str): Version of the record
+            source (str): Source of the document
+            orgId (str): Organization ID
+            ppt_binary (bytes): Binary content of the PPT file
+        """
+        self.logger.info(
+            f"🚀 Starting PPT document processing for record: {recordName}")
+        # Implement PPT processing logic here
+        parser = self.parsers['ppt']
+        ppt_result = parser.convert_ppt_to_pptx(ppt_binary)
+        await self.process_pptx_document(recordName, recordId,  version, source, orgId, ppt_result)
+
+        return {"status": "success", "message": "PPT processed successfully"}

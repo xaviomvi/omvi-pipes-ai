@@ -26,6 +26,8 @@ IMPORTANT: You MUST select department values that MATCH THESE LIST VALUES VERBAT
    - Extract key themes and subjects
    - Be specific but concise
    - Avoid DUPLICATE or very similar topics
+   - At least 3 topics
+   - At most 6 topics
 
    # Output Format:
    You must return a single valid JSON object with the following structure:

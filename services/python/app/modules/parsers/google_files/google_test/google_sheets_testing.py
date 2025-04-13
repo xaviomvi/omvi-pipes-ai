@@ -3,10 +3,14 @@
 import os
 import pickle
 import asyncio
+import json
 from typing import Dict, List, Optional, Any, Tuple
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from app.modules.parsers.excel.prompt_template import prompt, sheet_summary_prompt, table_summary_prompt, row_text_prompt
+from langchain_openai import AzureChatOpenAI
+
 from app.utils.logger import create_logger
 
 logger = create_logger(__name__)
@@ -17,6 +21,12 @@ class GoogleSheetsTest:
     def __init__(self):
         self.sheets_service = None
         self.drive_service = None
+        self.workbook = None
+        self.spreadsheet_id = None
+        
+        # Store prompts
+        self.table_summary_prompt = table_summary_prompt
+        self.row_text_prompt = row_text_prompt
 
     async def authenticate(self) -> bool:
         """Authenticate using OAuth2 for individual user"""
@@ -71,250 +81,441 @@ class GoogleSheetsTest:
             logger.error("❌ Failed to list spreadsheets: %s", str(e))
             return []
 
-    async def get_spreadsheet_data(self, spreadsheet_id: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
-        """Get all spreadsheet data including metadata and sheet contents in a single call"""
+    async def parse_spreadsheet(self, spreadsheet_id: str) -> Dict[str, Any]:
+        """Parse Google Sheets file and extract content similar to Excel parser"""
         try:
-            # Make a single API call to get all necessary data
+            # Get spreadsheet metadata
             spreadsheet = self.sheets_service.spreadsheets().get(
-                spreadsheetId=spreadsheet_id,
-                includeGridData=True,
-                fields='properties,sheets(properties,data.rowData.values(formattedValue,effectiveFormat,userEnteredValue))'
+                spreadsheetId=spreadsheet_id
             ).execute()
 
-            # Extract metadata
+            sheets_data = []
+            total_rows = 0
+            total_cells = 0
+            all_text = []
+
+            # Process each sheet
+            for sheet in spreadsheet['sheets']:
+                sheet_props = sheet['properties']
+                sheet_name = sheet_props['title']
+                
+                # Get sheet data
+                range_name = f"{sheet_name}!A1:ZZ"
+                result = self.sheets_service.spreadsheets().values().get(
+                    spreadsheetId=spreadsheet_id,
+                    range=range_name
+                ).execute()
+                values = result.get('values', [])
+
+                if not values:
+                    continue
+
+                # Process headers and data
+                headers = values[0] if values else []
+                data = []
+
+                for row_idx, row in enumerate(values[1:], 2):
+                    row_data = []
+                    # Pad row with None values if needed
+                    padded_row = row + [None] * (len(headers) - len(row))
+                    
+                    for col_idx, value in enumerate(padded_row, 1):
+                        cell_data = {
+                            'value': value,
+                            'header': headers[col_idx-1] if col_idx-1 < len(headers) else None,
+                            'row': row_idx,
+                            'column': col_idx,
+                            'column_letter': self._get_column_letter(col_idx),
+                            'coordinate': f"{self._get_column_letter(col_idx)}{row_idx}",
+                            'data_type': self._get_data_type(value),
+                        }
+                        row_data.append(cell_data)
+                        if value:
+                            total_cells += 1
+                            all_text.append(str(value))
+
+                    data.append(row_data)
+
+                total_rows += len(values)
+                sheets_data.append({
+                    'name': sheet_name,
+                    'data': data,
+                    'headers': headers,
+                    'row_count': sheet_props['gridProperties']['rowCount'],
+                    'column_count': sheet_props['gridProperties']['columnCount'],
+                })
+
+            # Prepare metadata
             metadata = {
-                'title': spreadsheet['properties']['title'],
-                'locale': spreadsheet['properties'].get('locale'),
-                'timeZone': spreadsheet['properties'].get('timeZone'),
-                'sheets': [{
-                    'title': sheet['properties']['title'],
-                    'sheetId': sheet['properties']['sheetId'],
-                    'index': sheet['properties']['index'],
-                    'gridProperties': sheet['properties'].get('gridProperties', {})
-                } for sheet in spreadsheet.get('sheets', [])]
+                'title': spreadsheet.get('properties', {}).get('title'),
+                'locale': spreadsheet.get('properties', {}).get('locale'),
+                'timeZone': spreadsheet.get('properties', {}).get('timeZone'),
+                'sheet_count': len(spreadsheet['sheets'])
             }
 
-            # Process each sheet's data
-            processed_sheets = []
-            for sheet in spreadsheet.get('sheets', []):
-                sheet_data = self._process_sheet_data(sheet)
-                if sheet_data:
-                    processed_sheets.append({
-                        'name': sheet['properties']['title'],
-                        **sheet_data
-                    })
-
-            return metadata, processed_sheets
-
-        except Exception as e:
-            logger.error("❌ Failed to get spreadsheet data: %s", str(e))
-            return None, []
-
-    def _process_sheet_data(self, sheet: Dict) -> Dict[str, Any]:
-        """Process sheet data from the API response"""
-        try:
-            if not sheet.get('data', []):
-                return None
-
-            grid_data = sheet['data'][0]
-            processed_data = {
-                'headers': [],
-                'data': [],
-                'tables': []
-            }
-
-            row_data = grid_data.get('rowData', [])
-            if not row_data:
-                return processed_data
-
-            # Process headers (first row)
-            first_row = row_data[0]
-            processed_data['headers'] = [
-                cell.get('formattedValue', '') 
-                for cell in first_row.get('values', [])
-            ]
-
-            # Process data rows
-            for row_idx, row in enumerate(row_data[1:], 2):
-                processed_row = [
-                    self._process_cell(
-                        cell,
-                        processed_data['headers'][col_idx] if col_idx < len(processed_data['headers']) else '',
-                        row_idx,
-                        col_idx + 1
-                    )
-                    for col_idx, cell in enumerate(row.get('values', []))
-                ]
-                processed_data['data'].append(processed_row)
-
-            # Detect and process tables
-            processed_data['tables'] = self._detect_tables(processed_data)
-            
-            return processed_data
-
-        except Exception as e:
-            logger.error("❌ Failed to process sheet data: %s", str(e))
-            return None
-
-    def _process_cell(self, cell: Dict, header: str, row: int, col: int) -> Dict[str, Any]:
-        """Process individual cell data and formatting"""
-        if not cell:
             return {
-                'value': None,
-                'header': header,
-                'row': row,
-                'column': col,
-                'column_letter': self._get_column_letter(col),
-                'coordinate': f"{self._get_column_letter(col)}{row}"
+                'sheets': sheets_data,
+                'metadata': metadata,
+                'text_content': '\n'.join(all_text),
+                'sheet_names': [sheet['name'] for sheet in sheets_data],
+                'total_rows': total_rows,
+                'total_cells': total_cells
             }
 
-        format_data = cell.get('effectiveFormat', {})
-        
+        except Exception as e:
+            logger.error("❌ Failed to parse spreadsheet: %s", str(e))
+            raise
+
+    def _get_column_letter(self, col_idx: int) -> str:
+        """Convert column index to letter (1 = A, 27 = AA, etc.)"""
+        result = ""
+        while col_idx > 0:
+            col_idx, remainder = divmod(col_idx - 1, 26)
+            result = chr(65 + remainder) + result
+        return result
+
+    def _get_data_type(self, value: Any) -> str:
+        """Determine the data type of a value"""
+        if value is None:
+            return 'n'  # null
+        elif isinstance(value, bool):
+            return 'b'  # boolean
+        elif isinstance(value, (int, float)):
+            return 'n'  # numeric
+        elif isinstance(value, str):
+            return 's'  # string
+        return 's'  # default to string
+
+
+    def find_tables(self, sheet: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Find and process all tables in a sheet"""
+        try:
+            tables = []
+            visited_cells = set()
+
+            # Get sheet data
+            range_name = f"{sheet['name']}!A1:ZZ"
+            result = self.sheets_service.spreadsheets().values().get(
+                spreadsheetId=self.spreadsheet_id,
+                range=range_name
+            ).execute()
+            values = result.get('values', [])
+
+            if not values:
+                return tables
+
+            def get_table(start_row, start_col):
+                """Extract a table starting from (start_row, start_col)."""
+                if start_row >= len(values):
+                    return None
+
+                # Find table boundaries
+                max_col = start_col
+                max_row = start_row
+                
+                # Find max_col
+                for row in values[start_row:]:
+                    for col_idx, cell in enumerate(row[start_col:], start_col):
+                        if cell:
+                            max_col = max(max_col, col_idx)
+                            max_row = max(max_row, start_row + values[start_row:].index(row))
+
+                # Process table data
+                table_data = []
+                headers = []
+
+                # Process header row
+                if start_row < len(values) and start_col < len(values[start_row]):
+                    header_row = values[start_row][start_col:max_col+1]
+                    headers = header_row
+                    for col_idx, value in enumerate(header_row, start_col):
+                        visited_cells.add((start_row, col_idx))
+
+                # Process data rows
+                for row_idx in range(start_row + 1, max_row + 1):
+                    if row_idx >= len(values):
+                        break
+                        
+                    row_data = []
+                    row = values[row_idx]
+                    for col_idx in range(start_col, max_col + 1):
+                        value = row[col_idx] if col_idx < len(row) else None
+                        header = headers[col_idx - start_col] if col_idx - start_col < len(headers) else None
+                        cell_data = self._process_cell(value, header, row_idx + 1, col_idx + 1)
+                        row_data.append(cell_data)
+                        if value:
+                            visited_cells.add((row_idx, col_idx))
+                    table_data.append(row_data)
+
+                return {
+                    'headers': headers,
+                    'data': table_data,
+                    'start_row': start_row + 1,
+                    'start_col': start_col + 1,
+                    'end_row': max_row + 1,
+                    'end_col': max_col + 1
+                }
+
+            # Find all tables
+            for row_idx, row in enumerate(values):
+                for col_idx, cell in enumerate(row):
+                    if cell and (row_idx, col_idx) not in visited_cells:
+                        table = get_table(row_idx, col_idx)
+                        if table and table['data']:
+                            tables.append(table)
+
+            return tables
+
+        except Exception as e:
+            raise
+
+    def _process_cell(self, value: Any, header: str, row: int, col: int) -> Dict[str, Any]:
+        """Process a single cell and return its data"""
         return {
-            'value': cell.get('formattedValue'),
+            'value': value,
             'header': header,
             'row': row,
             'column': col,
             'column_letter': self._get_column_letter(col),
             'coordinate': f"{self._get_column_letter(col)}{row}",
-            'formula': cell.get('userEnteredValue', {}).get('formulaValue'),
-            'format': {
-                'backgroundColor': format_data.get('backgroundColor'),
-                'textFormat': format_data.get('textFormat'),
-                'horizontalAlignment': format_data.get('horizontalAlignment'),
-                'verticalAlignment': format_data.get('verticalAlignment')
+            'data_type': self._get_data_type(value),
+            'style': {
+                'font': {},
+                'fill': {},
+                'alignment': {}
             }
         }
 
-    def _detect_tables(self, sheet_data: Dict) -> List[Dict[str, Any]]:
-        """Detect tables in sheet data based on data patterns and formatting"""
-        tables = []
-        data = sheet_data['data']
-        headers = sheet_data['headers']
+    async def get_tables_in_sheet(self, sheet: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Get all tables in a specific sheet"""
+        try:
+            tables = self.find_tables(sheet)
+            
+            tables_context = []
+            for idx, table in enumerate(tables, 1):
+                table_data = [
+                    [cell['value'] for cell in row]
+                    for row in table['data']
+                ]
+                tables_context.append(f"Table {idx}:\n{table_data}")
 
-        if not data:
-            return tables
 
-        current_table = None
-        for row_idx, row in enumerate(data):
-            # Check if row could be start of a new table
-            if self._is_table_header(row, headers):
-                # If we were tracking a table, close it
-                if current_table:
-                    self._finalize_table(current_table, row_idx + 1)
-                    tables.append(current_table)
+            # Process each table with LLM similar to Excel parser
+            processed_tables = []
+            for table in tables:
+                table_data = [
+                    [cell['value'] for cell in row]
+                    for row in table['data']
+                ]
 
-                # Start new table
-                first_value_col = next((i + 1 for i, cell in enumerate(row) if cell['value']), 1)
-                last_value_col = max((i + 1 for i, cell in enumerate(row) if cell['value']), default=first_value_col)
+                # Format prompt and get LLM response
+                formatted_prompt = prompt.format(
+                    table_data=table_data,
+                    tables_context=tables_context,
+                    start_row=table['start_row'],
+                    start_col=table['start_col'],
+                    end_row=table['end_row'],
+                    end_col=table['end_col'],
+                    num_columns=len(table['data'][0]) if table['data'] else 0
+                )
+
+                messages = [
+                    {"role": "system", "content": "You are a data analysis expert. Respond with only the list of headers."},
+                    {"role": "user", "content": formatted_prompt}
+                ]
+                response = await self.llm.ainvoke(messages)
+
+                try:
+                    new_headers = [h.strip() for h in response.content.strip().split(',')]
+                    if len(new_headers) != len(table['data'][0]):
+                        new_headers = table['headers']
+
+                    processed_tables.append({
+                        'headers': new_headers,
+                        'data': table['data'],
+                        'start_row': table['start_row'],
+                        'start_col': table['start_col'],
+                        'end_row': table['end_row'],
+                        'end_col': table['end_col']
+                    })
+
+                except Exception:
+                    processed_tables.append(table)
+
+            return processed_tables
+
+        except Exception as e:
+            raise
+
+    async def process_sheet_with_summaries(self, llm, sheet: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a sheet and generate all summaries and row texts"""
+        try:
+            self.llm = llm
+            
+            # Get tables in the sheet
+            tables = await self.get_tables_in_sheet(sheet)
+            
+            # Process each table
+            processed_tables = []
+            for table in tables:
+                # Get table summary
+                table_summary = await self.get_table_summary(table)
                 
-                current_table = {
-                    'headers': [cell['value'] for cell in row if cell['value']],
-                    'data': [],
-                    'start_row': row_idx + 2,  # +2 because data starts after header row
-                    'start_col': first_value_col,
-                    'end_col': last_value_col,
-                    'end_row': row_idx + 2  # Initialize with start row, will be updated
-                }
-            elif current_table and any(cell['value'] for cell in row):
-                # Add row to current table
-                current_table['data'].append(row)
-                # Update end_col if this row is wider
-                last_value_col = max((i + 1 for i, cell in enumerate(row) if cell['value']), default=current_table['end_col'])
-                current_table['end_col'] = max(current_table['end_col'], last_value_col)
-                current_table['end_row'] = row_idx + 2
-            elif current_table and not any(cell['value'] for cell in row):
-                # Empty row after data - close current table
-                self._finalize_table(current_table, row_idx + 1)
-                tables.append(current_table)
-                current_table = None
+                # Process rows in batches of 20
+                processed_rows = []
+                batch_size = 20
+                
+                for i in range(0, len(table['data']), batch_size):
+                    batch = table['data'][i:i + batch_size]
+                    row_texts = await self.get_rows_text(batch, table_summary)
+                    
+                    # Add processed rows to results
+                    for row, row_text in zip(batch, row_texts):
+                        processed_rows.append({
+                            'raw_data': {cell['header']: cell['value'] for cell in row},
+                            'natural_language_text': row_text,
+                            'row_num': row[0]['row']
+                        })
+                
+                processed_tables.append({
+                    'headers': table['headers'],
+                    'summary': table_summary,
+                    'rows': processed_rows,
+                    'location': {
+                        'start_row': table['start_row'],
+                        'start_col': table['start_col'],
+                        'end_row': table['end_row'],
+                        'end_col': table['end_col']
+                    }
+                })
+            
+            return {
+                'sheet_name': sheet['name'],
+                'tables': processed_tables
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing sheet with summaries: {str(e)}")
+            raise
 
-        # Close last table if exists
-        if current_table:
-            self._finalize_table(current_table, len(data) + 1)
-            tables.append(current_table)
+    async def get_table_summary(self, table: Dict[str, Any]) -> str:
+        """Get a natural language summary of a specific table"""
+        try:
+            # Prepare sample data
+            sample_data = [
+                {cell['header']: cell['value'] for cell in row}
+                for row in table['data'][:3]  # Use first 3 rows as sample
+            ]
 
-        return tables
+            # Get summary from LLM
+            messages = self.table_summary_prompt.format_messages(
+                headers=table['headers'],
+                sample_data=json.dumps(sample_data, indent=2)
+            )
+            response = await self.llm.ainvoke(messages)
+            return response.content
 
-    def _finalize_table(self, table: Dict[str, Any], last_row: int) -> None:
-        """Finalize table dimensions and ensure all required fields are set"""
-        table['end_row'] = last_row
-        table['end_col'] = max(
-            table['end_col'],
-            len(table['headers']),
-            max((len(row) for row in table['data']), default=table['end_col'])
-        )
-        # Ensure minimum dimensions
-        table['start_col'] = min(table['start_col'], table['end_col'])
-        table['start_row'] = min(table['start_row'], table['end_row'])
+        except Exception as e:
+            logger.error(f"❌ Error getting table summary: {str(e)}")
+            raise
 
-    def _is_table_header(self, row: List[Dict], sheet_headers: List[str]) -> bool:
-        """Determine if a row is likely a table header"""
-        if not any(cell.get('value') for cell in row):
-            return False
+    async def get_rows_text(self, rows: List[List[Dict[str, Any]]], table_summary: str) -> List[str]:
+        """Convert multiple rows into natural language text using context from summaries"""
+        try:
+            # Prepare rows data
+            rows_data = [
+                {cell['header']: cell['value'] for cell in row}
+                for row in rows
+            ]
 
-        # Check if row has different formatting than sheet headers
-        # or contains different values than sheet headers
-        header_cells = [cell for cell in row if cell.get('value')]
-        return (
-            any(cell['format'].get('backgroundColor') for cell in header_cells) or
-            any(cell['format'].get('textFormat', {}).get('bold') for cell in header_cells) or
-            any(cell['value'] != header 
-                for cell, header in zip(header_cells, sheet_headers) 
-                if cell['value'] and header)
-        )
+            # Get natural language text from LLM for all rows
+            messages = self.row_text_prompt.format_messages(
+                table_summary=table_summary,
+                rows_data=json.dumps(rows_data, indent=2)
+            )
 
-    def _get_column_letter(self, column_number: int) -> str:
-        """Convert column number to letter (1 = A, 2 = B, etc.)"""
-        result = ""
-        while column_number > 0:
-            column_number, remainder = divmod(column_number - 1, 26)
-            result = chr(65 + remainder) + result
-        return result
+            response = await self.llm.ainvoke(messages)
+
+            # Parse JSON array from response
+            try:
+                return json.loads(response.content)
+            except json.JSONDecodeError:
+                # Fallback handling for non-JSON responses
+                content = response.content
+                start = content.find('[')
+                end = content.rfind(']')
+                if start != -1 and end != -1:
+                    try:
+                        return json.loads(content[start:end+1])
+                    except json.JSONDecodeError:
+                        return [content]
+                else:
+                    return [content]
+
+        except Exception as e:
+            logger.error(f"❌ Error getting rows text: {str(e)}")
+            raise
 
 async def main():
-    """Test function to demonstrate Google Sheets parsing"""
-    sheets_test = GoogleSheetsTest()
+    """Main function to demonstrate usage"""
+    try:
+        # Initialize parser and authenticate
+        gs_test = GoogleSheetsTest()
+        auth_success = await gs_test.authenticate()
+        
+        # Initialize LLM
+        llm = AzureChatOpenAI(
+            api_key="",
+            model="",
+            azure_endpoint="",
+            api_version="",
+            temperature=0.3,
+            azure_deployment="",
+        )
+        
+        if not auth_success:
+            logger.error("Failed to authenticate")
+            return
 
-    # Authenticate
-    if not await sheets_test.authenticate():
-        logger.error("❌ Authentication failed")
-        return
+        # List and process spreadsheets
+        spreadsheets = await gs_test.list_spreadsheets()
+        if not spreadsheets:
+            logger.info("No spreadsheets found")
+            return
 
-    # List all spreadsheets
-    spreadsheets = await sheets_test.list_spreadsheets()
-    if not spreadsheets:
-        logger.error("❌ No spreadsheets found")
-        return
-
-    # Process first spreadsheet
-    first_sheet = spreadsheets[0]
-    logger.info(f"\n📊 Processing spreadsheet: {first_sheet['name']}")
-    
-    metadata, sheets_data = await sheets_test.get_spreadsheet_data(first_sheet['id'])
-    
-    if metadata and sheets_data:
-        # Display metadata
-        logger.info("\n📑 Spreadsheet Metadata:")
-        logger.info(f"Title: {metadata['title']}")
-        logger.info(f"Locale: {metadata['locale']}")
-        logger.info(f"TimeZone: {metadata['timeZone']}")
-        logger.info(f"Total Sheets: {len(metadata['sheets'])}")
-
-        # Display sheet information
-        for sheet in sheets_data:
-            logger.info(f"\n📋 Sheet: {sheet['name']}")
-            logger.info(f"Headers: {sheet['headers']}")
-            logger.info(f"Total Rows: {len(sheet['data'])}")
+        # Process first spreadsheet
+        spreadsheet = spreadsheets[0]
+        logger.info(f"Processing spreadsheet: {spreadsheet['name']}")
+        
+        # Parse spreadsheet and process each sheet
+        gs_test.spreadsheet_id = spreadsheet['id']
+        parsed_result = await gs_test.parse_spreadsheet(spreadsheet['id'])
+        
+        all_sheet_results = []
+        for sheet in parsed_result['sheets']:
+            sheet_name = sheet['name']
+            logger.info(f"Processing sheet: {sheet_name}")
             
-            # Display tables found
-            for idx, table in enumerate(sheet['tables'], 1):
-                logger.info(f"\n  Table {idx}:")
-                logger.info(f"    Location: {sheets_test._get_column_letter(table['start_col'])}"
-                          f"{table['start_row']}:{sheets_test._get_column_letter(table['end_col'])}"
-                          f"{table['end_row']}")
-                logger.info(f"    Headers: {table['headers']}")
-                logger.info(f"    Rows: {len(table['data'])}")
+            # Process sheet with summaries
+            sheet_result = await gs_test.process_sheet_with_summaries(llm, sheet)
+            all_sheet_results.append(sheet_result)
+            
+            # Log sheet processing results
+            logger.info(f"Processed {len(sheet_result['tables'])} tables in sheet {sheet_name}")
+            for table in sheet_result['tables']:
+                logger.info(f"Table with {len(table['rows'])} rows processed")
+                logger.info(f"Table summary: {table['summary'][:100]}...")
+
+        # Final results summary
+        logger.info("\nProcessing Summary:")
+        logger.info(f"Spreadsheet: {parsed_result['metadata']['title']}")
+        logger.info(f"Total Sheets: {len(parsed_result['sheets'])}")
+        logger.info(f"Total Processed Sheets: {len(all_sheet_results)}")
+        logger.info(f"Total Cells: {parsed_result['total_cells']}")
+
+    except Exception as e:
+        logger.error(f"Error in main: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     asyncio.run(main())
