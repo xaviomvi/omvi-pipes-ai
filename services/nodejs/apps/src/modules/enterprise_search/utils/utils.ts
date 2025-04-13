@@ -27,6 +27,8 @@ export const buildAIResponseMessage = (
 
   return {
     messageType: 'bot_response',
+    createdAt: new Date(),
+    updatedAt: new Date(),
     content: aiResponse.data.answer,
     contentFormat: 'MARKDOWN',
     citations: citations.map((citation) => ({
