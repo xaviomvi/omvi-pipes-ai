@@ -69,7 +69,7 @@ export const addMessageParamsSchema = enterpriseSearchCreateSchema.extend({
   body: z.object({
     filters: z
       .object({
-        app: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
+        apps: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
       })
       .optional(),
   }),
@@ -95,7 +95,7 @@ export const regenerateAnswersParamsSchema = z.object({
   body: z.object({
     filters: z
       .object({
-        app: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
+        apps: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
       })
       .optional(),
   }),
@@ -147,7 +147,7 @@ export const enterpriseSearchSearchSchema = z.object({
     query: z.string().min(1, { message: 'Search query is required' }),
     filters: z
       .object({
-        app: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
+        apps: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
       })
       .optional(),
     limit: z
