@@ -44,7 +44,7 @@ export const saveFileToStorageAndGetDocumentId = async (
   // Add other required fields
   formData.append(
     'documentPath',
-    `PipesHub/KnowledgeBase/${req.user?.userId}/${documentName}`,
+    `PipesHub/KnowledgeBase/private/${req.user?.userId}`,
   );
   formData.append('isVersionedFile', isVersionedFile.toString());
   formData.append('documentName', getFilenameWithoutExtension(documentName));
