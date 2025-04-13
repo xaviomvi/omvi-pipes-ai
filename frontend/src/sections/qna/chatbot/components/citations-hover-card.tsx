@@ -161,7 +161,7 @@ const CitationHoverCard = ({
           </Box>
           {/* Document Metadata */}
           <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 0.5 }}>
-            {citation.metadata?.pageNum && (
+            {citation.metadata?.pageNum[0] && (
               <Chip
                 size="small"
                 label={citation.metadata?.pageNum[0] ? `Page ${citation.metadata?.pageNum[0]}` : ''}
