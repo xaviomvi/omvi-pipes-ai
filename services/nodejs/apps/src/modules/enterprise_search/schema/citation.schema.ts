@@ -6,9 +6,9 @@ interface IBoundingBox {
 }
 
 export interface ICitationMetadata {
-  blockNum?: number | number[] | string;
-  pageNum?: number;
-  sheetNum ?: number;
+  blockNum?: number[];
+  pageNum?: number[];
+  sheetNum?: number;
   sheetName?: string;
   subcategoryLevel1?: string;
   subcategoryLevel2?: string;
@@ -18,7 +18,7 @@ export interface ICitationMetadata {
   connector?: string;
   recordType?: string;
   orgId: string;
-  blockType?: number | string;
+  blockType?: string;
   mimeType: string;
   recordId: string;
   chunkIndex: number;
@@ -58,10 +58,10 @@ const boundingBoxSchema = new Schema<IBoundingBox>({
 });
 
 const citationMetadataSchema = new Schema<ICitationMetadata>({
-  blockNum: { type: Schema.Types.Mixed },
-  pageNum: { type: Number },
-  sheetNum : {type: Number},
-  sheetName : {type : String},
+  blockNum: [{ type: Number }],
+  pageNum: [{ type: Number }],
+  sheetNum: { type: Number },
+  sheetName: { type: String },
   subcategoryLevel1: { type: String },
   subcategoryLevel2: { type: String },
   subcategoryLevel3: { type: String },
@@ -70,7 +70,7 @@ const citationMetadataSchema = new Schema<ICitationMetadata>({
   connector: { type: String },
   recordType: { type: String },
   orgId: { type: String, required: true },
-  blockType: { type: Schema.Types.Mixed },
+  blockType: { type: String },
   mimeType: { type: String, required: true },
   recordId: { type: String, required: true },
   recordVersion: { type: Number, default: 0 },
