@@ -75,12 +75,14 @@ export const createConversation =
           query: req.body.query,
           previousConversations: req.body.previousConversations || [],
           recordIds: req.body.recordIds || [],
+          filters: req.body.filters || {},
         },
       };
 
       logger.debug('Sending query to AI service', {
         requestId,
         query: req.body.query,
+        filters: req.body.filters,
       });
 
       const aiServiceCommand = new AIServiceCommand(aiCommandOptions);
@@ -1803,7 +1805,7 @@ export const search =
     const orgId = req.user?.orgId;
     const userId = req.user?.userId;
     try {
-      const { query, limit } = req.body;
+      const { query, limit, filters } = req.body;
 
       logger.debug('Attempting to search', {
         requestId,
@@ -1816,7 +1818,7 @@ export const search =
         uri: `${aiBackendUrl}/api/v1/search`,
         method: HttpMethod.POST,
         headers: req.headers as Record<string, string>,
-        body: { query, limit },
+        body: { query, limit, filters },
       });
 
       const aiResponse =
