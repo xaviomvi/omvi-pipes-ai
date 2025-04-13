@@ -1,22 +1,10 @@
 // es_schema.ts
 import { z } from 'zod';
+import { APP_TYPES } from '../connectors/connectors';
 
 // Regular expression for MongoDB ObjectId validation
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 
-/**
- * Schema for creating an enterprise search document.
- * This validates that:
- * - query is provided (nonempty, maximum 100000 characters)
- * - conversationSource is provided and is one of the allowed values
- * - If conversationSource is "records":
- *    - conversationSourceRecordId is required and must be a valid ObjectId
- *    - if recordIds are provided, conversationSourceRecordId must be included in them
- * - If conversationSource is "sales":
- *    - conversationSourceRecordId must NOT be provided
- * - Optionally, recordIds, departments
- *   are arrays of valid ObjectIds.
- */
 export const enterpriseSearchCreateSchema = z.object({
   body: z.object({
     query: z
@@ -38,6 +26,11 @@ export const enterpriseSearchCreateSchema = z.object({
           .string()
           .regex(objectIdRegex, { message: 'Invalid department ID format' }),
       )
+      .optional(),
+    filters: z
+      .object({
+        apps: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
+      })
       .optional(),
   }),
 });
@@ -73,6 +66,13 @@ export const addMessageParamsSchema = enterpriseSearchCreateSchema.extend({
       message: 'Invalid conversation ID format',
     }),
   }),
+  body: z.object({
+    filters: z
+      .object({
+        apps: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
+      })
+      .optional(),
+  }),
 });
 
 export const messageIdParamsSchema = z.object({
@@ -91,6 +91,13 @@ export const regenerateAnswersParamsSchema = z.object({
     messageId: z
       .string()
       .regex(objectIdRegex, { message: 'Invalid message ID format' }),
+  }),
+  body: z.object({
+    filters: z
+      .object({
+        apps: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
+      })
+      .optional(),
   }),
 });
 
@@ -138,6 +145,11 @@ export const enterpriseSearchQuerySchema = z.object({
 export const enterpriseSearchSearchSchema = z.object({
   body: z.object({
     query: z.string().min(1, { message: 'Search query is required' }),
+    filters: z
+      .object({
+        apps: z.array(z.enum([APP_TYPES.DRIVE, APP_TYPES.GMAIL])).optional(),
+      })
+      .optional(),
     limit: z
       .preprocess((arg) => Number(arg), z.number().min(1).max(100).default(10))
       .optional(),

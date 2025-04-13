@@ -79,7 +79,7 @@ const citationMetadataSchema = new Schema<ICitationMetadata>({
   bounding_box: [boundingBoxSchema],
   recordName: { type: String, required: true },
   origin: { type: String, required: true },
-  extension: { type: String, required: true },
+  extension: { type: String },
   _id: { type: String },
   score: { type: Number },
   _collection_name: { type: String },

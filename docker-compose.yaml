@@ -2,6 +2,7 @@ services:
   pipeshub-ai:
     image: pipeshub-ai:latest
     container_name: pipeshub-ai
+    restart: always
     build:
       context: ./
       dockerfile: Dockerfile

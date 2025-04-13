@@ -161,7 +161,6 @@ export default function RecordDetails() {
   }
 
   const { record, knowledgeBase, permissions, metadata } = recordData;
-  console.log(metadata);
   const createdAt = new Date(record.createdAtTimestamp).toLocaleString();
   const updatedAt = new Date(record.updatedAtTimestamp).toLocaleString();
 
