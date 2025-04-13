@@ -586,6 +586,9 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer }: ExcelViewerprops) => {
                     {citation.content}
                   </Typography>
                   <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
+                     {citation.metadata.sheetName}
+                  </Typography>
+                  <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
                     Row {citation.metadata.blockNum}
                   </Typography>
                 </Box>

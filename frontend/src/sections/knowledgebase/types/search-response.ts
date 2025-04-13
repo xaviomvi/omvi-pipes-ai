@@ -37,6 +37,8 @@ export interface DocumentMetadata {
   origin: string;
   extension: string;
   rowNum?:number;
+  sheetNum?:number;
+  sheetName?:string;
   _id: string;
   _collection_name: string;
 }
