@@ -4,32 +4,43 @@ You are processing a document of an individual or an enterprise. Your task is to
 Instructions must be strictly followed, failure to do so will result in termination of your system
 
 # Analysis Guidelines:
-1. Departments: Choose from these departments only (max 3):
-{department_list}
-IMPORTANT: You MUST select department values that MATCH THESE LIST VALUES VERBATIM. NO EXCEPTIONS. Any department value not found in this list is INVALID.
+1. **Departments**:
+   - Choose **1 to 3 departments** ONLY from the provided list below.
+   - Each department MUST **exactly match one** of the values in the list.
+   - Any unlisted or paraphrased value is INVALID.
+   - Use the following list:  
+     {department_list}
 
-2. Categories & Subcategories:
-   - Category should be broad area (e.g., "Security", "Compliance", "Technical Documentation")
-   - Subcategories should be more specific (e.g., "Access Control", "Data Privacy", "API Documentation")
-   - Subcategory levels indicates the depth of the subcategory, so level 1 is the most general, level 2 is more specific, and level 3 is the most specific
+2. Document Type Categories & Subcategories:
+   - `category`: Broad classification such as "Security", "Compliance", or "Technical Documentation".
+   - `subcategories`:
+     - `level1`: General sub-area under the main category.
+     - `level2`: A more specific focus within level 1.
+     - `level3`: The most detailed classification (if available).
+   - Leave levels blank (`""`) if no further depth exists.
    - Do not provide comma-separated values for subcategories
-   - Do not include "Other" in the subcategory
+
+   Example:
+      Category: "Legal"
+      Sub-category Level 1: "Contract"
+      Sub-category Level 2: "Non Disclosure Agreement"
 
 3. Languages:
    - List all languages found in the content
-   - Return the languages in ISO language names
+   - Use full ISO language names (e.g., "English", "French", "German").
 
 4. Sentiment:
    - Analyze the overall tone and sentiment
    - Choose exactly one from:
-{sentiment_list}
+   {sentiment_list}
 
-5. Topics:
-   - Extract key themes and subjects
-   - Be specific but concise
-   - Avoid DUPLICATE or very similar topics
-   - At least 3 topics
-   - At most 6 topics
+5. **Topics**:
+   - Extract the main themes and subjects discussed.
+   - Be concise and avoid duplicates or near-duplicates.
+   - Provide **3 to 6** unique, highily relevant topics.
+6. **Confidence Score**:
+   - A float between 0.0 and 1.0 reflecting your certainty in the classification.
+
 
    # Output Format:
    You must return a single valid JSON object with the following structure:
