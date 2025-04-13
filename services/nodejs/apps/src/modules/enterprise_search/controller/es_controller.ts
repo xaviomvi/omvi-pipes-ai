@@ -225,10 +225,7 @@ export const addMessage =
         message: 'Adding message to conversation',
         conversationId: req.params.conversationId,
         query: req.body.query,
-        filters: {
-          recordIds: req.body.recordIds,
-          departments: req.body.departments,
-        },
+        filters: req.body.filters,
         timestamp: new Date().toISOString(),
       });
 
@@ -261,6 +258,7 @@ export const addMessage =
           payload: {
             query: req.body.query,
             previousConversations,
+            filters: req.body.filters,
           },
         });
 
@@ -271,7 +269,7 @@ export const addMessage =
           body: {
             query: req.body.query,
             previousConversations: previousConversations,
-            recordIds: req.body.recordIds || [],
+            filters: req.body.filters || {},
           },
         };
 
