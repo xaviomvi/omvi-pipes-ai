@@ -54,6 +54,9 @@ class EventProcessor:
 
             # Update indexing status to IN_PROGRESS
             record = await self.arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+            if record is None:
+                self.logger.error(f"❌ Record {record_id} not found in database")
+                return
             doc = dict(record)
 
             # Update with new metadata fields

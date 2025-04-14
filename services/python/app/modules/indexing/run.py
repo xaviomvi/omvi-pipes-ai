@@ -676,7 +676,7 @@ class IndexingPipeline:
             if meta.get('pageNum'):
                 enhanced_metadata['pageNum'] = meta.get('pageNum')
 
-            self.logger.debug(f"enhanced_metadata: {enhanced_metadata}")
+            self.logger.debug(f"Enhanced metadata processed")
             return enhanced_metadata
 
         except MetadataProcessingError:
