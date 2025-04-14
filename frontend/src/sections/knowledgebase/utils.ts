@@ -47,7 +47,7 @@ export const searchKnowledgeBase = async (
         departments: filters.department || [],
         moduleIds: filters.moduleId || [],
         appSpecificRecordTypes: filters.appSpecificRecordType || [],
-        app:filters.app || []
+        apps:filters.app || []
       }
     };
 
