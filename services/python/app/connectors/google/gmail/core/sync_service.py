@@ -419,7 +419,7 @@ class BaseGmailSyncService(ABC):
                                 'mimeType': attachment.get('mimeType'),
                                 "extension": attachment.get('extension'),
                                 
-                                'sizeInBytes': int(attachment.get('size')),
+                                'sizeInBytes': int(attachment.get('size', 0)),
                                 'webUrl': f"https://mail.google.com/mail?authuser={{user.email}}#all/{message_id}",
                             }
                             record = {

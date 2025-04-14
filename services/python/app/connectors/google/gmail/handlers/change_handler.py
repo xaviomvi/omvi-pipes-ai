@@ -143,7 +143,7 @@ class GmailChangeHandler:
                                         'isFile': True,
                                         'mimeType': attachment.get('mimeType'),
                                         'name': attachment.get('filename'),
-                                        'sizeInBytes': int(attachment.get('size')),
+                                        'sizeInBytes': int(attachment.get('size', 0)),
                                         "extension": attachment.get('extension'),
                                         'webUrl': f"https://mail.google.com/mail?authuser={{user.email}}#all/{message_id}",
                                     }
