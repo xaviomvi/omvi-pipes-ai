@@ -83,7 +83,6 @@ class CustomChunker(SemanticChunker):
                 for index in indices_above_thresh:
                     # Get group of documents to merge
                     group = documents[start_index:index + 1]
-                    self.logger.info("Group: %s", group)
                     
                     # Merge text content
                     merged_text = " ".join(doc.page_content for doc in group)
@@ -118,7 +117,6 @@ class CustomChunker(SemanticChunker):
                 # Handle the last group
                 if start_index < len(documents):
                     group = documents[start_index:]
-                    self.logger.debug("Group: %s", group)
                 
                     merged_text = " ".join(doc.page_content for doc in group)
                     

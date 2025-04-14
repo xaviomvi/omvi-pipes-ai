@@ -341,7 +341,6 @@ class AzureOCRStrategy(OCRStrategy):
                         block_spans.append(span_data)
 
                         # Process individual characters if available
-                        self.logger.debug("🔤 Processing words in span")
                         for char in span.get("chars", []):
                             word_text = char.get("c", "").strip()
                             if word_text:
@@ -363,7 +362,6 @@ class AzureOCRStrategy(OCRStrategy):
         }
 
         # Process sentences using the lines
-        self.logger.debug("🔄 Processing sentences from lines")
         sentences = self._merge_lines_to_sentences(block_lines)
         processed_sentences = []
         for sentence in sentences:
@@ -405,8 +403,6 @@ class AzureOCRStrategy(OCRStrategy):
         Returns:
             Dictionary containing processed text data including lines, spans, words and metadata
         """
-        self.logger.debug("================================================")
-        self.logger.debug(f"🔤 Processing block content: {block.content}")
         block_text = []
         block_words = []
 
@@ -499,7 +495,6 @@ class AzureOCRStrategy(OCRStrategy):
     def _preprocess_document(self, needs_ocr: bool) -> Dict[str, Any]:
         """Pre-process document to match PyMuPDF's structure"""
         self.logger.debug("🔄 Starting document pre-processing")
-        self.logger.debug(f"attributes: {dir(self.doc)}")
         # Handle both Azure and PyMuPDF document types
         result = {
             "pages": [],
@@ -511,17 +506,11 @@ class AzureOCRStrategy(OCRStrategy):
         }
 
         if needs_ocr:
-            self.logger.debug("self.doc has attribute pages")
             doc_pages = self.doc.pages
-            self.logger.debug(f"Number of pages: {len(doc_pages)}")
             
         else:
-            self.logger.debug("self.doc does not have attribute pages")
             doc_pages = range(len(self.doc))  # PyMuPDF case
-            # doc_pages = self.doc.pages()
-            self.logger.debug(f"DOC PAGES: {doc_pages}")
             
-
         # First pass: collect all lines and paragraphs by page
         for page in doc_pages:
             if hasattr(page, 'page_number'):

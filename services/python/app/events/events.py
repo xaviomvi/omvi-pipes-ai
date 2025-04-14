@@ -87,7 +87,7 @@ class EventProcessor:
             supported_extensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "html", "pptx", "ppt", "md", "txt"]
 
             if mime_type not in supported_mime_types and extension not in supported_extensions:
-                self.logger.info(f"🔴🔴🔴 Unsupported: Mime Type: {mime_type}, Extension: {extension} 🔴🔴🔴")
+                self.logger.info(f"🔴🔴🔴 Unsupported file: Mime Type: {mime_type}, Extension: {extension} 🔴🔴🔴")
                 doc = docs[0]
                 doc.update({
                     "indexingStatus": "FILE_TYPE_NOT_SUPPORTED",

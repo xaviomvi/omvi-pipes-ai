@@ -114,7 +114,6 @@ async def handle_gmail_webhook(
 
         # Get the message from the body
         message = body.get("message")
-        logger.info("Received message: %s", message)
         if not message:
             logger.warning("No message found in webhook body")
             return {"status": "error", "message": "No message found"}
@@ -125,7 +124,6 @@ async def handle_gmail_webhook(
             try:
                 decoded_data = base64.b64decode(data).decode("utf-8")
                 notification = json.loads(decoded_data)
-                logger.info("Received notification: %s", notification)
 
                 # Process the notification
                 background_tasks.add_task(
@@ -526,8 +524,6 @@ async def download_file(
         try:
             SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 
-            logger.info(f"🚀 Getting user credentials for {user_id}")
-            logger.info(f"🚀 Getting user credentials for {org_id}")
             await google_token_handler.refresh_token(org_id, user_id)
             creds_data = await google_token_handler.get_individual_token(org_id, user_id)
             # Create credentials object from the response using google.oauth2.credentials.Credentials
@@ -647,7 +643,6 @@ async def download_file(
                     all_sheet_results = []
                     for sheet_idx, sheet in enumerate(parsed_result['sheets'], 1):
                         sheet_name = sheet['name']
-                        logger.info(f"Processing sheet: {sheet_name}")
                         
                         # Process sheet with summaries
                         sheet_data = await google_sheets_parser.process_sheet_with_summaries(llm, sheet_name, file_id)
@@ -655,10 +650,7 @@ async def download_file(
                             continue
                         
                         all_sheet_results.append(sheet_data)
-                        
-                    logger.info(f"all_sheet_results: {all_sheet_results}")
-                    logger.info(f"parsed_result: {parsed_result}")
-                    
+                                            
                     result = {
                         'parsed_result': parsed_result,
                         'all_sheet_results': all_sheet_results
@@ -873,7 +865,6 @@ async def stream_record(
     try:
         try:
             auth_header = request.headers.get('Authorization')
-            logger.info(f"Auth header: {auth_header}")
             if not auth_header or not auth_header.startswith("Bearer "):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -883,7 +874,6 @@ async def stream_record(
             token = auth_header.split(" ")[1]
             secret_keys = await config_service.get_config(config_node_constants.SECRET_KEYS.value)
             jwt_secret = secret_keys.get('jwtSecret')
-            logger.info(f"Token: {token}")
             payload = jwt.decode(
                 token,
                 jwt_secret,
@@ -1051,7 +1041,6 @@ async def stream_record(
 
                 cursor = arango_service.db.aql.execute(aql_query)
                 messages = list(cursor)
-                logger.info(f"🚀 Query results: {messages}")
 
                 # First try getting the attachment from Gmail
                 try:
