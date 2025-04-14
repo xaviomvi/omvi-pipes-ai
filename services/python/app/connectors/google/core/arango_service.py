@@ -892,6 +892,11 @@ class ArangoService(BaseArangoService):
 
             db = transaction if transaction else self.db
             record_id_full = f"records/{node_key}"
+            
+            record = await self.get_document(node_key, CollectionNames.RECORDS.value)
+            if not record:
+                self.logger.warning("⚠️ Record %s not found in Records collection", node_key)
+                return False
 
             # Define all edge collections used in the graph
             EDGE_COLLECTIONS = [
@@ -938,16 +943,25 @@ class ArangoService(BaseArangoService):
                     REMOVE doc IN @@files
                     RETURN OLD
             )
+            
+            LET removed_mail = (
+                FOR doc IN @@mails
+                    FILTER doc._key == @node_key
+                    REMOVE doc IN @@mails
+                    RETURN OLD
+            )
 
             RETURN {
                 record_removed: LENGTH(removed_record) > 0,
-                file_removed: LENGTH(removed_file) > 0
+                file_removed: LENGTH(removed_file) > 0,
+                mail_removed: LENGTH(removed_mail) > 0
             }
             """
             bind_vars = {
                 'node_key': node_key,
                 '@records': CollectionNames.RECORDS.value,
-                '@files': CollectionNames.FILES.value
+                '@files': CollectionNames.FILES.value,
+                '@mails': CollectionNames.MAILS.value
             }
 
             cursor = db.aql.execute(delete_query, bind_vars=bind_vars)

@@ -243,7 +243,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # List of paths to apply authentication to
-INCLUDE_PATHS = ["/api/v1/stream/record/"]
+INCLUDE_PATHS = ["/api/v1/stream/record/", "/api/v1/delete/"]
 
 @app.middleware("http")
 async def authenticate_requests(request: Request, call_next):

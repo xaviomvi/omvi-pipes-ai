@@ -481,6 +481,33 @@ async def get_google_slides_parser(request: Request):
         logger.warning(f"Failed to get google slides parser: {str(e)}")
         return None
 
+@router.delete("/api/v1/delete/{org_id}/record/{record_id}")
+@inject
+async def handle_record_deletion(
+    record_id: str,
+    arango_service = Depends(Provide[AppContainer.arango_service])
+):
+    try:
+        response = await arango_service.delete_records_and_relations(record_id, hard_delete=True)
+        if not response:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Record with ID {record_id} not found"
+            )
+        return {
+            "status": "success",
+            "message": "Record deleted successfully",
+            "response": response
+        }
+    except HTTPException as he:
+        raise he  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        logger.error(f"Error deleting record: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while deleting record: {str(e)}"
+        )
+
 @router.get("/api/v1/index/{org_id}/{connector}/record/{record_id}")
 @inject
 async def download_file(
