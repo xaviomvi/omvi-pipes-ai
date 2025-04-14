@@ -27,7 +27,6 @@ class GoogleTokenHandler:
             scoped_jwt_secret,
             algorithm='HS256'
         )
-        self.logger.info(f"🚀 JWT Token: {jwt_token}")
         
         headers = {
             "Authorization": f"Bearer {jwt_token}"
@@ -35,7 +34,6 @@ class GoogleTokenHandler:
         
         endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
         nodejs_endpoint = endpoints.get('cm').get('endpoint')
-        self.logger.info(f"🚀 Nodejs Endpoint: {nodejs_endpoint}")
         
         # Fetch credentials from API
         async with aiohttp.ClientSession() as session:
@@ -87,7 +85,6 @@ class GoogleTokenHandler:
                         raise Exception(f"Failed to refresh token: {await response.json()}")
                     
                     creds_data = await response.json()
-                    self.logger.info("🚀 Access Token Refresh response: %s", creds_data)
                                
             self.logger.info("✅ Successfully refreshed access token")
 

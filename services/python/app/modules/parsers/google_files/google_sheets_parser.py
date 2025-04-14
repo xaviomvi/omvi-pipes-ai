@@ -173,7 +173,6 @@ class GoogleSheetsParser:
                 range=range_name
             ).execute()
             values = result.get('values', [])
-            self.logger.info(f"values: {values}")
 
             if not values:
                 return tables
@@ -423,9 +422,6 @@ class GoogleSheetsParser:
                         'end_col': table['end_col']
                     }
                 })
-            for table in processed_tables:
-                self.logger.info(f"table rows: {len(table['rows'])}")
-                self.logger.info(f"table rows: {table['rows']}")
             return {
                 'sheet_name': sheet_name,
                 'tables': processed_tables

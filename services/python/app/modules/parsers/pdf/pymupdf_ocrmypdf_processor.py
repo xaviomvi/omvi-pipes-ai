@@ -593,7 +593,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                 self.logger.info("\n📝 Sample sentences:")
                 # Show first 3 sentences
                 for i, sent in enumerate(page_sentences[:3]):
-                    self.logger.info(f"{i+1}. '{sent['content'][:100]}...'")
                     self.logger.info("   Block: %s, BBox: %s",
                                 sent['block_number'], sent['bounding_box'])
 
@@ -601,7 +600,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                 self.logger.info("\n📚 Sample paragraphs:")
                 # Show first 2 paragraphs
                 for i, para in enumerate(page_paragraphs[:2]):
-                    self.logger.info(f"{i+1}. '{para['content'][:100]}...'")
                     self.logger.info("   Block: %s, BBox: %s",
                                 para['block_number'], para['bounding_box'])
 
