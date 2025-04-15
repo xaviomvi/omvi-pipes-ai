@@ -405,6 +405,7 @@ class DriveUserService:
                         includeItemsFromAllDrives=True,
                         includeRemoved=True
                     ).execute()
+                    self.logger.info("🚀 Changes watch created successfully: %s", response)
                 except HttpError as e:
                     if e.resp.status == 403:
                         raise DrivePermissionError(
@@ -432,10 +433,10 @@ class DriveUserService:
                     )
 
                 data = {
-                    'channel_id': channel_id,
-                    'resource_id': response['resourceId'],
-                    'page_token': page_token,
-                    'expiration': expiration_time.isoformat()
+                    'channelId': channel_id,
+                    'resourceId': response['resourceId'],
+                    'token': page_token,
+                    'expiration': int(response['expiration'])
                 }
 
                 self.logger.info("✅ Changes watch created successfully")

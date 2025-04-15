@@ -32,6 +32,18 @@ class GmailChangeHandler:
                         if not message_id:
                             continue
 
+                        # Check if message already exists
+                        self.logger.debug("🔍 Checking if message %s exists in ArangoDB", message_id)
+                        existing_message = self.arango_service.db.aql.execute(
+                            f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @message_id RETURN doc',
+                            bind_vars={'message_id': message_id}
+                        )
+                        existing_message = next(existing_message, None)
+
+                        if existing_message:
+                            self.logger.debug("♻️ Message %s already exists in ArangoDB, skipping", message_id)
+                            continue
+
                         # Fetch full message details
                         message_data = await user_service.get_message(message_id)
                         if not message_data:
@@ -273,19 +285,21 @@ class GmailChangeHandler:
                             message_event)
                         self.logger.info("📨 Sent Kafka reindexing event for record %s", record["_key"])
                         
-                        if attachments:
-                            for attachment in attachments:
-                                attachment_key = await self.arango_service.get_key_by_attachment_id(attachment['attachment_id'])
+                        if attachment_records:
+                            for attachment in attachment_records:
+                                attachment_key = attachment['_key']
+                                extension = attachment.get('extension') if attachment.get('extension') else attachment.get('recordName').split('.')[-1]
                                 attachment_event = {
                                     "orgId": org_id,
                                     "recordId": attachment_key,
-                                    "recordName": attachment.get('filename', 'Unnamed Attachment'),
+                                    "recordName": attachment.get('recordName', 'Unnamed Attachment'),
                                     "recordType": RecordTypes.ATTACHMENT.value,
                                     "recordVersion": 0,
                                     'eventType': EventTypes.NEW_RECORD.value,
                                     "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
                                     "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
                                     "connectorName": Connectors.GOOGLE_MAIL.value,
+                                    "extension": extension,
                                     "origin": OriginTypes.CONNECTOR.value,
                                     "mimeType": attachment.get('mimeType', 'application/octet-stream'),
                                     "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
@@ -305,30 +319,24 @@ class GmailChangeHandler:
                             continue
 
                         try:
-                            # Find the message in ArangoDB
+                            # Check if message exists before attempting deletion
                             existing_message = next(self.arango_service.db.aql.execute(
-                                f'FOR doc IN {CollectionNames.MAILS.value} FILTER doc.externalMessageId == @message_id RETURN doc',
+                                f'FOR doc IN {CollectionNames.RECORDS.value} FILTER doc.externalRecordId == @message_id RETURN doc',
                                 bind_vars={'message_id': message_id}
                             ), None)
 
                             if not existing_message:
+                                self.logger.debug("⚠️ Message %s not found in ArangoDB, skipping deletion", message_id)
                                 continue
-
-                            # Start transaction
+                            
                             txn = self.arango_service.db.begin_transaction(
-                                read=[CollectionNames.MAILS.value, 
-                                      CollectionNames.PERMISSIONS.value,
-                                      CollectionNames.FILES.value,
-                                      CollectionNames.RECORDS.value,
-                                      CollectionNames.IS_OF_TYPE.value,
-                                      CollectionNames.RECORD_RELATIONS.value
-                                      ],
-                                write=[CollectionNames.MAILS.value, 
-                                       CollectionNames.PERMISSIONS.value,
-                                       CollectionNames.FILES.value,
-                                       CollectionNames.RECORDS.value,
-                                       CollectionNames.RECORD_RELATIONS.value,
-                                       CollectionNames.IS_OF_TYPE.value]
+                                read=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
+                                    CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
+                                    CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],
+                                
+                                write=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
+                                    CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
+                                    CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],
                             )
 
                             try:
@@ -340,20 +348,7 @@ class GmailChangeHandler:
                                     transaction=txn
                                 )
 
-                                # Delete attachments
-                                await self.arango_service.db.aql.execute(
-                                    'FOR a IN attachments FILTER a.messageId == @message_id REMOVE a IN attachments',
-                                    bind_vars={'message_id': message_id},
-                                    transaction=txn
-                                )
-
-                                # Delete message
-                                await self.arango_service.db.aql.execute(
-                                    f'REMOVE @key IN {CollectionNames.MAILS.value}',
-                                    bind_vars={
-                                        'key': existing_message['_key']},
-                                    transaction=txn
-                                )
+                                await self.arango_service.delete_records_and_relations(existing_message['_key'], hard_delete=True, transaction=txn)
 
                                 txn.commit_transaction()
 

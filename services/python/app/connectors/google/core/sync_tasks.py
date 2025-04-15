@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from app.core.celery_app import CeleryApp
 import asyncio
 from app.config.arangodb_constants import CollectionNames
-
+from app.config.configuration_service import WebhookConfig
 class SyncTasks:
     """Class to manage sync-related Celery tasks"""
 
@@ -348,7 +348,7 @@ class SyncTasks:
                 f"✅ Successfully created new changes watch for {user_email}")
 
             # Schedule next watch
-            next_run_time = datetime.now() + timedelta(days=6, hours=12)
+            next_run_time = datetime.now() + timedelta(days=WebhookConfig.EXPIRATION_DAYS.value, hours=(WebhookConfig.EXPIRATION_HOURS.value-12), minutes=(WebhookConfig.EXPIRATION_MINUTES.value))
             self.schedule_next_changes_watch_task.apply_async(
                 args=[user_email],
                 eta=next_run_time

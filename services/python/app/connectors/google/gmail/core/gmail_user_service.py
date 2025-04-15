@@ -725,10 +725,14 @@ class GmailUserService:
                         'topicName': topic,
                         'labelIds': ['INBOX']
                     }
+                    # self.service.users().stop(
+                    #     userId=user_id,
+                    # )
                     response = self.service.users().watch(
-                        userId=user_id, 
+                        userId=user_id,
                         body=request_body
                     ).execute()
+                    response['expiration'] = int(response['expiration'])
             except HttpError as e:
                 if e.resp.status == 403:
                     raise GoogleAuthError(

@@ -78,11 +78,11 @@ class DriveChangeHandler:
             """)
 
             txn = self.arango_service.db.begin_transaction(
-                read=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
+                read=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                       CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
                       CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],
                 
-                write=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
+                write=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                       CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
                       CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],
             )

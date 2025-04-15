@@ -116,11 +116,6 @@ class AbstractGmailWebhookHandler(ABC):
         """
         pass
 
-    @abstractmethod
-    async def handle_downtime(self, org_id):
-        """Handle system downtime recovery"""
-        pass
-
 
 class IndividualGmailWebhookHandler(AbstractGmailWebhookHandler):
     """Handles webhooks for individual user accounts"""
@@ -171,7 +166,7 @@ class IndividualGmailWebhookHandler(AbstractGmailWebhookHandler):
                 current_history_id = channel_history['historyId']
                 changes = await user_service.fetch_gmail_changes(email_address, current_history_id)
 
-                await self.arango_service.store_channel_history_id(changes, email_address)
+                await self.arango_service.store_channel_history_id(changes['historyId'], channel_history['expiration'], email_address)
                 
                 user_id = await self.arango_service.get_entity_id_by_email(email_address)
                 
@@ -200,27 +195,6 @@ class IndividualGmailWebhookHandler(AbstractGmailWebhookHandler):
         except Exception as e:
             self.logger.error("%s webhook: Error processing notification data: %s",
                          self.handler_type, str(e), exc_info=True)
-            return False
-
-    async def handle_downtime(self, org_id):
-        """Handle downtime for individual users"""
-        try:
-            user = self.arango_service.get_users(org_id)
-            user_email = user
-            success_count = 0
-
-            # for token in tokens:
-            #     if not token or not token.get('token'):
-            #         continue
-
-            if await self._process_user_changes():
-                success_count += 1
-
-            return success_count > 0
-
-        except Exception as e:
-            self.logger.error("%s downtime handling failed: %s",
-                         self.handler_type, str(e))
             return False
 
 
@@ -285,7 +259,7 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                 self.logger.debug("current_history_id: %s", current_history_id)
                 changes = await user_service.fetch_gmail_changes(email_address, current_history_id)
 
-                await self.arango_service.store_channel_history_id(changes, email_address)
+                await self.arango_service.store_channel_history_id(changes['historyId'], channel_history['expiration'], email_address)
                 
                 user_id = await self.arango_service.get_entity_id_by_email(email_address)
                 # Get org_id from belongsTo relation for this user
@@ -297,7 +271,6 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                 """
                 cursor = self.arango_service.db.aql.execute(query)
                 org_id = next(cursor, None)
-
 
                 if changes:
                     self.logger.info("%s webhook: Found %s changes to process",
@@ -316,28 +289,3 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                          self.handler_type, str(e), exc_info=True)
             return False
 
-    async def handle_downtime(self, org_id):
-        """Handle downtime for the entire organization"""
-        try:
-            users = await self.arango_service.get_users(org_id)
-            success_count = 0
-
-            for user in users:
-                try:
-                    user_service = await self.gmail_admin_service.create_gmail_user_service(user['email'])
-                    changes = await user_service.get_changes()
-                    if changes:
-                        for change in changes:
-                            await self.change_handler.process_changes(user_service, change, org_id, user)
-                        success_count += 1
-                except Exception as e:
-                    self.logger.error("Error processing user %s: %s",
-                                 user['email'], str(e))
-                    continue
-
-            return success_count > 0
-
-        except Exception as e:
-            self.logger.error("%s downtime handling failed: %s",
-                         self.handler_type, str(e))
-            return False

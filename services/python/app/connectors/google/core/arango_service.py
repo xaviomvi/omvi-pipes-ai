@@ -20,7 +20,7 @@ class ArangoService(BaseArangoService):
         self.kafka_service = kafka_service
         self.logger = logger
 
-    async def store_page_token(self, channel_id: str, resource_id: str, user_email: str, token: str):
+    async def store_page_token(self, channel_id: str, resource_id: str, user_email: str, token: str, expiration: Optional[str] = None):
         """Store page token with user channel information"""
         try:
             self.logger.info("""
@@ -30,7 +30,8 @@ class ArangoService(BaseArangoService):
             - Resource: %s
             - User Email: %s
             - Token: %s
-            """, channel_id, resource_id, user_email, token)
+            - Expiration: %s
+            """, channel_id, resource_id, user_email, token, expiration)
 
             if not self.db.has_collection(CollectionNames.PAGE_TOKENS.value):
                 self.db.create_collection(CollectionNames.PAGE_TOKENS.value)
@@ -41,7 +42,8 @@ class ArangoService(BaseArangoService):
                 'resourceId': resource_id,
                 'userEmail': user_email,
                 'token': token,
-                'createdAtTimestamp': get_epoch_timestamp_in_ms()
+                'createdAtTimestamp': get_epoch_timestamp_in_ms(),
+                'expiration': expiration
             }
 
             # Upsert to handle updates to existing channel tokens
@@ -140,7 +142,7 @@ class ArangoService(BaseArangoService):
             self.logger.error("❌ Error getting all channel tokens: %s", str(e))
             return []
 
-    async def store_channel_history_id(self, channel_data, user_email: str):
+    async def store_channel_history_id(self, history_id: str, expiration: str, user_email: str):
         """
         Store the latest historyId for a user's channel watch
 
@@ -153,17 +155,17 @@ class ArangoService(BaseArangoService):
         try:
             self.logger.info(f"🚀 Storing historyId for user {user_email}")
 
-            history_id = channel_data['historyId']
-
             query = """
             UPSERT { userEmail: @userEmail }
             INSERT { 
                 userEmail: @userEmail, 
                 historyId: @historyId,
+                expiration: @expiration,
                 updatedAt: DATE_NOW()
             }
             UPDATE { 
                 historyId: @historyId,
+                expiration: @expiration,
                 updatedAt: DATE_NOW()
             } IN channelHistory
             RETURN NEW
@@ -174,6 +176,7 @@ class ArangoService(BaseArangoService):
                 bind_vars={
                     'userEmail': user_email,
                     'historyId': history_id,
+                    'expiration': expiration
                 }
             ))
 
@@ -205,10 +208,7 @@ class ArangoService(BaseArangoService):
             query = """
             FOR history IN channelHistory
             FILTER history.userEmail == @userEmail
-            RETURN {
-                historyId: history.historyId,
-                updatedAt: history.updatedAt
-            }
+            RETURN history
             """
 
             result = list(self.db.aql.execute(
@@ -409,9 +409,6 @@ class ArangoService(BaseArangoService):
             db = transaction if transaction else self.db
             cursor = db.aql.execute(query, bind_vars=bind_vars)
             result = list(cursor)
-
-            # Log the detailed results
-            self.logger.info("🔍 Query diagnostic results: %s", result)
 
             if not result or not result[0]['found_relations']:
                 self.logger.warning("⚠️ No relations found for record %s", file_key)
