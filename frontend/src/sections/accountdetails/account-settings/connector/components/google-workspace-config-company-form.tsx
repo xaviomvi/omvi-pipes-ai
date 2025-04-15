@@ -1,4 +1,3 @@
-// Icon imports
 import infoOutlineIcon from '@iconify-icons/eva/info-outline';
 import editOutlineIcon from '@iconify-icons/eva/edit-outline';
 import trashOutlineIcon from '@iconify-icons/eva/trash-outline';
@@ -6,6 +5,8 @@ import uploadOutlineIcon from '@iconify-icons/eva/upload-outline';
 import downloadOutlineIcon from '@iconify-icons/eva/download-outline';
 import fileTextOutlineIcon from '@iconify-icons/mdi/file-text-outline';
 import checkmarkCircleOutlineIcon from '@iconify-icons/eva/checkmark-circle-outline';
+import saveOutlineIcon from '@iconify-icons/eva/save-outline';
+import closeOutlineIcon from '@iconify-icons/eva/close-outline';
 import { useRef, useState, useEffect, forwardRef, useCallback, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -24,6 +25,7 @@ import {
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
+import { getConnectorPublicUrl } from '../../services/utils/services-configuration-service';
 
 interface GoogleWorkspaceConfigFormProps {
   onValidationChange: (isValid: boolean) => void;
@@ -41,9 +43,14 @@ export const GoogleWorkspaceConfigForm = forwardRef<
 >(({ onValidationChange, onSaveSuccess, onFileRemoved }, ref) => {
   const theme = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [enableRealTimeUpdates, setEnableRealTimeUpdates] = useState(false);
+  const [skipValidation, setSkipValidation] = useState(false);
+  const [topicName, setTopicName] = useState('');
+  const [topicNameError, setTopicNameError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formEditMode, setFormEditMode] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
@@ -51,6 +58,29 @@ export const GoogleWorkspaceConfigForm = forwardRef<
   const [hasExistingFile, setHasExistingFile] = useState(false);
   const [adminEmail, setAdminEmail] = useState<string>('');
   const [adminEmailError, setAdminEmailError] = useState<string | null>(null);
+  const [webhookBaseUrl, setWebhookBaseUrl] = useState('');
+
+  // Store original values for cancel operation
+  const [originalState, setOriginalState] = useState({
+    adminEmail: '',
+    topicName: '',
+    enableRealTimeUpdates: false,
+    selectedFile: null as File | null,
+    fileName: null as string | null,
+  });
+
+  const validateTopicName = useCallback(
+    (name: string): boolean => {
+      if (enableRealTimeUpdates && !name.trim()) {
+        setTopicNameError('Topic name is required when real-time updates are enabled');
+        return false;
+      }
+
+      setTopicNameError(null);
+      return true;
+    },
+    [enableRealTimeUpdates]
+  );
 
   // Validate email format
   const validateEmail = useCallback((email: string): boolean => {
@@ -73,72 +103,181 @@ export const GoogleWorkspaceConfigForm = forwardRef<
 
   // Validate form based on file and admin email
   const validateForm = useCallback(
-    (hasFile: boolean, email: string) => {
+    (hasFile: boolean, email: string, enableUpdates: boolean, topic: string) => {
       const isFileValid = hasFile;
       const isEmailValid = validateEmail(email);
+      const isTopicValid = !enableUpdates || validateTopicName(topic);
 
-      onValidationChange(isFileValid && isEmailValid);
-      return isFileValid && isEmailValid;
+      onValidationChange(isFileValid && isEmailValid && isTopicValid);
+      return isFileValid && isEmailValid && isTopicValid;
     },
-    [onValidationChange, validateEmail]
+    [onValidationChange, validateEmail, validateTopicName]
   );
+
+  // Enable edit mode
+  const handleEnterEditMode = () => {
+    // Store original values before editing
+    setOriginalState({
+      adminEmail,
+      topicName,
+      enableRealTimeUpdates,
+      selectedFile,
+      fileName,
+    });
+
+    setFormEditMode(true);
+    setIsEditing(false); // Reset isEditing to make sure validation works during edit mode
+  };
+
+  // Cancel edit mode and restore original values
+  const handleCancelEdit = () => {
+    setAdminEmail(originalState.adminEmail);
+    setTopicName(originalState.topicName);
+    setEnableRealTimeUpdates(originalState.enableRealTimeUpdates);
+    setSelectedFile(originalState.selectedFile);
+    setFileName(originalState.fileName);
+
+    // Clear any errors
+    setAdminEmailError(null);
+    setTopicNameError(null);
+    setFileUploadError(null);
+
+    setFormEditMode(false);
+    setIsEditing(false);
+
+    // Re-validate with original values
+    validateForm(
+      hasExistingFile,
+      originalState.adminEmail,
+      originalState.enableRealTimeUpdates,
+      originalState.topicName
+    );
+  };
 
   // Load existing configuration on component mount
   useEffect(() => {
-    const fetchExistingConfig = async () => {
-      try {
-        const response = await axios.get('/api/v1/connectors/credentials', {
-          params: {
-            service: 'googleWorkspace',
-          },
-        });
+    if (!isEditing && !formEditMode) {
+      const fetchExistingConfig = async () => {
+        try {
+          const response = await axios.get('/api/v1/connectors/credentials', {
+            params: {
+              service: 'googleWorkspace',
+            },
+          });
 
-        if (response.data && response.data.isConfigured) {
-          setHasExistingFile(true);
-          if (response.data.fileName) {
-            setFileName(response.data.fileName);
-          } else {
-            setFileName('google-workspace-credentials.json');
+          if (response.data && response.data.isConfigured) {
+            setHasExistingFile(true);
+            if (response.data.fileName) {
+              setFileName(response.data.fileName);
+            } else {
+              setFileName('google-workspace-credentials.json');
+            }
+            if (Object.prototype.hasOwnProperty.call(response.data, 'enableRealTimeUpdates')) {
+              // Convert the value to an actual boolean before setting state
+              const realTimeUpdatesEnabled =
+                typeof response.data.enableRealTimeUpdates === 'string'
+                  ? response.data.enableRealTimeUpdates.toLowerCase() === 'true'
+                  : Boolean(response.data.enableRealTimeUpdates);
+
+              setEnableRealTimeUpdates(realTimeUpdatesEnabled);
+              if (response.data.topicName) {
+                setTopicName(response.data.topicName);
+              }
+            }
+            // Set admin email if it exists in the response
+            if (response.data.adminEmail) {
+              setAdminEmail(response.data.adminEmail);
+            }
+
+            // Store original values
+            setOriginalState({
+              adminEmail: response.data.adminEmail || '',
+              topicName: response.data.topicName || '',
+              enableRealTimeUpdates: response.data.enableRealTimeUpdates || false,
+              selectedFile: null,
+              fileName: response.data.fileName || 'google-workspace-credentials.json',
+            });
+
+            validateForm(
+              true,
+              response.data.adminEmail || '',
+              response.data?.enableRealTimeUpdates,
+              response.data?.topicName
+            );
           }
-
-          // Set admin email if it exists in the response
-          if (response.data.adminEmail) {
-            setAdminEmail(response.data.adminEmail);
-          }
-
-          validateForm(true, response.data.adminEmail || '');
+        } catch (error) {
+          console.error('Error fetching existing configuration:', error);
+          // If error, assume no config exists
+          setHasExistingFile(false);
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error('Error fetching existing configuration:', error);
-        // If error, assume no config exists
-        setHasExistingFile(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      };
 
-    fetchExistingConfig();
-  }, [validateForm]);
+      fetchExistingConfig();
+    }
+  }, [validateForm, formEditMode, isEditing]);
 
   // Expose the handleSave method to the parent component
   useImperativeHandle(ref, () => ({
     handleSave,
   }));
 
+  useEffect(() => {
+    const fetchConnectorUrl = async () => {
+      try {
+        const config = await getConnectorPublicUrl();
+        if (config?.url) {
+          setWebhookBaseUrl(config.url);
+        }
+      } catch (error) {
+        console.error('Failed to load connector URL', error);
+        // Fallback to window location if we can't get the connector URL
+        setWebhookBaseUrl(window.location.origin);
+      }
+    };
+
+    fetchConnectorUrl();
+  }, []);
+
   // Update validation state when file is selected or removed or admin email changes
   useEffect(() => {
-    validateForm(hasExistingFile || !!selectedFile, adminEmail);
-  }, [selectedFile, hasExistingFile, adminEmail, validateForm]);
+    // Always validate during edit mode, or when not editing
+    if (formEditMode || !isEditing) {
+      validateForm(hasExistingFile || !!selectedFile, adminEmail, enableRealTimeUpdates, topicName);
+    }
+  }, [
+    formEditMode,
+    isEditing,
+    selectedFile,
+    hasExistingFile,
+    adminEmail,
+    enableRealTimeUpdates,
+    topicName,
+    validateForm,
+  ]);
 
   // Handle admin email change
   const handleAdminEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!formEditMode && hasExistingFile) {
+      // If trying to edit when not in edit mode, enter edit mode first
+      handleEnterEditMode();
+    }
+
+    setIsEditing(true);
     const email = e.target.value;
     setAdminEmail(email);
     validateEmail(email);
+    validateForm(hasExistingFile || !!selectedFile, email, enableRealTimeUpdates, topicName);
   };
 
   // Handle file upload click
   const handleUploadClick = () => {
+    if (!formEditMode && hasExistingFile) {
+      // If trying to upload when not in edit mode, enter edit mode first
+      handleEnterEditMode();
+    }
+
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -146,13 +285,14 @@ export const GoogleWorkspaceConfigForm = forwardRef<
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsEditing(true);
     const file = e.target.files?.[0];
     if (!file) {
       if (!hasExistingFile) {
         setSelectedFile(null);
         setFileName(null);
         setFileUploadError(null);
-        validateForm(false, adminEmail);
+        validateForm(false, adminEmail, enableRealTimeUpdates, topicName);
       }
       return;
     }
@@ -165,13 +305,48 @@ export const GoogleWorkspaceConfigForm = forwardRef<
       setFileUploadError('Only JSON files are accepted.');
       setSelectedFile(null);
       if (!hasExistingFile) {
-        validateForm(false, adminEmail);
+        validateForm(false, adminEmail, enableRealTimeUpdates, topicName);
       }
       return;
     }
 
     setSelectedFile(file);
-    validateForm(true, adminEmail);
+    validateForm(true, adminEmail, enableRealTimeUpdates, topicName);
+  };
+
+  const handleRealTimeUpdatesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!formEditMode && hasExistingFile) {
+      // If trying to change when not in edit mode, enter edit mode first
+      handleEnterEditMode();
+    }
+
+    setIsEditing(true);
+    const checked = event.target.checked;
+    setEnableRealTimeUpdates(checked);
+
+    if (!checked) {
+      // Clear topic name error when disabling
+      setTopicNameError(null);
+    } else {
+      // Validate topic name when enabling
+      validateTopicName(topicName);
+    }
+
+    validateForm(hasExistingFile || !!selectedFile, adminEmail, checked, topicName);
+  };
+
+  // Handle topic name change
+  const handleTopicNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!formEditMode && hasExistingFile) {
+      // If trying to change when not in edit mode, enter edit mode first
+      handleEnterEditMode();
+    }
+
+    setIsEditing(true);
+    const name = e.target.value;
+    setTopicName(name);
+    validateTopicName(name);
+    validateForm(hasExistingFile || !!selectedFile, adminEmail, enableRealTimeUpdates, name);
   };
 
   // Handle file download
@@ -217,36 +392,55 @@ export const GoogleWorkspaceConfigForm = forwardRef<
   // Handle save - upload the file directly
   const handleSave = async (): Promise<boolean> => {
     // Validate form before saving
-    if (!validateForm(hasExistingFile || !!selectedFile, adminEmail)) {
+    if (
+      !validateForm(hasExistingFile || !!selectedFile, adminEmail, enableRealTimeUpdates, topicName)
+    ) {
       return false;
     }
 
-    // If no new file is selected and we already have a config, just update admin email
+    // If no new file is selected and we already have a config, just update admin email and real-time settings
     if (!selectedFile && hasExistingFile) {
       try {
         setIsSaving(true);
         setSaveError(null);
 
-        // Send admin email update
+        // Send admin email update and real-time settings
         await axios.post('/api/v1/connectors/credentials', {
           service: 'googleWorkspace',
           adminEmail,
+          enableRealTimeUpdates,
+          topicName: enableRealTimeUpdates ? topicName : '',
+          filechanged: false,
         });
 
         if (onSaveSuccess) {
           onSaveSuccess();
         }
 
+        // Update original state with new values after successful save
+        setOriginalState({
+          adminEmail,
+          topicName,
+          enableRealTimeUpdates,
+          selectedFile: null,
+          fileName,
+        });
+
+        // Exit edit mode
+        setFormEditMode(false);
+        setIsEditing(false);
+
         return true;
       } catch (error) {
-        console.error('Error updating admin email:', error);
-        setSaveError(`Failed to update Google Workspace admin email: ${error.message}`);
+        console.error('Error updating Google Workspace settings:', error);
+        setSaveError(`Failed to update Google Workspace settings: ${error.message}`);
         return false;
       } finally {
         setIsSaving(false);
       }
     }
 
+    // Rest of your existing handleSave function...
     if (!selectedFile) {
       setFileUploadError('Please select a JSON file to upload.');
       return false;
@@ -264,9 +458,15 @@ export const GoogleWorkspaceConfigForm = forwardRef<
 
       // Add the admin email
       formData.append('adminEmail', adminEmail);
+      formData.append('fileChanged', 'true');
+      // Add real-time updates settings
+      formData.append('enableRealTimeUpdates', enableRealTimeUpdates.toString());
+      if (enableRealTimeUpdates) {
+        formData.append('topicName', topicName);
+      }
 
       // Send the file to the backend
-      const response = await axios.post('/api/v1/connectors/credentials', formData, {
+      await axios.post('/api/v1/connectors/credentials', formData, {
         params: {
           service: 'googleWorkspace',
         },
@@ -275,6 +475,19 @@ export const GoogleWorkspaceConfigForm = forwardRef<
 
       setHasExistingFile(true);
 
+      // Update original state with new values after successful save
+      setOriginalState({
+        adminEmail,
+        topicName,
+        enableRealTimeUpdates,
+        selectedFile: null,
+        fileName,
+      });
+
+      // Exit edit mode
+      setFormEditMode(false);
+      setIsEditing(false);
+
       if (onSaveSuccess) {
         onSaveSuccess();
       }
@@ -282,7 +495,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
       return true;
     } catch (error) {
       console.error('Error uploading Google Workspace config:', error);
-      setSaveError(`Failed to upload Google Workspace configuration file :${error.message}`);
+      setSaveError(`Failed to upload Google Workspace configuration file: ${error.message}`);
       return false;
     } finally {
       setIsSaving(false);
@@ -291,6 +504,11 @@ export const GoogleWorkspaceConfigForm = forwardRef<
 
   // Handle file removal
   const handleRemoveFile = () => {
+    if (!formEditMode && hasExistingFile) {
+      // If trying to remove when not in edit mode, enter edit mode first
+      handleEnterEditMode();
+    }
+
     if (hasExistingFile && !selectedFile) {
       // If removing a server-side file
       setIsLoading(true);
@@ -305,7 +523,8 @@ export const GoogleWorkspaceConfigForm = forwardRef<
           setHasExistingFile(false);
           setFileName(null);
           setAdminEmail('');
-          validateForm(false, adminEmail);
+          setFormEditMode(false); // Exit edit mode after successful deletion
+          validateForm(false, adminEmail, enableRealTimeUpdates, topicName);
           if (onFileRemoved) {
             onFileRemoved();
           }
@@ -323,7 +542,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
       setSelectedFile(null);
       if (!hasExistingFile) {
         setFileName(null);
-        validateForm(false, adminEmail);
+        validateForm(false, adminEmail, enableRealTimeUpdates, topicName);
       }
 
       if (fileInputRef.current) {
@@ -340,6 +559,44 @@ export const GoogleWorkspaceConfigForm = forwardRef<
         </Box>
       ) : (
         <>
+          {/* Header with Edit button */}
+          {hasExistingFile && (
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}
+            >
+              <Typography variant="h6">Google Workspace Configuration</Typography>
+
+              {!formEditMode ? (
+                <Button
+                  variant="contained"
+                  startIcon={<Iconify icon={editOutlineIcon} width={18} height={18} />}
+                  onClick={handleEnterEditMode}
+                >
+                  Edit Configuration
+                </Button>
+              ) : (
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Iconify icon={closeOutlineIcon} width={18} height={18} />}
+                    onClick={handleCancelEdit}
+                    color="inherit"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<Iconify icon={saveOutlineIcon} width={18} height={18} />}
+                    onClick={handleSave}
+                    color="primary"
+                  >
+                    Save Changes
+                  </Button>
+                </Stack>
+              )}
+            </Box>
+          )}
+
           {saveError && (
             <Alert
               severity="error"
@@ -401,6 +658,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
               placeholder="admin@yourdomain.com"
               error={!!adminEmailError}
               helperText={adminEmailError}
+              disabled={hasExistingFile && !formEditMode}
               sx={{ mb: 1 }}
             />
             <Typography variant="caption" color="text.secondary">
@@ -484,20 +742,22 @@ export const GoogleWorkspaceConfigForm = forwardRef<
                   >
                     Download
                   </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={handleRemoveFile}
-                    startIcon={<Iconify icon={trashOutlineIcon} width={18} height={18} />}
-                    color="error"
-                    sx={{
-                      minWidth: 120,
-                      flexShrink: 0,
-                    }}
-                  >
-                    Remove
-                  </Button>
-                  {hasExistingFile && !selectedFile && (
+                  {(formEditMode || !hasExistingFile) && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={handleRemoveFile}
+                      startIcon={<Iconify icon={trashOutlineIcon} width={18} height={18} />}
+                      color="error"
+                      sx={{
+                        minWidth: 120,
+                        flexShrink: 0,
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                  {(formEditMode || !hasExistingFile) && hasExistingFile && !selectedFile && (
                     <Button
                       variant="outlined"
                       size="small"
@@ -541,6 +801,101 @@ export const GoogleWorkspaceConfigForm = forwardRef<
                 {fileUploadError}
               </Typography>
             )}
+          </Box>
+
+          {/* Real-time Gmail Updates Section */}
+          <Box sx={{ mb: 3 }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                borderRadius: 1,
+                bgcolor: alpha(theme.palette.background.default, 0.8),
+                borderColor: alpha(theme.palette.divider, 0.2),
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1.5 }}>
+                <Box
+                  component="label"
+                  htmlFor="realtime-updates-checkbox"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    cursor: formEditMode || !hasExistingFile ? 'pointer' : 'default',
+                  }}
+                >
+                  <Box
+                    component="input"
+                    type="checkbox"
+                    id="realtime-updates-checkbox"
+                    checked={enableRealTimeUpdates}
+                    onChange={handleRealTimeUpdatesChange}
+                    disabled={hasExistingFile && !formEditMode}
+                    sx={{
+                      mr: 1.5,
+                      width: 20,
+                      height: 20,
+                      cursor: formEditMode || !hasExistingFile ? 'pointer' : 'default',
+                    }}
+                  />
+                  <Typography variant="subtitle2">Enable Real-time Gmail Updates</Typography>
+                </Box>
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, pl: 3.5 }}>
+                By enabling this feature, you will receive real-time updates for new emails in your
+                Google Workspace. This requires a valid Google Pub/Sub topic name.
+              </Typography>
+
+              {enableRealTimeUpdates && (
+                <Box sx={{ pl: 3.5 }}>
+                  <Box
+                    sx={{
+                      p: 2,
+                      mt: 1,
+                      borderRadius: 1,
+                      bgcolor: alpha(theme.palette.info.main, 0.04),
+                      border: `1px solid ${alpha(theme.palette.info.main, 0.15)}`,
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 1,
+                    }}
+                  >
+                    <Iconify
+                      icon={infoOutlineIcon}
+                      width={20}
+                      height={20}
+                      color={theme.palette.info.main}
+                      style={{ marginTop: 2 }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      When creating your Pub/Sub topic, set the endpoint URL as{' '}
+                      <Typography component="span" variant="body2" fontWeight="bold">
+                        &quot;{webhookBaseUrl}/gmail/webhook&quot;
+                      </Typography>
+                    </Typography>
+                  </Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Google Pub/Sub Topic Name
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    required
+                    value={topicName}
+                    onChange={handleTopicNameChange}
+                    placeholder="projects/your-project/topics/your-topic"
+                    error={!!topicNameError}
+                    disabled={hasExistingFile && !formEditMode}
+                    helperText={
+                      topicNameError ||
+                      'Enter the Google Pub/Sub topic that will receive Gmail notifications'
+                    }
+                    size="small"
+                    sx={{ mb: 2 }}
+                  />
+                </Box>
+              )}
+            </Paper>
           </Box>
 
           {isSaving && (

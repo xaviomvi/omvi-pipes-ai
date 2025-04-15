@@ -569,6 +569,25 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             const formData = new FormData();
             formData.append('googleWorkspaceCredentials', serviceCredentialsFile);
             formData.append('adminEmail', adminEmail);
+            formData.append('fileChanged', 'true');
+
+            // Add real-time updates configuration
+            if (connectorValues.googleWorkspace?.enableRealTimeUpdates !== undefined) {
+              formData.append(
+                'enableRealTimeUpdates',
+                String(connectorValues.googleWorkspace.enableRealTimeUpdates)
+              );
+            }
+
+            // Add topic name if real-time updates are enabled
+            if (
+              connectorValues.googleWorkspace?.enableRealTimeUpdates &&
+              connectorValues.googleWorkspace?.topicName &&
+              connectorValues.googleWorkspace.topicName.trim() !== ''
+            ) {
+              formData.append('topicName', connectorValues.googleWorkspace.topicName);
+            }
+
             if (connectorValues.googleWorkspace?.serviceCredentials) {
               // If we have parsed data from the file, only include non-empty fields
               const serviceAccount: any = {};
@@ -625,6 +644,20 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
 
           if (gwValues.clientSecret && gwValues.clientSecret.trim() !== '') {
             payload.clientSecret = gwValues.clientSecret;
+          }
+
+          // Add real-time updates configuration
+          if (gwValues.enableRealTimeUpdates !== undefined) {
+            payload.enableRealTimeUpdates = gwValues.enableRealTimeUpdates;
+          }
+
+          // Add topic name if real-time updates are enabled
+          if (
+            gwValues.enableRealTimeUpdates &&
+            gwValues.topicName &&
+            gwValues.topicName.trim() !== ''
+          ) {
+            payload.topicName = gwValues.topicName;
           }
 
           // Only make the API call if we have at least one field

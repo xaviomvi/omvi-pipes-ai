@@ -707,6 +707,21 @@ export const createGoogleWorkspaceCredentials =
             if (!validationResult.success) {
               throw new BadRequestError(validationResult.error.message);
             }
+            const enableRealTimeUpdates = req.body.enableRealTimeUpdates;
+            let topicName = '';
+            const realTimeUpdatesEnabled =
+              typeof enableRealTimeUpdates === 'string'
+                ? enableRealTimeUpdates.toLowerCase() === 'true'
+                : !!enableRealTimeUpdates;
+
+            if (realTimeUpdatesEnabled) {
+              if (!req.body.topicName) {
+                throw new BadRequestError(
+                  'Topic name is required when real-time updates are enabled',
+                );
+              }
+              topicName = req.body.topicName;
+            }
             const {
               access_token,
               refresh_token,
@@ -723,6 +738,8 @@ export const createGoogleWorkspaceCredentials =
                 refresh_token,
                 access_token_expiry_time,
                 refresh_token_expiry_time,
+                enableRealTimeUpdates,
+                topicName,
               }),
             );
           }
@@ -732,8 +749,37 @@ export const createGoogleWorkspaceCredentials =
           );
           break;
         case googleWorkspaceTypes.BUSINESS.toLowerCase(): {
+          const fileChanged =
+            req.body.fileChanged === true || req.body.fileChanged === 'true';
+          let existingConfig = null;
           // validate config schema
-          configData = req.body.fileContent;
+          if (!fileChanged) {
+            try {
+              const encryptedExistingConfig =
+                await keyValueStoreService.get<string>(
+                  `${configPaths.connectors.googleWorkspace.credentials.business}/${orgId}`,
+                );
+
+              if (encryptedExistingConfig) {
+                existingConfig = JSON.parse(
+                  EncryptionService.getInstance(
+                    configManagerConfig.algorithm,
+                    configManagerConfig.secretKey,
+                  ).decrypt(encryptedExistingConfig),
+                );
+
+                // We'll use this existing config later
+                logger.debug('Using existing config, file not changed');
+              } else {
+                // No existing config found, need to validate the new file
+                throw new BadRequestError('File Not found');
+              }
+            } catch (error) {
+              throw error;
+            }
+          }
+
+          // Validate admin email regardless of whether file changed
           if (!req.body.adminEmail) {
             throw new BadRequestError(
               'Google Workspace Admin Email is required',
@@ -741,21 +787,67 @@ export const createGoogleWorkspaceCredentials =
           }
           const adminEmail = req.body.adminEmail;
 
-          logger.debug('configData:', configData);
-          const validationResult =
-            googleWorkspaceBusinessCredentialsSchema.safeParse(configData);
+          // Process real-time updates settings
+          const enableRealTimeUpdates = req.body.enableRealTimeUpdates;
+          let topicName = '';
+          const realTimeUpdatesEnabled =
+            typeof enableRealTimeUpdates === 'string'
+              ? enableRealTimeUpdates.toLowerCase() === 'true'
+              : !!enableRealTimeUpdates;
 
-          if (!validationResult.success) {
-            const formattedErrors = validationResult.error.errors
-              .map((err) => {
-                const fieldName = err.path[0] || 'Unknown field';
-                return `  • ${fieldName}: ${err.message}  `;
-              })
-              .join('');
-
-            const errorMessage = `Google Workspace validation failed:\n${formattedErrors}`;
-            throw new BadRequestError(errorMessage);
+          if (realTimeUpdatesEnabled) {
+            if (!req.body.topicName) {
+              throw new BadRequestError(
+                'Topic name is required when real-time updates are enabled',
+              );
+            }
+            topicName = req.body.topicName;
           }
+
+          logger.debug('enableRealTimeUpdates:', enableRealTimeUpdates);
+          logger.debug('realTimeUpdatesEnabled:', realTimeUpdatesEnabled);
+          logger.debug('topicName:', topicName);
+
+          let configData;
+
+          if (fileChanged) {
+            // Only validate the file if it's changed
+            configData = req.body.fileContent;
+            logger.debug('configData (new file):', configData);
+
+            const validationResult =
+              googleWorkspaceBusinessCredentialsSchema.safeParse(configData);
+
+            if (!validationResult.success) {
+              const formattedErrors = validationResult.error.errors
+                .map((err) => {
+                  const fieldName = err.path[0] || 'Unknown field';
+                  return `  • ${fieldName}: ${err.message}  `;
+                })
+                .join('');
+
+              const errorMessage = `Google Workspace validation failed:\n${formattedErrors}`;
+              throw new BadRequestError(errorMessage);
+            }
+          } else {
+            // Use existing file data but with updated settings
+            configData = {
+              type: existingConfig.type,
+              project_id: existingConfig.project_id,
+              private_key_id: existingConfig.private_key_id,
+              private_key: existingConfig.private_key,
+              client_email: existingConfig.client_email,
+              client_id: existingConfig.client_id,
+              auth_uri: existingConfig.auth_uri,
+              token_uri: existingConfig.token_uri,
+              auth_provider_x509_cert_url:
+                existingConfig.auth_provider_x509_cert_url,
+              client_x509_cert_url: existingConfig.client_x509_cert_url,
+              universe_domain: existingConfig.universe_domain,
+            };
+          }
+
+          // Combine file data with updated settings
           const {
             type,
             project_id,
@@ -770,6 +862,7 @@ export const createGoogleWorkspaceCredentials =
             universe_domain,
           } = configData;
 
+          // Encrypt and store the updated config
           encryptedGoogleWorkspaceConfig = EncryptionService.getInstance(
             configManagerConfig.algorithm,
             configManagerConfig.secretKey,
@@ -787,8 +880,11 @@ export const createGoogleWorkspaceCredentials =
               client_x509_cert_url,
               universe_domain,
               adminEmail,
+              enableRealTimeUpdates: realTimeUpdatesEnabled,
+              topicName,
             }),
           );
+
           await keyValueStoreService.set<string>(
             `${configPaths.connectors.googleWorkspace.credentials.business}/${orgId}`,
             encryptedGoogleWorkspaceConfig,
@@ -933,12 +1029,33 @@ export const setGoogleWorkspaceOauthConfig =
   (keyValueStoreService: KeyValueStoreService) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
-      const { clientId, clientSecret } = req.body;
+      const { clientId, clientSecret, enableRealTimeUpdates } = req.body;
+      let topicName = '';
+      const realTimeUpdatesEnabled =
+        typeof enableRealTimeUpdates === 'string'
+          ? enableRealTimeUpdates.toLowerCase() === 'true'
+          : !!enableRealTimeUpdates;
+
+      if (realTimeUpdatesEnabled) {
+        if (!req.body.topicName) {
+          throw new BadRequestError(
+            'Topic name is required when real-time updates are enabled',
+          );
+        }
+        topicName = req.body.topicName;
+      }
       const configManagerConfig = loadConfigurationManagerConfig();
       const encryptedGoogleWorkSpaceConfig = EncryptionService.getInstance(
         configManagerConfig.algorithm,
         configManagerConfig.secretKey,
-      ).encrypt(JSON.stringify({ clientId, clientSecret }));
+      ).encrypt(
+        JSON.stringify({
+          clientId,
+          clientSecret,
+          enableRealTimeUpdates,
+          topicName,
+        }),
+      );
       await keyValueStoreService.set<string>(
         configPaths.connectors.googleWorkspace.config,
         encryptedGoogleWorkSpaceConfig,

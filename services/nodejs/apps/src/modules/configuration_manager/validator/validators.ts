@@ -252,6 +252,8 @@ export const googleWorkspaceConfigSchema = z.object({
     clientSecret: z
       .string()
       .min(1, { message: 'Google client Secret is required' }),
+    enableRealTimeUpdates: z.union([z.boolean(), z.string()]).optional(),
+    topicName: z.string().optional(),
   }),
 });
 

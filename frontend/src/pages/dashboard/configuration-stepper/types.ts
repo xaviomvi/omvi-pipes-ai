@@ -29,8 +29,11 @@ export interface AzureLlmFormValues {
 }
 
 // Union type for LLM form values
-export type LlmFormValues = OpenAILlmFormValues | AzureLlmFormValues | GeminiLlmFormValues | AnthropicLlmFormValues;
-
+export type LlmFormValues =
+  | OpenAILlmFormValues
+  | AzureLlmFormValues
+  | GeminiLlmFormValues
+  | AnthropicLlmFormValues;
 
 export const storageTypes = {
   LOCAL: 'local',
@@ -38,7 +41,7 @@ export const storageTypes = {
   AZURE_BLOB: 'azureBlob',
 } as const;
 
-export type StorageType = typeof storageTypes[keyof typeof storageTypes];
+export type StorageType = (typeof storageTypes)[keyof typeof storageTypes];
 
 // Base storage configuration
 export interface BaseStorageFormValues {
@@ -57,10 +60,10 @@ export interface S3StorageFormValues extends BaseStorageFormValues {
 // Azure Blob storage configuration - Make endpointProtocol and endpointSuffix non-optional
 export interface AzureBlobStorageFormValues extends BaseStorageFormValues {
   storageType: typeof storageTypes.AZURE_BLOB;
-  endpointProtocol: 'http' | 'https';  // Remove optional
+  endpointProtocol: 'http' | 'https'; // Remove optional
   accountName: string;
   accountKey: string;
-  endpointSuffix: string;  // Remove optional
+  endpointSuffix: string; // Remove optional
   containerName: string;
 }
 
@@ -88,6 +91,8 @@ export interface ConnectorFormValues {
     clientSecret?: string;
     redirectUri?: string;
     adminEmail?: string;
+    enableRealTimeUpdates?: boolean;
+    topicName?: string;
   };
 }
 

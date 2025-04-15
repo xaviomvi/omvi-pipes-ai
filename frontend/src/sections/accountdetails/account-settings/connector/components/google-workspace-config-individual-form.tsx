@@ -6,7 +6,7 @@ import lockIcon from '@iconify-icons/eva/lock-outline';
 import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 import uploadIcon from '@iconify-icons/eva/upload-outline';
 import fileTextIcon from '@iconify-icons/mdi/file-text-outline';
-import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -26,6 +26,7 @@ import {
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
+import { getConnectorPublicUrl } from '../../services/utils/services-configuration-service';
 
 interface GoogleWorkspaceConfigFormProps {
   onValidationChange: (isValid: boolean) => void;
@@ -97,12 +98,48 @@ const GoogleWorkspaceConfigForm = forwardRef<
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [webhookBaseUrl, setWebhookBaseUrl] = useState('');
+  const [enableRealTimeUpdates, setEnableRealTimeUpdates] = useState(false);
+  const [topicName, setTopicName] = useState('');
+  const [topicNameError, setTopicNameError] = useState<string | null>(null);
   const [redirectUris, setRedirectUris] = useState<{
     currentWindowLocation: string;
     recommendedRedirectUri: string;
     urisMismatch: boolean;
   } | null>(null);
 
+  const handleRealTimeUpdatesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = event.target.checked;
+    setEnableRealTimeUpdates(checked);
+
+    if (!checked) {
+      // Clear topic name error when disabling
+      setTopicNameError(null);
+    } else {
+      // Validate topic name when enabling
+      validateTopicName(topicName);
+    }
+  };
+
+  // Handle topic name change
+  const handleTopicNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    setTopicName(name);
+    validateTopicName(name);
+  };
+
+  const validateTopicName = useCallback(
+    (name: string): boolean => {
+      if (enableRealTimeUpdates && !name.trim()) {
+        setTopicNameError('Topic name is required when real-time updates are enabled');
+        return false;
+      }
+
+      setTopicNameError(null);
+      return true;
+    },
+    [enableRealTimeUpdates]
+  );
   useEffect(() => {
     const initializeForm = async () => {
       setIsLoading(true);
@@ -130,6 +167,15 @@ const GoogleWorkspaceConfigForm = forwardRef<
             clientSecret: response.data.googleClientSecret || '',
             redirectUri: uris.recommendedRedirectUri,
           });
+
+          if (Object.prototype.hasOwnProperty.call(response.data, 'enableRealTimeUpdates')) {
+            setEnableRealTimeUpdates(response.data.enableRealTimeUpdates);
+
+            if (response.data.topicName) {
+              setTopicName(response.data.topicName);
+            }
+          }
+
           setIsConfigured(true);
         }
       } catch (error) {
@@ -141,6 +187,23 @@ const GoogleWorkspaceConfigForm = forwardRef<
     };
 
     initializeForm();
+  }, []);
+
+  useEffect(() => {
+    const fetchConnectorUrl = async () => {
+      try {
+        const config = await getConnectorPublicUrl();
+        if (config?.url) {
+          setWebhookBaseUrl(config.url);
+        }
+      } catch (error) {
+        console.error('Failed to load connector URL', error);
+        // Fallback to window location if we can't get the connector URL
+        setWebhookBaseUrl(window.location.origin);
+      }
+    };
+
+    fetchConnectorUrl();
   }, []);
 
   // Expose the handleSave method to the parent component
@@ -261,8 +324,19 @@ const GoogleWorkspaceConfigForm = forwardRef<
       // Validate the form data with Zod before saving
       googleWorkspaceConfigSchema.parse(formData);
 
+      const payload = {
+        ...formData,
+        enableRealTimeUpdates,
+        topicName: enableRealTimeUpdates ? topicName : '',
+      };
+
+      if (enableRealTimeUpdates && !validateTopicName(topicName)) {
+        setIsSaving(false);
+        setSaveError('Please enter a valid topic name for real-time updates');
+        return false;
+      }
       // Send the update request
-      await axios.post('/api/v1/connectors/config', formData, {
+      await axios.post('/api/v1/connectors/config', payload, {
         params: {
           service: 'googleWorkspace',
         },
@@ -591,6 +665,98 @@ const GoogleWorkspaceConfigForm = forwardRef<
               />
             </Grid>
           </Grid>
+          <Box sx={{ mb: 3, mt: 3 }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                borderRadius: 1,
+                bgcolor: alpha(theme.palette.background.default, 0.8),
+                borderColor: alpha(theme.palette.divider, 0.2),
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1.5 }}>
+                <Box
+                  component="label"
+                  htmlFor="realtime-updates-checkbox"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Box
+                    component="input"
+                    type="checkbox"
+                    id="realtime-updates-checkbox"
+                    checked={enableRealTimeUpdates}
+                    onChange={handleRealTimeUpdatesChange}
+                    sx={{
+                      mr: 1.5,
+                      width: 20,
+                      height: 20,
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <Typography variant="subtitle2">Enable Real-time Gmail Updates</Typography>
+                </Box>
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, pl: 3.5 }}>
+                By enabling this feature, you will receive real-time updates for new emails in your
+                Google Workspace. This requires a valid Google Pub/Sub topic name.
+              </Typography>
+
+              {enableRealTimeUpdates && (
+                <Box sx={{ pl: 3.5 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Google Pub/Sub Topic Name
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    required
+                    value={topicName}
+                    onChange={handleTopicNameChange}
+                    placeholder="projects/your-project/topics/your-topic"
+                    error={!!topicNameError}
+                    helperText={
+                      topicNameError ||
+                      'Enter the Google Pub/Sub topic that will receive Gmail notifications'
+                    }
+                    size="small"
+                    sx={{ mb: 2 }}
+                  />
+
+                  <Box
+                    sx={{
+                      p: 2,
+                      mt: 1,
+                      borderRadius: 1,
+                      bgcolor: alpha(theme.palette.info.main, 0.04),
+                      border: `1px solid ${alpha(theme.palette.info.main, 0.15)}`,
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 1,
+                    }}
+                  >
+                    <Iconify
+                      icon={infoIcon}
+                      width={20}
+                      height={20}
+                      color={theme.palette.info.main}
+                      style={{ marginTop: 2 }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      When creating your Pub/Sub topic, set the endpoint URL as{' '}
+                      <Typography component="span" variant="body2" fontWeight="bold">
+                        &quot;{webhookBaseUrl}/gmail/webhook&quot;
+                      </Typography>
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+            </Paper>
+          </Box>
 
           {isSaving && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>

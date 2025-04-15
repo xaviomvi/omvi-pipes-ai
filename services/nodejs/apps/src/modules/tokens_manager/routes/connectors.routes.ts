@@ -65,6 +65,8 @@ const oAuthConfigSchema = z.object({
     .string()
     .min(1, 'Client Secret cannot be empty')
     .max(255, 'Client Secret exceeds maximum length of 255 characters'),
+  enableRealTimeUpdates: z.union([z.boolean(), z.string()]).optional(),
+  topicName: z.string().optional(),
 });
 
 const oAuthValidationSchema = z.object({
@@ -115,6 +117,8 @@ export function createConnectorRouter(container: Container) {
           if (response.data.client_id) {
             res.status(200).json({
               adminEmail: response?.data?.adminEmail,
+              enableRealTimeUpdates: response?.data?.enableRealTimeUpdates,
+              topicName: response?.data?.topicName,
               isConfigured: true,
             });
           } else {
@@ -211,6 +215,13 @@ export function createConnectorRouter(container: Container) {
           if (!response.data.client_id) {
             throw new NotFoundError('No file found for credentials');
           }
+          const filteredData = { ...response.data };
+
+          // Remove unwanted fields
+          delete filteredData.adminEmail;
+          delete filteredData.enableRealTimeUpdates;
+          delete filteredData.topicName;
+
           res.setHeader('Content-Type', 'application/json');
           res.setHeader(
             'Content-Disposition',
@@ -218,7 +229,7 @@ export function createConnectorRouter(container: Container) {
           );
 
           // Send JSON response as a downloadable file
-          res.status(200).send(JSON.stringify(response.data, null, 2));
+          res.status(200).send(JSON.stringify(filteredData, null, 2));
         }
       } catch (err) {
         next(err);
@@ -300,6 +311,8 @@ export function createConnectorRouter(container: Container) {
             res.status(200).json({
               googleClientId: configData.clientId,
               googleClientSecret: configData.clientSecret,
+              enableRealTimeUpdates: configData?.enableRealTimeUpdates,
+              topicName: configData?.topicName,
             });
 
             break;
@@ -556,6 +569,8 @@ export function createConnectorRouter(container: Container) {
         if (!configData.clientSecret) {
           throw new NotFoundError('Client Secret is missing');
         }
+        const enableRealTimeUpdates = configData?.enableRealTimeUpdates;
+        const topicName = configData?.topicName;
         const appConfig = loadAppConfig();
         const frontendBaseUrl = (await appConfig).frontendUrl;
         const redirectUri = frontendBaseUrl.endsWith('/')
@@ -589,6 +604,8 @@ export function createConnectorRouter(container: Container) {
           data.refresh_token,
           data.expires_in * 1000 + Date.now(),
           refreshTokenExpiryDate,
+          enableRealTimeUpdates,
+          topicName,
         );
         if (response.statusCode !== 200) {
           throw new InternalServerError(
@@ -719,6 +736,8 @@ export function createConnectorRouter(container: Container) {
         if (!configData.clientSecret) {
           throw new NotFoundError('Client Secret is missing');
         }
+        const enableRealTimeUpdates = configData?.enableRealTimeUpdates;
+        const topicName = configData?.topicName;
 
         const { data } = await axios.post(
           GOOGLE_WORKSPACE_TOKEN_EXCHANGE_PATH,
@@ -734,11 +753,14 @@ export function createConnectorRouter(container: Container) {
           await setRefreshTokenCredentials(
             req,
             config.cmBackend,
+
             data.access_token,
             refreshTokenCommandResponse?.data.refresh_token,
             data.expires_in * 1000 + Date.now(),
             refreshTokenCommandResponse?.data?.refresh_token_expiry_time ||
               undefined,
+            enableRealTimeUpdates,
+            topicName,
           ));
         if (accessTokenCommandResponse.statusCode !== 200) {
           throw new InternalServerError(

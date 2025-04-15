@@ -24,6 +24,9 @@ interface GoogleAuthFormProps {
   onValidationChange: (isValid: boolean) => void;
   onSaveSuccess?: () => void;
 }
+const API_ENDPOINTS = {
+  FRONTEND_URL: '/api/v1/configurationManager/frontendPublicUrl',
+};
 
 export interface GoogleAuthFormRef {
   handleSave: () => Promise<boolean>;
@@ -35,8 +38,8 @@ const getRedirectUris = async () => {
 
   // Get the frontend URL from the backend
   try {
-    const response = await axios.get(`/api/v1/configurationManager/frontendPublicUrl`);
-    const frontendBaseUrl = response.data.url;
+    const response = await axios.get(API_ENDPOINTS.FRONTEND_URL);
+    const frontendBaseUrl = response.data.url || '';
     // Ensure the URL ends with a slash if needed
     const frontendUrl = frontendBaseUrl.endsWith('/')
       ? `${frontendBaseUrl}auth/google/callback`
@@ -45,6 +48,7 @@ const getRedirectUris = async () => {
     return {
       currentRedirectUri,
       recommendedRedirectUri: frontendUrl,
+      frontendBaseUrl,
       urisMismatch: currentRedirectUri !== frontendUrl,
     };
   } catch (error) {
@@ -52,6 +56,7 @@ const getRedirectUris = async () => {
     return {
       currentRedirectUri,
       recommendedRedirectUri: currentRedirectUri,
+      frontendBaseUrl: window.location.origin,
       urisMismatch: false,
     };
   }
@@ -71,6 +76,7 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
       currentRedirectUri: string;
       recommendedRedirectUri: string;
       urisMismatch: boolean;
+      frontendBaseUrl: string;
     } | null>(null);
 
     const [formData, setFormData] = useState({
@@ -218,24 +224,43 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
         ) : (
           <>
             {redirectUris?.urisMismatch && (
-              <Alert
-                severity="warning"
-                sx={{
-                  mb: 3,
-                  borderRadius: 1,
-                }}
-              >
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  Redirect URI mismatch detected! Using the recommended URI from backend
-                  configuration.
-                </Typography>
-                <Typography variant="caption" component="div">
-                  Current redirect Uri: {redirectUris.currentRedirectUri}
-                </Typography>
-                <Typography variant="caption" component="div">
-                  Recommended redirect URI: {redirectUris.recommendedRedirectUri}
-                </Typography>
-              </Alert>
+              <>
+                <Alert
+                  severity="warning"
+                  sx={{
+                    mb: 3,
+                    borderRadius: 1,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Redirect URI mismatch detected! Using the recommended URI from backend
+                    configuration.
+                  </Typography>
+                  <Typography variant="caption" component="div">
+                    Current redirect Uri: {redirectUris.currentRedirectUri}
+                  </Typography>
+                  <Typography variant="caption" component="div">
+                    Recommended redirect URI: {redirectUris.recommendedRedirectUri}
+                  </Typography>
+                </Alert>
+                <Alert
+                  severity="warning"
+                  sx={{
+                    mb: 3,
+                    borderRadius: 1,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Origin mismatch detected! Using the recommended URI from backend configuration.
+                  </Typography>
+                  <Typography variant="caption" component="div">
+                    Current Window Location: {window.location.origin}
+                  </Typography>
+                  <Typography variant="caption" component="div">
+                    Recommended Window Location:{redirectUris.frontendBaseUrl}
+                  </Typography>
+                </Alert>
+              </>
             )}
             <Box
               sx={{
@@ -264,7 +289,7 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
                     sx={{
                       display: 'block',
                       p: 1.5,
-                      mt: 1,
+                      my: 1,
                       bgcolor: alpha(theme.palette.background.default, 0.7),
                       borderRadius: 1,
                       fontSize: '0.8rem',
@@ -274,6 +299,25 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
                     }}
                   >
                     {formData.redirectUri}
+                  </Box>
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Authorized Origin (add to your Google OAuth settings):
+                  <Box
+                    component="code"
+                    sx={{
+                      display: 'block',
+                      p: 1.5,
+                      mt: 1,
+                      bgcolor: alpha(theme.palette.background.default, 0.7),
+                      borderRadius: 1,
+                      fontSize: '0.8rem',
+                      fontFamily: 'monospace',
+                      wordBreak: 'break-all',
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
+                    {redirectUris?.frontendBaseUrl}
                   </Box>
                 </Typography>
               </Box>

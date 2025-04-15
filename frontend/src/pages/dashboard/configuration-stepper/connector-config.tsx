@@ -92,6 +92,8 @@ const businessConnectorSchema = z.object({
     privateKey: z.string().optional(),
     projectId: z.string().optional(),
     adminEmail: z.string().email('Invalid email address').min(1, 'Admin email is required'),
+    enableRealTimeUpdates: z.boolean().optional(),
+    topicName: z.string().optional(),
   }),
 });
 
@@ -99,6 +101,8 @@ const individualConnectorSchema = z.object({
   googleWorkspace: z.object({
     clientId: z.string().min(1, 'Client ID is required'),
     clientSecret: z.string().min(1, 'Client Secret is required'),
+    enableRealTimeUpdates: z.boolean().optional(),
+    topicName: z.string().optional(),
   }),
 });
 
@@ -138,7 +142,10 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [formPartiallyFilled, setFormPartiallyFilled] = useState<boolean>(false);
   const [validationAttempted, setValidationAttempted] = useState<boolean>(false);
-
+  const [webhookBaseUrl, setWebhookBaseUrl] = useState('');
+  const [enableRealTimeUpdates, setEnableRealTimeUpdates] = useState(false);
+  const [topicName, setTopicName] = useState('');
+  const [topicNameError, setTopicNameError] = useState<string | null>(null);
   // Form for business accounts (file upload with extracted fields)
   const businessForm = useForm<any>({
     resolver: zodResolver(businessConnectorSchema),
@@ -151,6 +158,8 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         privateKey: '',
         projectId: '',
         adminEmail: '',
+        enableRealTimeUpdates: false,
+        topicName: '',
       },
     },
   });
@@ -164,10 +173,29 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         clientId: '',
         clientSecret: '',
         redirectUri: redirectUris?.recommendedRedirectUri || getCurrentRedirectUri(),
+        enableRealTimeUpdates: false,
+        topicName: '',
       },
     },
   });
+  useEffect(() => {
+    const fetchConnectorUrl = async () => {
+      try {
+        // You need to implement or import a getConnectorPublicUrl function
+        // that matches your API structure
+        const response = await axios.get('/api/v1/configurationManager/connectorPublicUrl');
+        if (response.data?.url) {
+          setWebhookBaseUrl(response.data.url);
+        }
+      } catch (error) {
+        console.error('Failed to load connector URL', error);
+        // Fallback to window location
+        setWebhookBaseUrl(window.location.origin);
+      }
+    };
 
+    fetchConnectorUrl();
+  }, []);
   // First useEffect to fetch redirect URIs and update form
   useEffect(() => {
     const initializeForm = async () => {
@@ -185,6 +213,55 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     initializeForm();
   }, [individualForm]);
 
+  const handleRealTimeUpdatesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // The key fix - prevent default behavior and stop propagation
+
+    const checked = event.target.checked;
+    setEnableRealTimeUpdates(checked);
+
+    if (checked && (!topicName || topicName.trim() === '')) {
+      setTopicNameError('Topic name is required when real-time updates are enabled');
+    } else {
+      setTopicNameError(null);
+    }
+
+    // Update the form value but without validation concerns
+    if (accountType === 'business') {
+      businessForm.setValue('googleWorkspace.enableRealTimeUpdates', checked);
+    } else {
+      individualForm.setValue('googleWorkspace.enableRealTimeUpdates', checked);
+    }
+  };
+
+  const handleTopicNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    setTopicName(name);
+    if (name && name.trim() !== '') {
+      setTopicNameError(null);
+    } else if (enableRealTimeUpdates) {
+      setTopicNameError('Topic name is required when real-time updates are enabled');
+    }
+
+    // Update the form value
+    if (accountType === 'business') {
+      businessForm.setValue('googleWorkspace.topicName', name);
+    } else {
+      individualForm.setValue('googleWorkspace.topicName', name);
+    }
+  };
+
+  // 4. Initialize from initial values if needed
+  useEffect(() => {
+    if (initialValues?.googleWorkspace) {
+      if ('enableRealTimeUpdates' in initialValues.googleWorkspace) {
+        setEnableRealTimeUpdates(!!initialValues.googleWorkspace.enableRealTimeUpdates);
+      }
+
+      if (initialValues.googleWorkspace.topicName) {
+        setTopicName(initialValues.googleWorkspace.topicName);
+      }
+    }
+  }, [initialValues]);
   // Determine which form to use based on account type
   const { handleSubmit, formState, control, watch, getValues } =
     accountType === 'business' ? businessForm : individualForm;
@@ -551,6 +628,13 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     (data: any) => {
       setValidationAttempted(true);
 
+      if (enableRealTimeUpdates && (!topicName || topicName.trim() === '')) {
+        setTopicNameError('Topic name is required when real-time updates are enabled');
+        setMessage(
+          'Please provide a Google Pub/Sub topic name when real-time updates are enabled.'
+        );
+        return;
+      }
       if (formPartiallyFilled) {
         setMessage('Please complete all required fields or use the "Skip Google Workspace" button');
         return;
@@ -577,7 +661,16 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         onSubmit(data, serviceCredentialsFile);
       }
     },
-    [accountType, onSubmit, serviceCredentialsFile, parsedJsonData, formPartiallyFilled, setMessage]
+    [
+      accountType,
+      onSubmit,
+      serviceCredentialsFile,
+      parsedJsonData,
+      formPartiallyFilled,
+      setMessage,
+      enableRealTimeUpdates,
+      topicName,
+    ]
   );
 
   // Drag and drop handlers
@@ -812,7 +905,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
         )}
 
         {/* Individual account form fields */}
-        {redirectUris?.urisMismatch && (
+        {accountType === 'individual' && redirectUris?.urisMismatch && (
           <Alert
             severity="warning"
             sx={{
@@ -1206,6 +1299,87 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
               )}
             </Box>
           </Tooltip>
+        </Box>
+
+        <Box sx={{ mb: 3 }}>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2.5,
+              borderRadius: 1,
+              bgcolor: alpha(theme.palette.background.default, 0.8),
+              borderColor: alpha(theme.palette.divider, 0.2),
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1.5 }}>
+              <Box
+                component="label"
+                htmlFor="realtime-updates-checkbox"
+                sx={{ display: 'flex', alignItems: 'center' }}
+              >
+                <Box
+                  component="input"
+                  type="checkbox"
+                  id="realtime-updates-checkbox"
+                  checked={enableRealTimeUpdates}
+                  onChange={handleRealTimeUpdatesChange}
+                  sx={{ mr: 1.5, width: 20, height: 20 }}
+                />
+                <Typography variant="subtitle2">Enable Real-time Gmail Updates</Typography>{' '}
+              </Box>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, pl: 3.5 }}>
+              By enabling this feature, you will receive real-time updates for new emails in your
+              Google Workspace. This requires a valid Google Pub/Sub topic name.
+            </Typography>
+            {enableRealTimeUpdates && (
+              <Box sx={{ pl: 3.5 }}>
+                <Box
+                  sx={{
+                    p: 2,
+                    mt: 1,
+                    borderRadius: 1,
+                    bgcolor: alpha(theme.palette.info.main, 0.04),
+                    border: `1px solid ${alpha(theme.palette.info.main, 0.15)}`,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 1,
+                  }}
+                >
+                  <Iconify
+                    icon={infoOutlineIcon}
+                    width={20}
+                    height={20}
+                    color={theme.palette.info.main}
+                    style={{ marginTop: 2 }}
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    When creating your Pub/Sub topic, set the endpoint URL as{' '}
+                    <Typography component="span" variant="body2" fontWeight="bold">
+                      &quot;{webhookBaseUrl}/gmail/webhook&quot;
+                    </Typography>
+                  </Typography>
+                </Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Google Pub/Sub Topic Name
+                </Typography>
+                <TextField
+                  fullWidth
+                  required
+                  value={topicName}
+                  onChange={handleTopicNameChange}
+                  placeholder="projects/your-project/topics/your-topic"
+                  error={!!topicNameError}
+                  helperText={
+                    topicNameError ||
+                    'Enter the Google Pub/Sub topic that will receive Gmail notifications'
+                  }
+                  size="small"
+                  sx={{ mb: 2 }}
+                />
+              </Box>
+            )}
+          </Paper>
         </Box>
 
         {/* Validation messages */}
