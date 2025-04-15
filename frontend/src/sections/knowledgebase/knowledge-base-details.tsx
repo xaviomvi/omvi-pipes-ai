@@ -738,6 +738,16 @@ export default function KnowledgeBaseDetails({
                   },
                 ]
               : []),
+            ...(params.row.indexingStatus === 'NOT_STARTED'
+              ? [
+                  {
+                    label: 'Start Indexing',
+                    icon: refreshIcon,
+                    color: '#ff9800',
+                    onClick: () => handleRetryIndexing(params.row.id),
+                  },
+                ]
+              : []),
             {
               label: 'Delete Record',
               icon: trashCanIcon,
@@ -765,7 +775,7 @@ export default function KnowledgeBaseDetails({
             setSnackbar({
               open: true,
               message: response.data.reindexResponse.success
-                ? 'File reindexing started'
+                ? 'File indexing started'
                 : 'Failed to start reindexing',
               severity: response.data.reindexResponse.success ? 'success' : 'error',
             });
