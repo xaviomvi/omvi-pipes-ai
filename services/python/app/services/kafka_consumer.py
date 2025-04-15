@@ -205,6 +205,14 @@ class KafkaConsumerManager:
                     
                 except Exception as e:
                     self.logger.error(f"Error getting signed URL: {repr(e)}")
+                    record_id = payload_data.get('recordId')
+                    if record_id:
+                        await self._update_document_status(
+                            record_id=record_id,
+                            indexing_status="FAILED",
+                            extraction_status="FAILED",
+                            error_details=f"Unexpected error: {str(e)}"
+                        )
                     return False
             else:
                 self.logger.warning(f"No signedUrlRoute found in payload")

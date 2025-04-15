@@ -126,7 +126,7 @@ class AppContainer(containers.DeclarativeContainer):
     )
 
     # Parsers
-    async def _create_parsers():
+    async def _create_parsers(logger):
         """Async factory for Parsers"""
         parsers = {
             'docx': DocxParser(),
@@ -136,13 +136,14 @@ class AppContainer(containers.DeclarativeContainer):
             'html': HTMLParser(),
             'md': MarkdownParser(),
             'csv': CSVParser(),
-            'excel': ExcelParser(),
+            'excel': ExcelParser(logger),
             'xls': XLSParser()
             }
         return parsers
 
     parsers = providers.Resource(
         _create_parsers,
+        logger=logger
     )
 
     # Processor - depends on domain_extractor, indexing_pipeline, and arango_service

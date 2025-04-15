@@ -78,10 +78,13 @@ class DriveChangeHandler:
             """)
 
             txn = self.arango_service.db.begin_transaction(
-                read=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
-                      CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value, CollectionNames.BELONGS_TO.value],
-                write=[CollectionNames.FILES.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
-                       CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value, CollectionNames.BELONGS_TO.value]
+                read=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
+                      CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
+                      CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],
+                
+                write=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
+                      CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
+                      CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],
             )
 
             if not file_key:
@@ -270,15 +273,15 @@ class DriveChangeHandler:
                 fallback = True
                 if not latest_modified_at or not db_modified_at:
                     self.logger.info("🟢 No modified at found")
-                    return True
+                    return False, False
 
             if not latest_file_name or not db_file_name:
                 self.logger.info("🟢 No file name found")
-                return True
+                return False, False
 
             if not latest_parents or not db_parents:
                 self.logger.info("🟢 No parents found")
-                return True
+                return False, False
 
             if fallback:
                 needs_update_var = (
@@ -314,7 +317,7 @@ class DriveChangeHandler:
         except Exception as e:
             self.logger.error("❌ Error comparing updates for file %s: %s",
                          db_file_name, str(e))
-            return True
+            return False, False
 
     async def handle_removal(self, existing_file, existing_record, transaction=None):
         """Handle file removal or access loss"""
@@ -394,7 +397,7 @@ class DriveChangeHandler:
                     'name': str(file_metadata.get('name')),
                     'extension': file_metadata.get('fileExtension', None),
                     'mimeType': file_metadata.get('mimeType', None),
-                    'sizeInBytes': int(file_metadata.get('size', None)),
+                    'sizeInBytes': int(file_metadata.get('size', 0)),
                     'isFile': file_metadata.get('mimeType', '') != 'application/vnd.google-apps.folder',
                     'webUrl': file_metadata.get('webViewLink', None),
                     'etag': file_metadata.get('etag', None),
@@ -505,7 +508,7 @@ class DriveChangeHandler:
                 'name': str(updated_file.get('name')),
                 'extension': updated_file.get('fileExtension', None),
                 'mimeType': updated_file.get('mimeType', None),
-                'sizeInBytes': int(updated_file.get('size', None)),
+                'sizeInBytes': int(updated_file.get('size', 0)),
                 'webUrl': updated_file.get('webViewLink', None),
                 'etag': updated_file.get('etag', None),
                 'ctag': updated_file.get('ctag', None),

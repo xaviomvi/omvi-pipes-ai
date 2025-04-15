@@ -20,7 +20,7 @@ class ArangoService(BaseArangoService):
         self.kafka_service = kafka_service
         self.logger = logger
 
-    async def store_page_token(self, channel_id: str, resource_id: str, user_email: str, token: str):
+    async def store_page_token(self, channel_id: str, resource_id: str, user_email: str, token: str, expiration: Optional[str] = None):
         """Store page token with user channel information"""
         try:
             self.logger.info("""
@@ -30,7 +30,8 @@ class ArangoService(BaseArangoService):
             - Resource: %s
             - User Email: %s
             - Token: %s
-            """, channel_id, resource_id, user_email, token)
+            - Expiration: %s
+            """, channel_id, resource_id, user_email, token, expiration)
 
             if not self.db.has_collection(CollectionNames.PAGE_TOKENS.value):
                 self.db.create_collection(CollectionNames.PAGE_TOKENS.value)
@@ -41,7 +42,8 @@ class ArangoService(BaseArangoService):
                 'resourceId': resource_id,
                 'userEmail': user_email,
                 'token': token,
-                'createdAtTimestamp': get_epoch_timestamp_in_ms()
+                'createdAtTimestamp': get_epoch_timestamp_in_ms(),
+                'expiration': expiration
             }
 
             # Upsert to handle updates to existing channel tokens
@@ -140,7 +142,7 @@ class ArangoService(BaseArangoService):
             self.logger.error("❌ Error getting all channel tokens: %s", str(e))
             return []
 
-    async def store_channel_history_id(self, channel_data, user_email: str):
+    async def store_channel_history_id(self, history_id: str, expiration: str, user_email: str):
         """
         Store the latest historyId for a user's channel watch
 
@@ -153,17 +155,17 @@ class ArangoService(BaseArangoService):
         try:
             self.logger.info(f"🚀 Storing historyId for user {user_email}")
 
-            history_id = channel_data['historyId']
-
             query = """
             UPSERT { userEmail: @userEmail }
             INSERT { 
                 userEmail: @userEmail, 
                 historyId: @historyId,
+                expiration: @expiration,
                 updatedAt: DATE_NOW()
             }
             UPDATE { 
                 historyId: @historyId,
+                expiration: @expiration,
                 updatedAt: DATE_NOW()
             } IN channelHistory
             RETURN NEW
@@ -174,6 +176,7 @@ class ArangoService(BaseArangoService):
                 bind_vars={
                     'userEmail': user_email,
                     'historyId': history_id,
+                    'expiration': expiration
                 }
             ))
 
@@ -205,10 +208,7 @@ class ArangoService(BaseArangoService):
             query = """
             FOR history IN channelHistory
             FILTER history.userEmail == @userEmail
-            RETURN {
-                historyId: history.historyId,
-                updatedAt: history.updatedAt
-            }
+            RETURN history
             """
 
             result = list(self.db.aql.execute(
@@ -409,9 +409,6 @@ class ArangoService(BaseArangoService):
             db = transaction if transaction else self.db
             cursor = db.aql.execute(query, bind_vars=bind_vars)
             result = list(cursor)
-
-            # Log the detailed results
-            self.logger.info("🔍 Query diagnostic results: %s", result)
 
             if not result or not result[0]['found_relations']:
                 self.logger.warning("⚠️ No relations found for record %s", file_key)
@@ -886,89 +883,93 @@ class ArangoService(BaseArangoService):
             return []
 
     async def delete_records_and_relations(self, node_key: str, hard_delete: bool = False, transaction: Optional[TransactionDatabase] = None) -> bool:
-        """Delete a node and its edges from the specified collection"""
+        """Delete a node and its edges from all edge collections (Records, Files)."""
         try:
-            self.logger.info("🚀 Deleting node %s from collection Records, Files (hard_delete=%s)",
-                        node_key, hard_delete)
+            self.logger.info("🚀 Deleting node %s from collection Records, Files (hard_delete=%s)", node_key, hard_delete)
 
-            if not hard_delete:
-                # Soft delete query
-                query = """
-                UPDATE { _key: @node_key } 
-                WITH {isDeleted: true , deletedAt: timestamp} 
-                
-                IN records
-                RETURN true
-                """
+            db = transaction if transaction else self.db
+            record_id_full = f"records/{node_key}"
+            
+            record = await self.get_document(node_key, CollectionNames.RECORDS.value)
+            if not record:
+                self.logger.warning("⚠️ Record %s not found in Records collection", node_key)
+                return False
 
-                bind_vars = {
-                    'node_key': node_key,
-                    'timestamp':  get_epoch_timestamp_in_ms()
-                }
+            # Define all edge collections used in the graph
+            EDGE_COLLECTIONS = [
+                CollectionNames.RECORD_RELATIONS.value,
+                CollectionNames.BELONGS_TO.value,
+                CollectionNames.BELONGS_TO_DEPARTMENT.value,
+                CollectionNames.BELONGS_TO_CATEGORY.value,
+                CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value,
+                CollectionNames.BELONGS_TO_LANGUAGE.value,
+                CollectionNames.BELONGS_TO_TOPIC.value,
+                CollectionNames.IS_OF_TYPE.value,
+            ]
 
-            else:
-                # Hard delete query
-                self.logger.info("Hard deleting edges and nodes")
-                query = """
-                LET record_id_full = CONCAT('records/', @node_key)
-                LET file_id_full = CONCAT('files/', @node_key)
-                
-                // Remove edges first
-                LET removed_edges = (
-                    FOR edge IN @@recordRelations
+            # Step 1: Remove edges from all edge collections
+            for edge_collection in EDGE_COLLECTIONS:
+                try:
+                    edge_removal_query = """
+                    LET record_id_full = CONCAT('records/', @node_key)
+                    FOR edge IN @@edge_collection
                         FILTER edge._from == record_id_full OR edge._to == record_id_full
-                        REMOVE edge IN @@recordRelations
-                        RETURN OLD
-                )
-                
-                // Remove record
-                LET removed_record = (
-                    FOR doc IN @@records
-                        FILTER doc._key == @node_key
-                        REMOVE doc IN @@records
-                        RETURN OLD
-                )
-                
-                // Remove file
-                LET removed_file = (
-                    FOR doc IN @@files
-                        FILTER doc._key == @node_key
-                        REMOVE doc IN @@files
-                        RETURN OLD
-                )
-                
-                RETURN {
-                    edges_removed: LENGTH(removed_edges),
-                    record_removed: LENGTH(removed_record) > 0,
-                    file_removed: LENGTH(removed_file) > 0
-                }
-                """
+                        REMOVE edge IN @@edge_collection
+                    """
+                    bind_vars = {
+                        'node_key': node_key,
+                        '@edge_collection': edge_collection
+                    }
+                    db.aql.execute(edge_removal_query, bind_vars=bind_vars)
+                    self.logger.info(f"✅ Edges from {edge_collection} deleted for node {node_key}")
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Could not delete edges from {edge_collection} for node {node_key}: {str(e)}")
 
-                bind_vars = {
-                    'node_key': node_key,
-                    '@recordRelations': CollectionNames.RECORD_RELATIONS.value,
-                    '@records': CollectionNames.RECORDS.value,
-                    '@files': CollectionNames.FILES.value
-                    
-                }
-                db = transaction if transaction else self.db
+            # Step 2: Delete node from `records` and `files` collections
+            delete_query = """
+            LET removed_record = (
+                FOR doc IN @@records
+                    FILTER doc._key == @node_key
+                    REMOVE doc IN @@records
+                    RETURN OLD
+            )
 
-                cursor = db.aql.execute(query, bind_vars=bind_vars)
-                result = list(cursor)
+            LET removed_file = (
+                FOR doc IN @@files
+                    FILTER doc._key == @node_key
+                    REMOVE doc IN @@files
+                    RETURN OLD
+            )
+            
+            LET removed_mail = (
+                FOR doc IN @@mails
+                    FILTER doc._key == @node_key
+                    REMOVE doc IN @@mails
+                    RETURN OLD
+            )
 
-                self.logger.info("🚀 Node Deletion Result: %s", result)
+            RETURN {
+                record_removed: LENGTH(removed_record) > 0,
+                file_removed: LENGTH(removed_file) > 0,
+                mail_removed: LENGTH(removed_mail) > 0
+            }
+            """
+            bind_vars = {
+                'node_key': node_key,
+                '@records': CollectionNames.RECORDS.value,
+                '@files': CollectionNames.FILES.value,
+                '@mails': CollectionNames.MAILS.value
+            }
 
-            # Use provided transaction or direct db connection
+            cursor = db.aql.execute(delete_query, bind_vars=bind_vars)
+            result = list(cursor)
+
             self.logger.info("✅ Node %s and its edges %s deleted: %s",
-                        node_key, "hard" if hard_delete else "soft", result)
+                            node_key, "hard" if hard_delete else "soft", result)
             return True
 
         except Exception as e:
-            self.logger.error(
-                "❌ Failed to delete node %s: %s",
-                node_key,
-                str(e)
-            )
+            self.logger.error("❌ Failed to delete node %s: %s", node_key, str(e))
             if transaction:
                 raise
             return False

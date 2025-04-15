@@ -55,8 +55,14 @@ class KafkaService:
 
             self.logger.info(f"Formatted event: {formatted_event}")
             self.logger.info(f"kafka config: {kafka_config}")
+            brokers = kafka_config.get('brokers', 'localhost:9092')
+            if isinstance(brokers, list):
+                brokers = ",".join(brokers)
+            elif isinstance(brokers, str) and brokers.startswith("[") and brokers.endswith("]"):
+                brokers = brokers.strip("[]").replace("'", "").replace('"', '').strip()
+            
             producer_config = {
-                'bootstrap.servers': kafka_config.get('servers', 'localhost:9092'),
+                'bootstrap.servers': brokers,
                 'client.id': kafka_config.get('client_id', 'file-processor')
             }
             self.producer = Producer(producer_config)
