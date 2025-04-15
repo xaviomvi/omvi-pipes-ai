@@ -1,5 +1,4 @@
 import type { Metadata, CustomCitation } from 'src/types/chat-bot';
-
 import type { Record, ChatMessageProps, MessageContentProps } from 'src/types/chat-message';
 
 import remarkGfm from 'remark-gfm';
@@ -8,11 +7,11 @@ import ReactMarkdown from 'react-markdown';
 import refreshIcon from '@iconify-icons/mdi/refresh';
 import loadingIcon from '@iconify-icons/mdi/loading';
 import downIcon from '@iconify-icons/mdi/chevron-down';
-import React, { useRef, useMemo, useState, useCallback } from 'react';
 import robotIcon from '@iconify-icons/mdi/robot-outline';
 import rightIcon from '@iconify-icons/mdi/chevron-right';
 import accountIcon from '@iconify-icons/mdi/account-outline';
 import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
+import React, { useRef, useMemo, useState, useCallback } from 'react';
 
 import {
   Box,
@@ -22,6 +21,7 @@ import {
   Stack,
   Dialog,
   Button,
+  Popper,
   Tooltip,
   Divider,
   Collapse,
@@ -31,7 +31,6 @@ import {
   DialogContent,
   CircularProgress,
   ClickAwayListener,
-  Popper,
 } from '@mui/material';
 
 import RecordDetails from './record-details';
@@ -543,7 +542,7 @@ const ChatMessage = ({
             {formatDate(message.createdAt)} • {formatTime(message.createdAt)}
           </Typography>
           {message.type === 'bot' && message.confidence && (
-            <Tooltip title={'Confidence score'} placement='top'>
+            <Tooltip title="Confidence score" placement='top'>
               <Chip
                 label={message.confidence}
                 size="small"

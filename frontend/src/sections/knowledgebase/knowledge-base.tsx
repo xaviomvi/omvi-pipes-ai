@@ -1,13 +1,13 @@
 import debounce from 'lodash/debounce';
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import { 
   Box, 
+  Fade, 
   alpha, 
-  useTheme, 
+  useTheme,
   LinearProgress,
-  CircularProgress,
-  Fade
+  CircularProgress
 } from '@mui/material';
 
 import { fetchKnowledgeBaseDetails } from './utils';
