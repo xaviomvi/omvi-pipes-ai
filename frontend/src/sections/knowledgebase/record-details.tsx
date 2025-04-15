@@ -167,7 +167,7 @@ export default function RecordDetails() {
   // Get file extension, size, etc.
   const { fileRecord } = record;
   const fileSize = fileRecord ? formatFileSize(fileRecord.sizeInBytes) : 'N/A';
-  const fileType = fileRecord ? fileRecord.extension.toUpperCase() : 'N/A';
+  const fileType = fileRecord && fileRecord.extension  ? fileRecord.extension.toUpperCase() : 'N/A';
 
   // Get file icon
   const fileIcon = getFileIcon(fileRecord?.extension || '');

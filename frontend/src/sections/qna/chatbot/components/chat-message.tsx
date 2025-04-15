@@ -543,20 +543,22 @@ const ChatMessage = ({
             {formatDate(message.createdAt)} • {formatTime(message.createdAt)}
           </Typography>
           {message.type === 'bot' && message.confidence && (
-            <Chip
-              label={message.confidence}
-              size="small"
-              sx={{
-                height: '20px',
-                fontSize: '0.60rem',
-                fontWeight: 600,
-                backgroundColor:
-                  message.confidence === 'Very High'
-                    ? 'rgba(46, 125, 50, 0.08)'
-                    : 'rgba(237, 108, 2, 0.08)',
-                color: message.confidence === 'Very High' ? '#2e7d32' : '#ed6c02',
-              }}
-            />
+            <Tooltip title={'Confidence score'} placement='top'>
+              <Chip
+                label={message.confidence}
+                size="small"
+                sx={{
+                  height: '20px',
+                  fontSize: '0.60rem',
+                  fontWeight: 600,
+                  backgroundColor:
+                    message.confidence === 'Very High'
+                      ? 'rgba(46, 125, 50, 0.08)'
+                      : 'rgba(237, 108, 2, 0.08)',
+                  color: message.confidence === 'Very High' ? '#2e7d32' : '#ed6c02',
+                }}
+              />
+            </Tooltip>
           )}
         </Stack>
       </Box>

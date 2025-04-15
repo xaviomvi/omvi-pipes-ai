@@ -128,7 +128,7 @@ const processTextHighlight = (citation: DocumentContent | CustomCitation): Highl
 
     // Default Position (less relevant for pure text highlighting)
     const position: Position = {
-      pageNumber: 1,
+      pageNumber: -10,
       boundingRect: { x1: 0, y1: 0, x2: 0, y2: 0, width: 0, height: 0 },
       rects: [],
     };

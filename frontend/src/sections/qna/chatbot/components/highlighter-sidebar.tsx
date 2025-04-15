@@ -6,8 +6,8 @@ import { styled } from '@mui/material/styles';
 import { Box, List, ListItem, Typography } from '@mui/material';
 
 interface CitationSidebarProps {
-  citations : ProcessedCitation[];
-  scrollViewerTo  : (highlight: HighlightType) => void;
+  citations: ProcessedCitation[];
+  scrollViewerTo: (highlight: HighlightType) => void;
 }
 
 const StyledSidebar = styled(Box)(({ theme }) => ({
@@ -17,25 +17,25 @@ const StyledSidebar = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   backgroundColor: theme.palette.background.paper,
-  overflow: 'hidden'
+  overflow: 'hidden',
 }));
 
-const CitationSidebar = ({ citations, scrollViewerTo } : CitationSidebarProps) => {
+const CitationSidebar = ({ citations, scrollViewerTo }: CitationSidebarProps) => {
   const [selectedCitation, setSelectedCitation] = useState<string | null>(null);
 
-  const handleCitationClick = (citation : ProcessedCitation) => {
+  const handleCitationClick = (citation: ProcessedCitation) => {
     if (citation.highlight) {
       // eslint-disable-next-line
       const highlight: HighlightType = {
         ...citation.highlight,
-        content: citation.highlight.content || { text: '' }
+        content: citation.highlight.content || { text: '' },
       };
       scrollViewerTo(citation.highlight);
       document.location.hash = `highlight-${citation.highlight.id}`;
-      setSelectedCitation(citation.highlight.id); 
+      setSelectedCitation(citation.highlight.id);
     }
   };
-  
+
   return (
     <StyledSidebar>
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
@@ -63,9 +63,9 @@ const CitationSidebar = ({ citations, scrollViewerTo } : CitationSidebarProps) =
                   bottom: 0,
                   border: '2px solid #2e7d32', // Material-UI's green[800]
                   borderRadius: 1,
-                  pointerEvents: 'none'
-                }
-              })
+                  pointerEvents: 'none',
+                },
+              }),
             }}
           >
             <Box>
@@ -75,7 +75,7 @@ const CitationSidebar = ({ citations, scrollViewerTo } : CitationSidebarProps) =
               <Typography variant="body2" color="text.secondary">
                 {citation.content}
               </Typography>
-              {citation.highlight?.position && (
+              {citation.highlight?.position && citation.highlight?.position.pageNumber > 0 && (
                 <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
                   Page {citation.highlight.position.pageNumber}
                 </Typography>

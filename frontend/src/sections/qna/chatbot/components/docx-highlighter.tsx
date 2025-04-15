@@ -97,7 +97,7 @@ const processTextHighlight = (citation: DocumentContent | CustomCitation): Highl
 
     // Create a complete Position object with required properties
     const position: Position = {
-      pageNumber: 1,
+      pageNumber: -10,
       // Add missing required properties
       boundingRect: {
         x1: 0,
