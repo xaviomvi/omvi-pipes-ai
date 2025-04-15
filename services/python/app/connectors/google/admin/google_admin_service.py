@@ -753,6 +753,7 @@ class GoogleAdminService:
                         userId='me', 
                         body=request_body
                     ).execute()
+                    response['expiration'] = int(response['expiration'])
             except HttpError as e:
                 if e.resp.status == 403:
                     raise DrivePermissionError(

@@ -542,7 +542,7 @@ const ChatMessage = ({
             {formatDate(message.createdAt)} • {formatTime(message.createdAt)}
           </Typography>
           {message.type === 'bot' && message.confidence && (
-            <Tooltip title='Confidence score' placement='top'>
+            <Tooltip title="Confidence score" placement='top'>
               <Chip
                 label={message.confidence}
                 size="small"

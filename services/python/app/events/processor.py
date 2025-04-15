@@ -83,7 +83,6 @@ class Processor:
             domain_metadata = None
             try:
                 metadata = await self.domain_extractor.extract_metadata(full_text_content, orgId)
-                self.logger.info(f"✅ Extracted metadata: {metadata}")
                 record = await self.domain_extractor.save_metadata_to_arango(record_id, metadata)
                 file = await self.arango_service.get_document(record_id, CollectionNames.FILES.value)
                 domain_metadata = {**record, **file}
@@ -224,7 +223,6 @@ class Processor:
             domain_metadata = None
             try:
                 metadata = await self.domain_extractor.extract_metadata(full_text_content, orgId)
-                self.logger.info(f"✅ Extracted metadata: {metadata}")
                 record = await self.domain_extractor.save_metadata_to_arango(record_id, metadata)
                 file = await self.arango_service.get_document(record_id, CollectionNames.FILES.value)
                 domain_metadata = {**record, **file}
@@ -395,14 +393,12 @@ class Processor:
                     for row in table['rows']:
                         combined_texts.append(f"{row_counter}. {row['natural_language_text']}")
                         row_counter += 1
-                        self.logger.info(f"row_counter: {row_counter}")
                         
             combined_text = "\n".join(combined_texts)
             if combined_text:
                 try:
                     self.logger.info(f"🎯 Extracting metadata from Excel content")
                     metadata = await self.domain_extractor.extract_metadata(combined_text, orgId)
-                    self.logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(record_id, metadata)
                     file = await self.arango_service.get_document(record_id, CollectionNames.FILES.value)
 
@@ -416,8 +412,7 @@ class Processor:
                 for table in sheet_result['tables']:
                     for row in table['rows']:
                         row_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in row['raw_data'].items()}
-                        self.logger.info(f"row_num: {row['row_num']}")
-                        self.logger.info(f"row_data: {row_data}")
+                        block_num = [int(row['row_num'])] if row['row_num'] else [0]
                         sentence_data.append({
                             'text': row['natural_language_text'],
                             'bounding_box': None,
@@ -426,7 +421,7 @@ class Processor:
                                 "recordId": record_id,
                                 "sheetName": sheet_result['sheet_name'],
                                 "sheetNum": sheet_idx,
-                                "blockNum": [int(row['row_num'])],
+                                "blockNum": block_num,
                                 "blockType": "table_row",
                                 "blockText": json.dumps(row_data)
                             }
@@ -485,7 +480,6 @@ class Processor:
                 try:
                     self.logger.info(f"🎯 Extracting metadata from HTML content {text_content}")
                     metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
-                    self.logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     mail = await self.arango_service.get_document(recordId, CollectionNames.MAILS.value)
                     domain_metadata = {**record, **mail}
@@ -659,7 +653,6 @@ class Processor:
                     self.logger.info(f"""🎯 Extracting metadata from paragraphs: {
                                 paragraphs_text}""")
                     metadata = await self.domain_extractor.extract_metadata(paragraphs_text, orgId)
-                    self.logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                     domain_metadata = record
@@ -688,7 +681,6 @@ class Processor:
             self.logger.debug("📑 Creating semantic sentences")
             sentence_data = []
             sentences = ocr_result.get("sentences", [])
-            self.logger.debug(f"sentences: {sentences}")
             if sentences:
                 self.logger.debug("📑 Creating semantic sentences")
 
@@ -700,6 +692,7 @@ class Processor:
                     3: "list",
                     4: "header"
                 }
+                
 
                 # Prepare sentences for indexing with separated metadata
                 sentence_data = [{
@@ -784,12 +777,10 @@ class Processor:
             
             # Get the full document structure
             doc_dict = docx_result.export_to_dict()
-            self.logger.debug(f"📑 Document structure processed, {doc_dict}")
 
             # Process content in reading order
             self.logger.debug("📑 Processing document structure in reading order")
             ordered_content = self._process_content_in_order(doc_dict)
-            self.logger.debug(f"📑 Ordered content processed, {ordered_content}")
             
             # Extract text in reading order
             text_content = "\n".join(
@@ -805,7 +796,6 @@ class Processor:
                 try:
                     self.logger.info("🎯 Extracting metadata from DOCX content")
                     metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
-                    self.logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                     domain_metadata = {**record, **file}
@@ -909,7 +899,6 @@ class Processor:
             llm = await get_llm(self.logger, self.config_service)
             parser = self.parsers['excel']
             excel_result = parser.parse(excel_binary)
-            self.logger.debug(f"📑 Excel result processed, {excel_result}")
 
             # Extract domain metadata from text content
             self.logger.info("🎯 Extracting domain metadata")
@@ -917,7 +906,6 @@ class Processor:
                 try:
                     self.logger.info(f"🎯 Extracting metadata from Excel content")
                     metadata = await self.domain_extractor.extract_metadata(excel_result['text_content'], orgId)
-                    self.logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                     # Convert datetime objects to strings
@@ -957,6 +945,8 @@ class Processor:
                         row_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in row['raw_data'].items()}
                         formatted_content += f"Row Data: {row_data}\n"
                         formatted_content += f"Natural Text: {row['natural_language_text']}\n"
+                        
+                        block_num = [int(row['row_num'])] if row['row_num'] else [0]
 
                         # Add processed rows to sentence data
                         sentence_data.append({
@@ -967,7 +957,7 @@ class Processor:
                                     "recordId": recordId,
                                     "sheetName": sheet_name,
                                     "sheetNum": sheet_idx,
-                                    "blockNum": [int(row['row_num'])],
+                                    "blockNum": block_num,
                                     "blockType": "table_row",
                                     "blockText": json.dumps(row_data)  # Include entire row data
                             }
@@ -1062,7 +1052,7 @@ class Processor:
                 if csv_result is None:
                     raise ValueError("Unable to decode CSV file with any supported encoding")
 
-                self.logger.debug(f"📑 CSV result processed, {csv_result}")
+                self.logger.debug(f"📑 CSV result processed")
 
                 # Extract domain metadata from CSV content
                 self.logger.info("🎯 Extracting domain metadata")
@@ -1076,7 +1066,6 @@ class Processor:
                     try:
                         self.logger.info("🎯 Extracting metadata from CSV content")
                         metadata = await self.domain_extractor.extract_metadata(csv_text, orgId)
-                        self.logger.info(f"✅ Extracted metadata: {metadata}")
                         record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                         file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                         domain_metadata = {**record, **file}
@@ -1194,7 +1183,6 @@ class Processor:
             if item_index >= len(items):
                 return
             item = items[item_index]
-            self.logger.debug(f"Processing item: {item_type}[{item_index}] = {item}")
             
             # Get page number from the item's page reference
             page_no = None
@@ -1209,7 +1197,6 @@ class Processor:
                     page_index = int(page_path.split('/')[-1])
                     pages = doc_dict.get('pages', [])
                     if page_index < len(pages):
-                        self.logger.debug(f"Page index: {page_index}, Page: {pages[page_index]}")
                         page_no = pages[page_index].get('page_no')
                         
             # Create context for current item
@@ -1230,13 +1217,11 @@ class Processor:
             
             # Process children with current_context as parent
             children = item.get('children', [])
-            self.logger.debug(f"Processing children of {item_type}[{item_index}]: {children}")
             for child in children:
                 process_item(child, level + 1, current_context)
         
         # Start processing from body
         body = doc_dict.get('body', {})
-        self.logger.debug(f"Starting from body: {body}")
         for child in body.get('children', []):
             process_item(child)
             
@@ -1279,7 +1264,6 @@ class Processor:
                 try:
                     self.logger.info("🎯 Extracting metadata from HTML content")
                     metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
-                    self.logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                     domain_metadata = {**record, **file}
@@ -1318,8 +1302,7 @@ class Processor:
                             "blockType": context.get('label', 'text'),
                             "blockNum": [idx],
                             "blockText": json.dumps(full_context),
-                            "pageNum": [int(context.get('pageNum'))],  # Add page number
-                            "level": [int(context.get('level'))]
+                            "pageNum": [int(context.get('pageNum', 0))],
                         }
                     })
 
@@ -1388,6 +1371,9 @@ class Processor:
             
             # Get the full document structure
             doc_dict = md_result.export_to_dict()
+            self.logger.debug(f"Document structure: {doc_dict}")
+            html_content = md_result.export_to_html()
+            self.logger.debug(f"HTML content: {html_content}")
 
             # Extract text content from all text elements
             text_content = "\n".join(
@@ -1395,6 +1381,7 @@ class Processor:
                 for text_item in doc_dict.get('texts', [])
                 if text_item.get('text', '').strip()
             )
+            self.logger.debug(f"Text content: {text_content}")
 
             # Extract domain metadata from content
             self.logger.info("🎯 Extracting domain metadata")
@@ -1402,7 +1389,6 @@ class Processor:
             if text_content:
                 try:
                     metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
-                    self.logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                     domain_metadata = {**record, **file}
@@ -1418,6 +1404,7 @@ class Processor:
             self.logger.debug("📝 Processing text items")
             for idx, item in enumerate(doc_dict.get('texts', []), 1):
                 if item.get('text', '').strip():
+                    self.logger.debug(f"Item: {item}")
                     # Create item entry with metadata
                     item_entry = {
                         "number": idx,
@@ -1459,7 +1446,6 @@ class Processor:
                             "blockType": item.get('label', 'text'),
                             "blockNum": [idx],
                             "blockText": json.dumps(full_context),  # Include full context
-                            "level": [int(item.get('level'))],
                             "codeLanguage": item.get('language') if item.get('label') == 'code' else None
                         }
                     })
@@ -1544,7 +1530,6 @@ class Processor:
             domain_metadata = None
             try:
                 metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
-                self.logger.info(f"✅ Extracted metadata: {metadata}")
                 record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                 file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                 domain_metadata = {**record, **file}
@@ -1663,7 +1648,6 @@ class Processor:
 
             # Get the full document structure
             doc_dict = pptx_result.export_to_dict()
-            self.logger.debug(f"📑 Full document structure: {doc_dict}")
 
             # Log structure counts
             self.logger.debug(f"📊 Document structure counts:")
@@ -1704,7 +1688,6 @@ class Processor:
                 
                 # Get page number from the item's page reference
                 page_no = None
-                self.logger.debug(f"Item: {item}")
                 if 'prov' in item:
                     prov = item['prov']
                     if isinstance(prov, list) and len(prov) > 0:
@@ -1716,7 +1699,6 @@ class Processor:
                         page_index = int(page_path.split('/')[-1])
                         pages = doc_dict.get('pages', [])
                         if page_index < len(pages):
-                            self.logger.debug(f"Page index: {page_index}, Page: {pages[page_index]}")
                             page_no = pages[page_index].get('page_no')
                 
                 # Create context for current item
@@ -1749,7 +1731,6 @@ class Processor:
                 for item in ordered_items
                 if item['text'].strip()
             )
-            self.logger.debug(f"📝 Extracted text content: {text_content}")
 
             # Extract domain metadata
             self.logger.info("🎯 Extracting domain metadata")
@@ -1757,7 +1738,6 @@ class Processor:
             if text_content:
                 try:
                     metadata = await self.domain_extractor.extract_metadata(text_content, orgId)
-                    self.logger.info(f"✅ Extracted metadata: {metadata}")
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                     domain_metadata = {**record, **file}
@@ -1833,7 +1813,6 @@ class Processor:
             # Index sentences if available
             if sentence_data:
                 self.logger.debug("📑 Indexing %s sentences", len(sentence_data))
-                self.logger.debug("sentence_data: %s", sentence_data)
                 pipeline = self.indexing_pipeline
                 await pipeline.index_documents(sentence_data)
 
@@ -1893,7 +1872,6 @@ class Processor:
         """
         self.logger.info(
             f"🚀 Starting PPT document processing for record: {recordName}")
-        # Implement PPT processing logic here
         parser = self.parsers['ppt']
         ppt_result = parser.convert_ppt_to_pptx(ppt_binary)
         await self.process_pptx_document(recordName, recordId,  version, source, orgId, ppt_result)

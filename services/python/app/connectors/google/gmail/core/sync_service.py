@@ -35,6 +35,7 @@ class BaseGmailSyncService(ABC):
         logger,
         config: ConfigurationService,
         arango_service: ArangoService,
+        change_handler,
         kafka_service: KafkaService,
         celery_app
     ):
@@ -43,7 +44,7 @@ class BaseGmailSyncService(ABC):
         self.arango_service = arango_service
         self.kafka_service = kafka_service
         self.celery_app = celery_app
-
+        self.change_handler = change_handler
         # Common state
         self.drive_workers = {}
         self.progress = GmailSyncProgress()
@@ -419,7 +420,7 @@ class BaseGmailSyncService(ABC):
                                 'mimeType': attachment.get('mimeType'),
                                 "extension": attachment.get('extension'),
                                 
-                                'sizeInBytes': int(attachment.get('size')),
+                                'sizeInBytes': int(attachment.get('size', 0)),
                                 'webUrl': f"https://mail.google.com/mail?authuser={{user.email}}#all/{message_id}",
                             }
                             record = {
@@ -699,10 +700,11 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
         config: ConfigurationService,
         gmail_admin_service: GoogleAdminService,
         arango_service: ArangoService,
+        change_handler,
         kafka_service: KafkaService,
         celery_app
     ):
-        super().__init__(logger, config, arango_service, kafka_service, celery_app)
+        super().__init__(logger, config, arango_service, change_handler, kafka_service, celery_app)
         self.gmail_admin_service = gmail_admin_service
 
     async def connect_services(self, org_id: str) -> bool:
@@ -827,18 +829,32 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                         )
 
                     # Set up changes watch for the user
-                    self.logger.info("👀 Setting up changes watch for all users...")
-                    channel_data = await self.gmail_admin_service.create_gmail_user_watch(user['email'])
+                    self.logger.info("👀 Setting up changes watch for user %s", user['email'])
+                    channel_data = await self.arango_service.get_channel_history_id(user['email'])
                     if not channel_data:
-                        self.logger.warning(
-                            "❌ Failed to set up changes watch for user: %s", user['email'])
-                        continue
+                        self.logger.info("🚀 Creating new changes watch for user %s", user['email'])
+                        channel_data = await self.gmail_admin_service.create_gmail_user_watch(user['email'])
+                        if not channel_data:
+                            self.logger.error("❌ Failed to set up changes watch for user: %s", user['email'])
+                            await self.arango_service.update_user_sync_state(user['email'], 'FAILED', Connectors.GOOGLE_MAIL.value)
+                            return False
+                    current_timestamp = get_epoch_timestamp_in_ms()
+                    expiration_timestamp = channel_data['expiration']
+                    if not channel_data or current_timestamp > expiration_timestamp:
+                        self.logger.info("🚀 Creating new changes watch for user %s", user['email'])
+                        channel_data = await self.gmail_admin_service.create_gmail_user_watch(user['email'])
+                        if not channel_data:
+                            await self.arango_service.update_user_sync_state(user['email'], 'FAILED', Connectors.GOOGLE_MAIL.value)
+                            self.logger.warning(
+                                "❌ Failed to set up changes watch for user: %s", user['email'])
+                            continue
 
                     self.logger.info(
                         "✅ Changes watch set up successfully for user: %s", user['email'])
 
                     self.logger.info("🚀 Channel data: %s", channel_data)
-                    await self.arango_service.store_channel_history_id(channel_data, user['email'])
+                    
+                    await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user['email'])
 
                 except Exception as e:
                     self.logger.error(
@@ -868,6 +884,30 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                 current_state = sync_state.get('syncState')
                 if current_state == 'COMPLETED':
                     self.logger.warning("💥 Gmail sync is already completed for user %s", user['email'])
+                    try:
+                        channel_history = await self.arango_service.get_channel_history_id(user['email'])
+                        if not channel_history:
+                            self.logger.warning(f"""⚠️ No historyId found for {
+                                   user['email']}""")
+                            continue
+                        user_service = await self.gmail_admin_service.create_gmail_user_service(user['email'])
+                        
+                        changes = await user_service.fetch_gmail_changes(user['email'], channel_history['historyId'])
+                        
+                        if changes:
+                            self.logger.info("Processing %s changes for user %s",
+                                        len(changes), user['email'])
+                            await self.arango_service.store_channel_history_id(changes['historyId'], channel_history['expiration'], user['email'])
+
+                            try:
+                                await self.change_handler.process_changes(user_service, changes, org_id, user)
+                            except Exception as e:
+                                self.logger.error("Error processing changes: %s", str(e))
+                                
+                    except Exception as e:
+                        self.logger.error(f"Error processing user {user['email']}: {str(e)}")
+                        continue
+                    
                     continue
                 
                 await self.arango_service.update_user_sync_state(
@@ -1116,14 +1156,27 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                 return False
 
             # Set up changes watch for the user
-            channel_data = await self.gmail_admin_service.create_gmail_user_watch(user_email)
+            channel_data = await self.arango_service.get_channel_history_id(user_email)
             if not channel_data:
-                self.logger.error("❌ Failed to set up changes watch for user: %s", user_email)
-                await self.arango_service.update_user_sync_state(user_email, 'FAILED', Connectors.GOOGLE_MAIL.value)
-                return False
+                self.logger.info("🚀 Creating new changes watch for user %s", user_email)
+                channel_data = await self.gmail_admin_service.create_gmail_user_watch(user_email)
+                if not channel_data:
+                    self.logger.error("❌ Failed to set up changes watch for user: %s", user_email)
+                    await self.arango_service.update_user_sync_state(user_email, 'FAILED', Connectors.GOOGLE_MAIL.value)
+                    return False
+                
+            current_timestamp = get_epoch_timestamp_in_ms()
+            expiration_timestamp = channel_data['expiration']
+            if not channel_data or current_timestamp > expiration_timestamp:
+                self.logger.info("🚀 Creating new changes watch for user %s", user_email)
+                channel_data = await self.gmail_admin_service.create_gmail_user_watch(user_email)
+                if not channel_data:
+                    self.logger.error("❌ Failed to set up changes watch for user: %s", user_email)
+                    await self.arango_service.update_user_sync_state(user_email, 'FAILED', Connectors.GOOGLE_MAIL.value)
+                    return False
 
             # Store channel data
-            await self.arango_service.store_channel_history_id(channel_data, user_email)
+            await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user_email)
 
             # List all threads and messages
             threads = await user_service.list_threads()
@@ -1282,10 +1335,11 @@ class GmailSyncIndividualService(BaseGmailSyncService):
         config: ConfigurationService,
         gmail_user_service: GmailUserService,
         arango_service: ArangoService,
+        change_handler,
         kafka_service: KafkaService,
         celery_app
     ):
-        super().__init__(logger, config, arango_service, kafka_service, celery_app)
+        super().__init__(logger, config, arango_service, change_handler, kafka_service, celery_app)
         self.gmail_user_service = gmail_user_service
 
     async def connect_services(self, org_id: str) -> bool:
@@ -1328,7 +1382,27 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                 user_info = user_info[0]
 
             # Create user watch
-            channel_data = await self.gmail_user_service.create_gmail_user_watch()
+            channel_data = await self.arango_service.get_channel_history_id(user_info['email'])
+            if not channel_data:
+                self.logger.info("🚀 Creating new changes watch for user %s", user_info['email'])
+                channel_data = await self.gmail_user_service.create_gmail_user_watch()
+                if not channel_data:
+                    self.logger.error("❌ Failed to set up changes watch for user: %s", user_info['email'])
+                    await self.arango_service.update_user_sync_state(user_info['email'], 'FAILED', Connectors.GOOGLE_MAIL.value)
+                    return False
+            current_timestamp = get_epoch_timestamp_in_ms()
+            self.logger.info("🚀 Current timestamp: %s", current_timestamp)
+            
+            expiration_timestamp = channel_data['expiration']
+            self.logger.info("🚀 Expiration timestamp: %s", expiration_timestamp)
+            self.logger.info("🚀 Watch expired: %s", current_timestamp > expiration_timestamp)
+            if not channel_data or current_timestamp > expiration_timestamp:
+                self.logger.info("🚀 Creating new changes watch for user %s", user_info['email'])
+                channel_data = await self.gmail_user_service.create_gmail_user_watch()
+                if not channel_data:
+                    self.logger.error("❌ Failed to set up changes watch for user: %s", user_info['email'])
+                    await self.arango_service.update_user_sync_state(user_info['email'], 'FAILED', Connectors.GOOGLE_MAIL.value)
+                    return False
 
             # Initialize Celery
             await self.celery_app.setup_app()
@@ -1343,7 +1417,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                     'PAUSED',
                     Connectors.GOOGLE_MAIL.value
                 )
-            await self.arango_service.store_channel_history_id(channel_data, user_info['email'])
+            await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user_info['email'])
 
             self.logger.info("✅ Gmail sync service initialized successfully")
             return True
@@ -1366,7 +1440,31 @@ class GmailSyncIndividualService(BaseGmailSyncService):
             current_state = sync_state.get('syncState')
             if current_state == 'COMPLETED':
                 self.logger.warning("💥 Gmail sync is already completed for user %s", user['email'])
-                return False
+                
+                try:
+                    user_service = self.gmail_user_service
+                    
+                    channel_history = await self.arango_service.get_channel_history_id(user['email'])
+                    if not channel_history:
+                        self.logger.warning(f"""⚠️ No historyId found for {
+                               user['email']}""")
+                        return False
+                    
+                    current_history_id = channel_history['historyId']
+                    changes = await user_service.fetch_gmail_changes(user['email'], current_history_id)
+                    
+                    if changes:
+                        await self.arango_service.store_channel_history_id(changes['historyId'], channel_history['expiration'], user['email'])
+                        
+                        try:
+                            await self.change_handler.process_changes(user_service, changes, org_id, user)
+                        except Exception as e:
+                            self.logger.error(f"Error processing change: {str(e)}")
+                
+                    return True
+                except Exception as e:
+                    self.logger.error(f"Error processing user {user['email']}: {str(e)}")
+                    return False
             
             account_type = await self.arango_service.get_account_type(org_id)
             # Update user sync state to RUNNING

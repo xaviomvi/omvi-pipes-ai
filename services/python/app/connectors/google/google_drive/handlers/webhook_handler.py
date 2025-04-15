@@ -52,11 +52,6 @@ class AbstractDriveWebhookHandler(ABC):
         """Process coalesced notifications after delay"""
         pass
 
-    @abstractmethod
-    async def handle_downtime(self, org_id):
-        """Handle system downtime recovery"""
-        pass
-
 
 class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
     """Handles webhooks for individual user accounts"""
@@ -171,37 +166,13 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
 
         if new_token and new_token != page_token['token']:
             await self.arango_service.store_page_token(
-                channel_id=notification['channel_id'],
-                resource_id=notification['resource_id'],
+                channel_id=notification['channelId'],
+                resource_id=notification['resourceId'],
                 user_email=user_email,
-                token=new_token
+                token=new_token,
+                expiration=page_token['expiration']
             )
             self.logger.info(f"🚀 Updated token for user {user_email}")
-
-    async def handle_downtime(self, org_id):
-        """Handle downtime for individual users"""
-        try:
-            user = self.arango_service.get_users(org_id)
-            tokens = await self.arango_service.get_page_token_db(
-                user_email=user[0]['email']
-            )
-            success_count = 0
-
-            for token in tokens:
-                if not token or not token.get('token'):
-                    continue
-
-                if await self._process_user_changes(token['userEmail'], {
-                    'channel_id': token['channel_id'],
-                    'resource_id': token['resource_id']
-                }):
-                    success_count += 1
-
-            return success_count > 0
-
-        except Exception as e:
-            self.logger.error(f"Individual downtime handling failed: {str(e)}")
-            return False
 
 
 class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
@@ -317,7 +288,8 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                             channel_id=channel_id,
                             resource_id=resource_id,
                             user_email=page_token['userEmail'],
-                            token=new_token
+                            token=new_token,
+                            expiration=page_token['expiration']
                         )
                         self.logger.info(
                             "✅ Updated token for channel %s", channel_id)
@@ -330,33 +302,3 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                 self.logger.error("Error processing channel %s: %s",
                              channel_id, str(e))
                 continue
-
-    async def handle_downtime(self, org_id):
-        """Handle downtime for the entire organization"""
-        try:
-            users = await self.arango_service.get_users(org_id)
-            success_count = 0
-
-            for user in users:
-                try:
-                    user_id = user['userId']
-                    user_service = await self.drive_admin_service.create_drive_user_service(user['email'])
-                    page_token = await self.arango_service.get_page_token_db(
-                        user['channel_id'],
-                        user['resource_id']
-                    )
-                    changes = await user_service.get_changes(page_token=page_token['token'])
-                    if changes:
-                        for change in changes:
-                            await self.change_handler.process_change(change, user_service, org_id, user_id)
-                        success_count += 1
-                except Exception as e:
-                    self.logger.error("Error processing user %s: %s",
-                                 user['email'], str(e))
-                    continue
-
-            return success_count > 0
-
-        except Exception as e:
-            self.logger.error("Enterprise downtime handling failed: %s", str(e))
-            return False

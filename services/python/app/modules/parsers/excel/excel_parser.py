@@ -8,7 +8,8 @@ import json
 from datetime import datetime
 
 class ExcelParser:
-    def __init__(self):
+    def __init__(self, logger):
+        self.logger = logger
         self.workbook = None
         self.file_binary = None
 

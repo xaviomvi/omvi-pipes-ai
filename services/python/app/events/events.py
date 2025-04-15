@@ -54,6 +54,9 @@ class EventProcessor:
 
             # Update indexing status to IN_PROGRESS
             record = await self.arango_service.get_document(record_id, CollectionNames.RECORDS.value)
+            if record is None:
+                self.logger.error(f"❌ Record {record_id} not found in database")
+                return
             doc = dict(record)
 
             # Update with new metadata fields
@@ -87,7 +90,7 @@ class EventProcessor:
             supported_extensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "html", "pptx", "ppt", "md", "txt"]
 
             if mime_type not in supported_mime_types and extension not in supported_extensions:
-                self.logger.info(f"🔴🔴🔴 Unsupported: Mime Type: {mime_type}, Extension: {extension} 🔴🔴🔴")
+                self.logger.info(f"🔴🔴🔴 Unsupported file: Mime Type: {mime_type}, Extension: {extension} 🔴🔴🔴")
                 doc = docs[0]
                 doc.update({
                     "indexingStatus": "FILE_TYPE_NOT_SUPPORTED",

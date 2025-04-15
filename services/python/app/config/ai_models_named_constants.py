@@ -12,6 +12,10 @@ class OCRProvider(Enum):
     AZURE_PROVIDER = "azureDI"
     OCRMYPDF_PROVIDER = "ocrmypdf"
     
+class EmbeddingProvider(Enum):
+    AZURE_OPENAI_PROVIDER = "azureOpenAI"
+    OPENAI_PROVIDER = "openAI"
+
 class AzureOpenAILLM(Enum):
     AZURE_OPENAI_VERSION = "2023-07-01-preview"
     

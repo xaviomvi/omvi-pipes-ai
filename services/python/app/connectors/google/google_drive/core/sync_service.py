@@ -87,15 +87,20 @@ class BaseDriveSyncService(ABC):
                 self.logger.warning("⚠️ No page token found for user %s", user_email)
                 return await user_service.create_changes_watch()
             
-            stopped = await user_service.stop_watch(page_token['channelId'], page_token['resourceId'])
-            # Delete the page token from database after retrieving it
-            deleted = await self.arango_service.delete_page_token_db(user_email=user_email)
-            if not deleted:
-                self.logger.warning("⚠️ Failed to delete page token for user %s", user_email)
-            if not stopped:
-                self.logger.warning("⚠️ Failed to stop changes watch for user %s", user_email)
-            return await user_service.create_changes_watch()
-
+            # Check if the page token is expired
+            current_time = get_epoch_timestamp_in_ms()
+            self.logger.info("Current time: %s", current_time)
+            self.logger.info("Page token expiration: %s", page_token['expiration'])
+            if page_token['expiration'] < current_time:
+                self.logger.warning("⚠️ Page token expired for user %s", user_email)
+                
+                stopped = await user_service.stop_watch(page_token['channelId'], page_token['resourceId'])
+                deleted = await self.arango_service.delete_page_token_db(user_email=user_email)
+                
+                return await user_service.create_changes_watch()
+            
+            self.logger.info("✅ Page token is not expired for user %s. Using existing webhooks", user_email)
+            return page_token
         except Exception as e:
             self.logger.error("Failed to set up changes watch: %s", str(e))
             return None
@@ -408,7 +413,7 @@ class BaseDriveSyncService(ABC):
                             'isFile': metadata.get('mimeType', '') != 'application/vnd.google-apps.folder',
                             'extension': metadata.get('fileExtension', None),
                             'mimeType': metadata.get('mimeType', None),
-                            'sizeInBytes': int(metadata.get('size', None)),
+                            'sizeInBytes': int(metadata.get('size', 0)),
                             'webUrl': metadata.get('webViewLink', None),
                             'etag': metadata.get('etag', None),
                             'ctag': metadata.get('ctag', None),
@@ -418,7 +423,6 @@ class BaseDriveSyncService(ABC):
                             'sha1Hash': metadata.get('sha1Checksum', None),
                             'sha256Hash': metadata.get('sha256Checksum', None),
                             'path': metadata.get('path', None)
-                            
                         }
 
                         record = {
@@ -749,17 +753,13 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                         "✅ Changes watch set up successfully for user: %s", user['email'])
 
                     await self.arango_service.store_page_token(
-                        channel_data['channel_id'], 
-                        channel_data['resource_id'], 
+                        channel_data['channelId'], 
+                        channel_data['resourceId'], 
                         user['email'], 
-                        channel_data['page_token']
+                        channel_data['token'], 
+                        channel_data['expiration']
                     )
-                    
-                    changes, new_token = await user_service.get_changes(channel_data['page_token'])
-                    self.logger.info("🚀 Found %s changes since page token: %s", len(
-                        changes), channel_data['page_token'])
-                    self.logger.info("Changes: %s", changes)
-                    self.logger.info("🚀 New token: %s", new_token)
+
                 except Exception as e:
                     self.logger.error(
                         "❌ Error setting up changes watch for user %s: %s", user['email'], str(e))
@@ -817,10 +817,11 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
                             if new_token and new_token != page_token['token']:
                                 await self.arango_service.store_page_token(
-                                    channel_id=page_token['channel_id'],
-                                    resource_id=page_token['resource_id'],
+                                    channel_id=page_token['channelId'],
+                                    resource_id=page_token['resourceId'],
                                     user_email=user['email'],
-                                    token=new_token
+                                    token=new_token,
+                                    expiration=page_token['expiration']
                                 )
                                 self.logger.info(
                                     "✅ Updated token for user %s", user['email'])
@@ -1051,10 +1052,11 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
 
             # Store the page token
             await self.arango_service.store_page_token(
-                channel_data['channel_id'],
-                channel_data['resource_id'],
+                channel_data['channelId'],
+                channel_data['resourceId'],
                 user_email,
-                channel_data['page_token']
+                channel_data['token'],
+                channel_data['expiration']
             )
 
             # Initialize workers and get drive list
@@ -1274,16 +1276,13 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                         "✅ Changes watch set up successfully for user: %s", user_info['email'])
 
                     await self.arango_service.store_page_token(
-                        channel_data['channel_id'], 
-                        channel_data['resource_id'], 
+                        channel_data['channelId'], 
+                        channel_data['resourceId'], 
                         user_info['email'], 
-                        channel_data['page_token']
+                        channel_data['token'],
+                        channel_data['expiration']
                     )
                     
-                    changes, new_token = await user_service.get_changes(channel_data['page_token'])
-                    self.logger.info("🚀 Found %s changes since page token: %s", len(changes), channel_data['page_token'])
-                    self.logger.info("Changes: %s", changes)
-                    self.logger.info("🚀 New token: %s", new_token)
                 except Exception as e:
                     self.logger.error(
                         "❌ Error setting up changes watch for user %s: %s", user_info['email'], str(e))
@@ -1311,8 +1310,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
             if current_state == 'COMPLETED':
                 self.logger.warning("💥 Drive sync is already completed for user %s", user['email'])
                 
-                try:
-                    
+                try:    
                     user_service = self.drive_user_service
 
                     page_token = await self.arango_service.get_page_token_db(
@@ -1320,6 +1318,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                     )
 
                     if not page_token:
+                        self.logger.warning(f"No page token found for user {user['email']}")
                         return
 
                     changes, new_token = await user_service.get_changes(
@@ -1328,6 +1327,7 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                     user_id = user['userId']
 
                     if changes:
+                        self.logger.warning(f"Changes found for user {user['email']}")
                         for change in changes:
                             try:
                                 await self.change_handler.process_change(change, user_service, org_id, user_id)
@@ -1337,10 +1337,11 @@ class DriveSyncIndividualService(BaseDriveSyncService):
 
                     if new_token and new_token != page_token['token']:
                         await self.arango_service.store_page_token(
-                            channel_id=page_token['channel_id'],
-                            resource_id=page_token['resource_id'],
+                            channel_id=page_token['channelId'],
+                            resource_id=page_token['resourceId'],
                             user_email=user['email'],
-                            token=new_token
+                            token=new_token,
+                            expiration=page_token['expiration']
                         )
                         self.logger.info(f"🚀 Updated token for user {user['email']}")
                     return True
