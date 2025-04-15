@@ -614,7 +614,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             <Typography variant="body2">
               <strong>Size:</strong> {(record.fileRecord.sizeInBytes / 1024).toFixed(2)} KB
             </Typography>
-            {record.fileRecord?.extension.toLowerCase() === 'pdf' && (
+            {record.fileRecord?.extension && record.fileRecord?.extension.toLowerCase() === 'pdf' && (
               <Box gridColumn="1 / -1">
                 <Button
                   variant="contained"
