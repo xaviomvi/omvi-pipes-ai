@@ -67,7 +67,7 @@ const CitationHoverCard = ({
   };
 
   function isDocViewable(extension: string) {
-    const viewableExtensions = ['pdf', 'xlsx', 'xls', 'csv', 'docx', 'html', 'txt', 'md'];
+    const viewableExtensions = ['pdf', 'xlsx', 'xls', 'csv', 'docx', 'html', 'txt', 'md','ppt','pptx'];
     return viewableExtensions.includes(extension);
   }
 

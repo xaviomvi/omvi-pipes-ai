@@ -21,6 +21,7 @@ import axios from 'src/utils/axios';
 import { CONFIG } from 'src/config-global';
 
 import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
+import { getConnectorPublicUrl } from 'src/sections/accountdetails/account-settings/services/utils/services-configuration-service';
 
 import ChatInput from './components/chat-input';
 import ChatSidebar from './components/chat-sidebar';
@@ -31,7 +32,6 @@ import ChatMessagesArea from './components/chat-message-area';
 import PdfHighlighterComp from './components/pdf-highlighter';
 import MarkdownViewer from './components/markdown-highlighter';
 import DocxHighlighterComp from './components/docx-highlighter';
-
 
 const DRAWER_WIDTH = 300;
 
@@ -246,6 +246,9 @@ const ChatInterface = () => {
 
             const buffer = await arrayBufferPromise;
             setFileBuffer(buffer);
+            // if (['pptx', 'ppt'].includes(citationMeta?.extension)) {
+
+            // }
           }
         } catch (error) {
           console.error('Error downloading document:', error);
@@ -253,13 +256,34 @@ const ChatInterface = () => {
         }
       } else if (record.origin === ORIGIN.CONNECTOR) {
         try {
-          const connectorResponse = await axios.get(
-            `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
-            {
-              responseType: 'blob',
-            }
-          );
+          let params = {};
+          if (['pptx', 'ppt'].includes(citationMeta?.extension)) {
+            params = {
+              convertTo: 'pdf',
+            };
+          }
 
+          const publicConnectorUrlResponse = await getConnectorPublicUrl();
+          let connectorResponse;
+          if (publicConnectorUrlResponse && publicConnectorUrlResponse.url) {
+            const CONNECTOR_URL = publicConnectorUrlResponse.url;
+            connectorResponse = await axios.get(
+              `${CONNECTOR_URL}/api/v1/knowledgeBase/stream/record/${recordId}`,
+              {
+                responseType: 'blob',
+                params,
+              }
+            );
+          } else {
+            connectorResponse = await axios.get(
+              `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
+              {
+                responseType: 'blob',
+                params,
+              }
+            );
+          }
+          if (!connectorResponse) return;
           // Extract filename from content-disposition header
           let filename = record.recordName || `document-${recordId}`;
           const contentDisposition = connectorResponse.headers['content-disposition'];
@@ -301,7 +325,7 @@ const ChatInterface = () => {
     setIsHtml(['html'].includes(citationMeta?.extension));
     setIsTextFile(['txt'].includes(citationMeta?.extension));
     setIsExcel(isExcelOrCSV);
-    setIsPdf(citationMeta?.extension === 'pdf');
+    setIsPdf(['pptx', 'ppt', 'pdf'].includes(citationMeta?.extension));
     if (openPdfView && isExcel !== isExcelFile) {
       setPdfUrl(null);
       setAggregatedCitations(null);

@@ -1,16 +1,8 @@
 import { Icon } from '@iconify/react';
 import closeIcon from '@iconify-icons/mdi/close';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Box, 
-  alpha, 
-  Button, 
-  styled, 
-  Divider, 
-  useTheme, 
-  Snackbar,
-  Alert
-} from '@mui/material';
+import { useRef, useState, useEffect, useCallback } from 'react';
+
+import { Box, alpha, Alert, Button, styled, Divider, useTheme, Snackbar } from '@mui/material';
 
 import axios from 'src/utils/axios';
 
@@ -26,6 +18,7 @@ import TextViewer from '../qna/chatbot/components/text-highlighter';
 import ExcelViewer from '../qna/chatbot/components/excel-highlighter';
 import PdfHighlighterComp from '../qna/chatbot/components/pdf-highlighter';
 import MarkdownViewer from '../qna/chatbot/components/markdown-highlighter';
+import { getConnectorPublicUrl } from '../accountdetails/account-settings/services/utils/services-configuration-service';
 
 import type { Filters } from './types/knowledge-base';
 import type { PipesHub, SearchResult, AggregatedDocument } from './types/search-response';
@@ -91,34 +84,34 @@ export default function KnowledgeBaseSearch() {
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [recordsMap, setRecordsMap] = useState<Record<string, PipesHub.Record>>({});
   const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
-  
+
   // Prevent rapid filter changes
   const isFilterChanging = useRef(false);
-  
+
   // Snackbar state
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
-    severity: 'error' as 'error' | 'warning' | 'info' | 'success'
+    severity: 'error' as 'error' | 'warning' | 'info' | 'success',
   });
-  
+
   // Add a state to track if citation viewer is open
   const isCitationViewerOpen = isPdf || isExcel || isDocx || isHtml || isTextFile || isMarkdown;
 
   const handleFilterChange = (newFilters: Filters) => {
     // If a filter operation is already in progress, return
     if (isFilterChanging.current) return;
-    
+
     isFilterChanging.current = true;
-    
+
     // Use requestAnimationFrame to batch updates
     requestAnimationFrame(() => {
       // Use setter with callback to prevent potential stale state issues
       setFilters((prevFilters) => ({
         ...prevFilters,
-        ...newFilters
+        ...newFilters,
       }));
-      
+
       // Reset the flag after a short delay
       setTimeout(() => {
         isFilterChanging.current = false;
@@ -204,7 +197,7 @@ export default function KnowledgeBaseSearch() {
       setSnackbar({
         open: true,
         message: 'Failed to search knowledge base. Please try again.',
-        severity: 'error'
+        severity: 'error',
       });
     } finally {
       setLoading(false);
@@ -262,7 +255,7 @@ export default function KnowledgeBaseSearch() {
         setSnackbar({
           open: true,
           message: 'Record not found. Please try again.',
-          severity: 'error'
+          severity: 'error',
         });
         return;
       }
@@ -271,9 +264,9 @@ export default function KnowledgeBaseSearch() {
       if (citation) {
         setRecordCitations(citation);
       }
-      
+
       let fileDataLoaded = false;
-      
+
       if (record.origin === ORIGIN.UPLOAD) {
         const fetchRecordId = record.externalRecordId || '';
         if (!fetchRecordId) {
@@ -281,7 +274,7 @@ export default function KnowledgeBaseSearch() {
           setSnackbar({
             open: true,
             message: 'External record ID not available.',
-            severity: 'error'
+            severity: 'error',
           });
           return;
         }
@@ -341,18 +334,39 @@ export default function KnowledgeBaseSearch() {
           setSnackbar({
             open: true,
             message: 'Failed to download document. Please try again.',
-            severity: 'error'
+            severity: 'error',
           });
           return;
         }
       } else if (record.origin === ORIGIN.CONNECTOR) {
         try {
-          const response = await axios.get(
-            `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
-            {
-              responseType: 'blob',
-            }
-          );
+          let params = {};
+          if (['pptx', 'ppt'].includes(record?.extension)) {
+            params = {
+              convertTo: 'pdf',
+            };
+          }
+          const publicConnectorUrlResponse = await getConnectorPublicUrl();
+          let response;
+          if (publicConnectorUrlResponse && publicConnectorUrlResponse.url) {
+            const CONNECTOR_URL = publicConnectorUrlResponse.url;
+            response = await axios.get(
+              `${CONNECTOR_URL}/api/v1/knowledgeBase/stream/record/${recordId}`,
+              {
+                responseType: 'blob',
+                params,
+              }
+            );
+          } else {
+            response = await axios.get(
+              `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
+              {
+                responseType: 'blob',
+                params,
+              }
+            );
+          }
+          if (!response) return;
 
           // Extract filename from content-disposition header
           let filename = record.recordName || `document-${recordId}`;
@@ -391,7 +405,7 @@ export default function KnowledgeBaseSearch() {
           setSnackbar({
             open: true,
             message: `Failed to download document: ${err.message}`,
-            severity: 'error'
+            severity: 'error',
           });
           return;
         }
@@ -419,19 +433,19 @@ export default function KnowledgeBaseSearch() {
             break;
           case 'md':
             setIsMarkdown(true);
-            break;  
+            break;
           default:
             setSnackbar({
               open: true,
               message: `Unsupported document type: ${extension}`,
-              severity: 'warning'
+              severity: 'warning',
             });
         }
       } else {
         setSnackbar({
           open: true,
           message: 'No document data was loaded. Please try again.',
-          severity: 'error'
+          severity: 'error',
         });
       }
     } catch (error) {
@@ -439,7 +453,7 @@ export default function KnowledgeBaseSearch() {
       setSnackbar({
         open: true,
         message: `Error fetching document: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        severity: 'error'
+        severity: 'error',
       });
     }
   };
@@ -461,7 +475,7 @@ export default function KnowledgeBaseSearch() {
   const handleCloseSnackbar = () => {
     setSnackbar({
       ...snackbar,
-      open: false
+      open: false,
     });
   };
 
@@ -640,8 +654,8 @@ export default function KnowledgeBaseSearch() {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={handleCloseSnackbar} 
+        <Alert
+          onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
           sx={{ width: '100%' }}

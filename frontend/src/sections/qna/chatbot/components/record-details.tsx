@@ -7,29 +7,28 @@ import type {
 import { Icon } from '@iconify/react';
 import linkIcon from '@iconify-icons/mdi/link';
 import React, { useState, useEffect } from 'react';
+import categoryIcon from '@iconify-icons/mdi/shape';
 import loadingIcon from '@iconify-icons/mdi/loading';
+import departmentIcon from '@iconify-icons/mdi/domain';
+import languageIcon from '@iconify-icons/mdi/translate';
 import openNewIcon from '@iconify-icons/mdi/open-in-new';
 import filePdfIcon from '@iconify-icons/mdi/file-pdf-box';
 import fileIcon from '@iconify-icons/mdi/file-text-outline';
-import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
-import tagIcon from '@iconify-icons/mdi/tag';
-import categoryIcon from '@iconify-icons/mdi/shape';
-import languageIcon from '@iconify-icons/mdi/translate';
-import departmentIcon from '@iconify-icons/mdi/domain';
 import topicIcon from '@iconify-icons/mdi/bookmark-outline';
+import fileDocIcon from '@iconify-icons/mdi/file-document-outline';
 
 import {
   Box,
   Chip,
   Paper,
+  alpha,
   Button,
   Divider,
   Tooltip,
+  useTheme,
   Typography,
   IconButton,
   CircularProgress,
-  useTheme,
-  alpha,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';

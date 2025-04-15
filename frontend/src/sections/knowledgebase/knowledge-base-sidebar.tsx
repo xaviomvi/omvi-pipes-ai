@@ -3,7 +3,6 @@ import type { Icon as IconifyIcon } from '@iconify/react';
 import { Icon } from '@iconify/react';
 import tagIcon from '@iconify-icons/mdi/tag';
 import closeIcon from '@iconify-icons/mdi/close';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
 import upIcon from '@iconify-icons/mdi/chevron-up';
 import leftIcon from '@iconify-icons/mdi/chevron-left';
 import downIcon from '@iconify-icons/mdi/chevron-down';
@@ -15,6 +14,7 @@ import filterRemoveIcon from '@iconify-icons/mdi/filter-remove';
 import filterVariantIcon from '@iconify-icons/mdi/filter-variant';
 import circleOutlineIcon from '@iconify-icons/mdi/circle-outline';
 import progressClockIcon from '@iconify-icons/mdi/progress-clock';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import officeBuildingIcon from '@iconify-icons/mdi/office-building';
 import formatListIcon from '@iconify-icons/mdi/format-list-bulleted';
 import closeCircleIcon from '@iconify-icons/mdi/close-circle-outline';
@@ -25,6 +25,7 @@ import { alpha, styled, useTheme, keyframes } from '@mui/material/styles';
 import {
   Box,
   Chip,
+  Fade,
   Badge,
   Paper,
   Drawer,
@@ -37,7 +38,6 @@ import {
   IconButton,
   FormControlLabel,
   CircularProgress,
-  Fade,
 } from '@mui/material';
 
 import type { Modules } from './types/modules';
@@ -48,7 +48,6 @@ import type {
   Filters,
   FilterHeaderProps,
   KnowledgeBaseSideBarProps,
-  FilterSectionComponentProps,
 } from './types/knowledge-base';
 
 // Constants
