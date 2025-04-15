@@ -94,7 +94,7 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             drive_service_needed = False
             for user in users:
                 drive_state = (await arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_DRIVE.value) or {}).get('syncState', 'NOT_STARTED')
-                if drive_state in ['COMPLETED', 'IN_PROGRESS', 'PAUSED']:
+                if drive_state in ['COMPLETED', 'IN_PROGRESS', 'PAUSED', 'FAILED']:
                     drive_service_needed = True
                     logger.info("Drive Service needed for org %s: %s", org_id, drive_service_needed)
                     break
@@ -105,16 +105,19 @@ async def resume_sync_services(app_container: AppContainer) -> None:
                 # Re-iterate to collect users needing sync
                 for user in users:
                     drive_state = (await arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_DRIVE.value) or {}).get('syncState', 'NOT_STARTED')
-                    if drive_state in ['IN_PROGRESS', 'PAUSED']:
+                    if drive_state in ['IN_PROGRESS', 'PAUSED', 'FAILED']:
                         logger.info("User %s in org %s needs Drive sync (state: %s)", 
                                   user['email'], org_id, drive_state)
                         drive_sync_needed.append(user)
+                    elif drive_state == 'COMPLETED':
+                        logger.info("Drive sync is already completed for user %s", user['email'])
+                        await drive_sync_service.perform_initial_sync(org_id, action="resume")
 
             # Check if Gmail sync needs to be initialized
             gmail_service_needed = False
             for user in users:
                 gmail_state = (await arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_MAIL.value) or {}).get('syncState', 'NOT_STARTED')
-                if gmail_state in ['COMPLETED', 'IN_PROGRESS', 'PAUSED']:
+                if gmail_state in ['COMPLETED', 'IN_PROGRESS', 'PAUSED', 'FAILED']:
                     gmail_service_needed = True
                     logger.info("Gmail Service needed for org %s: %s", org_id, gmail_service_needed)
                     break
@@ -125,10 +128,13 @@ async def resume_sync_services(app_container: AppContainer) -> None:
                 # Re-iterate to collect users needing sync
                 for user in users:
                     gmail_state = (await arango_service.get_user_sync_state(user['email'], Connectors.GOOGLE_MAIL.value) or {}).get('syncState', 'NOT_STARTED')
-                    if gmail_state in ['IN_PROGRESS', 'PAUSED']:
+                    if gmail_state in ['IN_PROGRESS', 'PAUSED', 'FAILED']:
                         logger.info("User %s in org %s needs Gmail sync (state: %s)", 
                                   user['email'], org_id, gmail_state)
                         gmail_sync_needed.append(user)
+                    elif gmail_state == 'COMPLETED':
+                        logger.info("Gmail sync is already completed for user %s", user['email'])
+                        await gmail_sync_service.perform_initial_sync(org_id, action="resume")
 
             # Resume Drive syncs if needed
             if drive_sync_needed:
@@ -208,8 +214,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     consume_task = asyncio.create_task(consumer.consume_messages())
     
     # Resume sync services
-    await resume_sync_services(app.container)
-        
+    asyncio.create_task(resume_sync_services(app.container))
+    
     yield
     
     # Shutdown

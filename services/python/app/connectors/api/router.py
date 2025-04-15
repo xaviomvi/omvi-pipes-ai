@@ -24,6 +24,7 @@ from app.connectors.api.middleware import WebhookAuthVerifier
 import tempfile
 from pathlib import Path
 import asyncio
+import time
 
 logger = create_logger("Python Connector Service")
 
@@ -254,26 +255,6 @@ async def resume_sync(
         ) from e
 
 
-@router.get("/drive/{org_id}/sync/downtime")
-@inject
-async def downtime_handling(
-    org_id,
-    webhook_handler=Depends(Provide[AppContainer.drive_webhook_handler])
-):
-    """Get sync downtime"""
-    try:
-        downtime = await webhook_handler.handle_downtime(org_id)
-        return {
-            "status": "success",
-            "downtime": downtime
-        }
-    except Exception as e:
-        logger.error("Error getting sync downtime: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        ) from e
-
 @router.get("/drive/sync/user/{user_email}")
 @router.post("/drive/sync/user/{user_email}")
 @inject
@@ -386,27 +367,6 @@ async def resume_sync(
             detail=str(e)
         ) from e
 
-
-@router.get("/gmail/{org_id}/sync/downtime")
-@inject
-async def downtime_handling(
-    org_id,
-    webhook_handler=Depends(Provide[AppContainer.gmail_webhook_handler])
-):
-    """Get sync downtime"""
-    try:
-        downtime = await webhook_handler.handle_downtime(org_id)
-        return {
-            "status": "success",
-            "downtime": downtime
-        }
-    except Exception as e:
-        logger.error("Error getting sync downtime: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        ) from e
-
 @router.get("/gmail/sync/user/{user_email}")
 @router.post("/gmail/sync/user/{user_email}")
 @inject
@@ -481,7 +441,7 @@ async def get_google_slides_parser(request: Request):
         logger.warning(f"Failed to get google slides parser: {str(e)}")
         return None
 
-@router.delete("/api/v1/delete/{org_id}/record/{record_id}")
+@router.delete("/api/v1/delete/record/{record_id}")
 @inject
 async def handle_record_deletion(
     record_id: str,
@@ -612,8 +572,6 @@ async def download_file(
 
         # Download file based on connector type
         try:
-            chunk_size = 1024 * 1024 * 5 # 5MB chunks
-            
             if connector == "drive":
                 logger.info(f"Downloading Drive file: {file_id}")
                 # Build the Drive service
@@ -698,7 +656,7 @@ async def download_file(
                 logger.info("Initiating download process...")
                 request = drive_service.files().get_media(fileId=file_id)
                 
-                downloader = MediaIoBaseDownload(file_buffer, request, chunksize=chunk_size)
+                downloader = MediaIoBaseDownload(file_buffer, request)
 
                 done = False
                 try:
@@ -743,7 +701,6 @@ async def download_file(
 
                 cursor = arango_service.db.aql.execute(aql_query)
                 messages = list(cursor)
-                logger.info(f"🚀 Query results: {messages}")
 
                 # First try getting the attachment from Gmail
                 try:
@@ -781,7 +738,7 @@ async def download_file(
                         logger.info("Initiating download process...")
                                                 
                         request = drive_service.files().get_media(fileId=file_id)
-                        downloader = MediaIoBaseDownload(file_buffer, request, chunksize=chunk_size)
+                        downloader = MediaIoBaseDownload(file_buffer, request)
                         
                         done = False
                         
@@ -949,7 +906,6 @@ async def stream_record(
             if connector == Connectors.GOOGLE_DRIVE.value:
                 logger.info(f"Downloading Drive file: {file_id}")
                 drive_service = build('drive', 'v3', credentials=creds)
-                                
                 file_name = record.get('recordName', '')
                 
                 # Check if PDF conversion is requested
@@ -977,21 +933,79 @@ async def stream_record(
                             }
                         )
                 
-                # Regular file download without conversion
-                file_buffer = io.BytesIO()
-                request = drive_service.files().get_media(fileId=file_id)
-                downloader = MediaIoBaseDownload(file_buffer, request)
+                # Regular file download without conversion - now with direct streaming
+                async def file_stream():
+                    try:
+                        request = drive_service.files().get_media(fileId=file_id)
+                        buffer = io.BytesIO()
+                        downloader = MediaIoBaseDownload(
+                            buffer,
+                            request
+                        )
+                        
+                        done = False
+                        while not done:
+                            try:
+                                status, done = downloader.next_chunk()
+                                if status:
+                                    logger.debug(f"Download progress: {int(status.progress() * 100)}%")
+                                
+                                # Get the data from buffer
+                                buffer.seek(0)
+                                chunk = buffer.read()
+                                
+                                if chunk:  # Only yield if we have data
+                                    yield chunk
+                                
+                                # Clear buffer for next chunk
+                                buffer.seek(0)
+                                buffer.truncate(0)
+                                
+                                # Yield control back to event loop
+                                await asyncio.sleep(0)
+                                
+                            except Exception as chunk_error:
+                                logger.error(f"Error streaming chunk: {str(chunk_error)}")
+                                raise HTTPException(
+                                    status_code=500,
+                                    detail="Error during file streaming"
+                                )
+                                
+                    except Exception as stream_error:
+                        logger.error(f"Error in file stream: {str(stream_error)}")
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Error setting up file stream"
+                        )
+                    finally:
+                        buffer.close()
                 
-                done = False
-                while not done:
-                    status, done = downloader.next_chunk()
-                    logger.info(f"Download {int(status.progress() * 100)}%.")
+                # Get file metadata to set correct content type
+                try:
+                    file_metadata = drive_service.files().get(
+                        fileId=file_id, 
+                        fields='mimeType'
+                    ).execute()
+                    mime_type = file_metadata.get('mimeType', 'application/octet-stream')
+                except Exception as e:
+                    logger.warning(f"Could not get file mime type: {str(e)}")
+                    mime_type = 'application/octet-stream'
                 
-                file_buffer.seek(0)
+                # Return streaming response with proper headers
+                headers = {
+                    'Content-Disposition': f'attachment; filename="{file_name}"'
+                }
+                
                 return StreamingResponse(
-                    file_buffer,
-                    media_type='application/octet-stream'
+                    file_stream(),
+                    media_type=mime_type,
+                    headers=headers
                 )
+                # Google download chunk size
+                # streaming response chunk size
+                # download and stream time
+                # direct stream while download.
+                
 
             elif connector == Connectors.GOOGLE_MAIL.value:
                 logger.info(f"Handling Gmail request for record_id: {record_id}, type: {recordType}")
@@ -1142,20 +1156,70 @@ async def stream_record(
                                     }
                                 )
                         
-                        # Regular file download without conversion
-                        file_buffer = io.BytesIO()
-                        request = drive_service.files().get_media(fileId=file_id)
-                        downloader = MediaIoBaseDownload(file_buffer, request)
+                        # Regular file download with streaming
+                        # Get file metadata to set correct content type
+                        try:
+                            file_metadata = drive_service.files().get(
+                                fileId=file_id, 
+                                fields='mimeType'
+                            ).execute()
+                            mime_type = file_metadata.get('mimeType', 'application/octet-stream')
+                        except Exception as e:
+                            logger.warning(f"Could not get file mime type: {str(e)}")
+                            mime_type = 'application/octet-stream'
 
-                        done = False
-                        while not done:
-                            status, done = downloader.next_chunk()
-                            logger.info(f"Download {int(status.progress() * 100)}%.")
+                        headers = {
+                            'Content-Disposition': f'attachment; filename="{file_name}"'
+                        }
 
-                        file_buffer.seek(0)
+                        # Use the same streaming logic as Drive downloads
+                        async def file_stream():
+                            try:
+                                request = drive_service.files().get_media(fileId=file_id)
+                                buffer = io.BytesIO()
+                                downloader = MediaIoBaseDownload(
+                                    buffer,
+                                    request
+                                )
+                                
+                                done = False
+                                while not done:
+                                    try:
+                                        status, done = downloader.next_chunk()
+                                        if status:
+                                            logger.debug(f"Download progress: {int(status.progress() * 100)}%")
+                                        
+                                        buffer.seek(0)
+                                        chunk = buffer.read()
+                                        
+                                        if chunk:
+                                            yield chunk
+                                        
+                                        buffer.seek(0)
+                                        buffer.truncate(0)
+                                        
+                                        await asyncio.sleep(0)
+                                        
+                                    except Exception as chunk_error:
+                                        logger.error(f"Error streaming chunk: {str(chunk_error)}")
+                                        raise HTTPException(
+                                            status_code=500,
+                                            detail="Error during file streaming"
+                                        )
+                                    
+                            except Exception as stream_error:
+                                logger.error(f"Error in file stream: {str(stream_error)}")
+                                raise HTTPException(
+                                    status_code=500,
+                                    detail="Error setting up file stream"
+                                )
+                            finally:
+                                buffer.close()
+
                         return StreamingResponse(
-                            file_buffer,
-                            media_type='application/octet-stream'
+                            file_stream(),
+                            media_type=mime_type,
+                            headers=headers
                         )
                         
                     except Exception as drive_error:

@@ -309,7 +309,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                         block_spans.append(span_data)
 
                         # Process individual characters if available
-                        self.logger.debug("🔤 Processing words in span")
                         for char in span.get("chars", []):
                             word_text = char.get("c", "").strip()
                             if word_text:
@@ -331,7 +330,6 @@ class PyMuPDFOCRStrategy(OCRStrategy):
         }
 
         # Process sentences using the lines
-        self.logger.debug("🔄 Processing sentences from lines")
         sentences = self._merge_lines_to_sentences(block_lines)
         processed_sentences = []
         for sentence in sentences:

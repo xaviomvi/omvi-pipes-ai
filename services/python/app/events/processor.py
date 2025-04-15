@@ -1371,6 +1371,9 @@ class Processor:
             
             # Get the full document structure
             doc_dict = md_result.export_to_dict()
+            self.logger.debug(f"Document structure: {doc_dict}")
+            html_content = md_result.export_to_html()
+            self.logger.debug(f"HTML content: {html_content}")
 
             # Extract text content from all text elements
             text_content = "\n".join(
@@ -1378,6 +1381,7 @@ class Processor:
                 for text_item in doc_dict.get('texts', [])
                 if text_item.get('text', '').strip()
             )
+            self.logger.debug(f"Text content: {text_content}")
 
             # Extract domain metadata from content
             self.logger.info("🎯 Extracting domain metadata")
@@ -1400,6 +1404,7 @@ class Processor:
             self.logger.debug("📝 Processing text items")
             for idx, item in enumerate(doc_dict.get('texts', []), 1):
                 if item.get('text', '').strip():
+                    self.logger.debug(f"Item: {item}")
                     # Create item entry with metadata
                     item_entry = {
                         "number": idx,

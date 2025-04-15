@@ -112,6 +112,7 @@ async def initialize_individual_account_services_fn(org_id, container):
                 config=container.config_service,
                 gmail_user_service= container.gmail_service(),
                 arango_service=await container.arango_service(),
+                change_handler=await container.gmail_change_handler(),
                 kafka_service=container.kafka_service,
                 celery_app=container.celery_app
             )
@@ -265,6 +266,7 @@ async def initialize_enterprise_account_services_fn(org_id, container):
                 config=container.config_service,
                 gmail_admin_service=container.gmail_service(),
                 arango_service=await container.arango_service(),
+                change_handler=await container.gmail_change_handler(),
                 kafka_service=container.kafka_service,
                 celery_app=container.celery_app
             )
