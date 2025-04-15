@@ -100,22 +100,11 @@ export const createRecords =
 
         const webUrl = `/record/${key}`;
 
-        // Get document ID from storage
-        const { documentId, documentName } =
-          await saveFileToStorageAndGetDocumentId(
-            req,
-            file,
-            originalname,
-            isVersioned,
-            keyValueStoreService,
-            appConfig.storage,
-          );
-
         const record = {
           _key: key,
           orgId: orgId,
-          recordName: recordName || documentName,
-          externalRecordId: documentId,
+          recordName: '',
+          externalRecordId: '',
           recordType: RECORD_TYPE.FILE,
           origin: ORIGIN_TYPE.UPLOAD,
           createdAtTimestamp: currentTime,
@@ -125,20 +114,42 @@ export const createRecords =
           indexingStatus: INDEXING_STATUS.NOT_STARTED,
           version: 1,
         };
-        records.push(record);
 
-        // Prepare file record object
-        fileRecords.push({
+        const fileRecord = {
           _key: key,
           orgId: orgId,
-          name: documentName,
+          name: '',
           isFile: true,
           extension: extension,
           mimeType: mimetype,
           sizeInBytes: size,
           webUrl: webUrl,
           path: '/',
-        });
+        };
+
+        // Get document ID from storage
+        const { documentId, documentName } =
+          await saveFileToStorageAndGetDocumentId(
+            req,
+            file,
+            originalname,
+            isVersioned,
+            record,
+            fileRecord,
+            keyValueStoreService,
+            appConfig.storage,
+            recordRelationService,
+          );
+
+        // Update record and fileRecord with the returned values
+        record.recordName = recordName || documentName;
+        record.externalRecordId = documentId;
+
+        fileRecord.name = documentName;
+
+        // Prepare file record object
+        records.push(record);
+        fileRecords.push(fileRecord);
       }
 
       // Use the service method to insert records and file records in a transaction
@@ -147,7 +158,7 @@ export const createRecords =
         result = await recordRelationService.insertRecordsAndFileRecords(
           records,
           fileRecords,
-          keyValueStoreService,
+          keyValueStoreService
         );
         logger.info(
           `Successfully inserted ${result.insertedRecords.length} records and file records`,
@@ -1063,7 +1074,7 @@ export const reindexRecord =
         const recordData = aiResponse.data;
         const record = recordData.record;
 
-        const reindexResponse =  await recordRelationService.reindexRecord(
+        const reindexResponse = await recordRelationService.reindexRecord(
           recordId,
           record,
           keyValueStoreService,

@@ -78,6 +78,10 @@ export class UploadDocumentService {
   ): Promise<void> {
     const { buffer, originalname, size } = this.fileBuffer;
 
+    const extension = getExtension(originalname);
+    if (extension === '') {
+      throw new BadRequestError('Invalid file extension');
+    }
     // Use direct upload api provided by storage vendors for files size > 10MB
     if (
       (size > maxFileSizeForPipesHubService &&
@@ -89,6 +93,7 @@ export class UploadDocumentService {
         req,
         next,
         size,
+        extension
       );
       if (!placeholderDocument || !placeholderDocument.document) {
         throw new InternalServerError('Failed to create placeholder document');
@@ -136,11 +141,6 @@ export class UploadDocumentService {
       throw new BadRequestError(
         'The name of the document contains some extension',
       );
-    }
-
-    const extension = getExtension(originalname);
-    if (extension === '') {
-      throw new BadRequestError('Invalid file extension');
     }
 
     if (originalname.includes('/') === true) {

@@ -29,6 +29,8 @@ import {
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { endpoint } from '../../storage/constants/constants';
 import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
+import { configPaths } from '../../configuration_manager/paths/paths';
+import { storageTypes } from '../../configuration_manager/constants/constants';
 
 const logger = Logger.getInstance({
   service: 'Knowledge Base Service',
@@ -49,7 +51,7 @@ export class RecordRelationService {
   constructor(
     @inject(ArangoService) private readonly arangoService: ArangoService,
     @inject(RecordsEventProducer)
-    private readonly eventProducer: RecordsEventProducer,
+    readonly eventProducer: RecordsEventProducer,
     private readonly defaultConfig: DefaultStorageConfig,
   ) {
     this.db = this.arangoService.getConnection();
@@ -96,7 +98,7 @@ export class RecordRelationService {
    * @param records The inserted records
    * @param fileRecords The associated file records
    */
-  private async publishRecordEvents(
+  async publishRecordEvents(
     records: IRecordDocument[],
     fileRecords: IFileRecordDocument[],
     keyValueStoreService: KeyValueStoreService,
@@ -145,7 +147,7 @@ export class RecordRelationService {
    * @param fileRecord Optional associated file record for additional metadata
    * @returns NewRecordEvent payload for Kafka
    */
-  private async createNewRecordEventPayload(
+  async createNewRecordEventPayload(
     record: IRecordDocument,
     keyValueStoreService: KeyValueStoreService,
     fileRecord?: IFileRecordDocument,
@@ -188,7 +190,7 @@ export class RecordRelationService {
    * @param record The updated record
    * @returns UpdateRecordEvent payload for Kafka
    */
-  private async createUpdateRecordEventPayload(
+  async createUpdateRecordEventPayload(
     record: IRecordDocument,
     keyValueStoreService: KeyValueStoreService,
   ): Promise<UpdateRecordEvent> {
@@ -219,9 +221,7 @@ export class RecordRelationService {
    * @param userId The user performing the deletion
    * @returns DeletedRecordEvent payload for Kafka
    */
-  private createDeletedRecordEventPayload(
-    record: IRecordDocument,
-  ): DeletedRecordEvent {
+  createDeletedRecordEventPayload(record: IRecordDocument): DeletedRecordEvent {
     return {
       orgId: record.orgId,
       recordId: record._key,
@@ -427,12 +427,20 @@ export class RecordRelationService {
         `Successfully inserted ${insertedRecords.length} records and file records`,
       );
 
-      await this.publishRecordEvents(
-        insertedRecords,
-        insertedFileRecords,
-        keyValueStoreService,
-      );
+      const storageConfig =
+        (await keyValueStoreService.get<string>(configPaths.storageService)) ||
+        '{}';
 
+      const parsedConfig = JSON.parse(storageConfig); // Parse JSON string
+
+      const storageType = parsedConfig.storageType;
+      if (storageType === storageTypes.LOCAL) {
+        await this.publishRecordEvents(
+          insertedRecords,
+          insertedFileRecords,
+          keyValueStoreService,
+        );
+      }
       return { insertedRecords, insertedFileRecords };
     } catch (error) {
       // Try to abort the transaction
@@ -1784,7 +1792,7 @@ export class RecordRelationService {
   }
 
   // New method for creating reindex event payload
-  private async createReindexRecordEventPayload(
+  async createReindexRecordEventPayload(
     record: any,
     keyValueStoreService: KeyValueStoreService,
   ): Promise<NewRecordEvent> {

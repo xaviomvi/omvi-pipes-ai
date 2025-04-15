@@ -110,6 +110,7 @@ export const CreateDocumentSchema = z.object({
     permissions: z.string().optional(),
     metaData: z.any().optional(),
     isVersionedFile: z.boolean().optional(),
+    extension : z.string(),
   }),
   query: z.object({}),
   params: z.object({}),
