@@ -36,6 +36,7 @@ import axios from 'src/utils/axios';
 import { CONFIG } from 'src/config-global';
 
 import { ORIGIN } from 'src/sections/knowledgebase/constants/knowledge-search';
+import { getConnectorPublicUrl } from 'src/sections/accountdetails/account-settings/services/utils/services-configuration-service';
 
 import PDFViewer from './pdf-viewer';
 
@@ -129,12 +130,23 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
       }
     } else if (record?.origin === ORIGIN.CONNECTOR) {
       try {
-        const response = await axios.get(
-          `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
-          {
+        const publicConnectorUrlResponse = await getConnectorPublicUrl();
+        let response;
+        if (publicConnectorUrlResponse && publicConnectorUrlResponse.url) {
+          const CONNECTOR_URL = publicConnectorUrlResponse.url;
+          response = await axios.get(`${CONNECTOR_URL}/api/v1/stream/record/${recordId}`, {
             responseType: 'blob',
-          }
-        );
+          });
+        } else {
+          response = await axios.get(
+            `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
+            {
+              responseType: 'blob',
+            }
+          );
+        }
+        if (!response) return;
+
         // Convert blob directly to ArrayBuffer
         const bufferReader = new FileReader();
         const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
@@ -477,7 +489,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
                       color: 'text.secondary',
                     }}
                   >
-                   Document Sub-category level 1
+                    Document Sub-category level 1
                   </Typography>
                   {renderChips(recordData.metadata.subcategories1)}
                 </Box>
@@ -495,7 +507,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
                       color: 'text.secondary',
                     }}
                   >
-                   Document Sub-category level 2
+                    Document Sub-category level 2
                   </Typography>
                   {renderChips(recordData.metadata.subcategories2)}
                 </Box>
@@ -613,23 +625,24 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
             <Typography variant="body2">
               <strong>Size:</strong> {(record.fileRecord.sizeInBytes / 1024).toFixed(2)} KB
             </Typography>
-            {record.fileRecord?.extension && record.fileRecord?.extension.toLowerCase() === 'pdf' && (
-              <Box gridColumn="1 / -1">
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<Icon icon={filePdfIcon} />}
-                  onClick={handleOpenPDFViewer}
-                  sx={{
-                    mt: 1,
-                    textTransform: 'none',
-                    borderRadius: 2,
-                  }}
-                >
-                  View Document
-                </Button>
-              </Box>
-            )}
+            {record.fileRecord?.extension &&
+              record.fileRecord?.extension.toLowerCase() === 'pdf' && (
+                <Box gridColumn="1 / -1">
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<Icon icon={filePdfIcon} />}
+                    onClick={handleOpenPDFViewer}
+                    sx={{
+                      mt: 1,
+                      textTransform: 'none',
+                      borderRadius: 2,
+                    }}
+                  >
+                    View Document
+                  </Button>
+                </Box>
+              )}
           </Box>
         </Box>
       )}

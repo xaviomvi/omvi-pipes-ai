@@ -268,7 +268,7 @@ const ChatInterface = () => {
           if (publicConnectorUrlResponse && publicConnectorUrlResponse.url) {
             const CONNECTOR_URL = publicConnectorUrlResponse.url;
             connectorResponse = await axios.get(
-              `${CONNECTOR_URL}/api/v1/knowledgeBase/stream/record/${recordId}`,
+              `${CONNECTOR_URL}/api/v1/stream/record/${recordId}`,
               {
                 responseType: 'blob',
                 params,
