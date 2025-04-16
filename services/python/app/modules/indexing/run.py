@@ -358,6 +358,7 @@ class IndexingPipeline:
                     api_key=qdrant_api_key,
                     prefer_grpc=True,
                     https=False,
+                    timeout=60
                 )
             except Exception as e:
                 raise VectorStoreError(

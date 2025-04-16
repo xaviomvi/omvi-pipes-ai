@@ -271,7 +271,7 @@ async def authenticate_requests(request: Request, call_next):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Internal server error"}
         )
-        
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,

@@ -186,7 +186,15 @@ export class Application {
   }
 
   private configureMiddleware(appConfig: AppConfig): void {
-    const connectorPublicUrl = appConfig.connectorBackend;
+    let connectorPublicUrl;
+    if (
+      !appConfig.connectorBackend ||
+      appConfig.connectorBackend.startsWith('localhost')
+    ) {
+      connectorPublicUrl = process.env.CONNECTOR_PUBLIC_BACKEND;
+    } else {
+      connectorPublicUrl = appConfig.connectorBackend;
+    }
     // Security middleware
     this.app.use(helmet());
 
@@ -202,11 +210,13 @@ export class Application {
       }),
     );
 
+    const isDev = process.env.NODE_ENV !== 'production';
+
     this.app.use((_req, res, next) => {
-      res.setHeader(
-        'Content-Security-Policy',
-        `script-src 'self' https://cdnjs.cloudflare.com http://cdnjs.cloudflare.com ${connectorPublicUrl}; worker-src 'self' blob:;`,
-      );
+      const csp = isDev
+        ? "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+        : `script-src 'self' https://cdnjs.cloudflare.com ${connectorPublicUrl}; worker-src 'self' blob:;`;
+      res.setHeader('Content-Security-Policy', csp);
       next();
     });
 

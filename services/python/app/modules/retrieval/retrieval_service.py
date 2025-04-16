@@ -51,6 +51,7 @@ class RetrievalService:
             api_key=qdrant_api_key,
             prefer_grpc=True,
             https=False,
+            timeout=60
         )
         self.collection_name = collection_name
 
