@@ -240,14 +240,6 @@ app = FastAPI(
     dependencies=[Depends(get_initialized_container)]
 )
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 # List of paths to apply authentication to
 INCLUDE_PATHS = ["/api/v1/stream/record/", "/api/v1/delete/"]
 
@@ -279,7 +271,16 @@ async def authenticate_requests(request: Request, call_next):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Internal server error"}
         )
-        
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+       
 @router.get("/health")
 async def health_check():
     """Basic health check endpoint"""
