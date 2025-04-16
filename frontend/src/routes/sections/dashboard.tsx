@@ -67,8 +67,8 @@ export const dashboardRoutes = [
     path: '/',
     element: CONFIG.auth.skip ? <>{layoutContent}</> : <AuthGuard>{layoutContent}</AuthGuard>,
     children: [
-      { element: <ChatBotPage />, index: true },
-      { path: ':conversationId', element: <ChatBotPage /> },
+      { element: <ChatBotPage key="home" />, index: true },
+      { path: ':conversationId', element: <ChatBotPage key="conversation" /> },
       { path: 'record/:recordId', element: <RecordDetails /> },
       {
         path: 'account',
