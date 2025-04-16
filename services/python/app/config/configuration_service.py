@@ -24,7 +24,7 @@ class config_node_constants(Enum):
     KAFKA = "/services/kafka"
     ENDPOINTS = "/services/endpoints"
     SECRET_KEYS = "/services/secretKeys"
-    
+        
     # Non-service paths
     LOG_LEVEL = "/logLevel"
     

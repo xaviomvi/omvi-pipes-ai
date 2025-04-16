@@ -367,9 +367,15 @@ class DriveUserService:
                     webhook_endpoint = endpoints.get('connectors', {}).get('publicEndpoint')
                     if not webhook_endpoint:
                         raise DriveOperationError(
-                            "Missing webhook endpoint configuration: " + str(e),
+                            "Missing webhook endpoint configuration",
                             details={"endpoints": endpoints}
                         )
+                    
+                    # Return None if webhook uses HTTP or localhost
+                    if webhook_endpoint.startswith('http://') or 'localhost' in webhook_endpoint:
+                        self.logger.warning("⚠️ Skipping changes watch - webhook endpoint uses HTTP or localhost")
+                        return None
+                        
                 except Exception as e:
                     raise DriveOperationError(
                         "Failed to get webhook configuration: " + str(e),

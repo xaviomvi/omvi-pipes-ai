@@ -36,7 +36,6 @@ class ArangoService(BaseArangoService):
             if not self.db.has_collection(CollectionNames.PAGE_TOKENS.value):
                 self.db.create_collection(CollectionNames.PAGE_TOKENS.value)
 
-            unique_key = f"{channel_id}_{resource_id}"
             token_doc = {
                 'channelId': channel_id,
                 'resourceId': resource_id,
@@ -48,7 +47,7 @@ class ArangoService(BaseArangoService):
 
             # Upsert to handle updates to existing channel tokens
             query = """
-            UPSERT { _key: @unique_key }
+            UPSERT { userEmail: @userEmail }
             INSERT @token_doc
             UPDATE @token_doc
             IN @@pageTokens
@@ -58,7 +57,7 @@ class ArangoService(BaseArangoService):
             result = list(self.db.aql.execute(
                 query,
                 bind_vars={
-                    'unique_key': unique_key,
+                    'userEmail': user_email,
                     'token_doc': token_doc,
                     '@pageTokens': CollectionNames.PAGE_TOKENS.value
                 }
@@ -103,6 +102,8 @@ class ArangoService(BaseArangoService):
             query = f"""
             FOR token IN @@pageTokens
             FILTER {filter_clause}
+            SORT token.createdAtTimestamp DESC
+            LIMIT 1
             RETURN token
             """
 
@@ -1027,9 +1028,9 @@ class ArangoService(BaseArangoService):
                 "🚀 Checking if entity %s exists in people collection", entity_id)
             # has() checks document _key, not field values
             # Need to query by entity_id field instead
-            query = "FOR doc IN people FILTER doc.entity_id == @entity_id RETURN doc"
+            query = "FOR doc IN people FILTER doc.email == @email RETURN doc"
             exists = list(self.db.aql.execute(
-                query, bind_vars={'entity_id': entity_id}))
+                query, bind_vars={'email': email}))
             if not exists:
                 self.logger.info(
                     "➕ Entity does not exist, saving to people collection")

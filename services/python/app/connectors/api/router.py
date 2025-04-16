@@ -94,7 +94,7 @@ async def get_gmail_webhook_handler(request: Request) -> Optional[Any]:
         gmail_webhook_handler = container.gmail_webhook_handler()
         return gmail_webhook_handler
     except Exception as e:
-        logger.warning(f"Failed to get drive webhook handler: {str(e)}")
+        logger.warning(f"Failed to get gmail webhook handler: {str(e)}")
         return None
 
 @router.get("/gmail/webhook")

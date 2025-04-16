@@ -43,7 +43,7 @@ class ParserUserService:
                 creds_data = await self.google_token_handler.get_individual_token(org_id, user_id)
                 if not creds_data:
                     raise GoogleAuthError(
-                        "Failed to get individual token: " + str(e),
+                        "Failed to get individual token",
                         details={
                             "org_id": org_id,
                             "user_id": user_id

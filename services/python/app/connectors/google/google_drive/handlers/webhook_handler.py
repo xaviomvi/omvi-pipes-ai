@@ -166,8 +166,8 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
 
         if new_token and new_token != page_token['token']:
             await self.arango_service.store_page_token(
-                channel_id=notification['channelId'],
-                resource_id=notification['resourceId'],
+                channel_id=notification['channel_id'],
+                resource_id=notification['resource_id'],
                 user_email=user_email,
                 token=new_token,
                 expiration=page_token['expiration']

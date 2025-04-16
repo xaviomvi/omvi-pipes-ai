@@ -343,7 +343,12 @@ class SyncTasks:
                 f"🔄 Scheduling next changes watch for user {user_email}")
 
             # Create new watch
-            await self.drive_sync_service.setup_changes_watch()
+            channel_data = await self.drive_sync_service.setup_changes_watch()
+            if not channel_data:
+                self.logger.warning(
+                    f"Changes watch not created for user {user_email}")
+                return False
+            
             self.logger.info(
                 f"✅ Successfully created new changes watch for {user_email}")
 
