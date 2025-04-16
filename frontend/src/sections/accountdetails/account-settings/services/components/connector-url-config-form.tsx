@@ -55,7 +55,6 @@ const ConnectorUrlConfigForm = forwardRef<ConnectorUrlConfigFormRef, ConnectorUr
     const [errors, setErrors] = useState({
       url: '',
     });
-
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
