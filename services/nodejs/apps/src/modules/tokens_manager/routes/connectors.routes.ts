@@ -12,6 +12,7 @@ import {
   AuthenticatedServiceRequest,
 } from '../../../libs/middlewares/types';
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 
 import { ValidationMiddleware } from '../../../libs/middlewares/validation.middleware';
 import { FileProcessorFactory } from '../../../libs/middlewares/file_processor/fp.factory';
@@ -53,6 +54,18 @@ import { googleWorkspaceTypes } from '../../configuration_manager/constants/cons
 const CONNECTORS = [{ key: 'googleWorkspace', name: 'Google Workspace' }];
 const logger = Logger.getInstance({
   service: 'Connectors Routes',
+});
+
+axiosRetry(axios, {
+  retries: 3, // Number of retry attempts
+  retryDelay: axiosRetry.exponentialDelay, // Exponential backoff
+  retryCondition: (error) => {
+    // Make sure to explicitly return a boolean
+    return !!(
+      axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+      (error.response && error.response.status >= 500)
+    );
+  },
 });
 
 const oAuthConfigSchema = z.object({
@@ -713,17 +726,21 @@ export function createConnectorRouter(container: Container) {
       res: Response,
       next: NextFunction,
     ) => {
-      const refreshTokenCommandResponse = await getRefreshTokenCredentials(
-        req,
-        config.cmBackend,
-      );
-      if (refreshTokenCommandResponse.statusCode !== 200) {
-        throw new InternalServerError(
-          'Error getting refresh token from etcd',
-          refreshTokenCommandResponse?.data,
-        );
-      }
       try {
+        const refreshTokenCommandResponse = await getRefreshTokenCredentials(
+          req,
+          config.cmBackend,
+        );
+        if (
+          refreshTokenCommandResponse.statusCode !== 200 ||
+          !refreshTokenCommandResponse.data.refresh_token
+        ) {
+          throw new InternalServerError(
+            'Error getting refresh token from etcd',
+            refreshTokenCommandResponse?.data,
+          );
+        }
+
         let response = await getRefreshTokenConfig(req, config.cmBackend);
 
         if (response.statusCode !== 200) {
@@ -738,25 +755,61 @@ export function createConnectorRouter(container: Container) {
         }
         const enableRealTimeUpdates = configData?.enableRealTimeUpdates;
         const topicName = configData?.topicName;
+        let retryCount = 0;
+        let tokenExchangeSuccessful = false;
+        let tokenData;
 
-        const { data } = await axios.post(
-          GOOGLE_WORKSPACE_TOKEN_EXCHANGE_PATH,
-          {
-            refresh_token: refreshTokenCommandResponse?.data.refresh_token,
-            client_id: configData.clientId,
-            client_secret: configData.clientSecret,
-            grant_type: 'refresh_token',
-          },
-        );
+        while (retryCount < 3 && !tokenExchangeSuccessful) {
+          try {
+            const { data } = await axios.post(
+              GOOGLE_WORKSPACE_TOKEN_EXCHANGE_PATH,
+              {
+                refresh_token: refreshTokenCommandResponse?.data.refresh_token,
+                client_id: configData.clientId,
+                client_secret: configData.clientSecret,
+                grant_type: 'refresh_token',
+              },
+            );
+
+            tokenData = data;
+            tokenExchangeSuccessful = true;
+          } catch (err) {
+            retryCount++;
+            if (err instanceof Error) {
+              logger.error('Error refreshing individual connector token', {
+                error: err.message,
+                stack: err.stack,
+              });
+            } else {
+              logger.error('Error refreshing individual connector token', {
+                unknownError: String(err),
+              });
+            }
+
+            if (retryCount < 3) {
+              // Wait before retrying (exponential backoff)
+              const delayMs =
+                Math.pow(2, retryCount) * 1000 + Math.random() * 1000;
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+            } else {
+              // Rethrow the error after all retries failed
+              throw err;
+            }
+          }
+        }
+
+        if (!tokenExchangeSuccessful) {
+          throw new Error('Failed to exchange token after multiple retries');
+        }
 
         const accessTokenCommandResponse = (response =
           await setRefreshTokenCredentials(
             req,
             config.cmBackend,
 
-            data.access_token,
+            tokenData.access_token,
             refreshTokenCommandResponse?.data.refresh_token,
-            data.expires_in * 1000 + Date.now(),
+            tokenData.expires_in * 1000 + Date.now(),
             refreshTokenCommandResponse?.data?.refresh_token_expiry_time ||
               undefined,
             enableRealTimeUpdates,
