@@ -36,7 +36,10 @@ import { createConnectorRouter } from './modules/tokens_manager/routes/connector
 import { PrometheusService } from './libs/services/prometheus/prometheus.service';
 import { StorageContainer } from './modules/storage/container/storage.container';
 import { NotificationContainer } from './modules/notification/container/notification.container';
-import { loadAppConfig } from './modules/tokens_manager/config/config';
+import {
+  AppConfig,
+  loadAppConfig,
+} from './modules/tokens_manager/config/config';
 import { NotificationService } from './modules/notification/service/notification.service';
 import {
   createSwaggerContainer,
@@ -156,7 +159,7 @@ export class Application {
         .inSingletonScope();
 
       // Configure Express
-      this.configureMiddleware();
+      this.configureMiddleware(appConfig);
       this.configureRoutes();
       this.setupSwagger();
       this.configureErrorHandling();
@@ -182,7 +185,8 @@ export class Application {
     }
   }
 
-  private configureMiddleware(): void {
+  private configureMiddleware(appConfig: AppConfig): void {
+    const connectorPublicUrl = appConfig.connectorBackend;
     // Security middleware
     this.app.use(helmet());
 
@@ -201,7 +205,7 @@ export class Application {
     this.app.use((_req, res, next) => {
       res.setHeader(
         'Content-Security-Policy',
-        "script-src 'self' https://cdnjs.cloudflare.com http://cdnjs.cloudflare.com; worker-src 'self' blob:;",
+        `script-src 'self' https://cdnjs.cloudflare.com http://cdnjs.cloudflare.com ${connectorPublicUrl}; worker-src 'self' blob:;`,
       );
       next();
     });
