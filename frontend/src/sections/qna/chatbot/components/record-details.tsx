@@ -247,7 +247,7 @@ const RecordDetails = ({ recordId, onExternalLink, citations = [] }: RecordDetai
 
   const { record, metadata } = recordData;
 
-  let webUrl = record.fileRecord?.webUrl;
+  let webUrl = record.fileRecord?.webUrl || record.mailRecord?.webUrl;
   if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
     const baseUrl = `${window.location.protocol}//${window.location.host}`;
     const newWebUrl = baseUrl + webUrl;

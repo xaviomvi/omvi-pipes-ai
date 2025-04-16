@@ -14,7 +14,17 @@ import closeIcon from '@iconify-icons/mdi/close';
 import { useParams, useNavigate } from 'react-router';
 import React, { useState, useEffect, useCallback } from 'react';
 
-import { Box, Button, styled, Tooltip, IconButton, CircularProgress } from '@mui/material';
+import {
+  Box,
+  Button,
+  styled,
+  Tooltip,
+  IconButton,
+  CircularProgress,
+  Snackbar,
+  useTheme, 
+  Alert
+} from '@mui/material';
 
 import axios from 'src/utils/axios';
 
@@ -103,7 +113,7 @@ const ChatInterface = () => {
   const [isHtml, setIsHtml] = useState<boolean>(false);
   const [isTextFile, setIsTextFile] = useState<boolean>(false);
   const [loadingConversations, setLoadingConversations] = useState<{ [key: string]: boolean }>({});
-
+  const theme = useTheme();
   const isCurrentConversationLoading = useCallback(
     () =>
       currentConversationId
@@ -111,7 +121,14 @@ const ChatInterface = () => {
         : loadingConversations.new,
     [currentConversationId, loadingConversations]
   );
-
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning',
+  });
+  const handleCloseSnackbar = (): void => {
+    setSnackbar({ open: false, message: '', severity: 'success' });
+  };
   const formatMessage = useCallback((apiMessage: Message): FormattedMessage | null => {
     if (!apiMessage) return null;
 
@@ -318,7 +335,19 @@ const ChatInterface = () => {
       }
     } catch (err) {
       console.error('Failed to fetch document:', err);
+      setSnackbar({
+        open: true,
+        message: err.message.includes('fetch failed') ? 'Failed to fetch document' : err.message,
+        severity: 'error',
+      });
+      setTimeout(() => {
+        onClosePdf();
+      }, 500);
+      return;
     }
+    setTransitioning(true);
+    setDrawerOpen(false);
+    setOpenPdfView(true);
     const isExcelOrCSV = ['csv', 'xlsx', 'xls'].includes(citationMeta?.extension);
     setIsDocx(['docx'].includes(citationMeta?.extension));
     setIsMarkdown(['md'].includes(citationMeta?.extension));
@@ -863,6 +892,29 @@ const ChatInterface = () => {
           </Box>
         )}
       </Box>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: 6 }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{
+            width: '100%',
+            borderRadius: 0.75,
+            boxShadow: theme.shadows[3],
+            '& .MuiAlert-icon': {
+              fontSize: '1.2rem',
+            },
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
