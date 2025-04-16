@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, UploadFile, File
 import base64
 import json
 import jwt
@@ -9,6 +9,7 @@ from app.setups.connector_setup import AppContainer
 from app.utils.logger import create_logger
 from fastapi.responses import StreamingResponse
 import os
+import subprocess
 from app.utils.llm import get_llm
 from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.config.arangodb_constants import CollectionNames, RecordRelations, Connectors, RecordTypes
@@ -25,6 +26,7 @@ import tempfile
 from pathlib import Path
 import asyncio
 import time
+import uuid
 
 logger = create_logger("Python Connector Service")
 
@@ -1244,6 +1246,39 @@ async def stream_record(
     except Exception as e:
         logger.error("Error downloading file: %s", str(e))
         raise HTTPException(status_code=500, detail="Error downloading file")
+
+@router.post("/api/v1/record/buffer/convert")
+async def get_record_stream(request: Request, file: UploadFile = File(...)):
+    from_format = request.query_params.get('from')
+    to_format = request.query_params.get('to')
+
+    if to_format == 'pdf':
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ppt_path = os.path.join(tmpdir, file.filename)
+            with open(ppt_path, "wb") as f:
+                f.write(await file.read())
+
+            subprocess.run([
+                "libreoffice",
+                "--headless",
+                "--convert-to", "pdf",
+                "--outdir", tmpdir,
+                ppt_path
+            ], check=True)
+
+            pdf_filename = file.filename.rsplit(".", 1)[0] + ".pdf"
+            pdf_path = os.path.join(tmpdir, pdf_filename)
+
+            return StreamingResponse(
+                open(pdf_path, "rb"),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename={pdf_filename}"}
+            )
+
+    raise HTTPException(
+        status_code=400,
+        detail="Invalid conversion request"
+    )
 
 async def get_admin_webhook_handler(request: Request) -> Optional[Any]:
     try:
