@@ -647,7 +647,10 @@ class IndexingPipeline:
             MetadataProcessingError: If there's an error processing the metadata
         """
         try:
-            # Create a copy to avoid modifying the original
+            block_type = meta.get('blockType', 'text')
+            if isinstance(block_type, list):
+                block_type = block_type[0]
+
             enhanced_metadata = {
                 'orgId': meta.get('orgId', ''),
                 'recordId': meta.get('recordId', ''),
@@ -658,7 +661,7 @@ class IndexingPipeline:
                 'connector': meta.get('connectorName', ''),
                 'blockNum': meta.get('blockNum', [0]),
                 'blockText': meta.get('blockText', ''),
-                'blockType': meta.get('blockType', 'text'),
+                'blockType': str(block_type),
                 'departments': meta.get('departments', []),
                 'topics': meta.get('topics', []),
                 'categories': meta.get('categories', []),
