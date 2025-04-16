@@ -6,7 +6,7 @@ import lockIcon from '@iconify-icons/eva/lock-outline';
 import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 import uploadIcon from '@iconify-icons/eva/upload-outline';
 import fileTextIcon from '@iconify-icons/mdi/file-text-outline';
-import { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import { useRef, useState, useEffect, forwardRef, useCallback, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -26,6 +26,7 @@ import {
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
+
 import { getConnectorPublicUrl } from '../../services/utils/services-configuration-service';
 
 interface GoogleWorkspaceConfigFormProps {
@@ -109,7 +110,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
   } | null>(null);
 
   const handleRealTimeUpdatesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const checked = event.target.checked;
+    const {checked} = event.target;
     setEnableRealTimeUpdates(checked);
 
     if (!checked) {

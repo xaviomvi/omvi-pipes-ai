@@ -1,12 +1,12 @@
 import infoOutlineIcon from '@iconify-icons/eva/info-outline';
 import editOutlineIcon from '@iconify-icons/eva/edit-outline';
+import saveOutlineIcon from '@iconify-icons/eva/save-outline';
 import trashOutlineIcon from '@iconify-icons/eva/trash-outline';
+import closeOutlineIcon from '@iconify-icons/eva/close-outline';
 import uploadOutlineIcon from '@iconify-icons/eva/upload-outline';
 import downloadOutlineIcon from '@iconify-icons/eva/download-outline';
 import fileTextOutlineIcon from '@iconify-icons/mdi/file-text-outline';
 import checkmarkCircleOutlineIcon from '@iconify-icons/eva/checkmark-circle-outline';
-import saveOutlineIcon from '@iconify-icons/eva/save-outline';
-import closeOutlineIcon from '@iconify-icons/eva/close-outline';
 import { useRef, useState, useEffect, forwardRef, useCallback, useImperativeHandle } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
@@ -25,6 +25,7 @@ import {
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
+
 import { getConnectorPublicUrl } from '../../services/utils/services-configuration-service';
 
 interface GoogleWorkspaceConfigFormProps {
@@ -321,7 +322,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
     }
 
     setIsEditing(true);
-    const checked = event.target.checked;
+    const {checked} = event.target;
     setEnableRealTimeUpdates(checked);
 
     if (!checked) {

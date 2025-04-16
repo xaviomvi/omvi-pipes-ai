@@ -216,7 +216,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   const handleRealTimeUpdatesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     // The key fix - prevent default behavior and stop propagation
 
-    const checked = event.target.checked;
+    const {checked} = event.target;
     setEnableRealTimeUpdates(checked);
 
     if (checked && (!topicName || topicName.trim() === '')) {
