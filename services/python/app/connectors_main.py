@@ -280,7 +280,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-       
+
 @router.get("/health")
 async def health_check():
     """Basic health check endpoint"""
