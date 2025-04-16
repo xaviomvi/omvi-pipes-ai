@@ -387,6 +387,13 @@ const GoogleWorkspaceIndividualPage = () => {
               if (isConfigured) return 'Configured';
               return 'Not Configured';
             };
+            const getSettingsTooltipMessage = () => {
+              if (isEnabled) {
+                return `Disable ${connector.title} to modify settings`;
+              }
+              return `Configure ${connector.title}`;
+            };
+
             const getTooltipMessage = () => {
               if (isDisabled) {
                 return `${connector.title} needs to be configured before it can be enabled`;
@@ -475,21 +482,34 @@ const GoogleWorkspaceIndividualPage = () => {
                   </Box>
 
                   {/* Configure button */}
-                  <IconButton
-                    size="small"
-                    onClick={() => handleConfigureConnector(connector.id)}
-                    sx={{
-                      mr: 1,
-                      color: theme.palette.text.secondary,
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.primary.main, 0.08),
-                        color: theme.palette.primary.main,
-                      },
-                    }}
-                    aria-label={`Configure ${connector.title}`}
-                  >
-                    <Iconify icon={settingsIcon} width={20} height={20} />
-                  </IconButton>
+                  <Tooltip title={getSettingsTooltipMessage()} placement="top" arrow>
+                    <span>
+                      {' '}
+                      {/* Using span instead of div for better tooltip compatibility */}
+                      <IconButton
+                        size="small"
+                        onClick={() => handleConfigureConnector(connector.id)}
+                        disabled={isEnabled}
+                        sx={{
+                          mr: 1,
+                          color: isEnabled
+                            ? theme.palette.text.disabled
+                            : theme.palette.text.secondary,
+                          '&:hover': {
+                            bgcolor: isEnabled
+                              ? 'transparent'
+                              : alpha(theme.palette.primary.main, 0.08),
+                            color: isEnabled
+                              ? theme.palette.text.disabled
+                              : theme.palette.primary.main,
+                          },
+                        }}
+                        aria-label={`Configure ${connector.title}`}
+                      >
+                        <Iconify icon={settingsIcon} width={20} height={20} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
 
                   <Tooltip
                     title={getTooltipMessage()}

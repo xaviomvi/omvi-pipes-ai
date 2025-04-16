@@ -64,6 +64,7 @@ const GoogleWorkspaceBusinessPage = () => {
       return response.data;
     } catch (err) {
       console.error(`Error fetching ${connectorId} configuration:`, err);
+      setErrorMessage(`Failed to fetch ${connectorId} connector configuration.  ${err.message} `);
       return null;
     }
   }, []);
@@ -76,18 +77,34 @@ const GoogleWorkspaceBusinessPage = () => {
 
     // If the connector was enabled, disable it
     if (connectorStatus[connectorId]) {
-      const response = await axios.post(`/api/v1/connectors/disable`, null, {
-        params: {
-          service: connectorId,
-        },
-      });
-      setConnectorStatus((prev) => ({
-        ...prev,
-        [connectorId]: false,
-      }));
+      try {
+        const response = await axios.post(`/api/v1/connectors/disable`, null, {
+          params: {
+            service: connectorId,
+          },
+        });
 
-      // Show success message
-      setSuccessMessage(`${getConnectorTitle(connectorId)} ${'disabled'} successfully`);
+        setConnectorStatus((prev) => ({
+          ...prev,
+          [connectorId]: false,
+        }));
+
+        // Show success message for disabling
+        setSuccessMessage(`${getConnectorTitle(connectorId)} disabled successfully`);
+        setSuccess(true);
+      } catch (disableError) {
+        // Handle error specifically for the disable operation
+        console.error(`Failed to disable ${getConnectorTitle(connectorId)}:`, disableError);
+        setErrorMessage(`Failed to disable ${getConnectorTitle(connectorId)}. Please try again.`);
+
+        // Revert the configured status change since the operation failed
+        setConfiguredStatus((prev) => ({
+          ...prev,
+          [connectorId]: true, // Reset to previous state
+        }));
+
+        return; // Exit early to prevent showing success message
+      }
     }
 
     // Refresh connector statuses to get latest from server
@@ -115,6 +132,7 @@ const GoogleWorkspaceBusinessPage = () => {
       setConfiguredStatus(newConfigStatus);
     } catch (err) {
       console.error('Error checking connector configurations:', err);
+      setErrorMessage(`Failed to check connector config.  ${err.message} `);
     } finally {
       setCheckingConfigs(false);
     }
@@ -179,6 +197,7 @@ const GoogleWorkspaceBusinessPage = () => {
         setConfiguredStatus(newConfigStatus);
       } catch (err) {
         console.error('Error checking connector configurations:', err);
+        setErrorMessage(`Failed to check connector config  ${err.message} `);
       } finally {
         setCheckingConfigs(false);
       }
@@ -344,6 +363,13 @@ const GoogleWorkspaceBusinessPage = () => {
               return '';
             };
 
+            const getSettingsTooltipMessage = () => {
+              if (isEnabled) {
+                return `Disable ${connector.title} to modify settings`;
+              }
+              return `Configure ${connector.title}`;
+            };
+
             // Determine status color and text
             const getStatusColor = () => {
               if (isEnabled) return connector.color;
@@ -437,22 +463,34 @@ const GoogleWorkspaceBusinessPage = () => {
                     </Typography>
                   </Box>
 
-                  {/* Configure button */}
-                  <IconButton
-                    size="small"
-                    onClick={() => handleConfigureConnector(connector.id)}
-                    sx={{
-                      mr: 1,
-                      color: theme.palette.text.secondary,
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.primary.main, 0.08),
-                        color: theme.palette.primary.main,
-                      },
-                    }}
-                    aria-label={`Configure ${connector.title}`}
-                  >
-                    <Iconify icon={settingsIcon} width={20} height={20} />
-                  </IconButton>
+                  <Tooltip title={getSettingsTooltipMessage()} placement="top" arrow>
+                    <span>
+                      {' '}
+                      {/* Using span instead of div for better tooltip compatibility */}
+                      <IconButton
+                        size="small"
+                        onClick={() => handleConfigureConnector(connector.id)}
+                        disabled={isEnabled}
+                        sx={{
+                          mr: 1,
+                          color: isEnabled
+                            ? theme.palette.text.disabled
+                            : theme.palette.text.secondary,
+                          '&:hover': {
+                            bgcolor: isEnabled
+                              ? 'transparent'
+                              : alpha(theme.palette.primary.main, 0.08),
+                            color: isEnabled
+                              ? theme.palette.text.disabled
+                              : theme.palette.primary.main,
+                          },
+                        }}
+                        aria-label={`Configure ${connector.title}`}
+                      >
+                        <Iconify icon={settingsIcon} width={20} height={20} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
 
                   <Tooltip
                     title={getTooltipMessage()}
