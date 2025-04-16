@@ -142,6 +142,7 @@ export async function createPlaceholderDocument(
   req: AuthenticatedUserRequest | AuthenticatedServiceRequest,
   next: NextFunction,
   size: number,
+  extension : string,
 ): Promise<DocumentInfoResponse | undefined> {
   try {
     const {
@@ -177,6 +178,7 @@ export async function createPlaceholderDocument(
       customMetadata,
       sizeInBytes: size,
       storageVendor: StorageVendor.S3,
+      extension
     };
 
     const savedDocument = await DocumentModel.create(documentInfo);

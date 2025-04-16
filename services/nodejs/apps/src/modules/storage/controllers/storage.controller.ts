@@ -216,6 +216,7 @@ export class StorageController {
         permissions,
         customMetadata,
         isVersionedFile,
+        extension
       } = req.body as Partial<Document>;
 
       const orgId = extractOrgId(req);
@@ -249,6 +250,7 @@ export class StorageController {
         permissions: permissions,
         customMetadata,
         storageVendor: storageVendor,
+        extension : `.${extension}`,
       };
 
       const savedDocument = await DocumentModel.create(documentInfo);

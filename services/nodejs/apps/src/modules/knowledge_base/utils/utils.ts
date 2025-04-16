@@ -8,6 +8,10 @@ import { KeyValueStoreService } from '../../../libs/services/keyValueStore.servi
 import { endpoint } from '../../storage/constants/constants';
 import { HTTP_STATUS } from '../../../libs/enums/http-status.enum';
 import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
+import { RecordRelationService } from '../services/kb.relation.service';
+import { IRecordDocument } from '../types/record';
+import { IFileRecordDocument } from '../types/file_record';
+import { Event, EventType } from '../services/records_events.service';
 
 const logger = Logger.getInstance({
   service: 'knowledge_base.utils',
@@ -27,8 +31,11 @@ export const saveFileToStorageAndGetDocumentId = async (
   file: FileBufferInfo,
   documentName: string,
   isVersionedFile: boolean,
+  record: IRecordDocument,
+  fileRecord: IFileRecordDocument,
   keyValueStoreService: KeyValueStoreService,
   defaultConfig: DefaultStorageConfig,
+  recordRelationService: RecordRelationService,
 ): Promise<StorageResponseMetadata> => {
   const formData = new FormData();
 
@@ -61,6 +68,12 @@ export const saveFileToStorageAndGetDocumentId = async (
       },
     );
 
+    // async call the placeholder call here
+    // we get the doc id and all other meta
+    // call the direct upload here by passing the doc id
+    // we get the signed url here for upload
+    // now pass the buffer to the signed url and run in background
+
     return {
       documentId: response.data?._id,
       documentName: response.data?.documentName,
@@ -74,7 +87,16 @@ export const saveFileToStorageAndGetDocumentId = async (
       const documentId = error.response.headers['x-document-id'];
       const documentName = error.response.headers['x-document-name'];
 
-      runInBackGround(file.buffer, redirectUrl, documentId, documentName);
+      runInBackGround(
+        file.buffer,
+        redirectUrl,
+        documentId,
+        documentName,
+        record,
+        fileRecord,
+        recordRelationService,
+        keyValueStoreService,
+      );
       return { documentId, documentName };
     } else {
       logger.error('Error uploading file to storage', {
@@ -90,6 +112,10 @@ function runInBackGround(
   redirectUrl: string,
   documentId: string,
   documentName: string,
+  record: IRecordDocument,
+  fileRecord: IFileRecordDocument,
+  recordRelationService: RecordRelationService,
+  keyValueStoreService: KeyValueStoreService,
 ) {
   // Start the upload in the background
   (async () => {
@@ -111,13 +137,46 @@ function runInBackGround(
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
       })
-        .then((response) => {
+        .then(async (response) => {
           // TODO: Notify the user about the upload completion
           logger.info('Background upload completed successfully', {
             documentId,
             documentName,
             status: response.status,
+            record: record._key
           });
+
+          record.externalRecordId = documentId;
+          record.recordName = documentName;
+          fileRecord.name = documentName;
+
+          if (response.status === 200) {
+            try {
+              // Create the payload using the separate function
+              const newRecordPayload =
+                await recordRelationService.createNewRecordEventPayload(
+                  record,
+                  keyValueStoreService,
+                  fileRecord,
+                );
+
+              const event: Event = {
+                eventType: EventType.NewRecordEvent,
+                timestamp: Date.now(),
+                payload: newRecordPayload,
+              };
+
+              // Return the promise for event publishing
+              return recordRelationService.eventProducer.publishEvent(event);
+            } catch (error) {
+              logger.error(
+                `Failed to create event payload for record ${record._key}`,
+                { error },
+              );
+              // Return a resolved promise to avoid failing the Promise.all
+              return Promise.resolve();
+            }
+          }
         })
         .catch((uploadError) => {
           // TODO: Notify the user about the upload failure
