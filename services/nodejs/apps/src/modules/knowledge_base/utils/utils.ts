@@ -89,6 +89,7 @@ export const saveFileToStorageAndGetDocumentId = async (
 
       runInBackGround(
         file.buffer,
+        file.mimetype,
         redirectUrl,
         documentId,
         documentName,
@@ -109,6 +110,7 @@ export const saveFileToStorageAndGetDocumentId = async (
 
 function runInBackGround(
   buffer: Buffer,
+  mimetype: string,
   redirectUrl: string,
   documentId: string,
   documentName: string,
@@ -131,7 +133,7 @@ function runInBackGround(
         url: redirectUrl,
         data: bufferStream,
         headers: {
-          'Content-Type': 'application/octet-stream',
+          'Content-Type': mimetype,
           'Content-Length': buffer.length,
         },
         maxContentLength: Infinity,
