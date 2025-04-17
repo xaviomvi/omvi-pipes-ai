@@ -316,3 +316,18 @@ export const getUserIdFromToken = (): string => {
   const { userId } = decodedToken;
   return userId;
 };
+
+export const logout = async (): Promise<void> => {
+  try {
+    // Simply remove the JWT token from localStorage
+    localStorage.removeItem(STORAGE_KEY);
+
+    // Refresh the page
+    window.location.reload();
+  } catch (error) {
+    console.error('Error during logout:', error);
+    throw new Error(
+      `Unable to logout: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+};
