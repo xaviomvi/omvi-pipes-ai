@@ -724,7 +724,7 @@ class GmailUserService:
             if not enable_real_time_updates:
                 return {}
             
-            topic = creds_data.get('topic', '')
+            topic = creds_data.get('topicName', '')
             self.logger.info(f"🚀 Topic: {topic}")
             if not topic:
                 raise MailOperationError(
