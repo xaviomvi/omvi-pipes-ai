@@ -22,8 +22,8 @@ import {
   Tooltip,
   Snackbar,
   useTheme,
-  IconButton, 
-  CircularProgress
+  IconButton,
+  CircularProgress,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -124,7 +124,7 @@ const ChatInterface = () => {
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
-    severity: 'success' as 'success' | 'error' | 'warning',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info',
   });
   const handleCloseSnackbar = (): void => {
     setSnackbar({ open: false, message: '', severity: 'success' });
@@ -269,7 +269,50 @@ const ChatInterface = () => {
           }
         } catch (error) {
           console.error('Error downloading document:', error);
-          throw new Error('Failed to download document');
+          setSnackbar({
+            open: true,
+            // Provide a clear message about what's happening
+            message: 'Failed to load preview. Redirecting to the original document shortly...',
+            severity: 'info', // Use 'info' or 'warning' for redirection notice
+          });
+          let webUrl = record.fileRecord?.webUrl || record.mailRecord?.webUrl;
+
+          // Keep the URL fix logic (though less likely needed for non-UPLOAD here, better safe)
+          if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
+            const baseUrl = `${window.location.protocol}//${window.location.host}`;
+            webUrl = baseUrl + webUrl;
+          }
+
+          console.log(`Attempting to redirect to webUrl: ${webUrl}`);
+
+          setTimeout(() => {
+            onClosePdf();
+          }, 500);
+
+          setTimeout(() => {
+            if (webUrl) {
+              try {
+                window.open(webUrl, '_blank', 'noopener,noreferrer');
+                console.log('Opened document in new tab');
+              } catch (openError) {
+                console.error('Error opening new tab:', openError);
+                setSnackbar({
+                  open: true,
+                  message:
+                    'Failed to automatically open the document. Please check your browser pop-up settings.',
+                  severity: 'error',
+                });
+              }
+            } else {
+              console.error('Cannot redirect: No webUrl found for the record.');
+              setSnackbar({
+                open: true,
+                message: 'Failed to load preview and cannot redirect (document URL not found).',
+                severity: 'error',
+              });
+            }
+          }, 2500);
+          return;
         }
       } else if (record.origin === ORIGIN.CONNECTOR) {
         try {
@@ -330,7 +373,50 @@ const ChatInterface = () => {
           setFileBuffer(buffer);
         } catch (err) {
           console.error('Error downloading document:', err);
-          throw new Error(`Failed to download document: ${err.message}`);
+          setSnackbar({
+            open: true,
+            // Provide a clear message about what's happening
+            message: 'Failed to load preview. Redirecting to the original document shortly...',
+            severity: 'info', // Use 'info' or 'warning' for redirection notice
+          });
+          let webUrl = record.fileRecord?.webUrl || record.mailRecord?.webUrl;
+
+          // Keep the URL fix logic (though less likely needed for non-UPLOAD here, better safe)
+          if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
+            const baseUrl = `${window.location.protocol}//${window.location.host}`;
+            webUrl = baseUrl + webUrl;
+          }
+
+          console.log(`Attempting to redirect to webUrl: ${webUrl}`);
+
+          setTimeout(() => {
+            onClosePdf();
+          }, 500);
+
+          setTimeout(() => {
+            if (webUrl) {
+              try {
+                window.open(webUrl, '_blank', 'noopener,noreferrer');
+                console.log('Opened document in new tab');
+              } catch (openError) {
+                console.error('Error opening new tab:', openError);
+                setSnackbar({
+                  open: true,
+                  message:
+                    'Failed to automatically open the document. Please check your browser pop-up settings.',
+                  severity: 'error',
+                });
+              }
+            } else {
+              console.error('Cannot redirect: No webUrl found for the record.');
+              setSnackbar({
+                open: true,
+                message: 'Failed to load preview and cannot redirect (document URL not found).',
+                severity: 'error',
+              });
+            }
+          }, 2500);
+          return;
         }
       }
     } catch (err) {

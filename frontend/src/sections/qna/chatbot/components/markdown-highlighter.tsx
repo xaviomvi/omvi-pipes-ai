@@ -5,6 +5,7 @@ import type { DocumentContent } from 'src/sections/knowledgebase/types/search-re
 import type { Position, HighlightType, ProcessedCitation } from 'src/types/pdf-highlighter';
 
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw'; // Handles HTML within Markdown
 import { Icon } from '@iconify/react';
 import ReactMarkdown from 'react-markdown';
 import alertCircleIcon from '@iconify-icons/mdi/alert-circle-outline';
@@ -15,23 +16,23 @@ import { Box, Paper, Typography, CircularProgress } from '@mui/material';
 
 import CitationSidebar from './highlighter-sidebar';
 
-// Props type definition - updated to include buffer
+// Props type definition
 type MarkdownViewerProps = {
   citations: DocumentContent[] | CustomCitation[];
   url: string | null;
   content?: string | null;
-  buffer?: ArrayBuffer | null; // Added buffer support
+  buffer?: ArrayBuffer | null;
   sx?: Record<string, unknown>;
 };
 
-// Styled components
+// --- Styled components (Unchanged) ---
 const ViewerContainer = styled(Box)(({ theme }) => ({
   width: '100%',
   height: '100%',
   position: 'relative',
   overflow: 'hidden',
   borderRadius: theme.shape.borderRadius,
-  border: `1px solid ${theme.palette.divider}`, // Added subtle border
+  border: `1px solid ${theme.palette.divider}`,
 }));
 
 const LoadingOverlay = styled(Box)(({ theme }) => ({
@@ -44,7 +45,7 @@ const LoadingOverlay = styled(Box)(({ theme }) => ({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: 'rgba(255, 255, 255, 0.8)', // Slightly transparent
+  backgroundColor: 'rgba(255, 255, 255, 0.8)',
   zIndex: 10,
 }));
 
@@ -70,72 +71,74 @@ const DocumentContainer = styled(Box)({
   height: '100%',
   overflow: 'auto',
   minHeight: '100px',
-  padding: '1rem 1.5rem', // Increased padding
-  '& p, & li, & blockquote': {
-    // Improved readability
-    lineHeight: 1.6,
+  padding: '1rem 1.5rem',
+  '& p, & li, & blockquote': { lineHeight: 1.6 },
+  '& h1, & h2, & h3, & h4, & h5, & h6': { marginTop: '1.5em', marginBottom: '0.8em' },
+  '& table': { borderCollapse: 'collapse', marginBottom: '1em', width: 'auto' },
+  '& th, & td': { border: '1px solid #ddd', padding: '0.5em', textAlign: 'left' },
+  '& th': { backgroundColor: '#f2f2f2' },
+  '& strong, & b': { fontWeight: 'bold' },
+  '& em, & i': { fontStyle: 'italic' },
+  '& code': {
+    fontFamily: 'monospace',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    padding: '0.2em 0.4em',
+    borderRadius: '3px',
   },
-  '& h1, & h2, & h3, & h4, & h5, & h6': {
-    // Margin adjustments
-    marginTop: '1.5em',
-    marginBottom: '0.8em',
-  },
+  '& pre > code': { display: 'block', padding: '1em', overflowX: 'auto' },
 });
+// --- End Styled components ---
 
-// Custom renderer to add IDs to elements (kept for potential fallback/structure)
-const customRenderers = {
-  // Keep existing renderers if they add value beyond IDs, otherwise remove if IDs are handled later
-  // Example: If you need specific styling via components prop
-} as Components;
+// Custom renderer (Usually not needed when rehypeRaw is used for standard HTML)
+const customRenderers = {} as Components;
 
-// Helper function to generate unique IDs
+// --- Helper functions ---
 const getNextId = (): string => `md-hl-${Math.random().toString(36).substring(2, 10)}`;
 
-// Helper type guard
 const isDocumentContent = (
   citation: DocumentContent | CustomCitation
 ): citation is DocumentContent => 'metadata' in citation && citation.metadata !== undefined;
 
-// Process citation
+// *** IMPROVEMENT: Add text normalization helper ***
+const normalizeText = (text: string | null | undefined): string => {
+  if (!text) return '';
+  // Trim, replace multiple whitespace characters (including newlines) with a single space
+  return text.trim().replace(/\s+/g, ' ');
+};
+
 const processTextHighlight = (citation: DocumentContent | CustomCitation): HighlightType | null => {
   try {
-    if (
-      !citation.content ||
-      typeof citation.content !== 'string' ||
-      citation.content.trim().length < 5
-    ) {
-      // Min length check
-      // console.warn('Citation missing or has short content, skipping highlight:', citation);
+    const rawContent = citation.content;
+    // *** IMPROVEMENT: Normalize content here and check length of normalized content ***
+    const normalizedContent = normalizeText(rawContent);
+
+    if (!normalizedContent || normalizedContent.length < 5) {
+      // Ignore very short/empty citations
+      // console.log('Skipping short/empty citation content:', rawContent);
       return null;
     }
 
     let id: string;
-    // Prioritize explicit IDs if available
-    if ('highlightId' in citation && citation.highlightId) {
-      id = citation.highlightId as string;
-    } else if (isDocumentContent(citation) && citation.metadata?._id) {
-      id = citation.metadata._id;
-    } else if ('id' in citation && citation.id) {
-      id = citation.id as string;
-    } else if ('_id' in citation && citation._id) {
-      id = citation._id as string;
-    } else if ('citationId' in citation && citation.citationId) {
-      id = citation.citationId as string;
-    } else {
-      id = getNextId(); // Generate a unique ID if none is found
-    }
+    // Simplified ID assignment (prioritize existing IDs)
+    if ('highlightId' in citation && citation.highlightId) id = citation.highlightId as string;
+    else if ('id' in citation && citation.id) id = citation.id as string;
+    else if ('citationId' in citation && citation.citationId) id = citation.citationId as string;
+    else if (isDocumentContent(citation) && citation.metadata?._id) id = citation.metadata._id;
+    else if ('_id' in citation && citation._id) id = citation._id as string;
+    else id = getNextId(); // Fallback to random ID
 
-    // Default Position (less relevant for pure text highlighting)
     const position: Position = {
-      pageNumber: -10,
+      pageNumber: -10, // Indicates it's not from a PDF page
       boundingRect: { x1: 0, y1: 0, x2: 0, y2: 0, width: 0, height: 0 },
       rects: [],
     };
 
     return {
-      content: { text: citation.content.trim() }, // Trim whitespace
+      // *** Store the *normalized* text for matching, but maybe keep original for display if needed?
+      // For simplicity, we'll use normalized for matching. If display needs original, store both.
+      content: { text: normalizedContent }, // Use normalized for reliable matching
       position,
-      comment: { text: '', emoji: '' }, // Keep comment structure if needed later
+      comment: { text: '', emoji: '' },
       id,
     };
   } catch (error) {
@@ -143,6 +146,7 @@ const processTextHighlight = (citation: DocumentContent | CustomCitation): Highl
     return null;
   }
 };
+// --- End Helper functions ---
 
 const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   url,
@@ -158,16 +162,19 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
   const [documentReady, setDocumentReady] = useState<boolean>(false);
   const [processedCitations, setProcessedCitations] = useState<ProcessedCitation[]>([]);
 
-  // Refs to manage state without causing re-renders
+  // --- Refs (Unchanged) ---
   const styleAddedRef = useRef<boolean>(false);
   const processingCitationsRef = useRef<boolean>(false);
   const contentRenderedRef = useRef<boolean>(false);
   const highlightsAppliedRef = useRef<boolean>(false);
   const highlightingInProgressRef = useRef<boolean>(false);
   const cleanupStylesRef = useRef<(() => void) | null>(null);
-  const prevCitationsJsonRef = useRef<string>('[]'); // Store stringified version for comparison
+  const prevCitationsJsonRef = useRef<string>('[]');
+  const highlightCleanupsRef = useRef<Map<string, () => void>>(new Map()); // Keep track of cleanup functions
 
-  // Create highlight styles function
+  // --- Highlighting logic functions ---
+
+  // *** IMPROVEMENT: Enhanced Styles ***
   const createHighlightStyles = useCallback((): (() => void) | undefined => {
     const styleId = 'markdown-highlight-styles';
     if (document.getElementById(styleId)) return undefined; // Already added
@@ -176,20 +183,22 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     style.id = styleId;
     style.textContent = `
       .markdown-highlight {
-        background-color: rgba(255, 224, 130, 0.5); /* Lighter yellow */
+        background-color: rgba(255, 224, 130, 0.5); /* Lighter yellow for exact */
         border-radius: 3px;
-        padding: 0.1em 0; /* Slight vertical padding */
-        margin: -0.1em 0; /* Counteract padding */
+        padding: 0.1em 0;
+        margin: -0.1em 0;
         cursor: pointer;
         transition: background-color 0.3s ease, box-shadow 0.3s ease;
-        display: inline; /* Ensure it doesn't break block elements */
-        box-shadow: 0 0 0 0px rgba(255, 179, 0, 0.3); /* Initial shadow transparent */
-        position: relative; /* Needed for z-index */
+        display: inline; /* Try to keep flow */
+        box-shadow: 0 0 0 0px rgba(255, 179, 0, 0.3);
+        position: relative;
         z-index: 1;
+        /* *** ADDED: Ensure whitespace/breaks within highlight are preserved *** */
+        white-space: pre-wrap !important;
       }
 
       .markdown-highlight:hover {
-        background-color: rgba(255, 213, 79, 0.7); /* Slightly darker on hover */
+        background-color: rgba(255, 213, 79, 0.7);
         box-shadow: 0 0 0 2px rgba(255, 179, 0, 0.3);
         z-index: 2;
       }
@@ -197,7 +206,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       .markdown-highlight-active {
         background-color: rgba(255, 179, 0, 0.8) !important; /* Amber/Orange for active */
         box-shadow: 0 0 0 3px rgba(255, 111, 0, 0.4) !important;
-        font-weight: 600; /* Slightly bolder */
+        font-weight: 600;
         z-index: 3 !important;
         animation: highlightPulse 1.2s 1 ease-out;
       }
@@ -208,27 +217,23 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         100% { box-shadow: 0 0 0 3px rgba(255, 111, 0, 0.4); }
       }
 
-      /* Match type styles */
-      .markdown-highlight-exact {
-         /* Uses base style, maybe slightly different border? */
-         /* border-bottom: 1px solid rgba(255, 179, 0, 0.7); */
-      }
-
+      /* *** ADDED: Distinct style for fuzzy matches *** */
       .markdown-highlight-fuzzy {
-         background-color: rgba(173, 216, 230, 0.5); /* Light blue */
-         /* border-bottom: 1px dashed rgba(70, 130, 180, 0.6); */
+         background-color: rgba(173, 216, 230, 0.6); /* Light blue */
       }
       .markdown-highlight-fuzzy:hover {
-         background-color: rgba(135, 206, 250, 0.7);
+         background-color: rgba(135, 206, 250, 0.8);
       }
       .markdown-highlight-fuzzy.markdown-highlight-active {
-         background-color: rgba(70, 130, 180, 0.8) !important; /* Steel Blue */
-         box-shadow: 0 0 0 3px rgba(0, 71, 171, 0.4) !important;
+         background-color: rgba(70, 130, 180, 0.9) !important; /* Steel Blue */
+         box-shadow: 0 0 0 3px rgba(0, 71, 171, 0.5) !important; /* Darker blue shadow */
+         animation: highlightPulseFuzzy 1.2s 1 ease-out; /* Optional distinct pulse */
       }
 
-      /* Ensure highlights preserve line breaks */
-      .markdown-highlight {
-        white-space: pre-wrap !important;
+       @keyframes highlightPulseFuzzy {
+        0% { box-shadow: 0 0 0 3px rgba(0, 71, 171, 0.5); }
+        50% { box-shadow: 0 0 0 6px rgba(0, 71, 171, 0.2); }
+        100% { box-shadow: 0 0 0 3px rgba(0, 71, 171, 0.5); }
       }
     `;
     document.head.appendChild(style);
@@ -236,25 +241,31 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     const cleanup = (): void => {
       const styleElement = document.getElementById(styleId);
       if (styleElement) {
-        document.head.removeChild(styleElement);
-        console.log('Removed highlight styles.');
+        try {
+          document.head.removeChild(styleElement);
+          console.log('Removed highlight styles.');
+        } catch (e) {
+          console.error('Error removing highlight styles:', e);
+        }
       }
     };
-    cleanupStylesRef.current = cleanup; // Store cleanup function
+    cleanupStylesRef.current = cleanup;
     return cleanup;
   }, []);
 
-  // Helper function to calculate text similarity (simple word overlap)
-  const calculateSimilarity = (text1: string, text2: string): number => {
-    if (!text1 || !text2) return 0;
+  // Similarity calculation (unchanged, but consider alternatives like Levenshtein if needed)
+  const calculateSimilarity = useCallback((text1: string, text2: string | null): number => {
+    const normalized1 = normalizeText(text1);
+    const normalized2 = normalizeText(text2);
+    if (!normalized1 || !normalized2) return 0;
     const words1 = new Set(
-      text1
+      normalized1
         .toLowerCase()
         .split(/\s+/)
         .filter((w) => w.length > 2)
     );
     const words2 = new Set(
-      text2
+      normalized2
         .toLowerCase()
         .split(/\s+/)
         .filter((w) => w.length > 2)
@@ -262,162 +273,291 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     if (words1.size === 0 || words2.size === 0) return 0;
     let intersectionSize = 0;
     words1.forEach((word) => {
-      if (words2.has(word)) intersectionSize += 1;
+      if (words2.has(word)) intersectionSize+=1;
     });
-    return intersectionSize / Math.max(words1.size, words2.size); // Jaccard index variant
-  };
+    const unionSize = words1.size + words2.size - intersectionSize;
+    // Using Jaccard Index for potentially better results with varying lengths
+    return unionSize === 0 ? 0 : intersectionSize / unionSize;
+    // Alternative: return intersectionSize / Math.max(words1.size, words2.size);
+  }, []);
 
-  const highlightTextInElement = (
-    element: Element,
-    textToHighlight: string,
-    highlightId: string,
-    matchType: 'exact' | 'fuzzy' = 'exact'
-  ): { success: boolean; cleanup?: () => void } => {
-    if (!element || !textToHighlight || textToHighlight.length < 3 || !element.textContent) {
-      return { success: false };
-    }
-
-    const highlightClass = `markdown-highlight highlight-${highlightId} markdown-highlight-${matchType}`;
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    const nodesToWrap: { node: Text; startIndex: number; endIndex: number }[] = [];
-    let found = false;
-
-    // Try to find the exact text within text nodes
-    // Try to find the exact text within text nodes
-    let nodeEl: Node | null; // Declare node outside the loop
-    while (true) {
-      // Loop indefinitely initially
-      nodeEl = walker.nextNode(); // Perform assignment inside the loop body
-      if (!nodeEl) {
-        // Check if the assignment resulted in null (end of nodes)
-        break; // Exit the loop
-      }
-
-      // Now 'node' is guaranteed to be a Node, not null
-      const textNode = nodeEl as Text; // You might still need the assertion if walker isn't typed precisely
-      const nodeText = textNode.nodeValue || '';
-      const startIndex = nodeText.indexOf(textToHighlight);
-
-      if (startIndex !== -1) {
-        nodesToWrap.push({
-          node: textNode,
-          startIndex,
-          endIndex: startIndex + textToHighlight.length,
-        });
-        found = true;
-        break; // Simple case: found the whole text in one node
-      }
-      // TODO: Add logic here to handle text split across multiple nodes if needed
-    }
-
-    if (found && nodesToWrap.length > 0) {
-      const { node: textNode, startIndex, endIndex } = nodesToWrap[0];
-      try {
-        const range = document.createRange();
-        range.setStart(textNode, startIndex);
-        range.setEnd(textNode, endIndex);
-
-        const span = document.createElement('span');
-        span.className = highlightClass;
-        span.dataset.highlightId = highlightId; // Add data attribute
-
-        // --- Click Handler ---
-        span.addEventListener('click', (e) => {
-          e.stopPropagation(); // Prevent triggering clicks on parent elements
-          console.log(`Highlight clicked: ${highlightId}`);
-
-          // Remove active class from others
-          containerRef.current?.querySelectorAll('.markdown-highlight-active').forEach((el) => {
-            el.classList.remove('markdown-highlight-active');
-          });
-
-          // Add active class to this one
-          span.classList.add('markdown-highlight-active');
-
-          // Optional: Scroll into view smoothly
-          span.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-
-          // Dispatch custom event if needed by other parts of the app
-          // document.dispatchEvent(new CustomEvent('highlightactivated', { detail: { highlightId } }));
-        });
-
-        range.surroundContents(span); // Wrap the text
-
-        // Return success and a cleanup function
-        const cleanup = () => {
-          if (span.parentNode) {
-            const text = document.createTextNode(span.textContent || '');
-            span.parentNode.replaceChild(text, span);
-          }
-        };
-        return { success: true, cleanup };
-      } catch (wrapError) {
-        console.error(
-          `Error wrapping text for highlight ${highlightId}:`,
-          wrapError,
-          'Text:',
-          textToHighlight,
-          'Node:',
-          textNode
-        );
-        // Attempt to restore original state if surroundContents failed badly
-        // (More complex restoration might be needed depending on the error)
+  // *** IMPROVEMENT: Use normalized text for matching within element ***
+  const highlightTextInElement = useCallback(
+    (
+      element: Element,
+      normalizedTextToHighlight: string, // Expect normalized text
+      highlightId: string,
+      matchType: 'exact' | 'fuzzy' = 'exact'
+    ): { success: boolean; cleanup?: () => void } => {
+      if (!element || !normalizedTextToHighlight || normalizedTextToHighlight.length < 3) {
         return { success: false };
       }
-    }
-    // Fallback for fuzzy: Wrap the whole element if it was deemed the best fuzzy match
-    else if (matchType === 'fuzzy') {
-      // Only wrap if it doesn't already contain a highlight to avoid nesting issues
-      if (element.querySelector('.markdown-highlight')) {
-        console.warn(
-          `Skipping fuzzy wrap for ${highlightId} as element already contains highlights.`
-        );
-        return { success: false };
-      }
-      try {
-        const span = document.createElement('span');
-        span.className = highlightClass;
-        span.dataset.highlightId = highlightId;
 
-        // --- Click Handler (duplicate for fuzzy wrapper) ---
-        span.addEventListener('click', (e) => {
-          e.stopPropagation();
-          console.log(`Highlight clicked (fuzzy wrapper): ${highlightId}`);
-          containerRef.current?.querySelectorAll('.markdown-highlight-active').forEach((el) => {
-            el.classList.remove('markdown-highlight-active');
-          });
-          span.classList.add('markdown-highlight-active');
-          span.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-        });
+      const highlightClass = `markdown-highlight highlight-${highlightId} markdown-highlight-${matchType}`;
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      const nodesToWrap: { node: Text; startIndex: number; endIndex: number }[] = [];
+      let found = false;
 
-        // Move all children into the new span
-        while (element.firstChild) {
-          span.appendChild(element.firstChild);
-        }
-        element.appendChild(span);
+      // --- Exact Match Search ---
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        node = walker.nextNode();
+        if (!node) break;
 
-        // Return success and cleanup for the wrapper
-        const cleanup = () => {
-          if (span.parentNode === element) {
-            while (span.firstChild) {
-              element.insertBefore(span.firstChild, span);
+        const textNode = node as Text;
+        const nodeText = textNode.nodeValue || '';
+        // *** IMPROVEMENT: Normalize the node's text for comparison ***
+        const normalizedNodeText = normalizeText(nodeText);
+
+        // Find the *normalized* text within the *normalized* node content
+        const startIndexInNormalized = normalizedNodeText.indexOf(normalizedTextToHighlight);
+
+        if (startIndexInNormalized !== -1) {
+          // If found in normalized, we need to map the start/end back to the *original* text node
+          // This is tricky if normalization changed lengths significantly (e.g., multiple spaces -> one)
+          // Simplification: Assume the first occurrence in original text corresponds to the normalized find.
+          // This might be inaccurate if the pattern repeats differently before/after normalization.
+          const startIndexInOriginal = nodeText.indexOf(normalizedTextToHighlight.trim()); // Try finding the core text
+          // A more robust mapping would be needed for complex normalization cases.
+
+          if (startIndexInOriginal !== -1) {
+            // Find the *actual* substring in the original text that corresponds
+            // This is still imperfect. We really need to find the *range* in the original text
+            // that *becomes* the normalizedTextToHighlight after normalization.
+            // Let's stick to finding the normalized text within the normalized node text for now,
+            // and use the length of the *normalized* text to define the range on the original node.
+            // This assumes normalization doesn't drastically reorder things.
+
+            const approxEndIndexInOriginal =
+              startIndexInOriginal + normalizedTextToHighlight.length; // This is an approximation!
+
+            // Refined check: does the substring *look* like the target?
+            const originalSubstring = nodeText.substring(
+              startIndexInOriginal,
+              approxEndIndexInOriginal
+            );
+            if (normalizeText(originalSubstring) === normalizedTextToHighlight) {
+              nodesToWrap.push({
+                node: textNode,
+                startIndex: startIndexInOriginal,
+                endIndex: approxEndIndexInOriginal, // Use calculated end based on *normalized* length
+              });
+              found = true;
+              break; // Found the first match in this element, stop searching nodes
+            } else {
+              // console.warn(`Normalized match found, but original substring mismatch for ID ${highlightId}. Skipping.`);
             }
-            element.removeChild(span);
+          } else {
+            // Try finding just the first word if the whole thing fails
+            const firstWord = normalizedTextToHighlight.split(' ')[0];
+            const simpleStartIndex = nodeText.indexOf(firstWord);
+            if (simpleStartIndex !== -1) {
+              // Less precise fallback - highlight based on approx length
+              nodesToWrap.push({
+                node: textNode,
+                startIndex: simpleStartIndex,
+                endIndex: simpleStartIndex + normalizedTextToHighlight.length, // Still approx
+              });
+              found = true;
+              // console.log(`Using approximate start index for highlight ${highlightId}`);
+              break;
+            }
           }
-        };
-        return { success: true, cleanup };
-      } catch (wrapError) {
-        console.error(`Error wrapping element for fuzzy highlight ${highlightId}:`, wrapError);
-        return { success: false };
+        }
       }
+      // Limitation: This still doesn't handle text split across multiple adjacent text nodes
+      // (e.g., `text <b>bold</b> text`). `surroundContents` works on a single node range.
+
+      if (found && nodesToWrap.length > 0) {
+        const { node: textNode, startIndex, endIndex } = nodesToWrap[0];
+        // Ensure endIndex doesn't exceed node length
+        const safeEndIndex = Math.min(endIndex, textNode.nodeValue?.length ?? startIndex);
+        if (startIndex >= safeEndIndex) {
+          console.warn(
+            `Invalid range calculated for highlight ${highlightId} (start >= end). Skipping.`
+          );
+          return { success: false };
+        }
+
+        try {
+          const range = document.createRange();
+          range.setStart(textNode, startIndex);
+          range.setEnd(textNode, safeEndIndex);
+
+          const span = document.createElement('span');
+          span.className = highlightClass;
+          span.dataset.highlightId = highlightId;
+
+          span.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // console.log(`Highlight clicked: ${highlightId}`);
+            containerRef.current?.querySelectorAll('.markdown-highlight-active').forEach((el) => {
+              el.classList.remove('markdown-highlight-active');
+            });
+            span.classList.add('markdown-highlight-active');
+            span.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+          });
+
+          // *** Robustness: Catch errors during DOM manipulation ***
+          range.surroundContents(span);
+
+          const cleanup = () => {
+            if (span.parentNode) {
+              const text = document.createTextNode(span.textContent || '');
+              try {
+                span.parentNode.replaceChild(text, span);
+              } catch (replaceError) {
+                console.error(
+                  `Error replacing highlight span during cleanup (ID: ${highlightId}):`,
+                  replaceError
+                );
+                // Attempt simple removal if replace failed
+                if (span.parentNode)
+                  try {
+                    span.parentNode.removeChild(span);
+                  } catch (_) {
+                    /* ignore */
+                  }
+              }
+            }
+          };
+          return { success: true, cleanup };
+        } catch (wrapError) {
+          console.error(
+            `Error surrounding content for highlight ${highlightId}:`,
+            wrapError,
+            'Normalized Text:',
+            normalizedTextToHighlight,
+            'Node Content:',
+            textNode.nodeValue,
+            'Range:',
+            `[${startIndex}, ${safeEndIndex}]`
+          );
+          return { success: false };
+        }
+      }
+      // --- Fuzzy Match Fallback (Wrap whole element) ---
+      // This is less ideal but acts as a fallback. Only wrap if no exact match found *within*.
+      else if (matchType === 'fuzzy' && element.matches(':not(:has(.markdown-highlight))')) {
+        // Only wrap if no highlights exist inside
+        // console.log(`Attempting fuzzy wrap for element (ID: ${highlightId})`);
+        try {
+          // Check if the element itself ALREADY has the highlight class from a previous attempt
+          if (element.classList.contains(`highlight-${highlightId}`)) {
+            // console.log(`Skipping fuzzy wrap for ${highlightId}, element already has class.`);
+            return { success: false };
+          }
+
+          const span = document.createElement('span');
+          span.className = highlightClass; // Use the fuzzy style class
+          span.dataset.highlightId = highlightId;
+
+          // Add click listener to the wrapper span as well
+          span.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // console.log(`Highlight clicked (fuzzy wrapper): ${highlightId}`);
+            containerRef.current?.querySelectorAll('.markdown-highlight-active').forEach((el) => {
+              el.classList.remove('markdown-highlight-active');
+            });
+            // Add active class to the wrapper itself
+            span.classList.add('markdown-highlight-active');
+            span.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+          });
+
+          // Wrap the existing content of the element
+          while (element.firstChild) {
+            span.appendChild(element.firstChild);
+          }
+          element.appendChild(span);
+
+          const cleanup = () => {
+            if (span.parentNode === element) {
+              // Move children back out
+              while (span.firstChild) {
+                element.insertBefore(span.firstChild, span);
+              }
+              // Remove the wrapper span
+              try {
+                element.removeChild(span);
+              } catch (removeError) {
+                console.error(
+                  `Error removing fuzzy wrapper during cleanup (ID: ${highlightId}):`,
+                  removeError
+                );
+              }
+            } else {
+              // console.warn(`Fuzzy wrapper span parent is not the original element during cleanup (ID: ${highlightId}). Span might have been removed elsewhere.`);
+            }
+          };
+          return { success: true, cleanup };
+        } catch (wrapError) {
+          console.error(`Error wrapping element for fuzzy highlight ${highlightId}:`, wrapError);
+          return { success: false };
+        }
+      }
+
+      return { success: false };
+    },
+    [containerRef]
+  ); // Include containerRef if used inside
+
+  // *** IMPROVEMENT: More robust clearHighlights ***
+  const clearHighlights = useCallback(() => {
+    if (!containerRef.current || highlightingInProgressRef.current) {
+      // console.log("Skipping clearHighlights (no container or already in progress)");
+      return;
+    }
+    highlightingInProgressRef.current = true; // Prevent concurrent modification
+    // console.log(`Clearing highlights. ${highlightCleanupsRef.current.size} cleanups registered.`);
+
+    // Run registered cleanup functions
+    highlightCleanupsRef.current.forEach((cleanup, id) => {
+      try {
+        cleanup();
+      } catch (e) {
+        console.error(`Error running cleanup for highlight ${id}:`, e);
+      }
+    });
+    highlightCleanupsRef.current.clear(); // Clear the map after running
+
+    // Fallback: Find any remaining highlight spans (shouldn't happen if cleanup works)
+    const remainingSpans = containerRef.current.querySelectorAll('.markdown-highlight');
+    if (remainingSpans.length > 0) {
+      console.warn(
+        `Found ${remainingSpans.length} highlight spans remaining after cleanup. Forcing removal.`
+      );
+      remainingSpans.forEach((span) => {
+        if (span.parentNode) {
+          const textContent = span.textContent || '';
+          try {
+            // Replace span with its text content
+            span.parentNode.replaceChild(document.createTextNode(textContent), span);
+          } catch (replaceError) {
+            console.error('Error during fallback removal of span:', replaceError, span);
+            // If replace fails, just try removing the node
+            if (span.parentNode)
+              try {
+                span.parentNode.removeChild(span);
+              } catch (_) {
+                /* ignore */
+              }
+          }
+        }
+      });
     }
 
-    return { success: false }; // Not found or failed
-  };
+    // Remove active classes separately
+    containerRef.current.querySelectorAll('.markdown-highlight-active').forEach((el) => {
+      el.classList.remove('markdown-highlight-active');
+    });
 
-  // Store cleanup functions for applied highlights
-  const highlightCleanupsRef = useRef<Map<string, () => void>>(new Map());
+    highlightsAppliedRef.current = false;
+    highlightingInProgressRef.current = false; // Release lock
+    // console.log('Finished clearing highlights.');
+  }, []); // No dependencies needed, operates on refs
 
+  // *** IMPROVEMENT: Use normalized text for matching in applyTextHighlights ***
   const applyTextHighlights = useCallback(
     (citationsToHighlight: ProcessedCitation[]): void => {
       if (
@@ -426,422 +566,316 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         !documentReady ||
         !contentRenderedRef.current
       ) {
-        console.log('Skipping applyTextHighlights', {
-          highlightingInProgress: highlightingInProgressRef.current,
-          documentReady,
-          contentRendered: contentRenderedRef.current,
-        });
         return;
       }
 
       highlightingInProgressRef.current = true;
-      console.log(`Starting applyTextHighlights for ${citationsToHighlight.length} citations.`);
+      clearHighlights();
+      highlightingInProgressRef.current = true; // Re-acquire lock
 
-      // 1. Clear existing highlights *before* applying new ones
-      clearHighlights(); // Uses the useCallback version
-
-      // Use setTimeout to allow DOM changes from clearHighlights to settle
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         try {
           if (!containerRef.current) {
-            // Check ref again inside timeout
-            console.error('Container ref lost during applyTextHighlights timeout.');
+            console.error('Container ref lost during applyTextHighlights delay.');
             highlightingInProgressRef.current = false;
             return;
           }
 
           let appliedCount = 0;
           const newCleanups = new Map<string, () => void>();
-
-          // Select candidate elements once
           const selector =
-            'p, li, blockquote, h1, h2, h3, h4, h5, h6, span:not(:has(span)), div:not(:has(*))'; // Select text-holding elements
-          const textElements = Array.from(containerRef.current.querySelectorAll(selector));
+            'p, li, blockquote, h1, h2, h3, h4, h5, h6, td, th, pre code, span:not(:has(*)), div:not(:has(div, p, ul, ol, blockquote, h1, h2, h3, h4, h5, h6, table, pre))';
+          const candidateElements = Array.from(containerRef.current.querySelectorAll(selector));
 
-          if (textElements.length === 0) {
-            console.warn('No candidate text elements found in container for highlighting.');
-          } else {
-            // console.log(`Found ${textElements.length} candidate elements.`);
+          if (candidateElements.length === 0) {
+            console.warn('No candidate text elements found in container using selector:', selector);
           }
 
           citationsToHighlight.forEach((citation) => {
-            if (!citation.highlight?.content?.text || !citation.highlight.id) return;
+            const normalizedText = citation.highlight?.content?.text;
+            const highlightId = citation.highlight?.id;
 
+            if (!normalizedText || !highlightId) {
+              return;
+            }
 
-            const { text } = citation.highlight.content;
+            // --- Attempt Exact Match First using Array.some() ---
+            // The .some() method will stop iterating as soon as the callback returns true.
+            const exactMatchFound = candidateElements.some((element) => {
+              const normalizedElementText = normalizeText(element.textContent);
 
-            const highlightId = citation.highlight.id;
-            let success = false;
-
-            // --- Exact Match Attempt ---
-            // Sort candidates by text length similarity for better targeting
-            const sortedElements = [...textElements].sort(
-              (a, b) =>
-                Math.abs((a.textContent?.length || 0) - text.length) -
-                Math.abs((b.textContent?.length || 0) - text.length)
-            );
-
-            // Assuming sortedElements is an array or array-like (e.g., NodeList)
-            // with a .length property and indexed access.
-            for (let i = 0; i < sortedElements.length; i += 1) {
-              const element = sortedElements[i]; // Get the current element by index
-
-              // Check if the text is potentially present first
-              if (element.textContent?.includes(text)) {
-                // Check the conditions that would have caused a 'continue'.
-                // We only proceed if NEITHER of these conditions is true.
+              if (normalizedElementText.includes(normalizedText)) {
                 const alreadyHighlightedInside = !!element.querySelector(
                   `.highlight-${highlightId}`
-                ); // Use !! for explicit boolean
-                const parentAlreadyHighlighted = !!(
-                  element.parentNode as Element
-                )?.classList?.contains(`highlight-${highlightId}`);
+                );
+                const parentAlreadyHighlighted = element.closest(`.highlight-${highlightId}`);
 
-                // Proceed only if it's NOT already highlighted inside AND the parent is NOT already highlighted
                 if (!alreadyHighlightedInside && !parentAlreadyHighlighted) {
-                  // --- This is the block that executes if we DON'T skip ---
-                  const result = highlightTextInElement(element, text, highlightId, 'exact');
-                  if (result.success) {
-                    // console.log(`Exact highlight applied: ${highlightId}`);
-                    appliedCount += 1;
-                    success = true;
-                    if (result.cleanup) newCleanups.set(highlightId, result.cleanup);
-                    // Remove element from further consideration? Maybe not needed.
-                    // textElements.splice(textElements.indexOf(element), 1);
+                  // Attempt to highlight
+                  const result = highlightTextInElement(
+                    element,
+                    normalizedText,
+                    highlightId,
+                    'exact'
+                  );
 
-                    // break still works perfectly in a traditional for loop
-                    break; // Found exact match, move to next citation
+                  if (result.success) {
+                    // If successful, increment count, store cleanup, and return true to stop .some()
+                    appliedCount += 1;
+                    if (result.cleanup) newCleanups.set(highlightId, result.cleanup);
+                    return true; // Exit .some() for this citation
                   }
+                } else {
+                  // console.log(`Skipping exact match for ${highlightId} due to existing highlight.`);
                 }
               }
-            }
+              // If text doesn't include, or it was already highlighted, or highlight failed, return false to continue
+              return false;
+            });
+
             // --- Fuzzy Match Fallback ---
-            // (rest of your code)
-            // --- Fuzzy Match Fallback ---
-            if (!success && textElements.length > 0) {
-              const similarityScores = textElements
+            // Only attempt fuzzy if exact match was *not* found by .some()
+            if (!exactMatchFound && candidateElements.length > 0) {
+              // console.log(`Exact match failed for ${highlightId}. Attempting fuzzy match...`);
+              const similarityScores = candidateElements
                 .map((el) => ({
                   element: el,
-                  score: calculateSimilarity(text, el.textContent || ''),
+                  score: calculateSimilarity(normalizedText, el.textContent),
                 }))
-                .filter((item) => item.score > 0.4) // Similarity threshold
-                .sort((a, b) => b.score - a.score); // Best score first
+                .filter((item) => item.score > 0.4)
+                .sort((a, b) => b.score - a.score);
 
               if (similarityScores.length > 0) {
                 const bestMatch = similarityScores[0];
-                // Avoid highlighting if it already contains a highlight span for THIS ID or parent has it
-                //  if (bestMatch.element.querySelector(`.highlight-${highlightId}`)) continue;
-                //  if ((bestMatch.element.parentNode as Element)?.classList?.contains(`highlight-${highlightId}`)) continue;
+                const alreadyHighlightedInside = !!bestMatch.element.querySelector(
+                  `.highlight-${highlightId}`
+                );
+                const parentAlreadyHighlighted = bestMatch.element.closest(
+                  `.highlight-${highlightId}`
+                );
 
-                // console.log(`Attempting fuzzy match for ${highlightId} with score ${bestMatch.score.toFixed(2)}`);
-                const result = highlightTextInElement(
-                  bestMatch.element,
-                  text,
-                  highlightId,
-                  'fuzzy'
-                ); // Pass original text for context, but wrap element
-                if (result.success) {
-                  // console.log(`Fuzzy highlight applied: ${highlightId}`);
-                  appliedCount += 1; // Count fuzzy matches too
-                  success = true;
-                  if (result.cleanup) newCleanups.set(highlightId, result.cleanup);
-                  // Remove element?
-                  // textElements.splice(textElements.indexOf(bestMatch.element), 1);
+                if (!alreadyHighlightedInside && !parentAlreadyHighlighted) {
+                  const result = highlightTextInElement(
+                    bestMatch.element,
+                    normalizedText,
+                    highlightId,
+                    'fuzzy'
+                  );
+                  if (result.success) {
+                    appliedCount += 1;
+                    // No need to set 'success' flag here like before, just track appliedCount
+                    if (result.cleanup) newCleanups.set(highlightId, result.cleanup);
+                  }
+                } else {
+                  // console.log(`Skipping fuzzy match for ${highlightId} due to existing highlight.`);
                 }
               }
             }
 
-            // if (!success) {
-            //     console.warn(`Could not find suitable location for highlight: ${highlightId} (Text: ${text.substring(0, 50)}...)`);
+            // if (!exactMatchFound && !fuzzyMatchApplied) { // Need logic to track fuzzy success if required
+            //     console.warn(`Could not find/apply highlight for ID: ${highlightId}`);
             // }
           });
 
-          // Update the cleanup refs
           highlightCleanupsRef.current = newCleanups;
-
-          console.log(`Finished applyTextHighlights. Applied ${appliedCount} highlights.`);
-          highlightsAppliedRef.current = appliedCount > 0; // Mark as applied only if some were successful
-
-          // Dispatch event after highlights are potentially added
+          highlightsAppliedRef.current = appliedCount > 0;
           document.dispatchEvent(new CustomEvent('highlightsapplied'));
         } catch (e) {
           console.error('Error during applyTextHighlights execution:', e);
-          highlightsAppliedRef.current = false; // Ensure flag is false on error
+          highlightsAppliedRef.current = false;
         } finally {
-          highlightingInProgressRef.current = false; // Ensure flag is reset
-        }
-      }, 100); // Delay to allow DOM updates after clearHighlights
-    },
-    // eslint-disable-next-line
-    [documentReady, contentRenderedRef.current]
-  ); // Dependencies
-
-  const clearHighlights = useCallback(() => {
-    if (!containerRef.current) return;
-    highlightingInProgressRef.current = true; // Prevent application while clearing
-    console.log('Clearing highlights...');
-
-    // Use the stored cleanup functions
-    highlightCleanupsRef.current.forEach((cleanup, id) => {
-      try {
-        // console.log(`Running cleanup for highlight: ${id}`);
-        cleanup();
-      } catch (e) {
-        console.error(`Error running cleanup for highlight ${id}:`, e);
-      }
-    });
-    highlightCleanupsRef.current.clear(); // Clear the map after running cleanups
-
-    // Fallback: Force remove any remaining highlight spans if cleanup failed
-    const remainingSpans = containerRef.current.querySelectorAll('.markdown-highlight');
-    if (remainingSpans.length > 0) {
-      console.warn(
-        `Found ${remainingSpans.length} highlights remaining after cleanup, attempting force removal.`
-      );
-      remainingSpans.forEach((span) => {
-        if (span.parentNode) {
-          const textContent = span.textContent || '';
-          try {
-            span.parentNode.replaceChild(document.createTextNode(textContent), span);
-          } catch (replaceError) {
-            console.error('Error during force removal of span:', replaceError, span);
-            // As a last resort, just remove the node if replacement fails
-            if (span.parentNode) span.parentNode.removeChild(span);
-          }
+          highlightingInProgressRef.current = false;
         }
       });
-    }
+    },
+    [documentReady, clearHighlights, highlightTextInElement, calculateSimilarity]
+  );
 
-    // Remove active classes just in case
-    containerRef.current.querySelectorAll('.markdown-highlight-active').forEach((el) => {
-      el.classList.remove('markdown-highlight-active');
-    });
-
-    highlightsAppliedRef.current = false;
-    highlightingInProgressRef.current = false;
-    console.log('Finished clearing highlights.');
-  }, []); // No dependencies needed as it operates on refs and DOM
-
+  // Attempt scroll (unchanged, relies on classes set above)
   const attemptScrollToHighlight = useCallback(
     (highlight: HighlightType | null) => {
-      if (!containerRef.current || !highlight || !highlight.id) {
-        console.log('AttemptScrollToHighlight: Invalid input or container ref.');
-        return;
-      }
+      if (!containerRef.current || !highlight || !highlight.id) return;
 
       const highlightId = highlight.id;
-      const selector = `.highlight-${highlightId}`; // Target the specific highlight span
-      console.log(
-        `Attempting to find and scroll to highlight ID: ${highlightId} using selector: ${selector}`
-      );
-
+      // Target the specific class added by highlightTextInElement
+      const selector = `.highlight-${highlightId}`;
       const highlightElement = containerRef.current.querySelector(selector);
 
       if (highlightElement) {
-        console.log(
-          `Found highlight element for ID ${highlightId}. Scrolling...`,
-          highlightElement
-        );
-
-        // Deactivate previously active highlight
+        // console.log(`Scrolling to highlight ID: ${highlightId}`);
         containerRef.current.querySelectorAll('.markdown-highlight-active').forEach((el) => {
           el.classList.remove('markdown-highlight-active');
         });
-
-        // Activate the target highlight
         highlightElement.classList.add('markdown-highlight-active');
-
-        // Scroll into view
-        highlightElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center', // Try 'center' for better visibility
-          inline: 'nearest',
-        });
+        // Use scrollIntoView - options ensure visibility
+        highlightElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
       } else {
         console.warn(
-          `Highlight element with ID ${highlightId} not found using selector "${selector}".`
+          `Highlight element with ID ${highlightId} not found for scrolling using selector "${selector}". It might not have been successfully applied.`
         );
-        // Optional: List available highlight IDs for debugging
-        const availableHighlights = Array.from(
-          containerRef.current.querySelectorAll('.markdown-highlight')
-        )
-          .map((el) => el.classList.toString()) // Get class list
-          .join(', ');
-        console.log('Available highlight classes in container:', availableHighlights || 'None');
-
-        // Maybe trigger re-application if not found? Be careful of loops.
-        // Consider if this should only happen once.
+        // Option: You could try reapplying highlights here, but be careful of infinite loops.
         // if (!highlightingInProgressRef.current) {
-        //    console.log(`Highlight ${highlightId} not found, attempting to re-apply all highlights.`);
-        //    applyTextHighlights(processedCitations);
-        //    // Setup listener to try scrolling again AFTER re-application
-        //     const onApplied = () => {
-        //         document.removeEventListener('highlightsapplied', onApplied);
-        //         console.log(`Highlights re-applied, retrying scroll for ${highlightId}`);
-        //         setTimeout(() => attemptScrollToHighlight(highlight), 100); // Slight delay after event
-        //     };
-        //     document.addEventListener('highlightsapplied', onApplied);
+        //   console.log("Triggering re-highlight on scroll failure.");
+        //   applyTextHighlights(processedCitations);
         // }
       }
     },
-    // eslint-disable-next-line
-    [processedCitations]
-  ); // Re-create if processedCitations changes
+    [] // No dependencies, operates on DOM/refs
+  );
 
+  // Scroll coordinator (unchanged, relies on event/flags)
   const scrollToHighlight = useCallback(
     (highlight: HighlightType | null): void => {
-      if (!containerRef.current || !highlight || !highlight.id) {
-        console.log('ScrollToHighlight: Invalid input.');
-        return;
-      }
-      console.log('ScrollToHighlight called for ID:', highlight.id);
+      if (!containerRef.current || !highlight || !highlight.id) return;
+      // console.log('ScrollToHighlight called for ID:', highlight.id);
 
-      // If highlights haven't been applied yet, or we suspect they might be missing
-      if (
-        !highlightsAppliedRef.current &&
-        processedCitations.length > 0 &&
-        !highlightingInProgressRef.current
-      ) {
-        console.log('Highlights not marked as applied. Applying before scrolling...');
+      const attemptScroll = () => attemptScrollToHighlight(highlight);
 
-        // Define the listener first
+      if (highlightingInProgressRef.current || !highlightsAppliedRef.current) {
+        // console.log("Highlighting pending/in progress, waiting for 'highlightsapplied' event.");
         const onHighlightsApplied = () => {
           document.removeEventListener('highlightsapplied', onHighlightsApplied);
-          console.log(
-            `'highlightsapplied' event received. Proceeding with scroll for ${highlight.id}`
-          );
-          // Use a small timeout to let rendering potentially finish after the event
-          setTimeout(() => attemptScrollToHighlight(highlight), 50);
-        };
-
-        // Add the listener *before* potentially triggering the application
-        document.addEventListener('highlightsapplied', onHighlightsApplied);
-
-        // Apply highlights (which will dispatch 'highlightsapplied' when done)
-        applyTextHighlights(processedCitations);
-      } else if (highlightingInProgressRef.current) {
-        // If highlights are currently being applied, wait for them to finish
-        console.log("Highlighting is in progress. Waiting for 'highlightsapplied' event...");
-        const onHighlightsApplied = () => {
-          document.removeEventListener('highlightsapplied', onHighlightsApplied);
-          console.log(
-            `'highlightsapplied' event received after waiting. Proceeding with scroll for ${highlight.id}`
-          );
-          setTimeout(() => attemptScrollToHighlight(highlight), 50);
+          // console.log(`'highlightsapplied' received. Scrolling for ${highlight.id}`);
+          setTimeout(attemptScroll, 50); // Small delay after event seems safer
         };
         document.addEventListener('highlightsapplied', onHighlightsApplied);
+
+        // If highlights *definitely* haven't been applied yet, and we're not busy, trigger them.
+        if (
+          !highlightsAppliedRef.current &&
+          !highlightingInProgressRef.current &&
+          processedCitations.length > 0
+        ) {
+          // console.log("Triggering highlight application before scroll.");
+          applyTextHighlights(processedCitations);
+        }
       } else {
-        // Highlights seem to be applied, attempt scrolling directly
-        console.log('Highlights marked as applied or none exist. Attempting scroll directly...');
-        attemptScrollToHighlight(highlight);
+        // console.log('Highlights should be ready. Scrolling directly.');
+        attemptScroll();
       }
     },
-    [processedCitations, applyTextHighlights, attemptScrollToHighlight]
-  ); // Dependencies
+    [processedCitations, applyTextHighlights, attemptScrollToHighlight] // Include dependencies
+  );
+  // --- End Highlighting logic functions ---
 
-  // Process citations function (mostly unchanged, ensure it uses the correct state)
+  // --- Process citations function (Use normalized highlights) ---
   const processCitations = useCallback(() => {
-    // Avoid processing if already processing or no citations
-    const currentCitationsJson = JSON.stringify(citations?.map((c) => c?.content ?? '').sort());
+    // Create a stable representation of citation content for comparison
+    const currentCitationsContent = JSON.stringify(
+      citations?.map((c) => normalizeText(c?.content)).sort() ?? []
+    );
+
     if (
       processingCitationsRef.current ||
       !citations ||
       citations.length === 0 ||
-      currentCitationsJson === prevCitationsJsonRef.current
+      (currentCitationsContent === prevCitationsJsonRef.current && highlightsAppliedRef.current) // Skip if same content AND highlights are already applied
     ) {
-      // console.log("Skipping processCitations", { processing: processingCitationsRef.current, length: citations?.length, changed: currentCitationsJson !== prevCitationsJsonRef.current });
-      if (currentCitationsJson !== prevCitationsJsonRef.current && citations.length > 0) {
-        prevCitationsJsonRef.current = currentCitationsJson; // Update if citations changed but processing was skipped before
+      // Update ref even if skipping processing, to prevent re-processing if citations object changes but content is the same
+      if (currentCitationsContent !== prevCitationsJsonRef.current) {
+        prevCitationsJsonRef.current = currentCitationsContent;
+        highlightsAppliedRef.current = false; // Content changed, need re-apply
+        // console.log("Citation content changed, marked for re-highlighting.");
       }
       return;
     }
 
     processingCitationsRef.current = true;
-    console.log('Processing citations started...');
+    // console.log('Processing citations...');
 
     try {
       const processed: ProcessedCitation[] = citations
         .map((citation) => {
+          // processTextHighlight now uses normalization
           const highlight = processTextHighlight(citation);
           if (highlight) {
-            // Ensure the ProcessedCitation type includes the highlight
-            // (Assuming CustomCitation also has fields like DocumentContent or can be cast)
+            // Ensure the original citation object structure is preserved, plus the highlight
             return { ...citation, highlight } as ProcessedCitation;
           }
           return null;
         })
-        .filter((item): item is ProcessedCitation => item !== null); // Type guard filter
+        .filter((item): item is ProcessedCitation => item !== null);
 
-      console.log(`Processed ${processed.length} citations into highlight objects.`);
-      setProcessedCitations(processed);
-      prevCitationsJsonRef.current = currentCitationsJson; // Update ref after processing
+      // console.log(`Processed ${processed.length} valid citations for highlighting.`);
+      setProcessedCitations(processed); // Update state with processed citations
+      prevCitationsJsonRef.current = currentCitationsContent; // Store the processed content representation
+      highlightsAppliedRef.current = false; // Reset flag, highlights need to be (re)applied
 
-      // Mark highlights as needing application
-      highlightsAppliedRef.current = false;
-
-      // Trigger application if content is ready
+      // Trigger apply highlights if content is ready
       if (
         processed.length > 0 &&
         containerRef.current &&
         documentReady &&
-        contentRenderedRef.current
+        contentRenderedRef.current &&
+        !highlightingInProgressRef.current // Ensure not already highlighting
       ) {
-        console.log('Content ready, triggering highlight application from processCitations.');
-        // Use setTimeout to ensure this runs after state update and current execution context
-        setTimeout(() => applyTextHighlights(processed), 0);
+        // console.log('Content ready, triggering highlight application after processing citations.');
+        // Apply immediately or with minimal delay
+        requestAnimationFrame(() => applyTextHighlights(processed));
+        // setTimeout(() => applyTextHighlights(processed), 0); // Alternative delay
       } else {
-        console.log('Content not ready, skipping automatic highlight application trigger.', {
-          docReady: documentReady,
-          contentRendered: contentRenderedRef.current,
-        });
+        // console.log('Content not ready or no citations, skipping automatic highlight application trigger.');
       }
     } catch (err) {
       console.error('Error processing citations:', err);
     } finally {
       processingCitationsRef.current = false;
-      console.log('Processing citations finished.');
+      // console.log('Processing citations finished.');
     }
-    // eslint-disable-next-line
-  }, [citations, documentReady, contentRenderedRef.current, applyTextHighlights]); // Add dependencies
+  }, [citations, documentReady, applyTextHighlights]); // Dependencies: citations object, documentReady state, applyTextHighlights function
 
-  // STEP 1: Load markdown content
+  // --- useEffect Hooks ---
+
+  // STEP 1: Load markdown content (Unchanged)
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
     setError(null);
     setMarkdownContent('');
     setDocumentReady(false);
-    contentRenderedRef.current = false; // Reset content rendered flag on new load
-    highlightsAppliedRef.current = false; // Reset highlight applied flag
+    contentRenderedRef.current = false;
+    highlightsAppliedRef.current = false;
+    prevCitationsJsonRef.current = '[]'; // Reset on new content load
+    clearHighlights(); // Clear any old highlights immediately
 
     const loadContent = async () => {
+      // ... (loading logic unchanged) ...
       try {
         let loadedMd = '';
         if (initialContent) {
           loadedMd = initialContent;
         } else if (buffer) {
-          loadedMd = new TextDecoder().decode(buffer);
+          // Ensure buffer is ArrayBuffer
+          if (buffer instanceof ArrayBuffer) {
+            loadedMd = new TextDecoder().decode(buffer);
+          } else {
+            throw new Error('Provided buffer is not an ArrayBuffer.');
+          }
         } else if (url) {
           const response = await fetch(url);
-          if (!response.ok) throw new Error(`Fetch failed: ${response.statusText}`);
+          if (!response.ok) throw new Error(`Fetch failed: ${response.statusText} (URL: ${url})`);
           loadedMd = await response.text();
         } else {
-          // No content source, maybe display a message or default text?
-          setError('No content source provided (URL, content, or buffer).');
-          setLoading(false);
-          return; // Exit early
+          // If no source, treat as empty content rather than error? Depends on requirements.
+          // setError('No content source provided (URL, content, or buffer).');
+          loadedMd = ''; // Set to empty string, allows rendering "No content" message
+          console.log('No content source provided, viewer will be empty.');
+          // if (isMounted) setLoading(false); // No error, just no content
+          // return;
         }
 
         if (isMounted) {
           setMarkdownContent(loadedMd);
-          setDocumentReady(true); // Mark document structure as ready
+          setDocumentReady(true); // Mark as ready even if content is empty
           setLoading(false);
-          console.log('Markdown content loaded and ready.');
+          // console.log('Markdown content processing finished. Document ready.');
         }
       } catch (err: any) {
         console.error('Error loading markdown:', err);
         if (isMounted) {
           setError(err.message || 'Failed to load markdown content.');
+          setMarkdownContent(''); // Ensure content is empty on error
+          setDocumentReady(false); // Mark as not ready on error
           setLoading(false);
         }
       }
@@ -850,102 +884,120 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
     loadContent();
 
     return () => {
-      isMounted = false; // Prevent state updates on unmounted component
+      isMounted = false;
+      // console.log("MarkdownViewer source effect cleanup.");
     };
-  }, [url, initialContent, buffer]); // Re-run if source changes
+  }, [url, initialContent, buffer, clearHighlights]); // Added clearHighlights dependency
 
-  // STEP 2: Add highlight styles
+  // STEP 2: Add highlight styles (Unchanged)
   useEffect(() => {
+    // Add styles only once
     if (!styleAddedRef.current) {
       createHighlightStyles();
       styleAddedRef.current = true;
-      console.log('Highlight styles added.');
+      // console.log('Highlight styles added.');
     }
-    // Return the cleanup function stored in the ref
+    // Cleanup function is returned by createHighlightStyles and managed by cleanupStylesRef
     return () => {
+      // This cleanup runs when the component unmounts *or* if createHighlightStyles changes identity (it shouldn't)
       if (cleanupStylesRef.current) {
         cleanupStylesRef.current();
-        styleAddedRef.current = false; // Reset for potential remount?
+        cleanupStylesRef.current = null; // Ensure it's cleared
+        styleAddedRef.current = false;
+        // console.log("Highlight styles cleanup executed.");
       }
     };
-  }, [createHighlightStyles]); // Run only once
+  }, [createHighlightStyles]); // Dependency on the memoized function
 
-  // STEP 3: Mark content as rendered after ReactMarkdown finishes
-  // This relies on ReactMarkdown rendering synchronously after `markdownContent` updates.
-  // We use a short timeout to increase the chance the DOM is updated.
+  // STEP 3: Mark content as rendered and trigger initial citation processing
   useEffect(() => {
-    let timerId: NodeJS.Timeout | undefined; // Use appropriate type for timeout ID
+    let timerId: NodeJS.Timeout | number | undefined;
 
-    // Condition to run the effect's main logic
+    // Only proceed if the document is loaded and content *hasn't* been marked as rendered yet
     if (documentReady && !contentRenderedRef.current) {
-      timerId = setTimeout(() => {
-        // Assign the timer ID
-        if (containerRef.current?.querySelector('p, h1, li')) {
-          // Check if content exists
-          console.log('Content appears rendered in DOM.');
+      const checkRendered = () => {
+        // Check if the container exists and has child nodes OR if markdown is explicitly empty
+        if (
+          containerRef.current &&
+          (containerRef.current.childNodes.length > 0 || markdownContent === '')
+        ) {
+          // console.log('Content considered rendered (has children or is empty).');
           contentRenderedRef.current = true;
-          // Now that content is rendered, process citations if they exist
-          if (!processingCitationsRef.current && citations.length > 0) {
-            console.log('Content rendered, triggering citation processing.');
+          // Now that content is rendered, process citations if needed
+          if (
+            !processingCitationsRef.current &&
+            citations.length > 0 &&
+            !highlightsAppliedRef.current
+          ) {
+            // console.log('Content rendered, triggering initial citation processing.');
             processCitations();
           }
         } else if (documentReady) {
-          console.warn('Document ready, but content not detected in DOM yet.');
-          // Might need a more robust check or longer timeout if markdown is very large
+          // If still not rendered, try again shortly
+          // console.log('Content not detected in DOM yet, retrying check...');
+          timerId = requestAnimationFrame(checkRendered);
+          // timerId = setTimeout(checkRendered, 50); // Alternative: setTimeout
         }
-      }, 100); // Adjust timeout if needed, 0 might work too
+      };
+      // Start the check
+      timerId = requestAnimationFrame(checkRendered);
+      // timerId = setTimeout(checkRendered, 50); // Start check after brief delay
     }
 
-    // Reset logic can run regardless of the timer setup
+    // Reset if document becomes not ready (e.g., loading new content)
     if (!documentReady) {
-      contentRenderedRef.current = false;
+      contentRenderedRef.current = false; // Reset render flag
     }
 
-    // Always return a cleanup function.
-    // This function will only clear the timeout if timerId was actually set.
     return () => {
-      if (timerId) {
-        // Check if the timeout was created in this effect run
-        if (timerId) {
-          clearTimeout(timerId);
-        }
+      // Cleanup timeout/rAF on unmount or dependency change
+      if (typeof timerId === 'number') {
+        // clearTimeout(timerId); // Use if using setTimeout
+        cancelAnimationFrame(timerId); // Use if using rAF
       }
     };
-    // Add processingCitationsRef to dependencies if its value changing should trigger re-processing
-  }, [
-    documentReady,
-    markdownContent,
-    citations,
-    processCitations,
-    containerRef,
-    processingCitationsRef,
-  ]);
+    // Run when document readiness or markdown content changes, or citations/processCitations potentially trigger a need to run
+  }, [documentReady, markdownContent, citations, processCitations]);
 
-  // STEP 4: Re-process citations if the `citations` prop changes
+  // STEP 4: Re-process citations if the `citations` prop changes *content*
   useEffect(() => {
-    const currentCitationsJson = JSON.stringify(citations?.map((c) => c?.content ?? '').sort());
-    // Process only if document is ready, content is rendered, and citations actually changed
+    // Calculate current citation content representation inside the effect
+    const currentCitationsContent = JSON.stringify(
+      citations?.map((c) => normalizeText(c?.content)).sort() ?? []
+    );
+
+    // Check if content is ready AND citation content has actually changed
     if (
       documentReady &&
       contentRenderedRef.current &&
-      currentCitationsJson !== prevCitationsJsonRef.current
+      currentCitationsContent !== prevCitationsJsonRef.current
     ) {
-      console.log('Citations prop changed, re-processing...');
-      clearHighlights(); // Clear old highlights before processing new ones
+      console.log('Citations prop content changed, re-processing and applying highlights...');
+      // processCitations handles updating the prev ref and triggering applyTextHighlights
       processCitations();
     }
-    // eslint-disable-next-line
-  }, [citations, documentReady, contentRenderedRef.current, processCitations, clearHighlights]);
+    // This effect specifically handles changes in the CITATIONS prop.
+    // processCitations is included as it's called inside.
+  }, [citations, documentReady, processCitations]);
 
-  // Ensure highlights are cleared on unmount
+  // STEP 5: Ensure highlights are cleared on unmount (Unchanged)
   useEffect(
-    () => () => {
-      console.log('MarkdownViewer unmounting, clearing highlights.');
-      clearHighlights();
-    },
+    () =>
+      // This effect's sole purpose is cleanup on unmount
+      () => {
+        // console.log('MarkdownViewer unmounting, ensuring highlights and styles are cleared.');
+        clearHighlights();
+        if (cleanupStylesRef.current) {
+          // Also ensure styles are removed if component unmounts fast
+          cleanupStylesRef.current();
+          cleanupStylesRef.current = null;
+          styleAddedRef.current = false;
+        }
+      },
     [clearHighlights]
-  ); // Depend on the memoized clearHighlights
+  ); // Depend on the stable clearHighlights
 
+  // --- Render logic ---
   return (
     <ViewerContainer component={Paper} sx={sx}>
       {loading && (
@@ -963,50 +1015,71 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
         </ErrorOverlay>
       )}
 
-      {/* Use visibility hidden instead of conditional rendering for containerRef stability */}
+      {/* Container for main content and sidebar */}
       <Box
         sx={{
           display: 'flex',
           height: '100%',
-          visibility: loading || error ? 'hidden' : 'visible',
+          width: '100%', // Ensure Box takes full width
+          visibility: loading || error ? 'hidden' : 'visible', // Hide container until loaded/error shown
         }}
       >
+        {/* Markdown Content Area */}
         <Box
           sx={{
             height: '100%',
-            // Adjust width based on whether sidebar will be shown
-            width: processedCitations.length > 0 ? 'calc(100% - 280px)' : '100%', // Example width calculation
-            transition: 'width 0.3s ease-in-out', // Smooth transition if sidebar appears/disappears
-            position: 'relative', // Needed for potential internal absolute positioning
+            flexGrow: 1, // Allow content area to take available space
+            width: processedCitations.length > 0 ? 'calc(100% - 280px)' : '100%', // Adjust width based on sidebar
+            transition: 'width 0.3s ease-in-out',
+            position: 'relative', // Needed for potential absolute positioning inside?
             borderRight:
               processedCitations.length > 0
-                ? `1px solid ${(theme: Theme) => theme.palette.divider}`
+                ? (theme: Theme) => `1px solid ${theme.palette.divider}`
                 : 'none',
+            // Overflow handled by DocumentContainer inside
           }}
         >
           <DocumentContainer ref={containerRef}>
-            {/* Render markdown only when ready to ensure containerRef is stable */}
             {documentReady && markdownContent && (
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={customRenderers}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                // *** IMPORTANT SECURITY NOTE ***
+                // rehypeRaw allows rendering raw HTML found in markdown.
+                // ONLY use this if you COMPLETELY TRUST the source of your markdown content.
+                // If the content can come from users or untrusted sources, it creates
+                // a Cross-Site Scripting (XSS) vulnerability.
+                // Consider using rehype-sanitize *after* rehype-raw in that case:
+                // rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                rehypePlugins={[rehypeRaw]}
+                components={customRenderers} // Kept, but likely unused if rehypeRaw handles HTML
+              >
                 {markdownContent}
               </ReactMarkdown>
             )}
-            {/* Show message if no content and not loading/error */}
-            {!loading && !error && !markdownContent && (
-              <Typography sx={{ p: 3, color: 'text.secondary' }}>
-                No document content available.
+            {/* Show message if loading finished without error but content is empty */}
+            {!loading && !error && !markdownContent && documentReady && (
+              <Typography sx={{ p: 3, color: 'text.secondary', textAlign: 'center', mt: 4 }}>
+                No document content available to display.
               </Typography>
             )}
           </DocumentContainer>
         </Box>
 
-        {/* Conditionally render sidebar */}
+        {/* Sidebar Area (Conditional) */}
         {processedCitations.length > 0 && !loading && !error && (
-          <CitationSidebar
-            citations={processedCitations}
-            // Pass the memoized scrollToHighlight function
-            scrollViewerTo={scrollToHighlight}
-          />
+          <Box
+            sx={{
+              width: '280px', // Fixed width for the sidebar
+              height: '100%',
+              flexShrink: 0, // Prevent sidebar from shrinking
+              overflowY: 'auto', // Allow sidebar itself to scroll if needed
+            }}
+          >
+            <CitationSidebar
+              citations={processedCitations}
+              scrollViewerTo={scrollToHighlight} // Pass the stable callback
+            />
+          </Box>
         )}
       </Box>
     </ViewerContainer>

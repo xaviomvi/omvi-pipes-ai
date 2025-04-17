@@ -330,12 +330,42 @@ export default function KnowledgeBaseSearch() {
             }
           }
         } catch (error) {
-          console.error('Error downloading document:', error);
           setSnackbar({
             open: true,
-            message: 'Failed to download document. Please try again.',
-            severity: 'error',
+            // Provide a clear message about what's happening
+            message: 'Failed to load preview. Redirecting to the original document shortly...',
+            severity: 'info', // Use 'info' or 'warning' for redirection notice
           });
+          let webUrl = record?.webUrl || record?.webUrl;
+
+          // Keep the URL fix logic (though less likely needed for non-UPLOAD here, better safe)
+          if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
+            const baseUrl = `${window.location.protocol}//${window.location.host}`;
+            webUrl = baseUrl + webUrl;
+          }
+          setTimeout(() => {
+            if (webUrl) {
+              try {
+                window.open(webUrl, '_blank', 'noopener,noreferrer');
+                console.log('Opened document in new tab');
+              } catch (openError) {
+                console.error('Error opening new tab:', openError);
+                setSnackbar({
+                  open: true,
+                  message:
+                    'Failed to automatically open the document. Please check your browser pop-up settings.',
+                  severity: 'error',
+                });
+              }
+            } else {
+              console.error('Cannot redirect: No webUrl found for the record.');
+              setSnackbar({
+                open: true,
+                message: 'Failed to load preview and cannot redirect (document URL not found).',
+                severity: 'error',
+              });
+            }
+          }, 2500);
           return;
         }
       } else if (record.origin === ORIGIN.CONNECTOR) {
@@ -404,9 +434,44 @@ export default function KnowledgeBaseSearch() {
           console.error('Error downloading document:', err);
           setSnackbar({
             open: true,
-            message: `Failed to download document: ${err.message}`,
-            severity: 'error',
+            // Provide a clear message about what's happening
+            message: 'Failed to load preview. Redirecting to the original document shortly...',
+            severity: 'info', // Use 'info' or 'warning' for redirection notice
           });
+          let webUrl = record?.webUrl || record?.webUrl;
+          console.log(record)
+          // Keep the URL fix logic (though less likely needed for non-UPLOAD here, better safe)
+          if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
+            const baseUrl = `${window.location.protocol}//${window.location.host}`;
+            webUrl = baseUrl + webUrl;
+          }
+
+          console.log(`Attempting to redirect to webUrl: ${webUrl}`);
+
+          setTimeout(() => {
+            if (webUrl) {
+              try {
+                window.open(webUrl, '_blank', 'noopener,noreferrer');
+                console.log('Opened document in new tab');
+              } catch (openError) {
+                console.error('Error opening new tab:', openError);
+                setSnackbar({
+                  open: true,
+                  message:
+                    'Failed to automatically open the document. Please check your browser pop-up settings.',
+                  severity: 'error',
+                });
+              }
+            } else {
+              console.error('Cannot redirect: No webUrl found for the record.');
+              setSnackbar({
+                open: true,
+                message: 'Failed to load preview and cannot redirect (document URL not found).',
+                severity: 'error',
+              });
+            }
+          }, 2500);
+          
           return;
         }
       }
