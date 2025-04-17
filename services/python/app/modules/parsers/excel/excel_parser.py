@@ -325,7 +325,7 @@ class ExcelParser:
                 self.parse()
 
             if sheet_name not in self.workbook.sheetnames:
-                self.logger.error(f"Sheet '{sheet_name}' not found in workbook")
+                self.logger.warning(f"Sheet '{sheet_name}' not found in workbook")
                 return []
 
             sheet = self.workbook[sheet_name]
@@ -471,7 +471,7 @@ class ExcelParser:
             self.parse()
 
         if sheet_name not in self.workbook.sheetnames:
-            self.logger.error(f"Sheet '{sheet_name}' not found in workbook")
+            self.logger.warning(f"Sheet '{sheet_name}' not found in workbook")
             return None
 
         # Get tables in the sheet

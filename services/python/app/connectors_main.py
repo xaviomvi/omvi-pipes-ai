@@ -75,6 +75,9 @@ async def resume_sync_services(app_container: AppContainer) -> None:
             
             enabled_apps = await arango_service.get_org_apps(org_id)
             
+            drive_sync_service = None
+            gmail_sync_service = None
+            
             for app in enabled_apps:
                 if app['name'] == Connectors.GOOGLE_CALENDAR.value:
                     logger.info("Skipping calendar sync for org %s", org_id)
@@ -110,8 +113,9 @@ async def resume_sync_services(app_container: AppContainer) -> None:
                                   user['email'], org_id, drive_state)
                         drive_sync_needed.append(user)
                     elif drive_state == 'COMPLETED':
-                        logger.info("Drive sync is already completed for user %s", user['email'])
-                        await drive_sync_service.perform_initial_sync(org_id, action="resume")
+                        if drive_sync_service:
+                            logger.info("Drive sync is already completed for user %s", user['email'])
+                            await drive_sync_service.perform_initial_sync(org_id, action="resume")
 
             # Check if Gmail sync needs to be initialized
             gmail_service_needed = False
@@ -133,42 +137,45 @@ async def resume_sync_services(app_container: AppContainer) -> None:
                                   user['email'], org_id, gmail_state)
                         gmail_sync_needed.append(user)
                     elif gmail_state == 'COMPLETED':
-                        logger.info("Gmail sync is already completed for user %s", user['email'])
-                        await gmail_sync_service.perform_initial_sync(org_id, action="resume")
+                        if gmail_sync_service:
+                            logger.info("Gmail sync is already completed for user %s", user['email'])
+                            await gmail_sync_service.perform_initial_sync(org_id, action="resume")
 
             # Resume Drive syncs if needed
             if drive_sync_needed:
                 logger.info("Resuming Drive sync for %d users in org %s", len(drive_sync_needed), org_id)
 
                 for user in drive_sync_needed:
-                    try:
-                        if user_type == 'enterprise' or user_type == 'business':
-                            await drive_sync_service.sync_specific_user(user['email'])
-                            logger.info("✅ Resumed Drive sync for user %s in org %s", user['email'], org_id)
-                        else:  # individual
-                            # Start sync
-                            await drive_sync_service.perform_initial_sync(org_id)
-                            logger.info("✅ Resumed Drive sync for user %s in org %s", user['email'], org_id)
-                    except Exception as e:
-                        logger.error("❌ Error resuming Drive sync for user %s in org %s: %s", 
-                                   user['email'], org_id, str(e))
+                    if drive_sync_service:
+                        try:
+                            if user_type == 'enterprise' or user_type == 'business':
+                                await drive_sync_service.sync_specific_user(user['email'])
+                                logger.info("✅ Resumed Drive sync for user %s in org %s", user['email'], org_id)
+                            else:  # individual
+                                # Start sync
+                                await drive_sync_service.perform_initial_sync(org_id)
+                                logger.info("✅ Resumed Drive sync for user %s in org %s", user['email'], org_id)
+                        except Exception as e:
+                            logger.error("❌ Error resuming Drive sync for user %s in org %s: %s", 
+                                    user['email'], org_id, str(e))
 
             # Resume Gmail syncs if needed
             if gmail_sync_needed:
                 logger.info("Resuming Gmail sync for %d users in org %s", len(gmail_sync_needed), org_id)
                 
                 for user in gmail_sync_needed:
-                    try:
-                        if user_type == 'enterprise' or user_type == 'business':
-                            await gmail_sync_service.sync_specific_user(user['email'])
-                            logger.info("✅ Resumed Gmail sync for user %s in org %s", user['email'], org_id)
-                        else:  # individual
-                            # Start sync
-                            await gmail_sync_service.perform_initial_sync(org_id)
-                            logger.info("✅ Resumed Gmail sync for user %s in org %s", user['email'], org_id)
-                    except Exception as e:
-                        logger.error("❌ Error resuming Gmail sync for user %s in org %s: %s", 
-                                   user['email'], org_id, str(e))
+                    if gmail_sync_service:
+                        try:
+                            if user_type == 'enterprise' or user_type == 'business':
+                                await gmail_sync_service.sync_specific_user(user['email'])
+                                logger.info("✅ Resumed Gmail sync for user %s in org %s", user['email'], org_id)
+                            else:  # individual
+                                # Start sync
+                                await gmail_sync_service.perform_initial_sync(org_id)
+                                logger.info("✅ Resumed Gmail sync for user %s in org %s", user['email'], org_id)
+                        except Exception as e:
+                            logger.error("❌ Error resuming Gmail sync for user %s in org %s: %s", 
+                                    user['email'], org_id, str(e))
 
     except Exception as e:
         logger.error("❌ Error during sync service resumption: %s", str(e))

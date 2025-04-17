@@ -660,7 +660,7 @@ class GoogleAdminService:
             
             if not await self.connect_admin(org_id):
                 raise AdminServiceError(
-                    "Failed to connect admin service for watch creation: " + str(e),
+                    "Failed to connect admin service for watch creation",
                     details={"org_id": org_id}
                 )
 
@@ -672,9 +672,14 @@ class GoogleAdminService:
                 webhook_endpoint = endpoints.get('connectors', {}).get('publicEndpoint')
                 if not webhook_endpoint:
                     raise AdminServiceError(
-                        "Missing webhook endpoint configuration: " + str(e),
+                        "Missing webhook endpoint configuration",
                         details={"endpoints": endpoints}
                     )
+                # Return None if webhook uses HTTP or localhost
+                if webhook_endpoint.startswith('http://') or 'localhost' in webhook_endpoint:
+                    self.logger.warning("⚠️ Skipping changes watch - webhook endpoint uses HTTP or localhost")
+                    return None
+
             except Exception as e:
                 raise AdminServiceError(
                     "Failed to get webhook configuration: " + str(e),
@@ -711,7 +716,7 @@ class GoogleAdminService:
                 error_details = http_err.content.decode('utf-8')
                 self.logger.error(f"❌ HttpError: {error_details}")
                 raise AdminServiceError(
-                    "Failed to create admin watch: " + str(e),
+                    "Failed to create admin watch",
                     details={"org_id": org_id, "error": error_details}
                 )
             except Exception as e:
@@ -722,11 +727,20 @@ class GoogleAdminService:
             self.logger.error(f"❌ Failed to create admin watch: {str(e)}")
             raise
 
-    async def create_gmail_user_watch(self, user_email: str) -> Dict:
+    async def create_gmail_user_watch(self, org_id: str, user_email: str) -> Dict:
         """Create user watch by impersonating the user"""
         try:
             self.logger.info("🚀 Creating user watch for user %s", user_email)
-            topic = "projects/agile-seeker-447812-p3/topics/gmail-connector"
+            
+            creds_data = await self.google_token_handler.get_enterprise_token(org_id)
+            self.logger.info(f"🚀 Google workspace config: {creds_data}")
+            enable_real_time_updates = creds_data.get('enableRealTimeUpdates', False)
+            self.logger.info(f"🚀 Enable real time updates: {enable_real_time_updates}")
+            if not enable_real_time_updates:
+                return {}
+            
+            topic = creds_data.get('topic', '')
+            self.logger.info(f"🚀 Topic: {topic}")
 
             try:
                 gmail_service = build(
@@ -757,7 +771,7 @@ class GoogleAdminService:
             except HttpError as e:
                 if e.resp.status == 403:
                     raise DrivePermissionError(
-                        "Permission denied creating user watch: " + str(e),
+                        "Permission denied creating user watch",
                         details={
                             "user_email": user_email,
                             "error": str(e)
@@ -765,14 +779,14 @@ class GoogleAdminService:
                     )
                 elif e.resp.status == 429:
                     raise AdminQuotaError(
-                        "Rate limit exceeded creating user watch: " + str(e),
+                        "Rate limit exceeded creating user watch",
                         details={
                             "user_email": user_email,
                             "error": str(e)
                         }
                     )
                 raise MailOperationError(
-                    "Failed to create user watch: " + str(e),
+                    "Failed to create user watch",
                     details={
                         "user_email": user_email,
                         "error": str(e)

@@ -89,9 +89,10 @@ class BaseDriveSyncService(ABC):
             
             # Check if the page token is expired
             current_time = get_epoch_timestamp_in_ms()
+            expiration = page_token.get('expiration', 0)
             self.logger.info("Current time: %s", current_time)
-            self.logger.info("Page token expiration: %s", page_token['expiration'])
-            if page_token['expiration'] < current_time:
+            self.logger.info("Page token expiration: %s", expiration)
+            if expiration < current_time:
                 self.logger.warning("⚠️ Page token expired for user %s", user_email)
                 
                 stopped = await user_service.stop_watch(page_token['channelId'], page_token['resourceId'])
@@ -746,7 +747,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                     self.logger.info(f"🚀 Channel data: {channel_data}")
                     if not channel_data:
                         self.logger.warning(
-                            "❌ Failed to set up changes watch for user: %s", user['email'])
+                            "Changes watch not created for user: %s", user['email'])
                         continue
 
                     self.logger.info(
@@ -793,7 +794,7 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
                         )
 
                         if not page_token:
-                            self.logger.error(
+                            self.logger.warning(
                                 "No page token found for user %s", user['email'])
                             continue
                         
@@ -1046,18 +1047,16 @@ class DriveSyncEnterpriseService(BaseDriveSyncService):
             # Set up changes watch for the user
             channel_data = await self.setup_changes_watch(user_service, user_email)
             if not channel_data:
-                self.logger.error(f"❌ Failed to set up changes watch for user: {user_email}")
-                await self.arango_service.update_user_sync_state(user_email, 'FAILED', service_type=Connectors.GOOGLE_DRIVE.value)
-                return False
-
-            # Store the page token
-            await self.arango_service.store_page_token(
-                channel_data['channelId'],
-                channel_data['resourceId'],
-                user_email,
-                channel_data['token'],
-                channel_data['expiration']
-            )
+                self.logger.warning(f"Changes watch not created for user: {user_email}")
+            else:
+                # Store the page token
+                await self.arango_service.store_page_token(
+                    channel_data['channelId'],
+                    channel_data['resourceId'],
+                    user_email,
+                    channel_data['token'],
+                    channel_data['expiration']
+                )
 
             # Initialize workers and get drive list
             await self.initialize_workers(user_service)
@@ -1269,19 +1268,18 @@ class DriveSyncIndividualService(BaseDriveSyncService):
                     channel_data = await self.setup_changes_watch(user_service, user_info['email'])
                     if not channel_data:
                         self.logger.warning(
-                            "❌ Failed to set up changes watch for user: %s", user_info['email'])
-                        return False
-
-                    self.logger.info(
-                        "✅ Changes watch set up successfully for user: %s", user_info['email'])
-
-                    await self.arango_service.store_page_token(
+                            "Changes watch not created for user: %s", user_info['email'])
+                    else:
+                        await self.arango_service.store_page_token(
                         channel_data['channelId'], 
                         channel_data['resourceId'], 
                         user_info['email'], 
                         channel_data['token'],
                         channel_data['expiration']
                     )
+
+                        self.logger.info(
+                            "✅ Changes watch set up successfully for user: %s", user_info['email'])
                     
                 except Exception as e:
                     self.logger.error(

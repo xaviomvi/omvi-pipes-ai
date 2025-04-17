@@ -11,7 +11,7 @@ from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from typing import Dict, List
 from googleapiclient.discovery import build
 import google.oauth2.credentials
-from app.config.configuration_service import ConfigurationService
+from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.connectors.utils.decorators import exponential_backoff, token_refresh
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.gmail.core.gmail_drive_interface import GmailDriveInterface
@@ -69,7 +69,7 @@ class GmailUserService:
                 creds_data = await self.google_token_handler.get_individual_token(org_id, user_id)
                 if not creds_data:
                     raise GoogleAuthError(
-                        "Failed to get individual token: " + str(e),
+                        "Failed to get individual token",
                         details={
                             "org_id": org_id,
                             "user_id": user_id
@@ -717,7 +717,22 @@ class GmailUserService:
         """Create user watch"""
         try:
             self.logger.info("🚀 Creating user watch for user %s", user_id)
-            topic = "projects/agile-seeker-447812-p3/topics/gmail-connector"
+            creds_data = await self.google_token_handler.get_individual_token(self.org_id, self.user_id)
+            self.logger.info(f"🚀 Google workspace config: {creds_data}")
+            enable_real_time_updates = creds_data.get('enableRealTimeUpdates', False)
+            self.logger.info(f"🚀 Enable real time updates: {enable_real_time_updates}")
+            if not enable_real_time_updates:
+                return {}
+            
+            topic = creds_data.get('topic', '')
+            self.logger.info(f"🚀 Topic: {topic}")
+            if not topic:
+                raise MailOperationError(
+                    "Topic is required",
+                    details={"user_id": user_id}
+                )
+            
+            self.logger.info("🚀 Creating user watch for user %s", user_id)
 
             try:
                 async with self.google_limiter:

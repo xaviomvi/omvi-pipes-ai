@@ -490,7 +490,7 @@ class BaseGmailSyncService(ABC):
                         emails = permission.get('users', [])
                         role = permission.get('role').upper()
                         self.logger.debug(
-                            "🔐 Processing permission for message %s, users/groups %s", message_id, emails)
+                            "Processing permission for message %s, users/groups %s", message_id, emails)
 
                         # Get the correct message_key from messages based on messageId
                         message_key = next(
@@ -508,22 +508,23 @@ class BaseGmailSyncService(ABC):
                                     elif self.arango_service.db.collection(CollectionNames.GROUPS.value).has(entity_id):
                                         entityType = CollectionNames.GROUPS.value
                                         permType = "GROUP"
-                                    else:
-                                        # Save entity in people collection
-                                        entityType = CollectionNames.PEOPLE.value
-                                        permType = "USER"
-                                        await self.arango_service.save_to_people_collection(entity_id, email)
-                                        
-                                    permissions.append({
-                                        '_from': f'{entityType}/{entity_id}',
-                                        '_to': f'records/{message_key}',
-                                        'role': role,
-                                        "externalPermissionId": None,
-                                        "type": permType,
-                                        "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
-                                        "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
-                                        "lastUpdatedTimestampAtSource" : get_epoch_timestamp_in_ms()
-                                    })
+                                else:
+                                    # Save entity in people collection
+                                    entityType = CollectionNames.PEOPLE.value
+                                    entity_id = str(uuid.uuid4())
+                                    permType = "USER"
+                                    await self.arango_service.save_to_people_collection(entity_id, email)
+
+                                permissions.append({
+                                    '_from': f'{entityType}/{entity_id}',
+                                    '_to': f'records/{message_key}',
+                                    'role': role,
+                                    "externalPermissionId": None,
+                                    "type": permType,
+                                    "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                    "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
+                                    "lastUpdatedTimestampAtSource" : get_epoch_timestamp_in_ms()
+                                })
                         else:
                             self.logger.warning(
                                 "⚠️ Could not find message key for permission relation: message %s", message_id)
@@ -833,28 +834,27 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                     channel_data = await self.arango_service.get_channel_history_id(user['email'])
                     if not channel_data:
                         self.logger.info("🚀 Creating new changes watch for user %s", user['email'])
-                        channel_data = await self.gmail_admin_service.create_gmail_user_watch(user['email'])
+                        channel_data = await self.gmail_admin_service.create_gmail_user_watch(org_id, user['email'])
                         if not channel_data:
-                            self.logger.error("❌ Failed to set up changes watch for user: %s", user['email'])
-                            await self.arango_service.update_user_sync_state(user['email'], 'FAILED', Connectors.GOOGLE_MAIL.value)
-                            return False
+                            self.logger.warning("Changes watch not created for user: %s", user['email'])
+                            continue
+                        
                     current_timestamp = get_epoch_timestamp_in_ms()
-                    expiration_timestamp = channel_data['expiration']
+                    expiration_timestamp = channel_data.get('expiration', 0)
                     if not channel_data or current_timestamp > expiration_timestamp:
                         self.logger.info("🚀 Creating new changes watch for user %s", user['email'])
-                        channel_data = await self.gmail_admin_service.create_gmail_user_watch(user['email'])
+                        channel_data = await self.gmail_admin_service.create_gmail_user_watch(org_id, user['email'])
                         if not channel_data:
-                            await self.arango_service.update_user_sync_state(user['email'], 'FAILED', Connectors.GOOGLE_MAIL.value)
                             self.logger.warning(
-                                "❌ Failed to set up changes watch for user: %s", user['email'])
+                                "Changes watch not created for user: %s", user['email'])
                             continue
+                        else:
+                            await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user['email'])
 
                     self.logger.info(
                         "✅ Changes watch set up successfully for user: %s", user['email'])
 
                     self.logger.info("🚀 Channel data: %s", channel_data)
-                    
-                    await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user['email'])
 
                 except Exception as e:
                     self.logger.error(
@@ -1159,24 +1159,21 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
             channel_data = await self.arango_service.get_channel_history_id(user_email)
             if not channel_data:
                 self.logger.info("🚀 Creating new changes watch for user %s", user_email)
-                channel_data = await self.gmail_admin_service.create_gmail_user_watch(user_email)
+                channel_data = await self.gmail_admin_service.create_gmail_user_watch(org_id, user_email)
+                
                 if not channel_data:
-                    self.logger.error("❌ Failed to set up changes watch for user: %s", user_email)
-                    await self.arango_service.update_user_sync_state(user_email, 'FAILED', Connectors.GOOGLE_MAIL.value)
+                    self.logger.warning("Changes watch not created for user: %s", user_email)
                     return False
                 
             current_timestamp = get_epoch_timestamp_in_ms()
-            expiration_timestamp = channel_data['expiration']
+            expiration_timestamp = channel_data.get('expiration', 0)
             if not channel_data or current_timestamp > expiration_timestamp:
                 self.logger.info("🚀 Creating new changes watch for user %s", user_email)
-                channel_data = await self.gmail_admin_service.create_gmail_user_watch(user_email)
+                channel_data = await self.gmail_admin_service.create_gmail_user_watch(org_id, user_email)
                 if not channel_data:
-                    self.logger.error("❌ Failed to set up changes watch for user: %s", user_email)
-                    await self.arango_service.update_user_sync_state(user_email, 'FAILED', Connectors.GOOGLE_MAIL.value)
-                    return False
-
-            # Store channel data
-            await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user_email)
+                    self.logger.warning("Changes watch not created for user: %s", user_email)
+                else:
+                    await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user_email)
 
             # List all threads and messages
             threads = await user_service.list_threads()
@@ -1387,22 +1384,21 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                 self.logger.info("🚀 Creating new changes watch for user %s", user_info['email'])
                 channel_data = await self.gmail_user_service.create_gmail_user_watch()
                 if not channel_data:
-                    self.logger.error("❌ Failed to set up changes watch for user: %s", user_info['email'])
-                    await self.arango_service.update_user_sync_state(user_info['email'], 'FAILED', Connectors.GOOGLE_MAIL.value)
-                    return False
+                    self.logger.warning("Changes watch not created for user: %s", user_info['email'])
+                
             current_timestamp = get_epoch_timestamp_in_ms()
             self.logger.info("🚀 Current timestamp: %s", current_timestamp)
             
-            expiration_timestamp = channel_data['expiration']
+            expiration_timestamp = channel_data.get('expiration', 0)
             self.logger.info("🚀 Expiration timestamp: %s", expiration_timestamp)
             self.logger.info("🚀 Watch expired: %s", current_timestamp > expiration_timestamp)
             if not channel_data or current_timestamp > expiration_timestamp:
                 self.logger.info("🚀 Creating new changes watch for user %s", user_info['email'])
                 channel_data = await self.gmail_user_service.create_gmail_user_watch()
                 if not channel_data:
-                    self.logger.error("❌ Failed to set up changes watch for user: %s", user_info['email'])
-                    await self.arango_service.update_user_sync_state(user_info['email'], 'FAILED', Connectors.GOOGLE_MAIL.value)
-                    return False
+                    self.logger.warning("Changes watch not created for user: %s", user_info['email'])
+                else:
+                    await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user_info['email'])
 
             # Initialize Celery
             await self.celery_app.setup_app()
@@ -1417,8 +1413,6 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                     'PAUSED',
                     Connectors.GOOGLE_MAIL.value
                 )
-            await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user_info['email'])
-
             self.logger.info("✅ Gmail sync service initialized successfully")
             return True
 
@@ -1448,7 +1442,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                     if not channel_history:
                         self.logger.warning(f"""⚠️ No historyId found for {
                                user['email']}""")
-                        return False
+                        return True
                     
                     current_history_id = channel_history['historyId']
                     changes = await user_service.fetch_gmail_changes(user['email'], current_history_id)
@@ -1512,8 +1506,7 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                 attachments.extend(attachments_for_message)
                 attachment_ids = [attachment['attachment_id'] for attachment in attachments_for_message]
                 headers = message.get("headers", {})
-                
-                permissions.append({
+                permission = {
                     'messageId': message['id'],
                     'attachmentIds': attachment_ids,
                     'role': 'reader',
@@ -1523,7 +1516,10 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                         headers.get("Cc", []),
                         headers.get("Bcc", [])
                     ]
-                })
+                }
+                self.logger.info("🚀 Mail Permission for message %s: %s", message['id'], permission)
+                
+                permissions.append(permission)
 
             # Process threads in batches
             batch_size = 50
