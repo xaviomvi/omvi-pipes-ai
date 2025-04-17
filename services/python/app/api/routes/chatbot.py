@@ -8,6 +8,7 @@ from app.setups.query_setup import AppContainer
 from app.modules.retrieval.retrieval_service import RetrievalService
 from app.modules.retrieval.retrieval_arango import ArangoService
 from app.config.configuration_service import ConfigurationService
+from app.config.arangodb_constants import CollectionNames
 from app.modules.qna.prompt_templates import qna_prompt
 from app.utils.citations import process_citations
 from app.utils.query_transform import setup_query_transformation
@@ -57,6 +58,7 @@ async def askAI(request: Request, query_info: ChatQuery,
     """Perform semantic search across documents"""
     try:
         container = request.app.container
+        
         logger = container.logger()
         llm = retrieval_service.llm
         if llm is None:
@@ -124,6 +126,8 @@ async def askAI(request: Request, query_info: ChatQuery,
         # Execute all query processing in parallel
         org_id = request.state.user.get('orgId')
         user_id = request.state.user.get('userId')
+        send_user_info = request.query_params.get('sendUserInfo', False)
+        
         tasks = [process_decomposed_query(query_dict.get('query'), org_id, user_id) for query_dict in all_queries]
         all_search_results = await asyncio.gather(*tasks)
         
@@ -155,14 +159,36 @@ async def askAI(request: Request, query_info: ChatQuery,
         
         logger.debug(f"final_results: {final_results}")
         # Prepare the template with the final results
+        if send_user_info:
+            user_info = await arango_service.get_user_by_user_id(user_id)
+            org_info = await arango_service.get_document(org_id, CollectionNames.ORGS.value)
+            if org_info.get('accountType') == 'enterprise' or org_info.get('accountType') == 'business':
+                user_data = (
+                    "I am the user of the organization. "
+                    f"My name is {user_info.get('fullName', 'a user')} "
+                    f"({user_info.get('designation', '')}) "
+                    f"from {org_info.get('name', 'the organization')}. "
+                    "Please provide accurate and relevant information based on the available context."
+                )
+            else:
+                user_data = (
+                    "I am the user. "
+                    f"My name is {user_info.get('fullName', 'a user')} "
+                    f"({user_info.get('designation', '')}) "
+                    "Please provide accurate and relevant information based on the available context."
+                )
+        else:
+            user_data = ""
+
         template = Template(qna_prompt)
         rendered_form = template.render(
+            user_data=user_data,
             query=query_info.query, 
             rephrased_queries=[],  # This keeps all query results for reference
             chunks=final_results
         )
         
-        # Prepare messages for LLM
+        
         messages = [
             {"role": "system", "content": "You are a enterprise questions answering expert"}
         ]
