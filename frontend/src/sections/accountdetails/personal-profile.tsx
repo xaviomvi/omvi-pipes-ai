@@ -30,6 +30,7 @@ import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
 
 import {
+  logout, // Import the logout function
   updateUser,
   getUserById,
   deleteUserLogo,
@@ -82,6 +83,7 @@ export default function PersonalProfile() {
   });
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState<boolean>(false);
   const [saveChanges, setSaveChanges] = useState<boolean>(false);
+  const [currentEmail, setCurrentEmail] = useState<string>(''); // Store the current email
   const { isAdmin } = useAdmin();
 
   const methods = useForm<ProfileFormData>({
@@ -111,6 +113,9 @@ export default function PersonalProfile() {
         const userId = await getUserIdFromToken();
         const userData = await getUserById(userId);
         const { fullName, firstName, email, lastName, designation } = userData;
+
+        // Store the current email to check if it changes later
+        setCurrentEmail(email);
 
         reset({
           fullName,
@@ -155,11 +160,30 @@ export default function PersonalProfile() {
       setSaveChanges(true);
       const userId = await getUserIdFromToken();
       await updateUser(userId, data);
+
+      // Check if email was changed
+      const emailChanged = data.email !== currentEmail;
+
       setSnackbar({
         open: true,
         message: 'Profile updated successfully',
         severity: 'success',
       });
+
+      if (emailChanged) {
+        // Show a message about logout
+        setSnackbar({
+          open: true,
+          message: 'Email updated. You will be logged out.',
+          severity: 'info',
+        });
+
+        // Add a slight delay to show the message before logout
+        setTimeout(() => {
+          logout(); // Call the logout function
+        }, 2000);
+      }
+
       setLoading(false);
     } catch (err) {
       setError('Failed to update user');
@@ -283,126 +307,6 @@ export default function PersonalProfile() {
         {/* Content */}
         <Box sx={{ p: { xs: 3, md: 4 } }}>
           <Grid container spacing={{ xs: 3, md: 5 }}>
-            {/* Avatar Section */}
-            {/* <Grid item xs={12} md={4}> */}
-            {/* <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: { xs: 1, md: 2 } }}> */}
-            {/* <Box sx={{ position: 'relative' }}>
-                  {logo ? (
-                    <Avatar
-                      src={logo}
-                      alt="User Photo"
-                      sx={{ 
-                        width: 140, 
-                        height: 140,
-                        border: `3px solid ${alpha(theme.palette.background.paper, 0.9)}`,
-                        boxShadow: theme.shadows[2]
-                      }}
-                    />
-                  ) : (
-                    <Avatar 
-                      sx={{
-                        width: 140,
-                        height: 140,
-                        bgcolor: alpha(theme.palette.primary.main, 0.08),
-                        boxShadow: theme.shadows[2]
-                      }}
-                    >
-                      <Iconify 
-                        icon="mdi:account" 
-                        width={70} 
-                        height={70} 
-                        color={alpha(theme.palette.primary.main, 0.7)} 
-                      />
-                    </Avatar>
-                  )}
-                  
-                  {isAdmin && (
-                    <>
-                      <input
-                        style={{ display: 'none' }}
-                        id="file-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleUpload}
-                      />
-                      
-                      <Box sx={{ 
-                        position: 'absolute',
-                        bottom: -5,
-                        right: -5,
-                        display: 'flex',
-                        gap: 1
-                      }}>
-                        <Tooltip title={logo ? "Change photo" : "Upload photo"}>
-                          <label htmlFor="file-upload">
-                            <IconButton
-                              component="span"
-                              size="medium"
-                              sx={{
-                                bgcolor: theme.palette.background.paper,
-                                border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-                                color: theme.palette.primary.main,
-                                '&:hover': {
-                                  bgcolor: alpha(theme.palette.primary.main, 0.04),
-                                },
-                                width: 44,
-                                height: 44,
-                                boxShadow: theme.shadows[3]
-                              }}
-                            >
-                              {uploading ? (
-                                <CircularProgress size={24} color="inherit" />
-                              ) : (
-                                <Iconify icon="ep:upload-filled" width={22} height={22} />
-                              )}
-                            </IconButton>
-                          </label>
-                        </Tooltip>
-                        
-                        {logo && (
-                          <Tooltip title="Remove photo">
-                            <IconButton
-                              size="medium"
-                              color="error"
-                              onClick={handleDelete}
-                              disabled={deleting}
-                              sx={{ 
-                                bgcolor: theme.palette.background.paper,
-                                border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
-                                '&:hover': {
-                                  bgcolor: alpha(theme.palette.error.main, 0.04),
-                                },
-                                width: 44,
-                                height: 44,
-                                boxShadow: theme.shadows[3]
-                              }}
-                            >
-                              {deleting ? (
-                                <CircularProgress size={24} color="inherit" />
-                              ) : (
-                                <Iconify icon="ic:baseline-delete" width={22} height={22} />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </>
-                  )}
-                </Box> */}
-
-            {/* {!logo && isAdmin && (
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary" 
-                    align="center"
-                    sx={{ mt: 1.5, maxWidth: 130, fontSize: '0.75rem' }}
-                  >
-                    Add a profile photo
-                  </Typography>
-                )} */}
-            {/* </Box> */}
-            {/* </Grid> */}
-
             {/* Form Section */}
             <Grid item xs={12} md={8}>
               <Form
@@ -478,6 +382,11 @@ export default function PersonalProfile() {
                         },
                       }}
                     />
+                    {methods.getValues('email') !== currentEmail && (
+                      <Alert severity="warning" sx={{ mt: 1, borderRadius: 1 }}>
+                        Changing your email will log you out of the system
+                      </Alert>
+                    )}
                   </Grid>
                   <Grid item xs={12}>
                     <Divider sx={{ mt: 1, mb: 2 }} />
