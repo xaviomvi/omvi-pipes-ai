@@ -303,6 +303,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     }
     if (initialFile) {
       setServiceCredentialsFile(initialFile);
+      setParsedJsonData(true);
     }
   }, [initialValues, initialFile, accountType, businessForm, individualForm]);
 
@@ -401,6 +402,9 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   useEffect(() => {
     (window as any).submitConnectorForm = async () => {
       // Always set validation flag when Continue is clicked
+      if (initialFile && serviceCredentialsFile) {
+        return true;
+      }
       setValidationAttempted(true);
 
       // Check if form is empty - users must explicitly use Skip
@@ -512,6 +516,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     setMessage,
     hasAnyInput,
     onSkip,
+    initialFile
   ]);
 
   // Validate file type using both extension and MIME type
