@@ -223,6 +223,13 @@ export default function KnowledgeBaseSearch() {
     setTopK(callback);
   };
 
+  const handleLargePPTFile = (record: any) => {
+    if (record.sizeInBytes / 1048576 > 5) {
+      console.log('PPT with large file size');
+      throw new Error('Large fize size, redirecting to web page ');
+    }
+  }
+
   const viewCitations = async (recordId: string, extension: string) => {
     // Reset view states;
 
@@ -375,18 +382,16 @@ export default function KnowledgeBaseSearch() {
             params = {
               convertTo: 'pdf',
             };
+            handleLargePPTFile(record);
           }
           const publicConnectorUrlResponse = await getConnectorPublicUrl();
           let response;
           if (publicConnectorUrlResponse && publicConnectorUrlResponse.url) {
             const CONNECTOR_URL = publicConnectorUrlResponse.url;
-            response = await axios.get(
-              `${CONNECTOR_URL}/api/v1/stream/record/${recordId}`,
-              {
-                responseType: 'blob',
-                params,
-              }
-            );
+            response = await axios.get(`${CONNECTOR_URL}/api/v1/stream/record/${recordId}`, {
+              responseType: 'blob',
+              params,
+            });
           } else {
             response = await axios.get(
               `${CONFIG.backendUrl}/api/v1/knowledgeBase/stream/record/${recordId}`,
@@ -439,7 +444,6 @@ export default function KnowledgeBaseSearch() {
             severity: 'info', // Use 'info' or 'warning' for redirection notice
           });
           let webUrl = record?.webUrl || record?.webUrl;
-          console.log(record)
           // Keep the URL fix logic (though less likely needed for non-UPLOAD here, better safe)
           if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
             const baseUrl = `${window.location.protocol}//${window.location.host}`;
@@ -471,7 +475,7 @@ export default function KnowledgeBaseSearch() {
               });
             }
           }, 2500);
-          
+
           return;
         }
       }
