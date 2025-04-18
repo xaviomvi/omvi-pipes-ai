@@ -186,7 +186,7 @@ class KafkaConsumerManager:
                                 record_id=record_id,
                                 indexing_status="FAILED",
                                 extraction_status="FAILED",
-                                error_details=str(e)
+                                reason=str(e)
                             )
                         return False
                         
@@ -199,7 +199,7 @@ class KafkaConsumerManager:
                                 record_id=record_id,
                                 indexing_status="FAILED",
                                 extraction_status="FAILED",
-                                error_details=f"Unexpected error: {str(e)}"
+                                reason=f"Unexpected error: {str(e)}"
                             )
                         return False
                     
@@ -211,7 +211,7 @@ class KafkaConsumerManager:
                             record_id=record_id,
                             indexing_status="FAILED",
                             extraction_status="FAILED",
-                            error_details=f"Unexpected error: {str(e)}"
+                            reason=f"Unexpected error: {str(e)}"
                         )
                     return False
             else:
@@ -220,6 +220,14 @@ class KafkaConsumerManager:
                 
         except Exception as e:
             self.logger.error(f"Error processing message {message_id}: {e}")
+            record_id = payload_data.get('recordId')
+            if record_id:
+                await self._update_document_status(
+                    record_id=record_id,
+                    indexing_status="FAILED",
+                    extraction_status="FAILED",
+                    reason=f"Unexpected error: {str(e)}"
+                )
             return False
 
     def is_message_processed(self, topic_partition: str, offset: int) -> bool:
@@ -346,7 +354,7 @@ class KafkaConsumerManager:
         record_id: str,
         indexing_status: str,
         extraction_status: str,
-        error_details: str = None
+        reason: str = None
     ):
         """Update document status in Arango"""
         try:
@@ -366,8 +374,8 @@ class KafkaConsumerManager:
                 "extractionStatus": extraction_status
             })
 
-            if error_details:
-                doc["reason"] = error_details
+            if reason:
+                doc["reason"] = reason
 
             docs = [doc]
             await self.event_processor.arango_service.batch_upsert_nodes(

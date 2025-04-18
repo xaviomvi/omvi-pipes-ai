@@ -1,13 +1,14 @@
 from typing import List, Dict, Any, Optional, Set, Tuple
 from app.config.configuration_service import config_node_constants
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from app.utils.embeddings import get_default_embedding_model
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Filter, FieldCondition, MatchValue
 from langchain_qdrant import QdrantVectorStore, FastEmbedSparse, RetrievalMode
 from app.modules.retrieval.retrieval_arango import ArangoService
 from app.config.arangodb_constants import CollectionNames,RecordTypes
 from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig, GeminiLLMConfig, AnthropicLLMConfig, AwsBedrockLLMConfig, LLMFactory
-from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM
+from app.core.embedding_service import AzureEmbeddingConfig, OpenAIEmbeddingConfig, EmbeddingFactory
+from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM, EmbeddingProvider, EmbeddingModel
 
 class RetrievalService:
     def __init__(
@@ -27,23 +28,22 @@ class RetrievalService:
             qdrant_api_key: API key for Qdrant
             qdrant_host: Qdrant server host URL
         """
-        # Initialize dense embeddings with BGE (same as indexing)
-        model_name = "BAAI/bge-large-en-v1.5"
-        encode_kwargs = {'normalize_embeddings': True}
-        
+
         self.logger = logger
         self.config_service = config_service
         self.llm = None
 
-        self.dense_embeddings = HuggingFaceEmbeddings(
-            model_name=model_name,
-            model_kwargs={'device': 'cpu'},
-            encode_kwargs=encode_kwargs
-        )
-
-        # Initialize sparse embeddings (same as indexing)
-        self.sparse_embeddings = FastEmbedSparse(model_name="Qdrant/BM25")
-
+        # Initialize sparse embeddings
+        try:
+            self.dense_embeddings = None
+            self.sparse_embeddings = FastEmbedSparse(model_name="Qdrant/BM25")
+        except Exception as e:
+            self.logger.error("Failed to initialize sparse embeddings: " + str(e))
+            self.sparse_embeddings = None
+            raise Exception(
+                "Failed to initialize sparse embeddings: " + str(e),
+                details={"error": str(e)}
+            )
         # Initialize Qdrant client
         self.qdrant_client = QdrantClient(
             host=qdrant_host,
@@ -54,17 +54,8 @@ class RetrievalService:
             timeout=60
         )
         self.collection_name = collection_name
+        self.vector_store = None
 
-        # Initialize vector store with same configuration as indexing
-        self.vector_store: QdrantVectorStore = QdrantVectorStore(
-            client=self.qdrant_client,
-            collection_name=collection_name,
-            vector_name="dense",
-            sparse_vector_name="sparse",
-            embedding=self.dense_embeddings,
-            sparse_embedding=self.sparse_embeddings,
-            retrieval_mode=RetrievalMode.HYBRID,
-        )
         
     async def get_llm_instance(self):
         try:
@@ -123,6 +114,41 @@ class RetrievalService:
             return self.llm        
         except Exception as e:
             self.logger.error(f"Error getting LLM: {str(e)}")
+            return None
+        
+    async def get_embedding_model_instance(self):
+        try:
+            self.logger.info("Getting embedding model")
+            ai_models = await self.config_service.get_config(config_node_constants.AI_MODELS.value)
+            embedding_configs = ai_models['embedding']
+            embedding_model = None
+            for config in embedding_configs:
+                provider = config['provider']
+                if provider == EmbeddingProvider.AZURE_OPENAI_PROVIDER.value:
+                    embedding_model = AzureEmbeddingConfig(
+                        model=config['configuration']['model'],
+                        api_key=config['configuration']['apiKey'],
+                        azure_endpoint=config['configuration']['endpoint'],
+                        azure_api_version=EmbeddingModel.AZURE_EMBEDDING_VERSION.value,
+                    )
+                elif provider == EmbeddingProvider.OPENAI_PROVIDER.value:
+                    embedding_model = OpenAIEmbeddingConfig(
+                        model=config['configuration']['model'],
+                        api_key=config['configuration']['apiKey'],
+                    )
+                
+            if not embedding_model:
+                self.logger.info("No embedding model found in configuration, using default embedding model")
+                embedding_model = EmbeddingModel.DEFAULT_EMBEDDING_MODEL.value
+                self.dense_embeddings = await get_default_embedding_model()
+            else:
+                self.logger.info(f"Using embedding model: {embedding_model}")
+                self.dense_embeddings = EmbeddingFactory.create_embedding_model(embedding_model)
+            
+            self.logger.info(f"Embedding model: {embedding_model}")
+            return self.dense_embeddings
+        except Exception as e:
+            self.logger.error(f"Error getting embedding model: {str(e)}")
             return None
         
     def _preprocess_query(self, query: str) -> str:
@@ -222,6 +248,31 @@ class RetrievalService:
             
             all_results = []
             seen_chunks = set()
+            
+            if not self.vector_store:
+                # Check if collection exists in Qdrant
+                collections = self.qdrant_client.get_collections()
+                if not any(col.name == self.collection_name for col in collections.collections):
+                    self.logger.info(f"Collection {self.collection_name} not found in Qdrant. Indexing may not be complete.")
+                    return {"searchResults": [], "records": []}
+
+                if not self.dense_embeddings:
+                    self.logger.info("No dense embeddings found, using default embedding model")
+                    self.dense_embeddings = await self.get_embedding_model_instance()
+                if not self.dense_embeddings:
+                    raise ValueError("No dense embeddings found, please configure an embedding model or ensure indexing is complete")
+                
+                
+                self.logger.info("Dense embeddings: %s", self.dense_embeddings)
+                self.vector_store = QdrantVectorStore(
+                    client=self.qdrant_client,
+                    collection_name=self.collection_name,
+                    vector_name="dense",
+                    sparse_vector_name="sparse",
+                    embedding=self.dense_embeddings,
+                    sparse_embedding=self.sparse_embeddings,
+                    retrieval_mode=RetrievalMode.HYBRID,
+                )
 
             # Process each query
             for query in queries:
