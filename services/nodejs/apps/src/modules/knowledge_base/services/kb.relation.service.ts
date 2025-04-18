@@ -79,6 +79,55 @@ export class RecordRelationService {
     this.initializeEventProducer();
   }
 
+  /**
+   * Checks if a record exists in ArangoDB with linear backoff retry
+   * @param recordKey The key of the record to check
+   * @returns Promise<boolean> True if record exists, false otherwise
+   */
+  public async checkRecordExists(recordKey: string): Promise<boolean> {
+    const maxRetries = 5;
+    const baseDelay = 3000; // 3 second base delay
+    let recordExists = false;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const aql = `
+          FOR doc IN records
+          FILTER doc._key == @recordKey
+          RETURN doc
+        `;
+        const bindVars = { recordKey };
+        const result = await this.db.query(aql, bindVars);
+        const records = await result.all();
+
+        if (records && records.length > 0) {
+          recordExists = true;
+          break;
+        }
+        // Linear backoff
+        const delay = baseDelay * attempt;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        logger.debug(`Retry attempt ${attempt} checking record existence`, {
+          recordId: recordKey,
+          attempt,
+          delay
+        });
+      } catch (error) {
+        logger.error(`Error checking record existence on attempt ${attempt}`, {
+          recordId: recordKey,
+          error,
+          attempt
+        });
+      }
+    }
+
+    if (!recordExists) {
+      logger.warn(`Record ${recordKey} not found in database after ${maxRetries} attempts`);
+    }
+
+    return recordExists;
+  }
+
   private async initializeEventProducer() {
     try {
       await this.eventProducer.start();

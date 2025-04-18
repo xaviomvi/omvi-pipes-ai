@@ -12,6 +12,7 @@ import { RecordRelationService } from '../services/kb.relation.service';
 import { IRecordDocument } from '../types/record';
 import { IFileRecordDocument } from '../types/file_record';
 import { Event, EventType } from '../services/records_events.service';
+import { InternalServerError } from '../../../libs/errors/http.errors';
 
 const logger = Logger.getInstance({
   service: 'knowledge_base.utils',
@@ -154,6 +155,11 @@ function runInBackGround(
 
           if (response.status === 200) {
             try {
+              const recordExists = await recordRelationService.checkRecordExists(record._key);
+              logger.info('Record exists, key', { recordExists, recordKey: record._key });
+              if (!recordExists) {
+                throw new InternalServerError(`Record ${record._key} not found in database`);
+              }
               // Create the payload using the separate function
               const newRecordPayload =
                 await recordRelationService.createNewRecordEventPayload(
