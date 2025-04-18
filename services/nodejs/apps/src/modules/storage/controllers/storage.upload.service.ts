@@ -100,9 +100,10 @@ export class UploadDocumentService {
       }
 
       logger.info('Generating presigned url for direct upload');
+      const documentPath = `${placeholderDocument.document.documentPath}/${placeholderDocument.document._id}`;
       const storageURL = await generatePresignedUrlForDirectUpload(
         this.storageServiceWrapper,
-        placeholderDocument.document.documentPath,
+        documentPath,
       );
       logger.info('Presigned url generated for direct upload', { storageURL });
 
