@@ -211,7 +211,7 @@ const ChatInterface = () => {
     setOpenPdfView(true);
     setAggregatedCitations(citations);
     setFileBuffer(null);
-
+    setPdfUrl(null);
     try {
       const recordId = citationMeta?.recordId;
       const response = await axios.get(`/api/v1/knowledgebase/record/${recordId}`);
@@ -321,6 +321,10 @@ const ChatInterface = () => {
             params = {
               convertTo: 'pdf',
             };
+            if (record.sizeInBytes / 1048576 > 5) {
+              console.log('PPT with large file size');
+              throw new Error('Large fize size, redirecting to web page ');
+            }
           }
 
           const publicConnectorUrlResponse = await getConnectorPublicUrl();
@@ -441,13 +445,13 @@ const ChatInterface = () => {
     setIsTextFile(['txt'].includes(citationMeta?.extension));
     setIsExcel(isExcelOrCSV);
     setIsPdf(['pptx', 'ppt', 'pdf'].includes(citationMeta?.extension));
-    if (openPdfView && isExcel !== isExcelFile) {
-      setPdfUrl(null);
-      setAggregatedCitations(null);
+    // if (openPdfView && isExcel !== isExcelFile) {
+    //   setPdfUrl(null);
+    //   setAggregatedCitations(null);
 
-      // Wait for unmount
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+    //   // Wait for unmount
+    //   await new Promise((resolve) => setTimeout(resolve, 100));
+    // }
 
     // Set new viewer states
     // setIsExcel(isExcelFile);
