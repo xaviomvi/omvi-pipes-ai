@@ -390,15 +390,15 @@ class KafkaRouteConsumer:
         try:
             self.logger.info(f"📥 Processing user updated event: {payload}")
             # Find existing user by email
-            existing_user = await self.arango_service.get_entity_id_by_email(
-                payload['email'], 
+            existing_user = await self.arango_service.get_user_by_user_id(
+                payload['userId'], 
             )
 
             if not existing_user:
-                self.logger.error(f"User not found with email: {payload['email']}")
+                self.logger.error(f"User not found with userId: {payload['userId']}")
                 return False
             user_data = {
-                '_key': existing_user,
+                '_key': existing_user['_key'],
                 'userId': payload['userId'],
                 'orgId': payload['orgId'],
                 'email': payload['email'],
