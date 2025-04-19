@@ -4,9 +4,11 @@ import type { Record, ChatMessageProps, MessageContentProps } from 'src/types/ch
 import remarkGfm from 'remark-gfm';
 import { Icon } from '@iconify/react';
 import ReactMarkdown from 'react-markdown';
+import eyeIcon from '@iconify-icons/mdi/eye-outline';
 import refreshIcon from '@iconify-icons/mdi/refresh';
 import loadingIcon from '@iconify-icons/mdi/loading';
 import downIcon from '@iconify-icons/mdi/chevron-down';
+import upIcon from '@iconify-icons/mdi/chevron-up';
 import robotIcon from '@iconify-icons/mdi/robot-outline';
 import rightIcon from '@iconify-icons/mdi/chevron-right';
 import accountIcon from '@iconify-icons/mdi/account-outline';
@@ -63,6 +65,22 @@ const formatDate = (createdAt: Date) => {
     day: 'numeric',
   }).format(date);
 };
+
+function isDocViewable(extension: string) {
+  const viewableExtensions = [
+    'pdf',
+    'xlsx',
+    'xls',
+    'csv',
+    'docx',
+    'html',
+    'txt',
+    'md',
+    'ppt',
+    'pptx',
+  ];
+  return viewableExtensions.includes(extension);
+}
 
 const MessageContent: React.FC<MessageContentProps> = ({
   content,
@@ -461,7 +479,6 @@ const ChatMessage = ({
 }: ChatMessageProps) => {
   const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
   const [isRecordDialogOpen, setRecordDialogOpen] = useState<boolean>(false);
-
   const aggregatedCitations = useMemo(() => {
     if (!message.citations) return {};
 
@@ -479,7 +496,6 @@ const ChatMessage = ({
 
   const handleOpenRecordDetails = (record: Record) => {
     const recordCitations = aggregatedCitations[record.recordId] || [];
-
     setSelectedRecord({ ...record, citations: recordCitations });
     setRecordDialogOpen(true);
   };
@@ -499,6 +515,16 @@ const ChatMessage = ({
     new Promise<void>((resolve) => {
       onViewPdf(url, citationMeta, citations, isExcelFile, buffer);
       resolve();
+    });
+
+  const handleViewCitations = async (recordId: string): Promise<void> =>
+    new Promise<void>((resolve) => {
+      const recordCitations = aggregatedCitations[recordId] || [];
+      if (recordCitations.length > 0) {
+        const citationMeta = recordCitations[0].metadata;
+        onViewPdf('', citationMeta, recordCitations, false);
+        resolve();
+      }
     });
 
   return (
@@ -542,7 +568,7 @@ const ChatMessage = ({
             {formatDate(message.createdAt)} • {formatTime(message.createdAt)}
           </Typography>
           {message.type === 'bot' && message.confidence && (
-            <Tooltip title="Confidence score" placement='top'>
+            <Tooltip title="Confidence score" placement="top">
               <Chip
                 label={message.confidence}
                 size="small"
@@ -708,89 +734,134 @@ const ChatMessage = ({
               </Tooltip>
 
               <Collapse in={isExpanded}>
-                <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+                <Box sx={{ mt: 2 }}>
                   {message.citations.map((citation, cidx) => (
                     <Paper
                       key={cidx}
                       elevation={0}
                       sx={{
-                        p: 1.5,
-                        bgcolor: 'rgba(0, 0, 0, 0.02)',
-                        borderRadius: '8px',
+                        p: 2,
+                        mb: 2,
+                        bgcolor: 'rgba(0, 0, 0, 0.01)',
+                        borderRadius: '6px',
                         border: '1px solid',
-                        borderColor: 'rgba(0, 0, 0, 0.04)',
-                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        borderColor: 'rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.15s ease-in-out',
                         '&:hover': {
-                          backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                          borderColor: 'rgba(0, 0, 0, 0.07)',
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                          backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                          borderColor: 'rgba(0, 0, 0, 0.08)',
                         },
                       }}
                     >
-                      <Stack spacing={1.25}>
+                      <Box
+                        sx={{
+                          pl: 2,
+                          borderLeft: '2px solid',
+                          borderColor: 'primary.main',
+                        }}
+                      >
                         <Typography
                           sx={{
-                            fontSize: '0.8rem',
+                            fontSize: '0.875rem',
                             lineHeight: 1.6,
                             color: 'text.secondary',
-                            fontWeight: 500,
                             fontStyle: 'italic',
-                            position: 'relative',
-                            pl: 1.5,
-                            '&::before': {
-                              content: '""',
-                              position: 'absolute',
-                              left: 0,
-                              top: 0,
-                              bottom: 0,
-                              width: '3px',
-                              bgcolor: 'primary.light',
-                              borderRadius: '4px',
-                            },
+                            mb: 2,
                           }}
                         >
                           {citation.content}
                         </Typography>
 
                         {citation.metadata?.recordId && (
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'flex-end',
+                              gap: 1,
+                            }}
+                          >
+                            {isDocViewable(citation.metadata.extension) && (
+                              <Button
+                                size="small"
+                                variant="text"
+                                startIcon={<Icon icon={eyeIcon} width={14} height={14} />}
+                                onClick={() => handleViewCitations(citation.metadata?.recordId)}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 500,
+                                  color: 'primary.main',
+                                  py: 0.5,
+                                  px: 1,
+                                  minWidth: 0,
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                                  },
+                                }}
+                              >
+                                View Citations
+                              </Button>
+                            )}
+
                             <Button
                               size="small"
                               variant="text"
-                              startIcon={<Icon icon={fileDocIcon} width={12} height={12} />}
+                              startIcon={<Icon icon={fileDocIcon} width={14} height={14} />}
                               onClick={() => {
                                 if (citation.metadata?.recordId) {
                                   const record: Record = {
-                                    // recordId: citation.metadata.recordId,
-                                    citations: [], // This will be populated by handleOpenRecordDetails
                                     ...citation.metadata,
+                                    citations: [],
                                   };
                                   handleOpenRecordDetails(record);
                                 }
                               }}
                               sx={{
                                 textTransform: 'none',
-                                fontSize: '0.7rem',
-                                fontWeight: 600,
-                                color: 'primary.main',
-                                p: 0.75,
+                                fontSize: '0.75rem',
+                                fontWeight: 500,
+                                color: 'text.secondary',
+                                py: 0.5,
+                                px: 1,
                                 minWidth: 0,
-                                borderRadius: '20px',
                                 '&:hover': {
-                                  backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                                  backgroundColor: 'rgba(0, 0, 0, 0.04)',
                                 },
                               }}
                             >
-                              View Details
+                              Details
                             </Button>
                           </Box>
                         )}
-                      </Stack>
+                      </Box>
                     </Paper>
                   ))}
-                </Stack>
+                </Box>
               </Collapse>
+
+              {isExpanded && (
+                <Tooltip title={isExpanded ? 'Hide Citations' : 'Show Citations'}>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => onToggleCitations(index)}
+                    startIcon={
+                      <Icon icon={isExpanded ? upIcon : rightIcon} width={16} height={16} />
+                    }
+                    sx={{
+                      color: 'primary.main',
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      fontSize: '0.7rem',
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.05)',
+                      },
+                    }}
+                  >
+                    Hide citations
+                  </Button>
+                </Tooltip>
+              )}
             </Box>
           )}
           {/* Message Controls */}
