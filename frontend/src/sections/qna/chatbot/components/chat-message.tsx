@@ -66,6 +66,22 @@ const formatDate = (createdAt: Date) => {
   }).format(date);
 };
 
+function isDocViewable(extension: string) {
+  const viewableExtensions = [
+    'pdf',
+    'xlsx',
+    'xls',
+    'csv',
+    'docx',
+    'html',
+    'txt',
+    'md',
+    'ppt',
+    'pptx',
+  ];
+  return viewableExtensions.includes(extension);
+}
+
 const MessageContent: React.FC<MessageContentProps> = ({
   content,
   citations,
@@ -448,22 +464,6 @@ const MessageContent: React.FC<MessageContentProps> = ({
     </Box>
   );
 };
-
-function isDocViewable(extension: string) {
-  const viewableExtensions = [
-    'pdf',
-    'xlsx',
-    'xls',
-    'csv',
-    'docx',
-    'html',
-    'txt',
-    'md',
-    'ppt',
-    'pptx',
-  ];
-  return viewableExtensions.includes(extension);
-}
 
 const ChatMessage = ({
   message,
