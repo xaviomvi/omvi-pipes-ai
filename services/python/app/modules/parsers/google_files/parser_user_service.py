@@ -129,6 +129,8 @@ class ParserUserService:
 
     async def _check_and_refresh_token(self):
         """Check token expiry and refresh if needed"""
+        self.logger.info("Checking token expiry and refreshing if needed")
+
         if not self.token_expiry:
             # self.logger.warning("⚠️ Token expiry time not set.")
             return

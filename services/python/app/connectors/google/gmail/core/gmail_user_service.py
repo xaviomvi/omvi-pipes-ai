@@ -50,6 +50,7 @@ class GmailUserService:
             self.token_expiry = None
             self.org_id = None
             self.user_id = None
+            self.is_delegated = credentials is not None  # True if created through admin service
         except Exception as e:
             raise GoogleMailError(
                 "Failed to initialize Gmail service: " + str(e),
@@ -152,6 +153,8 @@ class GmailUserService:
 
     async def _check_and_refresh_token(self):
         """Check token expiry and refresh if needed"""
+        self.logger.info("Checking token expiry and refreshing if needed")
+
         if not self.token_expiry:
             # self.logger.warning("⚠️ Token expiry time not set.")
             return
@@ -453,11 +456,12 @@ class GmailUserService:
                 for header in headers:
                     if header['name'] in ['Subject', 'From', 'To', 'Cc', 'Bcc', 'Date', 'Message-ID']:
                         if header['name'] in ['From', 'To', 'Cc', 'Bcc']:
-                            start = header['value'].find('<')
-                            end = header['value'].find('>')
-                            if start != -1 and end != -1:
-                                header['value'] = header['value'][start+1:end]
+                            # Extract all email addresses using regex
+                            emails = re.findall(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', header['value'])
+                            header['value'] = emails if emails else []
                         header_dict[header['name']] = header['value']
+
+                self.logger.debug("📝 Headers: %s", header_dict)
 
                 # Extract message content
                 payload = message.get('payload', {})
@@ -826,7 +830,7 @@ class GmailUserService:
                         labelId='SENT',
                         historyTypes=['messageAdded', 'messageDeleted']
                     ).execute()
-                    
+
             except HttpError as e:
                 if e.resp.status == 404:
                     raise MailOperationError(

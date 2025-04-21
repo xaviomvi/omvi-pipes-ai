@@ -47,6 +47,7 @@ class KafkaRouteConsumer:
                 'appEnabled': self.handle_app_enabled,
                 'appDisabled': self.handle_app_disabled,
                 'llmConfigured': self.handle_llm_configured,
+                'embeddingConfigured': self.handle_embedding_configured,
             }
         }
 
@@ -695,6 +696,15 @@ class KafkaRouteConsumer:
             return True
         except Exception as e:
             self.logger.error(f"❌ Error handling LLM configured event: {str(e)}")
+            return False
+    
+    async def handle_embedding_configured(self, payload: dict) -> bool:
+        """Handle embedding configured event"""
+        try:
+            self.logger.info(f"📥 Processing embedding configured event in Query Service")
+            return True
+        except Exception as e:
+            self.logger.error(f"❌ Error handling embedding configured event: {str(e)}")
             return False
 
     async def consume_messages(self):

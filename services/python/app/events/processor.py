@@ -134,7 +134,6 @@ class Processor:
                             for sentence in sentences:
                                 sentence_data.append({
                                     'text': sentence,
-                                    'bounding_box': None,
                                     'metadata': {
                                         **(domain_metadata or {}),
                                         "recordId": record_id,
@@ -153,7 +152,6 @@ class Processor:
                             if cell_text:
                                 sentence_data.append({
                                     'text': cell_text,
-                                    'bounding_box': None,
                                     'metadata': {
                                         **(domain_metadata or {}),
                                         "recordId": record_id,
@@ -162,7 +160,7 @@ class Processor:
                                         "totalSlides": slide['totalSlides'],
                                         "elementId": element['id'],
                                         "rowIndex": cell['rowIndex'],
-                                        "columnIndex": cell['columnIndex']
+                                        "columnIndex": cell['columnIndex'],
                                     }
                                 })
 
@@ -320,7 +318,6 @@ class Processor:
                         for sentence in sentences:
                             sentence_data.append({
                                 'text': sentence,
-                                'bounding_box': None,  # Google Docs doesn't have bounding boxes
                                 'metadata': {
                                     **(domain_metadata or {}),
                                     "recordId": record_id,
@@ -328,7 +325,7 @@ class Processor:
                                     "blockNum": [idx],
                                     "blockText": json.dumps(full_context),
                                     "start_index": item['start_index'],
-                                    "end_index": item['end_index']
+                                    "end_index": item['end_index'],
                                 }
                             })
 
@@ -344,7 +341,6 @@ class Processor:
                         if cell_text:
                             sentence_data.append({
                                 'text': cell_text,
-                                'bounding_box': None,
                                 'metadata': {
                                     **(domain_metadata or {}),
                                     "recordId": record_id,
@@ -353,7 +349,7 @@ class Processor:
                                     "row": cell['row'],
                                     "column": cell['column'],
                                     "start_index": cell['start_index'],
-                                    "end_index": cell['end_index']
+                                    "end_index": cell['end_index'],
                                 }
                             })
 
@@ -415,7 +411,6 @@ class Processor:
                         block_num = [int(row['row_num'])] if row['row_num'] else [0]
                         sentence_data.append({
                             'text': row['natural_language_text'],
-                            'bounding_box': None,
                             'metadata': {
                                 **domain_metadata,
                                 "recordId": record_id,
@@ -423,7 +418,7 @@ class Processor:
                                 "sheetNum": sheet_idx,
                                 "blockNum": block_num,
                                 "blockType": "table_row",
-                                "blockText": json.dumps(row_data)
+                                "blockText": json.dumps(row_data),
                             }
                         })
                         
@@ -515,7 +510,6 @@ class Processor:
 
                     sentence_data.append({
                         'text': item['text'].strip(),
-                        'bounding_box': None,
                         'metadata': {
                             **(domain_metadata or {}),
                             "recordId": recordId,
@@ -698,14 +692,14 @@ class Processor:
                 # Prepare sentences for indexing with separated metadata
                 sentence_data = [{
                     'text': s["content"].strip(),
-                    'bounding_box': s["bounding_box"],
                     'metadata': {
                         **ocr_result.get("metadata"),
                         "recordId": recordId,
                         "blockText": s["content"].strip(),
                         "blockType": BLOCK_TYPE_MAP.get(s.get("block_type", 0)),
                         "blockNum": [int(s.get("block_number", 0))],
-                        "pageNum": [int(s.get("page_number", 0))]
+                        "pageNum": [int(s.get("page_number", 0))],
+                        'bounding_box': s["bounding_box"]
                     }
                 } for idx, s in enumerate(sentences) if s.get("content")]
 
@@ -827,15 +821,12 @@ class Processor:
 
                     sentence_data.append({
                         'text': item['text'].strip(),
-                        'bounding_box': None,
                         'metadata': {
                             **(domain_metadata or {}),
                             "recordId": recordId,
                             "blockType": context.get('label', 'text'),
                             "blockNum": [idx],
-                            "blockText": json.dumps(full_context),  # Include full context
-                            # "slideNumber": context.get('slide_number'),
-                            # "level": context.get('level')
+                            "blockText": json.dumps(full_context),
                         }
                     })
 
@@ -952,7 +943,6 @@ class Processor:
                         # Add processed rows to sentence data
                         sentence_data.append({
                             'text': row['natural_language_text'],
-                            'bounding_box': None,
                             'metadata': {
                                 **({k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in domain_metadata.items()}),
                                     "recordId": recordId,
@@ -960,7 +950,7 @@ class Processor:
                                     "sheetNum": sheet_idx,
                                     "blockNum": block_num,
                                     "blockType": "table_row",
-                                    "blockText": json.dumps(row_data)  # Include entire row data
+                                    "blockText": json.dumps(row_data),
                             }
                         })
             # Index sentences if available
@@ -1104,13 +1094,12 @@ class Processor:
                     # Add sentence data for indexing
                     sentence_data.append({
                         'text': row_text,
-                        'bounding_box': None,
                         'metadata': {
                             **(domain_metadata),
                             "recordId": recordId,
                             "blockType": "table_row",
                             "blockText": json.dumps(row),
-                            "blockNum": [idx]
+                            "blockNum": [idx],
                         }
                     })
 
@@ -1296,7 +1285,6 @@ class Processor:
 
                     sentence_data.append({
                         'text': item['text'].strip(),
-                        'bounding_box': None,
                         'metadata': {
                             **(domain_metadata or {}),
                             "recordId": recordId,
@@ -1433,13 +1421,12 @@ class Processor:
 
                 sentence_data.append({
                     'text': item['text'].strip(),
-                    'bounding_box': None,
                     'metadata': {
                         **(domain_metadata or {}),
                         "recordId": recordId,
                         "blockType": item.get('label', 'text'),
                         "blockNum": [idx],
-                        "blockText": json.dumps(full_context),  # Include full context
+                        "blockText": json.dumps(full_context),
                         "codeLanguage": item.get('language') if item.get('label') == 'code' else None
                     }
                 })
@@ -1565,13 +1552,12 @@ class Processor:
                 # Add to sentence data for indexing
                 sentence_data.append({
                     'text': block,
-                    'bounding_box': None,
                     'metadata': {
                         **(domain_metadata or {}),
                         "recordId": recordId,
                         "blockType": 'text',
                         "blockNum": [idx],
-                        "blockText": json.dumps(full_context)
+                        "blockText": json.dumps(full_context),
                     }
                 })
 
@@ -1788,14 +1774,13 @@ class Processor:
 
                     sentence_data.append({
                         'text': item['text'].strip(),
-                        'bounding_box': None,
                         'metadata': {
                             **(domain_metadata or {}),
                             "recordId": recordId,
                             "blockType": context.get('label', 'text'),
                             "blockNum": [idx],
                             "blockText": json.dumps(full_context),
-                            "pageNum": [pageNum],  # Add page number
+                            "pageNum": [pageNum],
                         }
                     })
 

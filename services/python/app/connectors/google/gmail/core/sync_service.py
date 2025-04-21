@@ -282,13 +282,14 @@ class BaseGmailSyncService(ABC):
                         message_id = message['id']
                         self.logger.debug("📝 Processing message: %s", message_id)
                         headers = message.get('headers', {})
+                        self.logger.debug("📝 Processing headers: %s", headers)
 
                         subject = headers.get('Subject', 'No Subject')
                         date = headers.get('Date', None)
-                        from_email = headers.get('From', None)
-                        to_email = headers.get('To', '').split(', ')
-                        cc_email = headers.get('Cc', '').split(', ')
-                        bcc_email = headers.get('Bcc', '').split(', ')
+                        from_email = headers.get('From', [""])[0]
+                        to_email = headers.get('To', [])
+                        cc_email = headers.get('Cc', [])
+                        bcc_email = headers.get('Bcc', [])
                         message_id_header = headers.get('Message-ID', None)
 
                         # Check if message exists
@@ -326,6 +327,7 @@ class BaseGmailSyncService(ABC):
                                 'webUrl': f"https://mail.google.com/mail?authuser={{user.email}}#all/{message_id}",
                                 'labelIds': message.get('labelIds', []),
                             }
+                            self.logger.debug("📝 Message record: %s", message_record)
 
                             record = {
                                 "_key": message_record['_key'],
@@ -838,6 +840,9 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                         if not channel_data:
                             self.logger.warning("Changes watch not created for user: %s", user['email'])
                             continue
+                        else:
+                            await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user['email'])
+
                         
                     current_timestamp = get_epoch_timestamp_in_ms()
                     expiration_timestamp = channel_data.get('expiration', 0)
@@ -955,10 +960,10 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                         'attachmentIds': attachment_ids,
                         'role': 'reader',
                         'users': [
-                            headers.get("To", []),
-                            headers.get("From", []),
-                            headers.get("Cc", []),
-                            headers.get("Bcc", [])
+                            *(headers.get("To", []) if isinstance(headers.get("To"), list) else [headers.get("To")] if headers.get("To") else []),
+                            *(headers.get("From", []) if isinstance(headers.get("From"), list) else [headers.get("From")] if headers.get("From") else []),
+                            *(headers.get("Cc", []) if isinstance(headers.get("Cc"), list) else [headers.get("Cc")] if headers.get("Cc") else []),
+                            *(headers.get("Bcc", []) if isinstance(headers.get("Bcc"), list) else [headers.get("Bcc")] if headers.get("Bcc") else [])
                         ]
                     }
                     permissions.append(permission)
@@ -1075,28 +1080,28 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                             await self.kafka_service.send_event_to_kafka(message_event)
                             self.logger.info("📨 Sent Kafka Indexing event for message %s", message_key)
 
-                    # Attachment events
-                    for attachment in metadata['attachments']:
-                        attachment_key = await self.arango_service.get_key_by_attachment_id(attachment['attachment_id'])
-                        attachment_event = {
-                            "orgId": org_id,
-                            "recordId": attachment_key,
-                            "recordName": attachment.get('filename', 'Unnamed Attachment'),
-                            "recordType": RecordTypes.ATTACHMENT.value,
-                            "recordVersion": 0,
-                            'eventType': EventTypes.NEW_RECORD.value,
-                            "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
-                            "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
-                            "connectorName": Connectors.GOOGLE_MAIL.value,
-                            "origin": OriginTypes.CONNECTOR.value,
-                            "mimeType": attachment.get('mimeType', 'application/octet-stream'),
-                            "size": attachment.get('size', 0),
-                            "createdAtSourceTimestamp":  get_epoch_timestamp_in_ms(),
-                            "modifiedAtSourceTimestamp":  get_epoch_timestamp_in_ms()
-                        }
-                        await self.kafka_service.send_event_to_kafka(attachment_event)
-                        self.logger.info(
-                            "📨 Sent Kafka Indexing event for attachment %s", attachment_key)
+                        # Attachment events
+                        for attachment in metadata['attachments']:
+                            attachment_key = await self.arango_service.get_key_by_attachment_id(attachment['attachment_id'])
+                            attachment_event = {
+                                "orgId": org_id,
+                                "recordId": attachment_key,
+                                "recordName": attachment.get('filename', 'Unnamed Attachment'),
+                                "recordType": RecordTypes.ATTACHMENT.value,
+                                "recordVersion": 0,
+                                'eventType': EventTypes.NEW_RECORD.value,
+                                "metadataRoute": f"/api/v1/{org_id}/{user_id}/gmail/attachments/{attachment_key}/metadata",
+                                "signedUrlRoute": f"{connector_endpoint}/api/v1/{org_id}/{user_id}/gmail/record/{attachment_key}/signedUrl",
+                                "connectorName": Connectors.GOOGLE_MAIL.value,
+                                "origin": OriginTypes.CONNECTOR.value,
+                                "mimeType": attachment.get('mimeType', 'application/octet-stream'),
+                                "size": attachment.get('size', 0),
+                                "createdAtSourceTimestamp": get_epoch_timestamp_in_ms(),
+                                "modifiedAtSourceTimestamp": get_epoch_timestamp_in_ms()
+                            }
+                            await self.kafka_service.send_event_to_kafka(attachment_event)
+                            self.logger.info(
+                                "📨 Sent Kafka Indexing event for attachment %s", attachment_key)
 
 
                 await self.arango_service.update_user_sync_state(
@@ -1161,6 +1166,11 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
             if not channel_data:
                 self.logger.info("🚀 Creating new changes watch for user %s", user_email)
                 channel_data = await self.gmail_admin_service.create_gmail_user_watch(org_id, user_email)
+                if not channel_data:
+                    self.logger.warning("Changes watch not created for user: %s", user_email)
+                else:
+                    await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user_email)
+
 
             current_timestamp = get_epoch_timestamp_in_ms()
             expiration_timestamp = channel_data.get('expiration', 0)
@@ -1202,10 +1212,10 @@ class GmailSyncEnterpriseService(BaseGmailSyncService):
                     'attachmentIds': attachment_ids,
                     'role': 'reader',
                     'users': [
-                        headers.get("To", []),
-                        headers.get("From", []),
-                        headers.get("Cc", []),
-                        headers.get("Bcc", [])
+                        *(headers.get("To", []) if isinstance(headers.get("To"), list) else [headers.get("To")] if headers.get("To") else []),
+                        *(headers.get("From", []) if isinstance(headers.get("From"), list) else [headers.get("From")] if headers.get("From") else []),
+                        *(headers.get("Cc", []) if isinstance(headers.get("Cc"), list) else [headers.get("Cc")] if headers.get("Cc") else []),
+                        *(headers.get("Bcc", []) if isinstance(headers.get("Bcc"), list) else [headers.get("Bcc")] if headers.get("Bcc") else [])
                     ]
                 })
 
@@ -1382,6 +1392,9 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                 channel_data = await self.gmail_user_service.create_gmail_user_watch()
                 if not channel_data:
                     self.logger.warning("Changes watch not created for user: %s", user_info['email'])
+                else:
+                    await self.arango_service.store_channel_history_id(channel_data['historyId'], channel_data['expiration'], user_info['email'])
+
                 
             current_timestamp = get_epoch_timestamp_in_ms()
             self.logger.info("🚀 Current timestamp: %s", current_timestamp)
@@ -1508,10 +1521,10 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                     'attachmentIds': attachment_ids,
                     'role': 'reader',
                     'users': [
-                        headers.get("To", []),
-                        headers.get("From", []),
-                        headers.get("Cc", []),
-                        headers.get("Bcc", [])
+                        *(headers.get("To", []) if isinstance(headers.get("To"), list) else [headers.get("To")] if headers.get("To") else []),
+                        *(headers.get("From", []) if isinstance(headers.get("From"), list) else [headers.get("From")] if headers.get("From") else []),
+                        *(headers.get("Cc", []) if isinstance(headers.get("Cc"), list) else [headers.get("Cc")] if headers.get("Cc") else []),
+                        *(headers.get("Bcc", []) if isinstance(headers.get("Bcc"), list) else [headers.get("Bcc")] if headers.get("Bcc") else [])
                     ]
                 }
                 self.logger.info("🚀 Mail Permission for message %s: %s", message['id'], permission)
@@ -1540,12 +1553,13 @@ class GmailSyncIndividualService(BaseGmailSyncService):
                     thread_messages = []
                     thread_attachments = []
 
+                    # Get messages for this thread
                     current_thread_messages = [
                         m for m in messages_full if m.get('threadId') == thread['id']
                     ]
 
                     if not current_thread_messages:
-                        self.logger.warning(f"❌ 2. No messages found for thread {thread['id']}")
+                        self.logger.warning("❌ No messages found for thread %s", thread['id'])
                         continue
 
                     # Process messages in thread
