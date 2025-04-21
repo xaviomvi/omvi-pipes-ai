@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
+import { lazy, Suspense, ReactNode } from 'react';
+import { Outlet, Navigate } from 'react-router-dom';
 
 import { CONFIG } from 'src/config-global';
 import { DashboardLayout } from 'src/layouts/dashboard';
@@ -7,6 +7,8 @@ import { DashboardLayout } from 'src/layouts/dashboard';
 import { LoadingScreen } from 'src/components/loading-screen';
 
 import { AuthGuard } from 'src/auth/guard';
+import { useAdmin } from 'src/context/AdminContext';
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
@@ -44,16 +46,93 @@ const RecordDetails = lazy(() => import('src/pages/dashboard/knowledgebase/recor
 const KnowledgeSearch = lazy(
   () => import('src/pages/dashboard/knowledgebase/knowledgebase-search')
 );
-// const KnowledgeSearchHistory = lazy(
-//   () => import('src/pages/dashboard/knowledgebase/knowledgebase-search-history')
-// );
-
-// const SearchHistoryDetails = lazy(
-//   () => import('src/pages/dashboard/knowledgebase/search-history-details')
-// );
 
 // ----------------------------------------------------------------------
 
+// Redirect component based on account type
+function AccountTypeRedirect() {
+  const { user } = useAuthContext();
+  const isBusiness = user?.accountType === 'business' || user?.accountType === 'organization';
+
+  if (isBusiness) {
+    return <Navigate to="/account/company-settings/profile" replace />;
+  }
+  return <Navigate to="/account/individual/profile" replace />;
+}
+
+// Guard components
+function BusinessRouteGuard({ children }: { children: ReactNode }) {
+  const { user } = useAuthContext();
+  const isBusiness = user?.accountType === 'business' || user?.accountType === 'organization';
+
+  if (!isBusiness) {
+    return <Navigate to="/account/individual/profile" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function IndividualRouteGuard({ children }: { children: ReactNode }) {
+  const { user } = useAuthContext();
+  const isBusiness = user?.accountType === 'business' || user?.accountType === 'organization';
+
+  if (isBusiness) {
+    return <Navigate to="/account/company-settings/profile" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function AdminRouteGuard({ children }: { children: ReactNode }) {
+  const { isAdmin } = useAdmin();
+  const { user } = useAuthContext();
+  const isBusiness = user?.accountType === 'business' || user?.accountType === 'organization';
+
+  if (!isBusiness) {
+    return <Navigate to="/account/individual/profile" replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/account/company-settings/profile" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// Route components with guards
+const BusinessOnlyRoute = ({ component: Component }: { component: React.ComponentType }) => (
+  <AuthGuard>
+    <BusinessRouteGuard>
+      <Component />
+    </BusinessRouteGuard>
+  </AuthGuard>
+);
+
+const BusinessAdminOnlyRoute = ({ component: Component }: { component: React.ComponentType }) => (
+  <AuthGuard>
+    <AdminRouteGuard>
+      <Component />
+    </AdminRouteGuard>
+  </AuthGuard>
+);
+
+const IndividualOnlyRoute = ({ component: Component }: { component: React.ComponentType }) => (
+  <AuthGuard>
+    <IndividualRouteGuard>
+      <Component />
+    </IndividualRouteGuard>
+  </AuthGuard>
+);
+
+const AdminProtectedRoute = ({ component: Component }: { component: React.ComponentType }) => (
+  <AuthGuard>
+    <AdminRouteGuard>
+      <Component />
+    </AdminRouteGuard>
+  </AuthGuard>
+);
+
+// Layout with outlet for nested routes
 const layoutContent = (
   <DashboardLayout>
     <Suspense fallback={<LoadingScreen />}>
@@ -73,63 +152,240 @@ export const dashboardRoutes = [
       {
         path: 'account',
         children: [
-          { path: 'company-settings/profile', element: <CompanyProfile /> },
-          { path: 'company-settings/personal-profile', element: <PersonalProfile /> },
-          { path: 'company-settings/user-profile/:id', element: <UserProfile /> },
-          { path: 'company-settings/groups/:id', element: <GroupDetails /> },
+          // Catch-all redirect for /account path
+          { index: true, element: <AccountTypeRedirect /> },
+
+          // Business account routes
+          {
+            path: 'company-settings/profile',
+            element: CONFIG.auth.skip ? (
+              <CompanyProfile />
+            ) : (
+              <BusinessOnlyRoute component={CompanyProfile} />
+            ),
+          },
+          {
+            path: 'company-settings/personal-profile',
+            element: CONFIG.auth.skip ? (
+              <PersonalProfile />
+            ) : (
+              <BusinessOnlyRoute component={PersonalProfile} />
+            ),
+          },
+
+          // Admin-only routes (business + admin)
+          {
+            path: 'company-settings/user-profile/:id',
+            element: CONFIG.auth.skip ? (
+              <UserProfile />
+            ) : (
+              <AdminProtectedRoute component={UserProfile} />
+            ),
+          },
+          {
+            path: 'company-settings/groups/:id',
+            element: CONFIG.auth.skip ? (
+              <GroupDetails />
+            ) : (
+              <AdminProtectedRoute component={GroupDetails} />
+            ),
+          },
           {
             path: 'company-settings',
             children: [
-              { path: 'users', element: <UsersAndGroups /> },
-              { path: 'groups', element: <UsersAndGroups /> },
-              { path: 'invites', element: <UsersAndGroups /> },
+              // Index route for company-settings
+              { index: true, element: <Navigate to="/account/company-settings/profile" replace /> },
+
+              {
+                path: 'users',
+                element: CONFIG.auth.skip ? (
+                  <UsersAndGroups />
+                ) : (
+                  <AdminProtectedRoute component={UsersAndGroups} />
+                ),
+              },
+              {
+                path: 'groups',
+                element: CONFIG.auth.skip ? (
+                  <UsersAndGroups />
+                ) : (
+                  <AdminProtectedRoute component={UsersAndGroups} />
+                ),
+              },
+              {
+                path: 'invites',
+                element: CONFIG.auth.skip ? (
+                  <UsersAndGroups />
+                ) : (
+                  <AdminProtectedRoute component={UsersAndGroups} />
+                ),
+              },
               {
                 path: 'settings',
                 children: [
+                  // Index route for company settings
+                  {
+                    index: true,
+                    element: CONFIG.auth.skip ? (
+                      <Navigate to="/account/company-settings/settings/authentication" replace />
+                    ) : (
+                      <AdminRouteGuard>
+                        <Navigate to="/account/company-settings/settings/authentication" replace />
+                      </AdminRouteGuard>
+                    ),
+                  },
+
                   {
                     path: 'authentication',
                     children: [
-                      { element: <AuthenticationSettings />, index: true },
-                      { path: 'saml', element: <SamlSsoConfigPage /> },
+                      {
+                        element: CONFIG.auth.skip ? (
+                          <AuthenticationSettings />
+                        ) : (
+                          <BusinessAdminOnlyRoute component={AuthenticationSettings} />
+                        ),
+                        index: true,
+                      },
+                      {
+                        path: 'saml',
+                        element: CONFIG.auth.skip ? (
+                          <SamlSsoConfigPage />
+                        ) : (
+                          <BusinessAdminOnlyRoute component={SamlSsoConfigPage} />
+                        ),
+                      },
                     ],
                   },
                   {
                     path: 'connector',
                     children: [
-                      { element: <ConnectorSettings />, index: true },
-                      { path: 'googleWorkspace', element: <GoogleWorkspaceBusinessPage /> },
+                      {
+                        element: CONFIG.auth.skip ? (
+                          <ConnectorSettings />
+                        ) : (
+                          <BusinessAdminOnlyRoute component={ConnectorSettings} />
+                        ),
+                        index: true,
+                      },
+                      {
+                        path: 'googleWorkspace',
+                        element: CONFIG.auth.skip ? (
+                          <GoogleWorkspaceBusinessPage />
+                        ) : (
+                          <BusinessAdminOnlyRoute component={GoogleWorkspaceBusinessPage} />
+                        ),
+                      },
                     ],
                   },
-
-                  { path: 'services', element: <ServiceSettings /> },
-                  { path: 'ai-models', element: <AiModelsSettings /> },
+                  {
+                    path: 'services',
+                    element: CONFIG.auth.skip ? (
+                      <ServiceSettings />
+                    ) : (
+                      <BusinessAdminOnlyRoute component={ServiceSettings} />
+                    ),
+                  },
+                  {
+                    path: 'ai-models',
+                    element: CONFIG.auth.skip ? (
+                      <AiModelsSettings />
+                    ) : (
+                      <BusinessAdminOnlyRoute component={AiModelsSettings} />
+                    ),
+                  },
                 ],
               },
             ],
           },
+
+          // Individual account routes
           {
             path: 'individual',
             children: [
-              { path: 'profile', element: <PersonalProfile /> },
+              // Index route for individual
+              { index: true, element: <Navigate to="/account/individual/profile" replace /> },
+
+              {
+                path: 'profile',
+                element: CONFIG.auth.skip ? (
+                  <PersonalProfile />
+                ) : (
+                  <IndividualOnlyRoute component={PersonalProfile} />
+                ),
+              },
               {
                 path: 'settings',
                 children: [
+                  // Index route for individual settings
+                  {
+                    index: true,
+                    element: CONFIG.auth.skip ? (
+                      <Navigate to="/account/individual/settings/authentication" replace />
+                    ) : (
+                      <IndividualRouteGuard>
+                        <Navigate to="/account/individual/settings/authentication" replace />
+                      </IndividualRouteGuard>
+                    ),
+                  },
+
                   {
                     path: 'authentication',
                     children: [
-                      { element: <AuthenticationSettings />, index: true },
-                      { path: 'config-saml', element: <SamlSsoConfigPage /> },
+                      {
+                        element: CONFIG.auth.skip ? (
+                          <AuthenticationSettings />
+                        ) : (
+                          <IndividualOnlyRoute component={AuthenticationSettings} />
+                        ),
+                        index: true,
+                      },
+                      {
+                        path: 'config-saml',
+                        element: CONFIG.auth.skip ? (
+                          <SamlSsoConfigPage />
+                        ) : (
+                          <IndividualOnlyRoute component={SamlSsoConfigPage} />
+                        ),
+                      },
                     ],
                   },
                   {
                     path: 'connector',
                     children: [
-                      { element: <ConnectorSettings />, index: true },
-                      { path: 'googleWorkspace', element: <GoogleWorkspaceIndividualPage /> },
+                      {
+                        element: CONFIG.auth.skip ? (
+                          <ConnectorSettings />
+                        ) : (
+                          <IndividualOnlyRoute component={ConnectorSettings} />
+                        ),
+                        index: true,
+                      },
+                      {
+                        path: 'googleWorkspace',
+                        element: CONFIG.auth.skip ? (
+                          <GoogleWorkspaceIndividualPage />
+                        ) : (
+                          <IndividualOnlyRoute component={GoogleWorkspaceIndividualPage} />
+                        ),
+                      },
                     ],
                   },
-                  { path: 'services', element: <ServiceSettings /> },
-                  { path: 'ai-models', element: <AiModelsSettings /> },
+                  {
+                    path: 'services',
+                    element: CONFIG.auth.skip ? (
+                      <ServiceSettings />
+                    ) : (
+                      <IndividualOnlyRoute component={ServiceSettings} />
+                    ),
+                  },
+                  {
+                    path: 'ai-models',
+                    element: CONFIG.auth.skip ? (
+                      <AiModelsSettings />
+                    ) : (
+                      <IndividualOnlyRoute component={AiModelsSettings} />
+                    ),
+                  },
                 ],
               },
             ],
@@ -142,19 +398,43 @@ export const dashboardRoutes = [
           { path: 'details', element: <KnowledgeBaseList /> },
           {
             path: 'search',
-            children: [
-              { element: <KnowledgeSearch />, index: true },
-              // { path: 'history', element: <KnowledgeSearchHistory /> },
-              // { path: 'history/:id', element: <SearchHistoryDetails /> },
-            ],
+            children: [{ element: <KnowledgeSearch />, index: true }],
           },
-          { path: 'company-settings/groups/:id', element: <GroupDetails /> },
+          {
+            path: 'company-settings/groups/:id',
+            element: CONFIG.auth.skip ? (
+              <GroupDetails />
+            ) : (
+              <AdminProtectedRoute component={GroupDetails} />
+            ),
+          },
           {
             path: 'company-settings',
             children: [
-              { path: 'users', element: <UsersAndGroups /> },
-              { path: 'groups', element: <UsersAndGroups /> },
-              { path: 'invites', element: <UsersAndGroups /> },
+              {
+                path: 'users',
+                element: CONFIG.auth.skip ? (
+                  <UsersAndGroups />
+                ) : (
+                  <AdminProtectedRoute component={UsersAndGroups} />
+                ),
+              },
+              {
+                path: 'groups',
+                element: CONFIG.auth.skip ? (
+                  <UsersAndGroups />
+                ) : (
+                  <AdminProtectedRoute component={UsersAndGroups} />
+                ),
+              },
+              {
+                path: 'invites',
+                element: CONFIG.auth.skip ? (
+                  <UsersAndGroups />
+                ) : (
+                  <AdminProtectedRoute component={UsersAndGroups} />
+                ),
+              },
             ],
           },
         ],

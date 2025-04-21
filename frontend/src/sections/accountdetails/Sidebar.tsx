@@ -25,6 +25,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import { Iconify } from 'src/components/iconify';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { useAdmin } from 'src/context/AdminContext';
 
 const drawerWidth = 240;
 
@@ -33,6 +34,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { user } = useAuthContext();
+  const { isAdmin } = useAdmin();
 
   // Determine account type
   const isBusiness = user?.accountType === 'business' || user?.accountType === 'organization';
@@ -80,19 +82,7 @@ export default function Sidebar() {
   ];
 
   // Business-specific settings options
-  const businessSettingsOptions = [
-    ...commonSettingsOptions,
-    {
-      name: 'Crawling',
-      icon: spiderWebIcon,
-      path: `${baseUrl}/settings/crawling`,
-    },
-    {
-      name: 'Integrations',
-      icon: connectionIcon,
-      path: `${baseUrl}/settings/integrations`,
-    },
-  ];
+  const businessSettingsOptions = [...commonSettingsOptions];
 
   // Use the appropriate settings options based on account type
   const settingsOptions = isBusiness ? businessSettingsOptions : commonSettingsOptions;
@@ -128,49 +118,54 @@ export default function Sidebar() {
                 <ListItemText primary="Profile" />
               </ListItemButton>
             </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton
-                onClick={() => navigate(`${baseUrl}/users`)}
-                selected={pathname === `${baseUrl}/users`}
-              >
-                <ListItemIcon>
-                  <Iconify icon={accountGroupIcon} width="24" height="24" />
-                </ListItemIcon>
-                <ListItemText primary="Users & Groups" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton
-                onClick={handleToggleSettings}
-                selected={isSettingsPath || settingsOpen}
-              >
-                <ListItemIcon>
-                  <Iconify icon={cogIcon} width="24" height="24" />
-                </ListItemIcon>
-                <ListItemText primary="Settings" />
-                <Iconify icon={settingsOpen ? upIcon : downIcon} width="20" height="20" />
-              </ListItemButton>
-            </ListItem>
-            <Collapse in={settingsOpen} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                {settingsOptions.map((option) => (
+            {isAdmin && (
+              <>
+                <ListItem disablePadding>
                   <ListItemButton
-                    key={option.name}
-                    sx={{ pl: 4 }}
-                    onClick={() => navigate(option.path)}
-                    selected={pathname === option.path}
+                    onClick={() => navigate(`${baseUrl}/users`)}
+                    selected={pathname === `${baseUrl}/users`}
                   >
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <Iconify icon={option.icon} width="20" height="20" />
+                    <ListItemIcon>
+                      <Iconify icon={accountGroupIcon} width="24" height="24" />
                     </ListItemIcon>
-                    <ListItemText
-                      primary={option.name}
-                      primaryTypographyProps={{ fontSize: '0.9rem' }}
-                    />
+                    <ListItemText primary="Users & Groups" />
                   </ListItemButton>
-                ))}
-              </List>
-            </Collapse>
+                </ListItem>
+
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={handleToggleSettings}
+                    selected={isSettingsPath || settingsOpen}
+                  >
+                    <ListItemIcon>
+                      <Iconify icon={cogIcon} width="24" height="24" />
+                    </ListItemIcon>
+                    <ListItemText primary="Settings" />
+                    <Iconify icon={settingsOpen ? upIcon : downIcon} width="20" height="20" />
+                  </ListItemButton>
+                </ListItem>
+                <Collapse in={settingsOpen} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {settingsOptions.map((option) => (
+                      <ListItemButton
+                        key={option.name}
+                        sx={{ pl: 4 }}
+                        onClick={() => navigate(option.path)}
+                        selected={pathname === option.path}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36 }}>
+                          <Iconify icon={option.icon} width="20" height="20" />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={option.name}
+                          primaryTypographyProps={{ fontSize: '0.9rem' }}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Collapse>
+              </>
+            )}
           </List>
           <Divider />
         </>

@@ -131,6 +131,7 @@ export default function CompanyProfile() {
     fetchOrgData();
   }, [reset]);
 
+  // Modify the fetchLogo function in company-profile.tsx to handle errors gracefully
   useEffect(() => {
     const fetchLogo = async () => {
       try {
@@ -138,9 +139,21 @@ export default function CompanyProfile() {
         const logoUrl = await getOrgLogo(orgId);
         setLogo(logoUrl);
       } catch (err) {
-        setError('Failed to fetch logo');
-        setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
-        console.error(err, 'error in fetching logo');
+        // Don't show error message for 404 errors - this is expected when no logo exists
+        if (err.response && err.response.status === 404) {
+          console.log('No logo found for organization - this is normal for new organizations');
+          // Just set logo to null and continue
+          setLogo(null);
+        } else {
+          // For other errors, show the error message
+          setError('Failed to fetch logo');
+          setSnackbar({
+            open: true,
+            message: err.errorMessage || 'Error loading logo',
+            severity: 'error',
+          });
+          console.error(err, 'error in fetching logo');
+        }
       }
     };
 
