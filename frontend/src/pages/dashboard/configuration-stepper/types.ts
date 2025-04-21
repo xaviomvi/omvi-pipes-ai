@@ -28,6 +28,14 @@ export interface AzureLlmFormValues {
   model: string;
 }
 
+// Embedding configuration
+export interface EmbeddingFormValues {
+  modelType: 'openai' | 'azureOpenAI';
+  apiKey: string;
+  model: string;
+  endpoint?: string; // Only required for Azure
+}
+
 // Union type for LLM form values
 export type LlmFormValues =
   | OpenAILlmFormValues

@@ -1,5 +1,5 @@
 // validations.ts
-import type { AiModel, LlmConfig } from './types';
+import type { AiModel, LlmConfig, EmbeddingConfig } from './types';
 
 /**
  * Validates model configuration based on model type
@@ -23,9 +23,8 @@ export const validateModelConfiguration = (
       
       // Provider-specific validation
       if (llmConfig.modelType === 'openai') {
-        if (!llmConfig.clientId) {
-          return { valid: false, message: 'Client ID is required for OpenAI' };
-        }
+        // Client ID is now optional
+        return { valid: true };
       } else if (llmConfig.modelType === 'azure') {
         if (!llmConfig.endpoint) {
           return { valid: false, message: 'Endpoint is required for Azure OpenAI' };
@@ -57,21 +56,25 @@ export const validateModelConfiguration = (
     }
     
     case 'embedding': {
-      if (!config.apiKey) {
+      const embeddingConfig = config as EmbeddingConfig;
+      
+      // If using default, no validation needed
+      if (embeddingConfig.modelType === 'default') {
+        return { valid: true };
+      }
+      
+      // Common validation for both OpenAI and Azure
+      if (!embeddingConfig.apiKey) {
         return { valid: false, message: 'API Key is required' };
       }
       
-      if (!config.name) {
-        return { valid: false, message: 'Provider name is required' };
-      }
-      
-      if (!config.model) {
+      if (!embeddingConfig.model) {
         return { valid: false, message: 'Model name is required' };
       }
       
-      // Some embedding providers require an endpoint
-      if (['Azure OpenAI'].includes(config.name) && !config.endpoint) {
-        return { valid: false, message: `Endpoint is required for ${config.name}` };
+      // Azure-specific validation
+      if (embeddingConfig.modelType === 'azureOpenAI' && !embeddingConfig.endpoint) {
+        return { valid: false, message: 'Endpoint is required for Azure OpenAI' };
       }
       
       return { valid: true };

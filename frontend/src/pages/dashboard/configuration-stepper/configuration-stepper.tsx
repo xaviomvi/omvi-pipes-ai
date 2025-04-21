@@ -41,10 +41,12 @@ import type {
   AzureLlmFormValues,
   OpenAILlmFormValues,
   ConnectorFormValues,
+  EmbeddingFormValues,
 } from './types';
+import EmbeddingConfigStep from './embedding-config';
 
 // Updated steps to include Storage
-const steps: string[] = ['LLM', 'Storage', 'Connector', 'SMTP'];
+const steps: string[] = ['LLM', 'Embeddings', 'Storage', 'Connector', 'SMTP'];
 
 // API base URLs
 const API_BASE_URL = '/api/v1/configurationManager';
@@ -76,11 +78,13 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
   // Track which steps are being skipped
   const [skipSteps, setSkipSteps] = useState<{
     llm: boolean; // This will always be false now (required)
+    embedding: boolean;
     storage: boolean; // Add storage step
     connector: boolean;
     smtp: boolean;
   }>({
     llm: false,
+    embedding: false,
     storage: false,
     connector: false,
     smtp: false,
@@ -88,6 +92,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
 
   // State to hold form values from each step
   const [llmValues, setLlmValues] = useState<LlmFormValues | null>(null);
+  const [embeddingValues, setEmbeddingValues] = useState<EmbeddingFormValues | null>(null);
   const [storageValues, setStorageValues] = useState<StorageFormValues | null>(null);
   const [connectorValues, setConnectorValues] = useState<ConnectorFormValues | null>(null);
   const [smtpValues, setSmtpValues] = useState<SmtpFormValues | null>(null);
@@ -105,6 +110,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       // Reset skip states
       setSkipSteps({
         llm: false,
+        embedding: false,
         storage: false,
         connector: false,
         smtp: false,
@@ -153,9 +159,13 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
     onClose();
   };
 
-  const handleSkipStep = (step: 'storage' | 'connector' | 'smtp'): void => {
+  const handleSkipStep = (step: 'embedding' | 'storage' | 'connector' | 'smtp'): void => {
     // Mark the step as skipped
     setSkipSteps((prev) => ({ ...prev, [step]: true }));
+
+    if (step === 'embedding') {
+      setEmbeddingValues(null);
+    }
 
     // If skipping storage, set default local storage values
     if (step === 'storage') {
@@ -168,7 +178,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
     }
 
     // If this is the last step (SMTP), submit all configurations
-    if (step === 'smtp' && activeStep === 3) {
+    if (step === 'smtp' && activeStep === 4) {
       submitAllConfigurations();
     } else {
       // Otherwise, move to the next step
@@ -192,17 +202,42 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       return;
     }
 
-    // For Storage step
+    // For embedding step
     if (activeStep === 1) {
       // If already marked as skipped, just go to the next step
-      if (skipSteps.storage) {
+      if (skipSteps.embedding) {
         setActiveStep(2);
+        return;
+      }
+
+      // If we already have embedding values, just go to the next step
+      if (embeddingValues) {
+        setActiveStep(2);
+        return;
+      }
+
+      // Otherwise, try to submit the form or skip
+      const embeddingFormSubmitted = await submitEmbeddingForm();
+      if (!embeddingFormSubmitted) {
+        handleSkipStep('embedding');
+        return;
+      }
+
+      setActiveStep(2);
+      return;
+    }
+
+    // For Storage step
+    if (activeStep === 2) {
+      // If already marked as skipped, just go to the next step
+      if (skipSteps.storage) {
+        setActiveStep(3);
         return;
       }
 
       // If we already have storage values, just go to the next step
       if (storageValues) {
-        setActiveStep(2);
+        setActiveStep(3);
         return;
       }
 
@@ -213,21 +248,21 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         handleSkipStep('storage');
         return;
       }
-      setActiveStep(2);
+      setActiveStep(3);
       return;
     }
 
     // For Connector step
-    if (activeStep === 2) {
+    if (activeStep === 3) {
       // If already marked as skipped, just go to the next step
       if (skipSteps.connector) {
-        setActiveStep(3);
+        setActiveStep(4);
         return;
       }
 
       // If we already have connector values, just go to the next step
       if (connectorValues) {
-        setActiveStep(3);
+        setActiveStep(4);
         return;
       }
 
@@ -237,7 +272,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         handleSkipStep('connector');
         return;
       }
-      setActiveStep(3);
+      setActiveStep(4);
     }
   };
 
@@ -248,6 +283,22 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
   const handleLlmSubmit = (data: LlmFormValues): void => {
     setLlmValues(data);
     setSkipSteps((prev) => ({ ...prev, llm: false })); // Ensure it's marked as not skipped
+
+    // Give time for state to update before moving to next step
+    setTimeout(() => {
+      // If this is the last step (shouldn't happen normally, but just in case)
+      if (activeStep === steps.length - 1) {
+        submitAllConfigurations();
+      } else {
+        handleNext();
+      }
+    }, 0);
+  };
+
+  // Handle embedding step submission
+  const handleEmbeddingSubmit = (data: EmbeddingFormValues): void => {
+    setEmbeddingValues(data);
+    setSkipSteps((prev) => ({ ...prev, embedding: false })); // Ensure it's marked as not skipped
 
     // Give time for state to update before moving to next step
     setTimeout(() => {
@@ -333,6 +384,40 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
     }
 
     return false;
+  };
+
+  // Submit Embedding form programmatically
+  const submitEmbeddingForm = async (): Promise<boolean> => {
+    try {
+      // Method 1: Use the window method
+      if (typeof (window as any).submitEmbeddingForm === 'function') {
+        const result = await Promise.resolve((window as any).submitEmbeddingForm());
+        // Wait for state to update
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return result === true; // Ensure it's explicitly true
+      }
+
+      // Method 2: Find and click the submit button
+      const embeddingSubmitButton = document.querySelector(
+        '#embedding-config-form button[type="submit"]'
+      );
+
+      if (embeddingSubmitButton) {
+        (embeddingSubmitButton as HTMLButtonElement).click();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Check validation status
+        const formValid =
+          typeof (window as any).isEmbeddingFormValid === 'function'
+            ? await Promise.resolve((window as any).isEmbeddingFormValid())
+            : false;
+        return formValid === true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error validating embedding form:', error);
+      return false;
+    }
   };
 
   // Submit Storage form programmatically
@@ -480,9 +565,38 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             })(),
           },
         ],
+        // Include embedding configuration if available
+        embedding: embeddingValues
+          ? [
+              {
+                provider: embeddingValues.modelType === 'openai' ? 'openAI' : 'azureOpenAI',
+                configuration: (() => {
+                  // For OpenAI embedding
+                  if (embeddingValues.modelType === 'openai') {
+                    return {
+                      apiKey: embeddingValues.apiKey,
+                      model: embeddingValues.model,
+                    };
+                  }
+
+                  // For Azure OpenAI embedding
+                  const config: any = {
+                    apiKey: embeddingValues.apiKey,
+                    model: embeddingValues.model,
+                  };
+
+                  // Add endpoint for Azure
+                  if (embeddingValues.endpoint && embeddingValues.endpoint.trim() !== '') {
+                    config.endpoint = embeddingValues.endpoint;
+                  }
+
+                  return config;
+                })(),
+              },
+            ]
+          : [], // Empty array if no embedding values or skipped
         // Include other model types with empty arrays to match API format
         ocr: [],
-        embedding: [],
         slm: [],
         reasoning: [],
         multiModal: [],
@@ -774,6 +888,26 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       }
 
       case 1: {
+        // LLM step - always required
+        // Always validate LLM values regardless of previous state
+
+        if (skipSteps.embedding) {
+          // If user wants to continue instead of skip now, we should validate
+          setSkipSteps((prev) => ({ ...prev, embedding: false }));
+        }
+
+        // Even if we have values, re-validate to ensure they're still valid
+        const embeddingSuccess = await submitEmbeddingForm();
+        if (!embeddingSuccess) {
+          setSubmissionError('Embedding configuration is required. All fields must be filled correctly. Or skip for default configuration');
+          return;
+        }
+
+        setActiveStep(2);
+        break;
+      }
+
+      case 2: {
         // Storage step
         // IMPORTANT: Reset the skip state when user tries to continue
         // This ensures validation is applied even if previously skipped
@@ -792,11 +926,11 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           return;
         }
 
-        setActiveStep(2);
+        setActiveStep(3);
         break;
       }
 
-      case 2: {
+      case 3: {
         // Connector step
         // IMPORTANT: Reset the skip state when user tries to continue
         // This ensures validation is applied even if previously skipped
@@ -828,11 +962,11 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           return;
         }
 
-        setActiveStep(3);
+        setActiveStep(4);
         break;
       }
 
-      case 3: {
+      case 4: {
         // SMTP step (final)
         // IMPORTANT: Reset the skip state when user tries to continue
         // This ensures validation is applied even if previously skipped
@@ -886,13 +1020,21 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         );
       case 1:
         return (
+          <EmbeddingConfigStep
+            onSubmit={handleEmbeddingSubmit}
+            onSkip={() => {}} // LLM can no longer be skipped
+            initialValues={embeddingValues}
+          />
+        );
+      case 2:
+        return (
           <StorageConfigStep
             onSubmit={handleStorageSubmit}
             onSkip={() => handleSkipStep('storage')}
             initialValues={storageValues}
           />
         );
-      case 2:
+      case 3:
         return (
           <ConnectorConfigStep
             onSubmit={handleConnectorSubmit}
@@ -908,7 +1050,7 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
             }
           />
         );
-      case 3:
+      case 4:
         return (
           <SmtpConfigStep
             onSubmit={handleSmtpSubmit}
@@ -964,9 +1106,13 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
               switch (activeStep) {
                 case 1:
                   // Storage step - explicitly mention going with default local storage
-                  handleSkipStep('storage');
+                  handleSkipStep('embedding');
                   break;
                 case 2:
+                  // Storage step - explicitly mention going with default local storage
+                  handleSkipStep('storage');
+                  break;
+                case 3:
                   handleSkipStep('connector');
                   break;
                 default:
@@ -1018,8 +1164,10 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         case 0:
           return llmValues ? 'completed' : undefined; // LLM can't be skipped
         case 1:
-          return skipSteps.storage || storageValues ? 'completed' : undefined;
+          return skipSteps.embedding || embeddingValues ? 'completed' : undefined; // LLM can't be skipped
         case 2:
+          return skipSteps.storage || storageValues ? 'completed' : undefined;
+        case 3:
           return skipSteps.connector || connectorValues ? 'completed' : undefined;
         default:
           return undefined;

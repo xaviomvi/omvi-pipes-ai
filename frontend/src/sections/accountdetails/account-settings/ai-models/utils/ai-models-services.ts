@@ -52,18 +52,18 @@ export const updateLlmConfig = async (config: LlmConfig, name: string = 'openAI'
   try {
     // First get the current configuration
     const currentConfig = await getAiModelsConfig();
-    
+
     // Create or update the LLM configuration
     const updatedConfig = {
       ...currentConfig,
       llm: [
         {
           name,
-          configuration: config
-        }
-      ]
+          configuration: config,
+        },
+      ],
     };
-    
+
     // Update the configuration
     const response = await axios.post(`${API_BASE}/aiModelsConfig`, updatedConfig);
     return response.data;
@@ -94,18 +94,18 @@ export const updateOcrConfig = async (config: OCRConfig) => {
   try {
     // First get the current configuration
     const currentConfig = await getAiModelsConfig();
-    
+
     // Create or update the OCR configuration
     const updatedConfig = {
       ...currentConfig,
       ocr: [
         {
           name: config.name,
-          configuration: config
-        }
-      ]
+          configuration: config,
+        },
+      ],
     };
-    
+
     // Update the configuration
     const response = await axios.post(`${API_BASE}/aiModelsConfig`, updatedConfig);
     return response.data;
@@ -118,11 +118,31 @@ export const updateOcrConfig = async (config: OCRConfig) => {
 /**
  * Get Embedding configuration
  */
-export const getEmbeddingConfig = async () => {
+export const getEmbeddingConfig = async (): Promise<EmbeddingConfig | null> => {
   try {
     const response = await axios.get(`${API_BASE}/aiModelsConfig`);
     const embeddingConfigs = response.data.embedding || [];
-    return embeddingConfigs.length > 0 ? embeddingConfigs[0].configuration : null;
+
+    // If no embedding configurations exist, return default
+    if (embeddingConfigs.length === 0) {
+      return { modelType: 'default' };
+    }
+
+    const config = embeddingConfigs[0];
+    // Determine the model type based on provider
+    let modelType: 'openAI' | 'azureOpenAI' | 'default' = 'default';
+
+    if (config.provider === 'azureOpenAI') {
+      modelType = 'azureOpenAI';
+    } else if (config.provider === 'openAI') {
+      modelType = 'openAI';
+    }
+
+    // Return the configuration with the correct model type
+    return {
+      modelType,
+      ...config.configuration,
+    };
   } catch (error) {
     console.error('Error fetching Embedding configuration:', error);
     throw error;
@@ -130,27 +150,41 @@ export const getEmbeddingConfig = async () => {
 };
 
 /**
- * Update Embedding configuration
+ * Update Embedding configuration with support for default (empty config)
  */
-export const updateEmbeddingConfig = async (config: EmbeddingConfig) => {
+export const updateEmbeddingConfig = async (config: EmbeddingConfig): Promise<any> => {
   try {
     // First get the current configuration
-    const currentConfig = await getAiModelsConfig();
-    
-    // Create or update the Embedding configuration
-    const updatedConfig = {
-      ...currentConfig,
-      embedding: [
-        {
-          name: config.name,
-          configuration: config
-        }
-      ]
-    };
-    
+    const response = await axios.get(`${API_BASE}/aiModelsConfig`);
+    const currentConfig = response.data;
+
+    let updatedConfig;
+
+    // Handle the default case - sends an empty array for embedding
+    if (config.modelType === 'default') {
+      updatedConfig = {
+        ...currentConfig,
+        embedding: [], // Empty array means use default
+      };
+    } else {
+      // For OpenAI or Azure, prepare the configuration
+      const { modelType, ...configData } = config;
+      const provider = modelType === 'azureOpenAI' ? 'azureOpenAI' : 'openAI';
+
+      updatedConfig = {
+        ...currentConfig,
+        embedding: [
+          {
+            provider,
+            configuration: configData,
+          },
+        ],
+      };
+    }
+
     // Update the configuration
-    const response = await axios.post(`${API_BASE}/aiModelsConfig`, updatedConfig);
-    return response.data;
+    const updateResponse = await axios.post(`${API_BASE}/aiModelsConfig`, updatedConfig);
+    return updateResponse.data;
   } catch (error) {
     console.error('Error updating Embedding configuration:', error);
     throw error;
@@ -178,22 +212,22 @@ export const updateModelConfig = async (modelType: string, config: ModelConfig) 
   try {
     // First get the current configuration
     const currentConfig = await getAiModelsConfig();
-    
+
     // Create or update the model configuration
     const modelConfigs = [...(currentConfig[modelType] || [])];
-    const existingIndex = modelConfigs.findIndex(c => c.name === config.name);
-    
+    const existingIndex = modelConfigs.findIndex((c) => c.name === config.name);
+
     if (existingIndex >= 0) {
       modelConfigs[existingIndex] = config;
     } else {
       modelConfigs.push(config);
     }
-    
+
     const updatedConfig = {
       ...currentConfig,
-      [modelType]: modelConfigs
+      [modelType]: modelConfigs,
     };
-    
+
     // Update the configuration
     const response = await axios.post(`${API_BASE}/aiModelsConfig`, updatedConfig);
     return response.data;
