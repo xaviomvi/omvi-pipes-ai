@@ -410,6 +410,11 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
           typeof (window as any).isEmbeddingFormValid === 'function'
             ? await Promise.resolve((window as any).isEmbeddingFormValid())
             : false;
+
+        if (!formValid) {
+          console.error('Embedding form is invalid');
+          return false;
+        }
         return formValid === true;
       }
 
@@ -899,7 +904,9 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
         // Even if we have values, re-validate to ensure they're still valid
         const embeddingSuccess = await submitEmbeddingForm();
         if (!embeddingSuccess) {
-          setSubmissionError('Embedding configuration is required. All fields must be filled correctly. Or skip for default configuration');
+          setSubmissionError(
+            'Embedding configuration is required. All fields must be filled correctly. Or skip for default configuration'
+          );
           return;
         }
 
