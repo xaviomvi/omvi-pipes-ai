@@ -34,6 +34,7 @@ qna_prompt = """
         - For each chunk block provide the citations chunk only **highly revelant indexes** in below format. Give the order of the citation index in the order of relevancy
             - **Do not list excessive citations for the same point. Include only the top 4-5 most relevant chunk indexes for any statement, ensuring they represent the strongest support.**
         - Provide a structured response that includes the answer, reasoning, confidence level, and documents used for reference.
+        - ** ALWAYS PROVIDE CITATION NUMBERS AS PART OF THE ANSWER WHENEVER QUERY ANSWERED FROM CHUNKS **
         2. Citation Format:
         - Use square brackets for reference IDs: like [3], [5], using "Verbatim Document Indexes starting from 1, 2" etc.
 
