@@ -87,7 +87,7 @@ const createUserValidationSchema = z.object({
 });
 
 const updateFullNameBody = z.object({
-  fullName: z.string().min(1, 'fullName is required'),
+  fullName: z.string().min(1, 'fullName must have at least one character').optional(),
 });
 
 const updateFirstNameBody = z.object({
