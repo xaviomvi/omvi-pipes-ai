@@ -32,7 +32,7 @@ export function Section({
   layoutQuery,
   methods,
   title = 'Manage the job',
-  imgUrl = `/logo/signinpage.png`,
+  imgUrl = `/logo/welcomegif.gif`,
   subtitle = 'More effectively with optimized workflows.',
   ...other
 }: SectionProps) {

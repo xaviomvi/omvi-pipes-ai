@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
+  Link,
   Paper,
   Alert,
   Snackbar,
@@ -431,6 +432,13 @@ const AuthenticationSettings: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link href="https://docs.pipeshub.com/auth" target="_blank" rel="noopener">
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
     </Container>
   );
 };

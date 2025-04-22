@@ -56,6 +56,7 @@ const createUserBody = z.object({
   designation: z.string().optional(),
 });
 const updateUserBody = z.object({
+  fullName: z.string().optional(),
   email: z.string().email('Invalid email'),
   mobile: z
     .string()
@@ -87,7 +88,7 @@ const createUserValidationSchema = z.object({
 });
 
 const updateFullNameBody = z.object({
-  fullName: z.string().min(1, 'fullName is required'),
+  fullName: z.string().min(1, 'fullName must have at least one character'),
 });
 
 const updateFirstNameBody = z.object({
