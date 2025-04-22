@@ -6,6 +6,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
   Grid,
+  Link,
   Paper,
   Alert,
   Snackbar,
@@ -394,6 +395,13 @@ const AiModelsSettings = () => {
           {warning}
         </Alert>
       </Snackbar>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link href="https://docs.pipeshub.com/ai-models/overview" target="_blank" rel="noopener">
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
     </Container>
   );
 };

@@ -21,9 +21,12 @@ import { EncryptionService } from '../../../libs/encryptor/encryptor';
 import { loadConfigurationManagerConfig } from '../config/config';
 import { Org } from '../../user_management/schema/org.schema';
 import {
+  ConnectorPublicUrlChangedEvent,
   EntitiesEventProducer,
   Event,
   EventType,
+  GmailUpdatesDisabledEvent,
+  GmailUpdatesEnabledEvent,
   LLMConfiguredEvent,
 } from '../../user_management/services/entity_events.service';
 import { DefaultStorageConfig } from '../../tokens_manager/services/cm.service';
@@ -683,7 +686,12 @@ export const getKafkaConfig =
   };
 
 export const createGoogleWorkspaceCredentials =
-  (keyValueStoreService: KeyValueStoreService, userId: string, orgId: string) =>
+  (
+    keyValueStoreService: KeyValueStoreService,
+    userId: string,
+    orgId: string,
+    eventService: EntitiesEventProducer,
+  ) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
       const org = await Org.findOne({ orgId, isDeleted: false });
@@ -738,7 +746,7 @@ export const createGoogleWorkspaceCredentials =
                 refresh_token,
                 access_token_expiry_time,
                 refresh_token_expiry_time,
-                enableRealTimeUpdates,
+                enableRealTimeUpdates: realTimeUpdatesEnabled,
                 topicName,
               }),
             );
@@ -791,9 +799,11 @@ export const createGoogleWorkspaceCredentials =
           const enableRealTimeUpdates = req.body.enableRealTimeUpdates;
           let topicName = '';
           const realTimeUpdatesEnabled =
-            typeof enableRealTimeUpdates === 'string'
-              ? enableRealTimeUpdates.toLowerCase() === 'true'
-              : !!enableRealTimeUpdates;
+            enableRealTimeUpdates === undefined
+              ? false
+              : typeof enableRealTimeUpdates === 'string'
+                ? enableRealTimeUpdates.toLowerCase() === 'true'
+                : Boolean(enableRealTimeUpdates);
 
           if (realTimeUpdatesEnabled) {
             if (!req.body.topicName) {
@@ -809,6 +819,52 @@ export const createGoogleWorkspaceCredentials =
           logger.debug('topicName:', topicName);
 
           let configData;
+
+          if (existingConfig) {
+            if (
+              existingConfig.topicName != topicName ||
+              existingConfig.enableRealTimeUpdates != realTimeUpdatesEnabled
+            ) {
+              if (realTimeUpdatesEnabled) {
+                await eventService.start();
+                const event: Event = {
+                  eventType: EventType.GmailUpdatesEnabledEvent,
+                  timestamp: Date.now(),
+                  payload: {
+                    orgId,
+                    topicName: req.body.topicName,
+                  } as GmailUpdatesEnabledEvent,
+                };
+                await eventService.publishEvent(event);
+                await eventService.stop();
+              } else {
+                await eventService.start();
+                const event: Event = {
+                  eventType: EventType.GmailUpdatesDisabledEvent,
+                  timestamp: Date.now(),
+                  payload: {
+                    orgId: req.user?.orgId,
+                  } as GmailUpdatesDisabledEvent,
+                };
+                await eventService.publishEvent(event);
+                await eventService.stop();
+              }
+            }
+          } else {
+            if (realTimeUpdatesEnabled) {
+              await eventService.start();
+              const event: Event = {
+                eventType: EventType.GmailUpdatesEnabledEvent,
+                timestamp: Date.now(),
+                payload: {
+                  orgId,
+                  topicName: req.body.topicName,
+                } as GmailUpdatesEnabledEvent,
+              };
+              await eventService.publishEvent(event);
+              await eventService.stop();
+            }
+          }
 
           if (fileChanged) {
             // Only validate the file if it's changed
@@ -1026,15 +1082,21 @@ export const deleteGoogleWorkspaceCredentials =
     }
   };
 export const setGoogleWorkspaceOauthConfig =
-  (keyValueStoreService: KeyValueStoreService) =>
+  (
+    keyValueStoreService: KeyValueStoreService,
+    eventService: EntitiesEventProducer,
+    orgId: string,
+  ) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
       const { clientId, clientSecret, enableRealTimeUpdates } = req.body;
       let topicName = '';
       const realTimeUpdatesEnabled =
-        typeof enableRealTimeUpdates === 'string'
-          ? enableRealTimeUpdates.toLowerCase() === 'true'
-          : !!enableRealTimeUpdates;
+        enableRealTimeUpdates === undefined
+          ? false
+          : typeof enableRealTimeUpdates === 'string'
+            ? enableRealTimeUpdates.toLowerCase() === 'true'
+            : Boolean(enableRealTimeUpdates);
 
       if (realTimeUpdatesEnabled) {
         if (!req.body.topicName) {
@@ -1045,6 +1107,62 @@ export const setGoogleWorkspaceOauthConfig =
         topicName = req.body.topicName;
       }
       const configManagerConfig = loadConfigurationManagerConfig();
+      const existingGoogleWorkSpaceConfig =
+        await keyValueStoreService.get<string>(
+          configPaths.connectors.googleWorkspace.config,
+        );
+      if (existingGoogleWorkSpaceConfig) {
+        const googleWorkSpaceConfig = JSON.parse(
+          EncryptionService.getInstance(
+            configManagerConfig.algorithm,
+            configManagerConfig.secretKey,
+          ).decrypt(existingGoogleWorkSpaceConfig),
+        );
+        if (
+          googleWorkSpaceConfig.topicName != topicName ||
+          googleWorkSpaceConfig.enableRealTimeUpdates != realTimeUpdatesEnabled
+        ) {
+          if (realTimeUpdatesEnabled) {
+            await eventService.start();
+            const event: Event = {
+              eventType: EventType.GmailUpdatesEnabledEvent,
+              timestamp: Date.now(),
+              payload: {
+                orgId,
+                topicName: req.body.topicName,
+              } as GmailUpdatesEnabledEvent,
+            };
+            await eventService.publishEvent(event);
+            await eventService.stop();
+          } else {
+            await eventService.start();
+            const event: Event = {
+              eventType: EventType.GmailUpdatesDisabledEvent,
+              timestamp: Date.now(),
+              payload: {
+                orgId: req.user?.orgId,
+              } as GmailUpdatesDisabledEvent,
+            };
+            await eventService.publishEvent(event);
+            await eventService.stop();
+          }
+        }
+      } else {
+        if (realTimeUpdatesEnabled) {
+          await eventService.start();
+          const event: Event = {
+            eventType: EventType.GmailUpdatesEnabledEvent,
+            timestamp: Date.now(),
+            payload: {
+              orgId,
+              topicName: req.body.topicName,
+            } as GmailUpdatesEnabledEvent,
+          };
+          await eventService.publishEvent(event);
+          await eventService.stop();
+        }
+      }
+
       const encryptedGoogleWorkSpaceConfig = EncryptionService.getInstance(
         configManagerConfig.algorithm,
         configManagerConfig.secretKey,
@@ -1052,7 +1170,7 @@ export const setGoogleWorkspaceOauthConfig =
         JSON.stringify({
           clientId,
           clientSecret,
-          enableRealTimeUpdates,
+          enableRealTimeUpdates: realTimeUpdatesEnabled,
           topicName,
         }),
       );
@@ -1060,6 +1178,7 @@ export const setGoogleWorkspaceOauthConfig =
         configPaths.connectors.googleWorkspace.config,
         encryptedGoogleWorkSpaceConfig,
       );
+
       res
         .status(200)
         .json({ message: 'Google Workspace credentials created successfully' });
@@ -1349,7 +1468,10 @@ export const getConnectorPublicUrl =
   };
 
 export const setConnectorPublicUrl =
-  (keyValueStoreService: KeyValueStoreService) =>
+  (
+    keyValueStoreService: KeyValueStoreService,
+    eventService: EntitiesEventProducer,
+  ) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
       const { url } = req.body;
@@ -1369,6 +1491,16 @@ export const setConnectorPublicUrl =
         configPaths.endpoint,
         JSON.stringify(parsedUrls),
       );
+
+      await eventService.start();
+      let event: Event = {
+        eventType: EventType.ConnectorPublicUrlChangedEvent,
+        timestamp: Date.now(),
+        payload: {
+          url,
+        } as ConnectorPublicUrlChangedEvent,
+      };
+      await eventService.publishEvent(event);
 
       res.status(200).json({
         message: 'Connector Url saved successfully',

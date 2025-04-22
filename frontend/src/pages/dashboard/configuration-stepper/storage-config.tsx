@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Grid,
+  Link,
   Alert,
   Select,
   MenuItem,
@@ -312,6 +313,14 @@ const StorageConfigStep: React.FC<StorageConfigStepProps> = ({
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Configure storage settings for your application data.
       </Typography>
+
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link href="https://docs.pipeshub.com/introduction" target="_blank" rel="noopener">
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
 
       <Grid container spacing={2}>
         <Grid item xs={12}>

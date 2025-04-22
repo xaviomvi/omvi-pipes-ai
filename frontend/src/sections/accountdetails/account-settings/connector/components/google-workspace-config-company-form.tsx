@@ -322,7 +322,7 @@ export const GoogleWorkspaceConfigForm = forwardRef<
     }
 
     setIsEditing(true);
-    const {checked} = event.target;
+    const { checked } = event.target;
     setEnableRealTimeUpdates(checked);
 
     if (!checked) {
@@ -554,6 +554,17 @@ export const GoogleWorkspaceConfigForm = forwardRef<
 
   return (
     <>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link
+          href="https://docs.pipeshub.com/enterprise/connectors/googleWorkspace"
+          target="_blank"
+          rel="noopener"
+        >
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
           <CircularProgress size={24} />

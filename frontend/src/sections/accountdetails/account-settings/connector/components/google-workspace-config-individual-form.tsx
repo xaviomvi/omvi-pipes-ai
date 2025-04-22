@@ -110,7 +110,7 @@ const GoogleWorkspaceConfigForm = forwardRef<
   } | null>(null);
 
   const handleRealTimeUpdatesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const {checked} = event.target;
+    const { checked } = event.target;
     setEnableRealTimeUpdates(checked);
 
     if (!checked) {
@@ -378,6 +378,17 @@ const GoogleWorkspaceConfigForm = forwardRef<
 
   return (
     <>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link
+          href="https://docs.pipeshub.com/individual/connectors/googleWorkspace"
+          target="_blank"
+          rel="noopener"
+        >
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
           <CircularProgress size={24} />

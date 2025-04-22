@@ -19,6 +19,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
   Grid,
+  Link,
   Alert,
   Select,
   Button,
@@ -1186,6 +1187,13 @@ const LlmConfigForm = forwardRef<LlmConfigFormRef, LlmConfigFormProps>(
             <CircularProgress size={24} />
           </Box>
         )}
+        <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+          Refer to{' '}
+          <Link href="https://docs.pipeshub.com/ai-models/overview" target="_blank" rel="noopener">
+            the documentation
+          </Link>{' '}
+          for more information.
+        </Alert>
       </>
     );
   }

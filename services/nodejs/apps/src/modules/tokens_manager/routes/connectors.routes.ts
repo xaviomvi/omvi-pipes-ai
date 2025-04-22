@@ -436,6 +436,7 @@ export function createConnectorRouter(container: Container) {
           };
 
           await eventService.publishEvent(event);
+
           await eventService.stop();
           await connector.save();
 

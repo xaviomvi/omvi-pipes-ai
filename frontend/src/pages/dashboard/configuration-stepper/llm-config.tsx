@@ -10,6 +10,7 @@ import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 import {
   Box,
   Grid,
+  Link,
   Alert,
   Select,
   Button,
@@ -221,6 +222,13 @@ const LlmConfigStep: React.FC<LlmConfigStepProps> = ({ onSubmit, onSkip, initial
       <Alert severity="info" sx={{ mb: 3 }}>
         LLM configuration is required to proceed with setup. All fields marked with{' '}
         <span style={{ color: 'error.main' }}>*</span> are required.
+      </Alert>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link href="https://docs.pipeshub.com/ai-models/overview" target="_blank" rel="noopener">
+          the documentation
+        </Link>{' '}
+        for more information.
       </Alert>
 
       <Grid container spacing={2}>
