@@ -31,6 +31,7 @@ import {
   Typography,
   InputAdornment,
   CircularProgress,
+  Link,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -216,7 +217,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
   const handleRealTimeUpdatesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     // The key fix - prevent default behavior and stop propagation
 
-    const {checked} = event.target;
+    const { checked } = event.target;
     setEnableRealTimeUpdates(checked);
 
     if (checked && (!topicName || topicName.trim() === '')) {
@@ -516,7 +517,7 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
     setMessage,
     hasAnyInput,
     onSkip,
-    initialFile
+    initialFile,
   ]);
 
   // Validate file type using both extension and MIME type
@@ -858,6 +859,27 @@ const ConnectorConfigStep: React.FC<ConnectorConfigStepProps> = ({
             </Typography>
           </Alert>
         </Box>
+        <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+          Refer to{' '}
+          {accountType === 'business' ? (
+            <Link
+              href="https://docs.pipeshub.com/enterprise/connectors/overview"
+              target="_blank"
+              rel="noopener"
+            >
+              the documentation
+            </Link>
+          ) : (
+            <Link
+              href="https://docs.pipeshub.com/individual/connectors/overview"
+              target="_blank"
+              rel="noopener"
+            >
+              the documentation
+            </Link>
+          )}{' '}
+          for more information.
+        </Alert>
 
         {/* Business account admin email field */}
         {accountType === 'business' && (

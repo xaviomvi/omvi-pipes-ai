@@ -12,6 +12,7 @@ import {
   Typography,
   InputAdornment,
   CircularProgress,
+  Link,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -389,6 +390,13 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
             {snackbar.message}
           </Alert>
         </Snackbar>
+        <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+          Refer to{' '}
+          <Link href="https://docs.pipeshub.com/auth/google" target="_blank" rel="noopener">
+            the documentation
+          </Link>{' '}
+          for more information.
+        </Alert>
       </>
     );
   }

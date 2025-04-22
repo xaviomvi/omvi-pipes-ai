@@ -4,7 +4,7 @@ import linkVariantIcon from '@iconify-icons/mdi/link-variant';
 import settingsIcon from '@iconify-icons/eva/settings-2-outline';
 
 import { alpha, useTheme } from '@mui/material/styles';
-import { Box, Grid, Paper, Container, Typography, IconButton } from '@mui/material';
+import { Box, Grid, Paper, Container, Typography, IconButton, Link, Alert } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -172,7 +172,17 @@ const InternalServicesSettings = () => {
         onSave={handleSaveConfiguration}
         serviceType={currentService}
       />
-
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link
+          href="https://docs.pipeshub.com/services/internalServices"
+          target="_blank"
+          rel="noopener"
+        >
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
       {/* Success snackbar */}
     </Container>
   );

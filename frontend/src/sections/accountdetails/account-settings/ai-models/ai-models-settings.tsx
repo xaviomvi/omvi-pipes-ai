@@ -12,6 +12,7 @@ import {
   Container,
   Typography,
   IconButton,
+  Link,
 } from '@mui/material';
 
 import axios from 'src/utils/axios';
@@ -394,6 +395,13 @@ const AiModelsSettings = () => {
           {warning}
         </Alert>
       </Snackbar>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link href="https://docs.pipeshub.com/ai-models/overview" target="_blank" rel="noopener">
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
     </Container>
   );
 };

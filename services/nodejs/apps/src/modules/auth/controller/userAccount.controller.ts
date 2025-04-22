@@ -1007,37 +1007,41 @@ export class UserAccountController {
     res: Response,
     next: NextFunction,
   ): Promise<void> {
-    this.logger.info('running authenticate');
-    const { method, credentials } = req.body;
-    const { sessionInfo } = req;
-    if (!method) {
-      throw new BadRequestError('method is required');
-    }
-    if (!sessionInfo) {
-      throw new NotFoundError('SessionInfo not found');
-    }
-
-    this.logger.info('sessionInfo', sessionInfo);
-    const currentStepConfig = sessionInfo.authConfig[sessionInfo.currentStep];
-    this.logger.info('currentStepConfig', currentStepConfig);
-
-    if (!currentStepConfig.allowedMethods.find((m: any) => m.type === method)) {
-      throw new BadRequestError('Invalid authentication method for this step');
-    }
-    const authToken = iamJwtGenerator(
-      sessionInfo.email,
-      this.config.scopedJwtSecret,
-    );
-    const userFindResult = await this.iamService.getUserByEmail(
-      sessionInfo.email,
-      authToken,
-    );
-    if (!userFindResult) {
-      throw new NotFoundError('User not found');
-    }
-    const user = userFindResult.data;
-
     try {
+      this.logger.info('running authenticate');
+      const { method, credentials } = req.body;
+      const { sessionInfo } = req;
+      if (!method) {
+        throw new BadRequestError('method is required');
+      }
+      if (!sessionInfo) {
+        throw new NotFoundError('SessionInfo not found');
+      }
+
+      this.logger.info('sessionInfo', sessionInfo);
+      const currentStepConfig = sessionInfo.authConfig[sessionInfo.currentStep];
+      this.logger.info('currentStepConfig', currentStepConfig);
+
+      if (
+        !currentStepConfig.allowedMethods.find((m: any) => m.type === method)
+      ) {
+        throw new BadRequestError(
+          'Invalid authentication method for this step',
+        );
+      }
+      const authToken = iamJwtGenerator(
+        sessionInfo.email,
+        this.config.scopedJwtSecret,
+      );
+      const userFindResult = await this.iamService.getUserByEmail(
+        sessionInfo.email,
+        authToken,
+      );
+      if (!userFindResult) {
+        throw new NotFoundError('User not found');
+      }
+      const user = userFindResult.data;
+
       this.logger.debug('method', method);
       switch (method) {
         case AuthMethodType.PASSWORD:
@@ -1137,7 +1141,7 @@ export class UserAccountController {
             ...user,
             hasLoggedIn: true,
           };
-          this.iamService.updateUser(user._id, userInfo, accessToken);
+          await this.iamService.updateUser(user._id, userInfo, accessToken);
           this.logger.info('user updated');
         }
         res.status(200).json({

@@ -5,7 +5,16 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import eyeOffIcon from '@iconify-icons/eva/eye-off-fill';
 
-import { Box, Grid, Alert, TextField, Typography, IconButton, InputAdornment } from '@mui/material';
+import {
+  Box,
+  Grid,
+  Alert,
+  TextField,
+  Typography,
+  Link,
+  IconButton,
+  InputAdornment,
+} from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -180,6 +189,13 @@ const SmtpConfigStep: React.FC<SmtpConfigStepProps> = ({
         Configure SMTP settings for email notifications. You can leave all fields empty to skip this
         configuration or use the Skip button.
       </Typography>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link href="https://docs.pipeshub.com/smtp" target="_blank" rel="noopener">
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
 
       {/* Validation warning - show when validation attempted and has errors */}
       {showValidationWarning && (

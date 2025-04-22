@@ -17,6 +17,7 @@ import {
   TextField,
   Typography,
   IconButton,
+  Link,
   CircularProgress,
 } from '@mui/material';
 
@@ -453,6 +454,13 @@ ${Array.from({ length: Math.ceil(certContent.length / 64) })
           {snackbar.message}
         </Alert>
       </Snackbar>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link href="https://docs.pipeshub.com/auth/saml" target="_blank" rel="noopener">
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
     </Container>
   );
 };

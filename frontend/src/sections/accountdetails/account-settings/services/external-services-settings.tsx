@@ -18,6 +18,7 @@ import {
   Container,
   Typography,
   IconButton,
+  Link,
 } from '@mui/material';
 
 import ConfigureServiceDialog from './configure-services-dialog';
@@ -333,6 +334,17 @@ const ExternalServicesSettings = () => {
           {error}
         </Alert>
       </Snackbar>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        <Link
+          href="https://docs.pipeshub.com/services/externalServices"
+          target="_blank"
+          rel="noopener"
+        >
+          the documentation
+        </Link>{' '}
+        for more information.
+      </Alert>
     </Container>
   );
 };
