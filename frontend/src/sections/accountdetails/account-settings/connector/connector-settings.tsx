@@ -7,18 +7,20 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
   Grid,
+  Link,
   Alert,
   Paper,
   Container,
   Typography,
   AlertTitle,
   CircularProgress,
-  Link,
 } from '@mui/material';
-import { useAuthContext } from 'src/auth/hooks';
+
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import { CONNECTORS_LIST } from './components/connectors-list';
 

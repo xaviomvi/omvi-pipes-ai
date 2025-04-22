@@ -12,13 +12,13 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
   Grid,
+  Link,
   Paper,
   Alert,
   Snackbar,
   Container,
   Typography,
   IconButton,
-  Link,
 } from '@mui/material';
 
 import ConfigureServiceDialog from './configure-services-dialog';
