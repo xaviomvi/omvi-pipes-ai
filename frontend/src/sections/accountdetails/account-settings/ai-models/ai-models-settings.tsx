@@ -21,8 +21,9 @@ import { Iconify } from 'src/components/iconify';
 
 import ConfigureModelDialog from './components/configure-model-dialog';
 import { MODEL_TYPE_NAMES, MODEL_TYPE_ICONS, MODEL_TYPE_DESCRIPTIONS } from './utils/types';
-// AI model types
-const AI_MODEL_TYPES = ['llm'];
+
+// AI model types - updated to include embedding
+const AI_MODEL_TYPES = ['llm', 'embedding'];
 
 // Define the save result interface
 interface SaveResult {

@@ -21,8 +21,8 @@ import LlmConfigForm from './llm-config-form';
 import { MODEL_TYPE_NAMES, MODEL_TYPE_ICONS } from '../utils/types';
 
 import type { LlmConfigFormRef } from './llm-config-form';
+import EmbeddingConfigForm, { EmbeddingConfigFormRef } from './embedding-config-form';
 // import OcrConfigForm, { OcrConfigFormRef } from './model-forms/ocr-config-form';
-// import EmbeddingConfigForm, { EmbeddingConfigFormRef } from './model-forms/embedding-config-form';
 // import SlmConfigForm, { SlmConfigFormRef } from './model-forms/slm-config-form';
 // import ReasoningConfigForm, { ReasoningConfigFormRef } from './model-forms/reasoning-config-form';
 // import MultiModalConfigForm, { MultiModalConfigFormRef } from './model-forms/multimodal-config-form';
@@ -63,8 +63,8 @@ const ConfigureModelDialog = ({ open, onClose, onSave, modelType }: ConfigureMod
 
   // Form refs for different model types
   const llmConfigFormRef = useRef<LlmConfigFormRef>(null);
+  const embeddingConfigFormRef = useRef<EmbeddingConfigFormRef>(null);
   //   const ocrConfigFormRef = useRef<OcrConfigFormRef>(null);
-  //   const embeddingConfigFormRef = useRef<EmbeddingConfigFormRef>(null);
   //   const slmConfigFormRef = useRef<SlmConfigFormRef>(null);
   //   const reasoningConfigFormRef = useRef<ReasoningConfigFormRef>(null);
   //   const multiModalConfigFormRef = useRef<MultiModalConfigFormRef>(null);
@@ -119,11 +119,11 @@ const ConfigureModelDialog = ({ open, onClose, onSave, modelType }: ConfigureMod
       case 'llm':
         currentRef = llmConfigFormRef;
         break;
+        case 'embedding':
+          currentRef = embeddingConfigFormRef;
+          break;
       //   case 'ocr':
       //     currentRef = ocrConfigFormRef;
-      //     break;
-      //   case 'embedding':
-      //     currentRef = embeddingConfigFormRef;
       //     break;
       //   case 'slm':
       //     currentRef = slmConfigFormRef;
@@ -271,18 +271,19 @@ const ConfigureModelDialog = ({ open, onClose, onSave, modelType }: ConfigureMod
           {modelType === 'llm' && (
             <LlmConfigForm onValidationChange={handleValidationChange} ref={llmConfigFormRef} />
           )}
+            {modelType === 'embedding' && (
+              <EmbeddingConfigForm
+                onValidationChange={handleValidationChange}
+                ref={embeddingConfigFormRef}
+              />
+            )}
           {/* {modelType === 'ocr' && (
             <OcrConfigForm
               onValidationChange={handleValidationChange}
               ref={ocrConfigFormRef}
             />
-          )}
-          {modelType === 'embedding' && (
-            <EmbeddingConfigForm
-              onValidationChange={handleValidationChange}
-              ref={embeddingConfigFormRef}
-            />
-          )}
+          )} */}
+           {/*
           {modelType === 'slm' && (
             <SlmConfigForm
               onValidationChange={handleValidationChange}

@@ -7,6 +7,7 @@ import modelTrainingIcon from '@iconify-icons/material-symbols/model-training';
 import machineLearningModelIcon from '@iconify-icons/carbon/machine-learning-model';
 import watsonMachineLearningIcon from '@iconify-icons/carbon/watson-machine-learning';
 import documentScanIcon from '@iconify-icons/material-symbols/document-scanner-outline';
+import searchIcon from '@iconify-icons/mdi/magnify'; // Added for embedding
 
 export interface ModelConfig {
   name: string;
@@ -20,7 +21,7 @@ export interface AiModel {
 }
 
 export interface LlmConfig {
-  modelType: 'openai' | 'azure';
+  modelType: 'openai' | 'azure' | 'gemini' | 'anthropic';
   apiKey: string;
   model: string;
   clientId?: string;
@@ -30,9 +31,9 @@ export interface LlmConfig {
 
 export interface OpenAILlmConfig {
   modelType: 'openai';
-  clientId: string;
   apiKey: string;
   model: string;
+  clientId?: string;
 }
 
 export interface AzureLlmConfig {
@@ -49,11 +50,29 @@ export interface OCRConfig {
   endpoint?: string;
 }
 
+// Enhanced embedding configuration interfaces
 export interface EmbeddingConfig {
-  name: string;
+  modelType: 'openAI' | 'azureOpenAI' | 'default';
+  apiKey?: string;
+  model?: string;
+  endpoint?: string;
+}
+
+export interface OpenAIEmbeddingConfig {
+  modelType: 'openAI';
   apiKey: string;
   model: string;
-  endpoint?: string;
+}
+
+export interface AzureEmbeddingConfig {
+  modelType: 'azureOpenAI';
+  endpoint: string;
+  apiKey: string;
+  model: string;
+}
+
+export interface DefaultEmbeddingConfig {
+  modelType: 'default';
 }
 
 export interface SLMConfig {
@@ -79,7 +98,7 @@ export interface MultiModalConfig {
 export const MODEL_PROVIDERS = {
   llm: ['OpenAI', 'Azure OpenAI', 'Anthropic', 'Google AI', 'Cohere'],
   ocr: ['Azure Document Intelligence', 'Google Document AI', 'Amazon Textract'],
-  embedding: ['OpenAI', 'Azure OpenAI', 'Google AI', 'Cohere'],
+  embedding: ['OpenAI', 'Azure OpenAI', 'Default (System Provided)'],
   slm: ['OpenAI', 'Google AI', 'Anthropic', 'Mistral AI'],
   reasoning: ['OpenAI', 'Anthropic', 'Google AI'],
   multiModal: ['OpenAI', 'Google AI', 'Anthropic', 'Claude'],
@@ -114,7 +133,7 @@ export const MODEL_TYPE_DESCRIPTIONS: {
 } = {
   llm: 'Powerful text generation and comprehension models',
   ocr: 'Extract text from documents and images',
-  embedding: 'Convert text to numerical vectors for semantic search',
+  embedding: 'Convert text to numerical vectors for semantic search and document retrieval',
   slm: 'Lightweight language models for simpler tasks',
   reasoning: 'Advanced models with analytical capabilities',
   multiModal: 'Process multiple inputs like text, images, and audio',
@@ -132,7 +151,7 @@ export const MODEL_TYPE_ICONS: {
 } = {
   llm: machineLearningModelIcon,
   ocr: documentScanIcon,
-  embedding: watsonMachineLearningIcon,
+  embedding: searchIcon, // Updated to use search icon for embeddings
   slm: robotOutlineIcon,
   reasoning: modelAltIcon,
   multiModal: modelTrainingIcon,

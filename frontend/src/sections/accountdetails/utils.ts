@@ -73,6 +73,10 @@ export const getOrgLogo = async (orgId: string): Promise<string | null> => {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
+    if (error.response && error.response.status === 404) {
+      // Simply return null to indicate no logo exists
+      return null;
+    }
     throw new Error('Error fetching org logo');
   }
 };
