@@ -161,9 +161,10 @@ class RetrievalService:
         Returns:
             Preprocessed query text
         """
-        # Add query prefix for better retrieval performance (BGE recommendation)
-        # Same as in indexing pipeline
-        return f"Represent this document for retrieval: {query.strip()}"
+        # Check if using BGE model before adding the prefix
+        if hasattr(self.dense_embeddings, 'model_name') and 'bge' in self.dense_embeddings.model_name.lower():
+            return f"Represent this document for retrieval: {query.strip()}"
+        return query.strip()
 
     def _format_results(self, results: List[tuple]) -> List[Dict[str, Any]]:
         """Format search results into a consistent structure with flattened metadata."""
@@ -250,10 +251,11 @@ class RetrievalService:
             seen_chunks = set()
             
             if not self.vector_store:
-                # Check if collection exists in Qdrant
+                # Check if collection exists and is not empty in Qdrant
                 collections = self.qdrant_client.get_collections()
-                if not any(col.name == self.collection_name for col in collections.collections):
-                    self.logger.info(f"Collection {self.collection_name} not found in Qdrant. Indexing may not be complete.")
+                collection_info = self.qdrant_client.get_collection(self.collection_name) if any(col.name == self.collection_name for col in collections.collections) else None
+                if not collection_info or collection_info.points_count == 0:
+                    self.logger.info(f"Collection {self.collection_name} not found in Qdrant or is empty. Indexing may not be complete.")
                     return {"searchResults": [], "records": []}
 
                 if not self.dense_embeddings:
@@ -261,7 +263,6 @@ class RetrievalService:
                     self.dense_embeddings = await self.get_embedding_model_instance()
                 if not self.dense_embeddings:
                     raise ValueError("No dense embeddings found, please configure an embedding model or ensure indexing is complete")
-                
                 
                 self.logger.info("Dense embeddings: %s", self.dense_embeddings)
                 self.vector_store = QdrantVectorStore(
@@ -283,6 +284,7 @@ class RetrievalService:
                     k=limit,
                     filter=qdrant_filter
                 )
+                self.logger.info(f"Results: {results}")
                 # Add to results if content not already seen
                 for doc, score in results:
                    if doc.page_content not in seen_chunks:

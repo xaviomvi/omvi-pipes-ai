@@ -46,6 +46,7 @@ class DriveUserService:
         self.token_expiry = None
         self.org_id = None
         self.user_id = None
+        self.is_delegated = credentials is not None
 
     @token_refresh
     async def connect_individual_user(self, org_id: str, user_id: str) -> bool:
@@ -123,6 +124,7 @@ class DriveUserService:
 
     async def _check_and_refresh_token(self):
         """Check token expiry and refresh if needed"""
+        self.logger.info("Checking token expiry and refreshing if needed")
         if not self.token_expiry:
             # self.logger.warning("⚠️ Token expiry time not set.")
             return

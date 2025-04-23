@@ -6,13 +6,18 @@ from app.exceptions.connector_google_exceptions import (
     GoogleAuthError, AdminQuotaError, GoogleConnectorError
 )
 
-
 def token_refresh(func):
     """Decorator to check and refresh token before API call"""
     @wraps(func)
     async def wrapper(self, *args, **kwargs):
         try:
-            await self._check_and_refresh_token()
+            # Skip token refresh for delegated credentials
+            has_is_delegated = hasattr(self, 'is_delegated')
+            is_delegated_true = self.is_delegated
+            print(f"🚀 has_is_delegated: {has_is_delegated}")
+            print(f"🚀 is_delegated_true: {is_delegated_true}")
+            if has_is_delegated and not is_delegated_true:
+                await self._check_and_refresh_token()
             return await func(self, *args, **kwargs)
         except Exception as e:
             raise GoogleAuthError(

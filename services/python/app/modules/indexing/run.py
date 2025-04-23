@@ -1,6 +1,6 @@
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_qdrant import QdrantVectorStore, FastEmbedSparse, RetrievalMode
-from langchain.schema import Document as LangchainDocument
+from langchain.schema import Document
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from typing import List, Dict, Optional, Any
@@ -16,19 +16,6 @@ from app.config.configuration_service import config_node_constants
 from typing import List, Optional
 from app.exceptions.indexing_exceptions import *
 from datetime import datetime, timezone
-
-@dataclass
-class Document(LangchainDocument):
-    """Extended Document class that supports bounding box"""
-    bounding_box: Optional[List[Dict[str, float]]] = None
-
-    def __init__(self, page_content: str, metadata: dict = None, bounding_box: Optional[List[Dict[str, float]]] = None):
-        """Initialize document with page content, metadata, and bounding box"""
-        super().__init__(page_content=page_content, metadata=metadata)
-        self.bounding_box = bounding_box
-
-    def __repr__(self):
-        return f"Document(page_content={self.page_content[:50]}..., metadata={self.metadata}, bounding_box={self.bounding_box})"
 
 
 class CustomChunker(SemanticChunker):
@@ -88,9 +75,8 @@ class CustomChunker(SemanticChunker):
                     
                     # Merge text content
                     merged_text = " ".join(doc.page_content for doc in group)
-                    
-                    # Get bounding boxes directly from documents
-                    bboxes = [doc.bounding_box for doc in group if doc.bounding_box]
+                    # Get bounding boxes directly from metadata
+                    bboxes = [doc.metadata.get('bounding_box', []) for doc in group if doc.metadata.get('bounding_box')]
                     metadata_list = [doc.metadata for doc in group]
                     
                     # Create merged metadata
@@ -106,12 +92,13 @@ class CustomChunker(SemanticChunker):
                             else:
                                 block_nums.append(nums)
                         merged_metadata['blockNum'] = sorted(list(set(block_nums)))  # Remove duplicates and sort
-
-                    # Create merged document with separate bounding_box attribute
+                    
+                    # Merge bounding boxes and add to metadata
+                    merged_metadata['bounding_box'] = self._merge_bboxes(bboxes) if bboxes else None
+                    # Create merged document
                     merged_documents.append(Document(
                         page_content=merged_text,
                         metadata=merged_metadata,
-                        bounding_box=self._merge_bboxes(bboxes) if bboxes else None
                     ))
 
                     start_index = index + 1
@@ -122,7 +109,8 @@ class CustomChunker(SemanticChunker):
                 
                     merged_text = " ".join(doc.page_content for doc in group)
                     
-                    bboxes = [doc.bounding_box for doc in group if doc.bounding_box]
+                    # Get bounding boxes from metadata
+                    bboxes = [doc.metadata.get('bounding_box', []) for doc in group if doc.metadata.get('bounding_box')]
                     metadata_list = [doc.metadata for doc in group]
                     
                     try:
@@ -136,11 +124,13 @@ class CustomChunker(SemanticChunker):
                                 else:
                                     block_nums.append(nums)
                             merged_metadata['blockNum'] = sorted(list(set(block_nums)))  # Remove duplicates and sort
+                        
+                        # Merge bounding boxes and add to metadata
+                        merged_metadata['bounding_box'] = self._merge_bboxes(bboxes) if bboxes else None
 
                         merged_documents.append(Document(
                             page_content=merged_text,
                             metadata=merged_metadata,
-                            bounding_box=self._merge_bboxes(bboxes) if bboxes else None
                         ))
                     except MetadataProcessingError as e:
                         raise ChunkingError(
@@ -226,11 +216,9 @@ class CustomChunker(SemanticChunker):
             if not metadata_list:
                 return {}
 
-            # Start with the first metadata as base
             merged_metadata = {}
 
             try:
-                # Get all possible fields from all metadata dictionaries
                 all_fields = set().union(*(meta.keys() for meta in metadata_list))
 
                 for field in all_fields:
@@ -245,10 +233,15 @@ class CustomChunker(SemanticChunker):
 
                     # Handle list fields - flatten and get unique values
                     if isinstance(field_values[0], list):
-                        unique_values = set()
+                        unique_values = []
+                        seen = set()
                         for value_list in field_values:
-                            unique_values.update(value_list)
-                        merged_metadata[field] = list(unique_values)
+                            for value in value_list:
+                                value_str = str(value)
+                                if value_str not in seen:
+                                    seen.add(value_str)
+                                    unique_values.append(value)
+                        merged_metadata[field] = unique_values
                 
                     # Handle confidence score - keep maximum
                     elif field == 'confidence_score':
@@ -256,16 +249,22 @@ class CustomChunker(SemanticChunker):
                                                     
                     # For all other fields
                     else:
-                        unique_values = set(
-                            str(v) if isinstance(v, (int, float)) else v 
-                            for v in field_values
-                        )
+                        # Convert values to strings for comparison
+                        str_values = [str(v) for v in field_values]
                         # If all values are the same, keep single value
-                        if len(unique_values) == 1:
+                        if len(set(str_values)) == 1:
                             merged_metadata[field] = field_values[0]
                         # If values differ, keep all unique values in a list
                         else:
-                            merged_metadata[field] = list(unique_values)
+                            # Keep original values but ensure uniqueness
+                            unique_values = []
+                            seen = set()
+                            for value in field_values:
+                                value_str = str(value)
+                                if value_str not in seen:
+                                    seen.add(value_str)
+                                    unique_values.append(value)
+                            merged_metadata[field] = unique_values
 
                 return merged_metadata
             except Exception as e:
@@ -486,9 +485,6 @@ class IndexingPipeline:
                     meta = chunk.metadata
                     enhanced_metadata = self._process_metadata(meta)
                     chunk.metadata = enhanced_metadata
-                    
-                    if chunk.bounding_box:
-                        chunk.metadata['bounding_box'] = chunk.bounding_box
                         
                 except Exception as e:
                     raise MetadataProcessingError(
@@ -605,13 +601,13 @@ class IndexingPipeline:
                 details={"error": str(e)}
             )
 
-    async def index_documents(self, sentences: List[Dict[str, Any]], merge_documents: bool = True):
+    async def index_documents(self, sentences: List[Dict[str, Any]], merge_documents: bool = False):
         """
         Main method to index documents through the entire pipeline.
 
         Args:
-            sentences: List of dictionaries containing text, bounding_box, and metadata
-                    Each dict should have 'text', 'bounding_box', and 'metadata' keys
+            sentences: List of dictionaries containing text and metadata
+                    Each dict should have 'text' and 'metadata' keys
                     
         Raises:
             DocumentProcessingError: If there's an error processing the documents
@@ -636,7 +632,6 @@ class IndexingPipeline:
                     Document(
                         page_content=sentence['text'],
                         metadata=sentence.get('metadata', {}),
-                        bounding_box=sentence.get('bounding_box')
                     )
                     for sentence in sentences
                 ]
@@ -645,7 +640,6 @@ class IndexingPipeline:
                     "Failed to create document objects: " + str(e),
                     details={"error": str(e)}
                 )
-
             # Process documents into chunks
             if merge_documents:
                 try:
@@ -716,8 +710,11 @@ class IndexingPipeline:
                 'subcategoryLevel3': meta.get('subcategoryLevel3', []),
                 'languages': meta.get('languages', []),
                 'extension': meta.get('extension', ''),
-                'mimeType': meta.get('mimeType', ''),
-            }
+                'mimeType': meta.get('mimeType', '')
+                }
+            
+            if meta.get('bounding_box'):
+                enhanced_metadata['bounding_box'] = meta.get('bounding_box')
             if meta.get('sheetName'):
                 enhanced_metadata['sheetName'] = meta.get('sheetName')
             if meta.get('sheetNum'):

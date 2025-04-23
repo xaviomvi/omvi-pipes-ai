@@ -720,6 +720,7 @@ async def download_file(
 
                 cursor = arango_service.db.aql.execute(aql_query)
                 messages = list(cursor)
+                logger.info(f"messages: {messages}")
 
                 async def attachment_stream():
                     try:
@@ -1394,8 +1395,14 @@ async def handle_admin_webhook(
             logger.warning("Admin webhook handler not yet initialized - skipping webhook processing")
             return {"status": "skipped", "message": "Webhook handler not yet initialized"}
 
-        # Log incoming request details
-        body = await request.json()
+        # Try to get the request body, handle empty body case
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            # This might be a verification request
+            logger.info("Received request with empty/invalid JSON body - might be verification request")
+            return {"status": "accepted", "message": "Verification request received"}
+
         logger.info("📥 Incoming admin webhook request: %s", body)
 
         # Get the event type from the events array
@@ -1415,12 +1422,6 @@ async def handle_admin_webhook(
         )
         return {"status": "accepted"}
 
-    except json.JSONDecodeError as e:
-        logger.error("Invalid JSON in webhook body: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid JSON format: {str(e)}"
-        )
     except Exception as e:
         logger.error("Error processing webhook: %s", str(e))
         raise HTTPException(
