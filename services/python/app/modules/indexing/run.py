@@ -421,7 +421,6 @@ class IndexingPipeline:
                 self.logger.info("No embedding model found in configuration, using default embedding model")
                 self.dense_embeddings = await get_default_embedding_model()
             else:
-                self.logger.info(f"Using embedding model: {embedding_model}, embedding_size: {embedding_size}")
                 self.dense_embeddings = EmbeddingFactory.create_embedding_model(embedding_model)
 
             # Get the embedding dimensions from the model
