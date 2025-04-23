@@ -1,8 +1,10 @@
-from typing import Optional, Dict
-from app.connectors.utils.decorators import exponential_backoff
+from typing import Dict, Optional
+
 from app.config.configuration_service import ConfigurationService
-from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
+from app.connectors.utils.decorators import exponential_backoff
+from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
+
 
 class GmailDriveInterface:
     """Interface for getting Drive files from Gmail, supporting both individual and enterprise setups"""
@@ -44,7 +46,7 @@ class GmailDriveInterface:
                     return None
 
                 # Create admin service if not provided
-                
+
                 self.drive_service = self.admin_service
                 if not await self.drive_service.connect_admin(org_id):
                     self.logger.error(
@@ -72,7 +74,7 @@ class GmailDriveInterface:
                         google_token_handler=self.google_token_handler,
                         credentials=self.credentials
                     )
-                    
+
                     if not await self.drive_service.connect_individual_user(org_id, user_id):
                         self.logger.error(
                             "❌ Failed to connect to Drive User service")

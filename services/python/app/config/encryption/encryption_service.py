@@ -1,6 +1,8 @@
-import os
 import logging
+import os
+
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 
 # Custom error classes matching the Node.js implementation
 class EncryptionError(Exception):

@@ -1,18 +1,20 @@
-import uvicorn
 import asyncio
-from fastapi import FastAPI, Depends, Request, HTTPException, status
-from fastapi.responses import JSONResponse 
-from app.setups.query_setup import AppContainer
-from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator
-from app.api.routes.search import router as search_router
+
+import httpx
+import uvicorn
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.api.middlewares.auth import authMiddleware
 from app.api.routes.chatbot import router as chatbot_router
 from app.api.routes.records import router as records_router
-from app.api.middlewares.auth import authMiddleware
-import httpx
+from app.api.routes.search import router as search_router
 from app.config.configuration_service import config_node_constants
+from app.setups.query_setup import AppContainer
 
 container = AppContainer()
 
@@ -32,7 +34,7 @@ async def initialize_container(container: AppContainer) -> bool:
             logger.info("✅ Connected to ArangoDB")
         else:
             raise Exception("Failed to connect to ArangoDB")
-        
+
         # Initialize Kafka consumer
         logger.info("Initializing llm config handler")
         llm_config_handler = await container.llm_config_handler()
@@ -60,18 +62,18 @@ async def get_initialized_container() -> AppContainer:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan context manager for FastAPI"""
-   
+
     # Initialize container
     app_container = await get_initialized_container()
     # Store container in app state for access in dependencies
     app.container = app_container
-    
+
     logger = app.container.logger()
     logger.debug("🚀 Starting retrieval application")
-    
+
     consumer = await container.llm_config_handler()
     consume_task = asyncio.create_task(consumer.consume_messages())
-    
+
     yield
     # Shutdown
     logger.info("🔄 Shutting down application")
@@ -83,7 +85,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except asyncio.CancelledError:
         logger.info("Kafka consumer task cancelled")
         logger.debug("🔄 Shutting down retrieval application")
-    
+
 # Create FastAPI app with lifespan
 app = FastAPI(
     title="Retrieval API",
@@ -101,21 +103,21 @@ async def authenticate_requests(request: Request, call_next):
     # Check if path should be excluded from authentication
     if any(request.url.path.startswith(path) for path in EXCLUDE_PATHS):
         return await call_next(request)
-    
+
     try:
         # Apply authentication
         authenticated_request = await authMiddleware(request)
         # Continue with the request
         response = await call_next(authenticated_request)
         return response
-        
+
     except HTTPException as exc:
         # Handle authentication errors
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.detail}
         )
-    except Exception as exc:
+    except Exception:
         # Handle unexpected errors
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -138,7 +140,7 @@ async def health_check():
         connector_url = f"{connector_endpoint}/health"
         async with httpx.AsyncClient() as client:
             connector_response = await client.get(connector_url, timeout=5.0)
-            
+
             if connector_response.status_code != 200:
                 return JSONResponse(
                     status_code=500,
@@ -148,7 +150,7 @@ async def health_check():
                         "timestamp": datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()
                     }
                 )
-            
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -191,4 +193,4 @@ def run(host: str = "0.0.0.0", port: int = 8000, reload: bool = True):
     )
 
 if __name__ == "__main__":
-    run() 
+    run()

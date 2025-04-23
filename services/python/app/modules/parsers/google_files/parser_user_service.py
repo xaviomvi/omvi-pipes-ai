@@ -1,13 +1,19 @@
 """ParserUserService module for parsing Google Workspace files using user credentials"""
 
+from datetime import datetime, timedelta, timezone
+
+import google.oauth2.credentials
 from googleapiclient.discovery import build
+
 from app.config.configuration_service import ConfigurationService
+from app.connectors.google.gmail.core.gmail_user_service import (
+    GoogleAuthError,
+    GoogleMailError,
+    MailOperationError,
+)
+from app.connectors.google.scopes import GOOGLE_PARSER_SCOPES
 from app.connectors.utils.decorators import token_refresh
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
-from datetime import datetime, timezone, timedelta
-import google.oauth2.credentials
-from app.connectors.google.scopes import GOOGLE_PARSER_SCOPES
-from app.connectors.google.gmail.core.gmail_user_service import GoogleAuthError, MailOperationError, GoogleMailError
 
 
 class ParserUserService:
@@ -25,7 +31,7 @@ class ParserUserService:
         self.docs_service = None
         self.sheets_service = None
         self.slides_service = None
-        
+
         self.token_expiry = None
         self.org_id = None
         self.user_id = None
@@ -36,9 +42,9 @@ class ParserUserService:
         try:
             self.org_id = org_id
             self.user_id = user_id
-            
+
             SCOPES = GOOGLE_PARSER_SCOPES
-            
+
             try:
                 creds_data = await self.google_token_handler.get_individual_token(org_id, user_id)
                 if not creds_data:
@@ -78,7 +84,7 @@ class ParserUserService:
                         "error": str(e)
                     }
                 )
-            
+
             # Update token expiry time
             try:
                 self.token_expiry = datetime.fromtimestamp(
@@ -134,18 +140,18 @@ class ParserUserService:
         if not self.token_expiry:
             # self.logger.warning("⚠️ Token expiry time not set.")
             return
-        
+
         if not self.org_id or not self.user_id:
             self.logger.warning("⚠️ Org ID or User ID not set yet.")
             return
-        
+
         now = datetime.now(timezone.utc)
         time_until_refresh = self.token_expiry - now - timedelta(minutes=20)
         self.logger.info(f"Time until refresh: {time_until_refresh.total_seconds()} seconds")
-        
+
         if time_until_refresh.total_seconds() <= 0:
             await self.google_token_handler.refresh_token(self.org_id, self.user_id)
-                    
+
             creds_data = await self.google_token_handler.get_individual_token(self.org_id, self.user_id)
 
             creds = google.oauth2.credentials.Credentials(

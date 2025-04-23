@@ -1,9 +1,10 @@
 
 from datetime import datetime, timezone
 
+
 def get_epoch_timestamp_in_ms():
     now = datetime.now(timezone.utc).timestamp()
-    return int(now * 1000) 
+    return int(now * 1000)
 
 def parse_timestamp(timestamp_str):
     # Remove the 'Z' and add '+00:00' for UTC

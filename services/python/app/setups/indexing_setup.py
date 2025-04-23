@@ -2,35 +2,38 @@
 app/setup.py
 """
 import os
-import asyncio
+
 import aiohttp
+from arango import ArangoClient
 from confluent_kafka import Consumer, KafkaError
+from dependency_injector import containers, providers
+from dotenv import load_dotenv
+from qdrant_client import QdrantClient
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
-from arango import ArangoClient
-from dependency_injector import containers, providers
-from app.config.configuration_service import ConfigurationService, config_node_constants, RedisConfig
+
 from app.config.arangodb_constants import QdrantCollectionNames
+from app.config.configuration_service import (
+    ConfigurationService,
+    RedisConfig,
+    config_node_constants,
+)
 from app.core.ai_arango_service import ArangoService
-from app.services.kafka_consumer import KafkaConsumerManager
-from app.modules.extraction.domain_extraction import DomainExtractor
-from app.utils.logger import create_logger
 from app.events.events import EventProcessor
 from app.events.processor import Processor
+from app.modules.extraction.domain_extraction import DomainExtractor
 from app.modules.indexing.run import IndexingPipeline
-from qdrant_client import QdrantClient
-
-from app.modules.parsers.docx.docx_parser import DocxParser
+from app.modules.parsers.csv.csv_parser import CSVParser
 from app.modules.parsers.docx.docparser import DocParser
+from app.modules.parsers.docx.docx_parser import DocxParser
 from app.modules.parsers.excel.excel_parser import ExcelParser
 from app.modules.parsers.excel.xls_parser import XLSParser
-from app.modules.parsers.csv.csv_parser import CSVParser
 from app.modules.parsers.html_parser.html_parser import HTMLParser
 from app.modules.parsers.markdown.markdown_parser import MarkdownParser
-from app.modules.parsers.pptx.pptx_parser import PPTXParser
 from app.modules.parsers.pptx.ppt_parser import PPTParser
-
-from dotenv import load_dotenv
+from app.modules.parsers.pptx.pptx_parser import PPTXParser
+from app.services.kafka_consumer import KafkaConsumerManager
+from app.utils.logger import create_logger
 
 load_dotenv(override=True)
 
@@ -39,9 +42,9 @@ class AppContainer(containers.DeclarativeContainer):
     """Dependency injection container for the application."""
     # Log when container is initialized
     logger = providers.Singleton(create_logger, "Python Indexing Service")
-    
+
     logger().info("🚀 Initializing AppContainer")
-    
+
     # Core services that don't depend on account type
     config_service = providers.Singleton(
         ConfigurationService,
@@ -52,7 +55,7 @@ class AppContainer(containers.DeclarativeContainer):
         """Fetch ArangoDB host URL from etcd asynchronously."""
         arango_config = await config_service.get_config(config_node_constants.ARANGODB.value)
         return arango_config['url']
-    
+
     async def _create_arango_client(config_service):
         """Async factory method to initialize ArangoClient."""
         hosts = await AppContainer._fetch_arango_host(config_service)
@@ -208,7 +211,7 @@ class AppContainer(containers.DeclarativeContainer):
             "app.modules.extraction.domain_extraction"
         ]
     )
-    
+
 async def health_check_etcd(container):
     """Check the health of etcd via HTTP request."""
     logger = container.logger()
@@ -219,9 +222,9 @@ async def health_check_etcd(container):
             error_msg = "ETCD_URL environment variable is not set"
             logger.error(f"❌ {error_msg}")
             raise Exception(error_msg)
-            
+
         logger.debug(f"Checking etcd health at endpoint: {etcd_url}/health")
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{etcd_url}/health") as response:
                 if response.status == 200:
@@ -252,20 +255,20 @@ async def health_check_arango(container):
         arangodb_config = await config_service.get_config(config_node_constants.ARANGODB.value)
         username = arangodb_config['username']
         password = arangodb_config['password']
-        
+
         logger.debug("Checking ArangoDB connection using ArangoClient")
-        
+
         # Get the ArangoClient from the container
         client = await container.arango_client()
-        
+
         # Connect to system database
         sys_db = client.db('_system', username=username, password=password)
-        
+
         # Check server version to verify connection
         server_version = sys_db.version()
         logger.info("✅ ArangoDB health check passed")
         logger.debug(f"ArangoDB server version: {server_version}")
-        
+
     except Exception as e:
         error_msg = f"ArangoDB health check failed: {str(e)}"
         logger.error(f"❌ {error_msg}")
@@ -280,8 +283,8 @@ async def health_check_kafka(container):
         kafka_config = await container.config_service().get_config(config_node_constants.KAFKA.value)
         brokers = kafka_config['brokers']
         logger.debug(f"Checking Kafka connection at: {brokers}")
-        
-        
+
+
         # Try to create a consumer with a short timeout
         try:
             config = {
@@ -296,15 +299,15 @@ async def health_check_kafka(container):
             # Try to list topics to verify connection
             topics = consumer.list_topics()
             consumer.close()
-            
+
             logger.info("✅ Kafka health check passed")
             logger.debug(f"Available Kafka topics: {topics}")
-            
+
         except KafkaError as ke:
             error_msg = f"Failed to connect to Kafka: {str(ke)}"
             logger.error(f"❌ {error_msg}")
             raise Exception(error_msg)
-            
+
     except Exception as e:
         error_msg = f"Kafka health check failed: {str(e)}"
         logger.error(f"❌ {error_msg}")
@@ -318,7 +321,7 @@ async def health_check_redis(container):
     try:
         redis_config = await container.config_service().get_config(config_node_constants.REDIS.value)
         redis_url = f"redis://{redis_config['host']}:{redis_config['port']}/{RedisConfig.REDIS_DB.value}"
-        logger.debug(f"Checking Redis connection at: {redis_url}")        
+        logger.debug(f"Checking Redis connection at: {redis_url}")
         # Create Redis client and attempt to ping
         redis_client = Redis.from_url(redis_url, socket_timeout=5.0)
         try:
@@ -330,7 +333,7 @@ async def health_check_redis(container):
             raise Exception(error_msg)
         finally:
             await redis_client.close()
-            
+
     except Exception as e:
         error_msg = f"Redis health check failed: {str(e)}"
         logger.error(f"❌ {error_msg}")
@@ -346,12 +349,12 @@ async def health_check_qdrant(container):
         host = qdrant_config['host']
         port = qdrant_config['port']
         api_key = qdrant_config['apiKey']
-        
+
         client = QdrantClient(host=host, port=port, prefer_grpc=True, api_key=api_key, https=False)
 
         try:
             # Fetch collections to check gRPC connectivity
-            collections = client.get_collections()
+            client.get_collections()
             logger.info("Qdrant gRPC is healthy!")
         except Exception as e:
             error_msg = f"GRPC Qdrant health check failed: {str(e)}"
@@ -370,16 +373,16 @@ async def health_check(container):
         # Run health checks sequentially
         await health_check_etcd(container)
         logger.info("✅ etcd health check completed")
-        
+
         await health_check_arango(container)
         logger.info("✅ ArangoDB health check completed")
-        
+
         await health_check_kafka(container)
         logger.info("✅ Kafka health check completed")
-        
+
         await health_check_redis(container)
         logger.info("✅ Redis health check completed")
-        
+
         await health_check_qdrant(container)
         logger.info("✅ Qdrant health check completed")
 
@@ -410,10 +413,10 @@ async def initialize_container(container: AppContainer) -> bool:
         consumer = await container.kafka_consumer()
         await consumer.start()
         logger.info("✅ Kafka consumer initialized")
-        
+
         await health_check(container)
         logger.info("✅ All health checks completed successfully")
-        
+
         return True
 
     except Exception as e:

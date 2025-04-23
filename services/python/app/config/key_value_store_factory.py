@@ -1,5 +1,6 @@
-from typing import TypeVar, Callable, Optional, Dict, Any
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, Optional, TypeVar
+
 from app.config.constants.store_type import StoreType
 from app.config.key_value_store import DistributedKeyValueStore
 from app.config.providers.etcd3_store import Etcd3DistributedKeyValueStore

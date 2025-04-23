@@ -1,37 +1,46 @@
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 from uuid import uuid4
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from datetime import datetime, timedelta, timezone
-from app.config.configuration_service import ConfigurationService, config_node_constants, WebhookConfig
+from googleapiclient.errors import HttpError
+
 from app.config.arangodb_constants import CollectionNames
+from app.config.configuration_service import (
+    ConfigurationService,
+    config_node_constants,
+)
+from app.connectors.google.gcal.core.gcal_user_service import GCalUserService
+from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
+from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
+from app.connectors.google.scopes import (
+    GOOGLE_CONNECTOR_ENTERPRISE_SCOPES,
+    GOOGLE_PARSER_SCOPES,
+)
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
-from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_PARSER_SCOPES
-from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
-from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
-from app.connectors.google.gcal.core.gcal_user_service import GCalUserService
+from app.exceptions.connector_google_exceptions import (
+    AdminAuthError,
+    AdminDelegationError,
+    AdminListError,
+    AdminQuotaError,
+    AdminServiceError,
+    BatchOperationError,
+    DrivePermissionError,
+    GoogleMailError,
+    MailOperationError,
+    UserOperationError,
+)
 from app.modules.parsers.google_files.parser_user_service import ParserUserService
-from app.utils.time_conversion import parse_timestamp
-from app.exceptions.connector_google_exceptions import (
-    AdminServiceError, AdminAuthError, AdminDelegationError
-)
-from app.exceptions.connector_google_exceptions import (
-    AdminServiceError, AdminAuthError, AdminListError, 
-    AdminDelegationError, AdminQuotaError, UserOperationError,
-    GoogleMailError, MailOperationError, BatchOperationError,
-    DrivePermissionError
-)
+from app.utils.time_conversion import get_epoch_timestamp_in_ms, parse_timestamp
 
-from app.utils.time_conversion import get_epoch_timestamp_in_ms
-from googleapiclient.errors import HttpError
 
 class GoogleAdminService:
     def __init__(
-        self, 
+        self,
         logger,
-        config: ConfigurationService, 
-        rate_limiter: GoogleAPIRateLimiter, 
+        config: ConfigurationService,
+        rate_limiter: GoogleAPIRateLimiter,
         google_token_handler,
         arango_service
     ):
@@ -57,7 +66,7 @@ class GoogleAdminService:
                         "Failed to get enterprise credentials",
                         details={"org_id": org_id}
                     )
-                
+
                 admin_email = credentials_json.get('adminEmail')
                 if not admin_email:
                     raise AdminAuthError(
@@ -167,7 +176,7 @@ class GoogleAdminService:
                     )
 
                 current_users = results.get('users', [])
-                
+
                 for user in current_users:
                     if not user.get('suspended', False):
                         try:
@@ -388,10 +397,10 @@ class GoogleAdminService:
         """Handle new user creation event"""
         try:
             self.logger.info(f"Handling new user creation for {user_email}")
-            
+
             current_timestamp = get_epoch_timestamp_in_ms()
 
-            
+
             # Get user info from Google Admin API
             user_info = await self.get_user_info(org_id, user_email)
             if not user_info:
@@ -405,7 +414,7 @@ class GoogleAdminService:
                     [user_info],
                     CollectionNames.USERS.value
                 )
-                
+
                 # Create edge between org and user if it doesn't exist
                 edge_data = {
                     '_to': f"{CollectionNames.ORGS.value}/{org_id}",
@@ -414,10 +423,10 @@ class GoogleAdminService:
                     'createdAtTimestamp': current_timestamp
                 }
                 await self.arango_service.batch_create_edges(
-                    [edge_data], 
+                    [edge_data],
                     CollectionNames.BELONGS_TO.value,
                 )
-            
+
             self.logger.info(f"Successfully created user record for {user_email}")
 
         except Exception as e:
@@ -428,7 +437,7 @@ class GoogleAdminService:
         """Handle user deletion event"""
         try:
             self.logger.info(f"Handling user deletion for {user_email}")
-            
+
             user_key = await self.arango_service.get_entity_id_by_email(user_email)
             if not user_key:
                 self.logger.warning(f"User {user_email} not found in ArangoDB")
@@ -438,13 +447,13 @@ class GoogleAdminService:
             if not user:
                 self.logger.warning(f"User {user_email} not found in ArangoDB")
                 return
-            
+
             user['isActive'] = False
             await self.arango_service.batch_upsert_nodes(
                 [user],
                 CollectionNames.USERS.value
             )
-            
+
             self.logger.info(f"Successfully marked user {user_email} as inactive")
 
         except Exception as e:
@@ -455,13 +464,13 @@ class GoogleAdminService:
         """Handle new group creation event"""
         try:
             self.logger.info(f"Handling new group creation for {group_email}")
-            
+
             # Get group info from Google Admin API
             group_info = await self.get_group_info(org_id, group_email)
             if not group_info:
                 self.logger.error(f"Failed to get group info for {group_email}")
                 return
-            
+
             group_key = await self.arango_service.get_entity_id_by_email(group_email)
             if not group_key:
                 # Create group in Arango
@@ -469,7 +478,7 @@ class GoogleAdminService:
                     [group_info],
                     CollectionNames.GROUPS.value
                 )
-            
+
             self.logger.info(f"Successfully created group record for {group_email}")
 
         except Exception as e:
@@ -480,7 +489,7 @@ class GoogleAdminService:
         """Handle group deletion event"""
         try:
             self.logger.info(f"Handling group deletion for {group_email}")
-            
+
             group_key = await self.arango_service.get_entity_id_by_email(group_email)
             if not group_key:
                 self.logger.warning(f"Group {group_email} not found in ArangoDB")
@@ -489,7 +498,7 @@ class GoogleAdminService:
             # AQL query to delete group and all its associated edges
             query = f"""
             LET group = DOCUMENT({CollectionNames.GROUPS.value}, '{group_key}')
-            
+
             // Delete the group document and return the deleted document
             LET deleted_group = (
                 FOR doc IN {CollectionNames.GROUPS.value}
@@ -497,14 +506,14 @@ class GoogleAdminService:
                 REMOVE doc IN {CollectionNames.GROUPS.value}
                 RETURN OLD
             )
-            
+
             RETURN {{
                 deleted_group: deleted_group[0]
             }}
             """
-            
+
             cursor = self.arango_service.db.aql.execute(query)
-            result = cursor.next()
+            cursor.next()
             self.logger.info(f"Successfully deleted group {group_email} and its associated edges")
 
         except Exception as e:
@@ -515,17 +524,17 @@ class GoogleAdminService:
         """Handle group member addition event"""
         try:
             self.logger.info(f"Handling member addition to group {group_email}: {user_email}")
-            
+
             group_key = await self.arango_service.get_entity_id_by_email(group_email)
             user_key = await self.arango_service.get_entity_id_by_email(user_email)
-            
+
             if not group_key or not user_key:
                 self.logger.error(f"Group {group_email} or user {user_email} not found in ArangoDB")
                 return
-            
+
             current_timestamp = get_epoch_timestamp_in_ms()
 
-            
+
             # Create BELONGS_TO edge
             belongs_to_data = {
                 '_from': f"{CollectionNames.USERS.value}/{user_key}",
@@ -533,13 +542,13 @@ class GoogleAdminService:
                 'entityType': 'GROUP',
                 'createdAtTimestamp': current_timestamp
             }
-            
+
             # Create both edges
             await self.arango_service.batch_create_edges(
                 [belongs_to_data],
                 CollectionNames.BELONGS_TO.value
             )
-            
+
             self.logger.info(f"Successfully added {user_email} to group {group_email}")
 
         except Exception as e:
@@ -550,10 +559,10 @@ class GoogleAdminService:
         """Handle group member removal event"""
         try:
             self.logger.info(f"Handling member removal from group {group_email}: {user_email}")
-            
+
             group_key = await self.arango_service.get_entity_id_by_email(group_email)
             user_key = await self.arango_service.get_entity_id_by_email(user_email)
-            
+
             if not group_key or not user_key:
                 self.logger.error(f"Group {group_email} or user {user_email} not found in ArangoDB")
                 return
@@ -562,7 +571,7 @@ class GoogleAdminService:
             query = f"""
             LET user_id = CONCAT({CollectionNames.USERS.value}, '/', '{user_key}')
             LET group_id = CONCAT({CollectionNames.GROUPS.value}, '/', '{group_key}')
-            
+
             // Delete belongs_to edge
             LET deleted_belongs = (
                 FOR edge IN {CollectionNames.BELONGS_TO.value}
@@ -572,14 +581,14 @@ class GoogleAdminService:
                 REMOVE edge IN {CollectionNames.BELONGS_TO.value}
                 RETURN OLD
             )
-            
+
             RETURN {{
                 deleted_belongs: deleted_belongs[0]
             }}
             """
 
             cursor = self.arango_service.db.aql.execute(query)
-            result = cursor.next()
+            cursor.next()
             self.logger.info(f"Successfully removed {user_email} from group {group_email}")
 
         except Exception as e:
@@ -657,7 +666,7 @@ class GoogleAdminService:
         """Create a watch for admin activities (user creation/deletion)"""
         try:
             self.logger.info("🔍 Setting up admin activity watch")
-            
+
             if not await self.connect_admin(org_id):
                 raise AdminServiceError(
                     "Failed to connect admin service for watch creation",
@@ -695,7 +704,7 @@ class GoogleAdminService:
                 "token": channel_token,
                 "payload": True
             }
-            
+
             self.logger.info(f"🔍 Creating admin watch for {org_id}")
 
             try:
@@ -718,7 +727,7 @@ class GoogleAdminService:
             except Exception as e:
                 self.logger.error(f"❌ Failed to create admin watch: {str(e)}")
                 raise
-            
+
         except Exception as e:
             self.logger.error(f"❌ Failed to create admin watch: {str(e)}")
             raise
@@ -727,21 +736,21 @@ class GoogleAdminService:
         """Create user watch by impersonating the user"""
         try:
             self.logger.info("🚀 Creating user watch for user %s", user_email)
-            
+
             creds_data = await self.google_token_handler.get_enterprise_token(org_id)
             self.logger.info(f"🚀 Google workspace config: {creds_data}")
             enable_real_time_updates = creds_data.get('enableRealTimeUpdates', False)
             self.logger.info(f"🚀 Enable real time updates: {enable_real_time_updates}")
             if not enable_real_time_updates:
                 return {}
-            
+
             topic = creds_data.get('topicName', '')
             self.logger.info(f"🚀 Topic: {topic}")
 
             try:
                 gmail_service = build(
-                    'gmail', 'v1', 
-                    credentials=self.credentials, 
+                    'gmail', 'v1',
+                    credentials=self.credentials,
                     cache_discovery=False
                 )
             except Exception as e:
@@ -760,7 +769,7 @@ class GoogleAdminService:
                         'topicName': topic
                     }
                     response = gmail_service.users().watch(
-                        userId='me', 
+                        userId='me',
                         body=request_body
                     ).execute()
                     response['expiration'] = int(response['expiration'])
@@ -910,7 +919,7 @@ class GoogleAdminService:
                     "error": str(e)
                 }
             )
-            
+
     async def create_gcal_user_service(self, user_email: str) -> Optional[GCalUserService]:
         """Get or create a GCalUserService for a specific user"""
         try:
@@ -955,9 +964,9 @@ class GoogleAdminService:
             )
             if not await user_service.connect_enterprise_user():
                 return None
-            
+
             return user_service
-        
+
         except Exception as e:
             self.logger.error(f"❌ Failed to create user service for {user_email}: {str(e)}")
             raise AdminServiceError(

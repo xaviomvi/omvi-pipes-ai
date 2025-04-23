@@ -1,9 +1,11 @@
 """Google Docs Parser module for parsing Google Docs content"""
 
-from typing import Dict, Optional, List, Tuple
-from app.connectors.utils.decorators import exponential_backoff
+from typing import Dict, List, Optional, Tuple
+
 from app.connectors.google.admin.google_admin_service import GoogleAdminService
+from app.connectors.utils.decorators import exponential_backoff
 from app.modules.parsers.google_files.parser_user_service import ParserUserService
+
 
 class GoogleDocsParser:
     """Parser class for Google Docs content"""
@@ -194,10 +196,10 @@ class GoogleDocsParser:
     def order_document_content(self, content: Dict) -> Tuple[List, List, List]:
         """
         Orders document content chronologically by start and end indices.
-        
+
         Args:
             content: Dictionary containing parsed document content
-            
+
         Returns:
             Tuple containing:
             - List of ordered content elements
@@ -205,7 +207,7 @@ class GoogleDocsParser:
             - List of footers
         """
         all_content = []
-        
+
         # Add paragraphs
         for para in content['elements']:
             all_content.append({
@@ -235,5 +237,5 @@ class GoogleDocsParser:
 
         # Sort all content by start_index and end_index
         all_content.sort(key=lambda x: (x['start_index'], x['end_index']))
-        
+
         return all_content, content['headers'], content['footers']

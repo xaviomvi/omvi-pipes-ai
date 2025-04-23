@@ -1,5 +1,7 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 from app.config.arangodb_constants import CollectionNames
+
 
 class AdminWebhookHandler:
     def __init__(self, logger, admin_service):
@@ -49,20 +51,20 @@ class AdminWebhookHandler:
             if not user_email:
                 self.logger.error("No user email found in CREATE_USER notification")
                 return
-            
+
             orgs = await self.arango_service.get_all_orgs(active=True)
             org = orgs[0]
             org_id = org['_key']
-            
+
             self.logger.info(f"Processing user creation for: {user_email}")
-            
+
             # Call user service to handle the new user
             await self.admin_service.handle_new_user(org_id, user_email)
 
         except Exception as e:
             self.logger.error(f"Error handling user creation: {str(e)}")
             raise
-        
+
     async def _handle_user_deletion(self, event: Dict[str, Any]):
         """Handle user deletion event"""
         try:
@@ -76,19 +78,19 @@ class AdminWebhookHandler:
             if not user_email:
                 self.logger.error("No user email found in DELETE_USER notification")
                 return
-            
+
             user_key = await self.arango_service.get_entity_id_by_email(user_email)
             if not user_key:
                 self.logger.error(f"User {user_email} not found in ArangoDB")
                 return
-            
+
             user = await self.arango_service.get_document(user_key, CollectionNames.USERS.value)
             org_id = user.get('orgId')
-            
+
             self.logger.info(f"Processing user deletion for: {user_email}")
 
             await self.admin_service.handle_deleted_user(org_id, user_email)
-            
+
         except Exception as e:
             self.logger.error(f"Error handling user deletion: {str(e)}")
             raise
@@ -105,11 +107,11 @@ class AdminWebhookHandler:
             if not group_email:
                 self.logger.error("No group email found in CREATE_GROUP notification")
                 return
-            
+
             orgs = await self.arango_service.get_all_orgs(active=True)
             org = orgs[0]
             org_id = org['_key']
-            
+
             self.logger.info(f"Processing group creation for: {group_email}")
             await self.admin_service.handle_new_group(org_id, group_email)
 
@@ -129,15 +131,15 @@ class AdminWebhookHandler:
             if not group_email:
                 self.logger.warning("No group email found in DELETE_GROUP notification")
                 return
-            
+
             group_key = await self.arango_service.get_entity_id_by_email(group_email)
             if not group_key:
                 self.logger.warning(f"Group {group_email} not found in ArangoDB")
                 return
-            
+
             group = await self.arango_service.get_document(group_key, CollectionNames.GROUPS.value)
             org_id = group.get('orgId')
-            
+
             self.logger.info(f"Processing group deletion for: {group_email}")
             await self.admin_service.handle_deleted_group(org_id, group_email)
 
@@ -158,16 +160,16 @@ class AdminWebhookHandler:
             if not group_email or not user_email:
                 self.logger.error("Missing email in ADD_GROUP_MEMBER notification")
                 return
-            
+
             group_key = await self.arango_service.get_entity_id_by_email(
                 group_email
             )
             if not group_key:
                 self.logger.error(f"Group {group_email} not found in ArangoDB")
                 return
-            
+
             group = await self.arango_service.get_document(group_key, CollectionNames.GROUPS.value)
-            
+
             org_id = group.get('orgId')
             self.logger.info(f"Processing member addition to group: {group_email}")
             await self.admin_service.handle_group_member_added(org_id, group_email, user_email)
@@ -189,14 +191,14 @@ class AdminWebhookHandler:
             if not group_email or not user_email:
                 self.logger.error("Missing email in REMOVE_GROUP_MEMBER notification")
                 return
-            
+
             group_key = await self.arango_service.get_entity_id_by_email(
                 group_email
             )
             if not group_key:
                 self.logger.error(f"Group {group_email} not found in ArangoDB")
                 return
-            
+
             group = await self.arango_service.get_document(group_key, CollectionNames.GROUPS.value)
             org_id = group.get('orgId')
             self.logger.info(f"Processing member removal from group: {group_email}")

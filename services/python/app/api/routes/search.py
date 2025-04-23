@@ -1,12 +1,14 @@
 import asyncio
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
+
 from dependency_injector.wiring import inject
 from fastapi import APIRouter, Depends, HTTPException, Request
-from typing import Optional, Dict, Any, List
-from app.setups.query_setup import AppContainer
+from pydantic import BaseModel
+
 from app.config.configuration_service import ConfigurationService
-from app.modules.retrieval.retrieval_service import RetrievalService
 from app.modules.retrieval.retrieval_arango import ArangoService
+from app.modules.retrieval.retrieval_service import RetrievalService
+from app.setups.query_setup import AppContainer
 from app.utils.query_transform import setup_query_transformation
 
 router = APIRouter()
@@ -37,18 +39,18 @@ async def get_arango_service(request: Request) -> ArangoService:
     arango_service = await container.arango_service()
     return arango_service
 
-async def get_config_service(request: Request) -> ConfigurationService:    
+async def get_config_service(request: Request) -> ConfigurationService:
     container: AppContainer = request.app.container
     config_service = container.config_service()
     return config_service
 
 @router.post("/search")
 @inject
-async def search(request: Request, body: SearchQuery, 
+async def search(request: Request, body: SearchQuery,
                 retrieval_service: RetrievalService = Depends(get_retrieval_service),
                 arango_service: ArangoService = Depends(get_arango_service)):
     """Perform semantic search across documents"""
-    try:       
+    try:
         container = request.app.container
         logger = container.logger()
         llm = retrieval_service.llm
@@ -59,7 +61,7 @@ async def search(request: Request, body: SearchQuery,
                     status_code=500,
                     detail="Failed to initialize LLM service. LLM configuration is missing."
                 )
-            
+
         # Setup query transformation
         rewrite_chain, expansion_chain = setup_query_transformation(llm)
 
@@ -68,10 +70,10 @@ async def search(request: Request, body: SearchQuery,
             rewrite_chain.ainvoke(body.query),
             expansion_chain.ainvoke(body.query)
         )
-        
+
         logger.debug(f"Rewritten query: {rewritten_query}")
         logger.debug(f"Expanded queries: {expanded_queries}")
-        
+
         expanded_queries_list = [q.strip() for q in expanded_queries.split('\n') if q.strip()]
 
         queries = [rewritten_query.strip()] if rewritten_query.strip() else []
@@ -86,7 +88,7 @@ async def search(request: Request, body: SearchQuery,
             arango_service=arango_service
         )
         return results
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

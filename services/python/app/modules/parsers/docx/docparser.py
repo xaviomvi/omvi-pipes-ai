@@ -1,7 +1,6 @@
-import subprocess
 import os
+import subprocess
 import tempfile
-import shutil
 from io import BytesIO
 
 
@@ -13,13 +12,13 @@ class DocParser:
 
     def convert_doc_to_docx(self, binary: bytes) -> BytesIO:
         """Convert .doc file to .docx using LibreOffice
-        
+
         Args:
             binary (bytes): The binary content of the .doc file
-            
+
         Returns:
             BytesIO: The converted .docx file content as a BytesIO stream
-            
+
         Raises:
             subprocess.CalledProcessError: If LibreOffice is not installed or conversion fails
             FileNotFoundError: If the converted file is not found
@@ -32,13 +31,13 @@ class DocParser:
 
                 # Create input file path
                 temp_doc = os.path.join(temp_dir, 'input.doc')
-                
+
                 # Write binary content to temporary file
                 with open(temp_doc, 'wb') as f:
                     f.write(binary)
 
                 # Convert .doc to .docx using LibreOffice
-                result = subprocess.run([
+                subprocess.run([
                     'libreoffice',
                     '--headless',
                     '--convert-to', 'docx',
@@ -55,7 +54,7 @@ class DocParser:
                 # Read the converted file into BytesIO
                 with open(docx_file, 'rb') as f:
                     docx_content = BytesIO(f.read())
-                
+
                 return docx_content
 
             except subprocess.CalledProcessError as e:
@@ -63,9 +62,9 @@ class DocParser:
                 if e.stderr:
                     error_msg += f"\nError details: {e.stderr.decode('utf-8', errors='replace')}"
                 raise subprocess.CalledProcessError(
-                    e.returncode, 
-                    e.cmd, 
-                    output=e.output, 
+                    e.returncode,
+                    e.cmd,
+                    output=e.output,
                     stderr=error_msg.encode()
                 )
             except subprocess.TimeoutExpired as e:

@@ -1,6 +1,8 @@
-from langchain_openai.embeddings import OpenAIEmbeddings, AzureOpenAIEmbeddings
-from pydantic import BaseModel
 from typing import Optional
+
+from langchain_openai.embeddings import AzureOpenAIEmbeddings, OpenAIEmbeddings
+from pydantic import BaseModel
+
 
 class BaseEmbeddingConfig(BaseModel):
     """Base config for all embedding providers"""
@@ -26,7 +28,7 @@ class EmbeddingFactory:
                 api_version=config.azure_api_version,
                 azure_endpoint=config.azure_endpoint
             )
-        
+
         elif isinstance(config, OpenAIEmbeddingConfig):
             return OpenAIEmbeddings(
                 model=config.model,

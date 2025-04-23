@@ -1,8 +1,9 @@
-from typing import Optional, Any, Dict
-import json
-from redis import asyncio as aioredis
-from app.config.configuration_service import ConfigurationService
 import asyncio
+import json
+from typing import Any, Dict, Optional
+
+from app.config.configuration_service import ConfigurationService
+
 
 class BaseRedisService():
     """Service for handling Redis operations"""

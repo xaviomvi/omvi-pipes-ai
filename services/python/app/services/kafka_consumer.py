@@ -1,16 +1,19 @@
-from confluent_kafka import Consumer, KafkaError
-import json
-import logging
-from typing import List, Dict, Tuple, Set
-import aiohttp
 import asyncio
-import os
+import json
 from datetime import datetime, timedelta, timezone
-from app.exceptions.indexing_exceptions import IndexingError
-from jose import jwt
-from app.config.configuration_service import ConfigurationService, config_node_constants, KafkaConfig
-from app.config.arangodb_constants import CollectionNames
+from typing import Dict, List, Set
 
+import aiohttp
+from confluent_kafka import Consumer, KafkaError
+from jose import jwt
+
+from app.config.arangodb_constants import CollectionNames
+from app.config.configuration_service import (
+    ConfigurationService,
+    KafkaConfig,
+    config_node_constants,
+)
+from app.exceptions.indexing_exceptions import IndexingError
 
 # Concurrency control settings
 MAX_CONCURRENT_TASKS = 5  # Maximum number of messages to process concurrently
@@ -20,23 +23,23 @@ RATE_LIMIT_PER_SECOND = 2  # Maximum number of new tasks to start per second
 async def make_api_call(signed_url_route: str, token: str) -> dict:
     """
     Make an API call with the JWT token.
-    
+
     Args:
         signed_url_route (str): The route to send the request to
         token (str): The JWT token to use for authentication
-        
+
     Returns:
         dict: The response from the API
-    """        
+    """
     async with aiohttp.ClientSession() as session:
         url = signed_url_route
-        
+
         # Add the JWT to the Authorization header
         headers = {
             'Authorization': f'Bearer {token}',
             'Content-Type': 'application/json'
         }
-        
+
         # Make the request
         async with session.get(url, headers=headers) as response:
             content_type = response.headers.get('Content-Type', '').lower()
@@ -58,17 +61,17 @@ class KafkaConsumerManager:
         self.semaphore = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
         self.active_tasks: Set[asyncio.Task] = set()
         self.rate_limiter = RateLimiter(RATE_LIMIT_PER_SECOND)
-        
+
         # Message tracking
         self.processed_messages: Dict[str, List[int]] = {}
-        
+
     async def create_consumer(self):
         try:
-            
+
             async def get_kafka_config():
                 kafka_config = await self.config_service.get_config(config_node_constants.KAFKA.value)
                 brokers = kafka_config['brokers']
-                
+
                 return {
                     'bootstrap.servers': ",".join(brokers),
                     'group.id': 'record_consumer_group',
@@ -100,7 +103,7 @@ class KafkaConsumerManager:
         partition = message.partition()
         offset = message.offset()
         message_id = f"{topic}-{partition}-{offset}"
-        
+
         try:
             self.logger.info(f"Starting to process message: {message_id}")
             success = await self._process_message(message)
@@ -117,12 +120,12 @@ class KafkaConsumerManager:
         topic_partition = f"{message.topic()}-{message.partition()}"
         offset = message.offset()
         message_id = f"{topic_partition}-{offset}"
-        
+
         # Check for DUPLICATE processing first
         if self.is_message_processed(topic_partition, offset):
             self.logger.info(f"Message {message_id} already processed, skipping")
             return True
-            
+
         try:
             message_value = message.value()
             if isinstance(message_value, bytes):
@@ -146,7 +149,7 @@ class KafkaConsumerManager:
 
             self.logger.info(f"Processing file record with event type: {event_type}")
             payload_data = data.get('payload')
-            
+
             # Get signed URL from the route
             if payload_data and payload_data.get('signedUrlRoute'):
                 try:
@@ -160,8 +163,8 @@ class KafkaConsumerManager:
 
                     # Make the API call with the token
                     response = await make_api_call(payload_data['signedUrlRoute'], token)
-                    self.logger.debug(f"Signed URL response received")
-                    
+                    self.logger.debug("Signed URL response received")
+
                     if response.get('is_json') is True:
                         response_data = response.get('data')
                         signed_url = response_data['signedUrl']
@@ -189,7 +192,7 @@ class KafkaConsumerManager:
                                 reason=str(e)
                             )
                         return False
-                        
+
                     except Exception as e:
                         # Handle unexpected errors
                         self.logger.error(f"❌ Unexpected error: {str(e)}")
@@ -202,7 +205,7 @@ class KafkaConsumerManager:
                                 reason=f"Unexpected error: {str(e)}"
                             )
                         return False
-                    
+
                 except Exception as e:
                     self.logger.error(f"Error getting signed URL: {repr(e)}")
                     record_id = payload_data.get('recordId')
@@ -215,9 +218,9 @@ class KafkaConsumerManager:
                         )
                     return False
             else:
-                self.logger.warning(f"No signedUrlRoute found in payload")
+                self.logger.warning("No signedUrlRoute found in payload")
                 return False
-                
+
         except Exception as e:
             self.logger.error(f"Error processing message {message_id}: {e}")
             record_id = payload_data.get('recordId')
@@ -240,12 +243,12 @@ class KafkaConsumerManager:
         if topic_partition not in self.processed_messages:
             self.processed_messages[topic_partition] = []
         self.processed_messages[topic_partition].append(offset)
-    
+
     def cleanup_completed_tasks(self):
         """Remove completed tasks from the active tasks set"""
         done_tasks = {task for task in self.active_tasks if task.done()}
         self.active_tasks -= done_tasks
-        
+
         # Check for exceptions in completed tasks
         for task in done_tasks:
             if task.exception():
@@ -255,17 +258,17 @@ class KafkaConsumerManager:
         """Start a new task for processing a message with semaphore control"""
         # Wait for the rate limiter
         await self.rate_limiter.wait()
-        
+
         # Wait for a semaphore slot to become available
         await self.semaphore.acquire()
-        
+
         # Create and start a new task
         task = asyncio.create_task(self.process_message_wrapper(message))
         self.active_tasks.add(task)
-        
+
         # Clean up completed tasks
         self.cleanup_completed_tasks()
-        
+
         # Log current task count
         self.logger.debug(f"Active tasks: {len(self.active_tasks)}/{MAX_CONCURRENT_TASKS}")
 
@@ -288,10 +291,10 @@ class KafkaConsumerManager:
                         else:
                             self.logger.error(f"Kafka error: {message.error()}")
                             continue
-                    
+
                     # Start processing the message in a new task
                     await self.start_processing_task(message)
-                    
+
                 except asyncio.CancelledError:
                     self.logger.info("Kafka consumer task cancelled")
                     break
@@ -305,7 +308,7 @@ class KafkaConsumerManager:
             if self.active_tasks:
                 self.logger.info(f"Waiting for {len(self.active_tasks)} active tasks to complete...")
                 await asyncio.gather(*self.active_tasks, return_exceptions=True)
-                
+
             if self.consumer:
                 self.consumer.close()
                 self.logger.info("Kafka consumer closed")
@@ -313,10 +316,10 @@ class KafkaConsumerManager:
     async def generate_jwt(self, token_payload: dict) -> str:
         """
         Generate a JWT token using the jose library.
-        
+
         Args:
             token_payload (dict): The payload to include in the JWT
-            
+
         Returns:
             str: The generated JWT token
         """
@@ -325,19 +328,19 @@ class KafkaConsumerManager:
         scoped_jwt_secret = secret_keys.get('scopedJwtSecret')
         if not scoped_jwt_secret:
             raise ValueError("SCOPED_JWT_SECRET environment variable is not set")
-        
+
         # Add standard claims if not present
         if 'exp' not in token_payload:
             # Set expiration to 1 hour from now
             token_payload['exp'] = datetime.now(timezone.utc) + timedelta(hours=1)
-        
+
         if 'iat' not in token_payload:
             # Set issued at to current time
             token_payload['iat'] = datetime.now(timezone.utc)
-        
+
         # Generate the JWT token using jose
         token = jwt.encode(token_payload, scoped_jwt_secret, algorithm='HS256')
-        
+
         return token
 
     async def start(self):
@@ -359,7 +362,7 @@ class KafkaConsumerManager:
         """Update document status in Arango"""
         try:
             record = await self.event_processor.arango_service.get_document(
-                record_id, 
+                record_id,
                 CollectionNames.RECORDS.value
             )
             if not record:
@@ -379,7 +382,7 @@ class KafkaConsumerManager:
 
             docs = [doc]
             await self.event_processor.arango_service.batch_upsert_nodes(
-                docs, 
+                docs,
                 CollectionNames.RECORDS.value
             )
             self.logger.info(f"✅ Updated document status for record {record_id}")
@@ -389,32 +392,32 @@ class KafkaConsumerManager:
 
 class RateLimiter:
     """Simple rate limiter to control how many tasks start per second"""
-    
+
     def __init__(self, rate_limit_per_second):
         self.rate = rate_limit_per_second
         self.last_check = datetime.now()
         self.tokens = rate_limit_per_second
         self.lock = asyncio.Lock()
-    
+
     async def wait(self):
         """Wait until a token is available"""
         async with self.lock:
             while True:
                 now = datetime.now()
                 time_passed = (now - self.last_check).total_seconds()
-                
+
                 # Add new tokens based on time passed
                 self.tokens += time_passed * self.rate
                 self.last_check = now
-                
+
                 # Cap tokens at the maximum rate
                 if self.tokens > self.rate:
                     self.tokens = self.rate
-                
+
                 if self.tokens >= 1:
                     # Consume a token
                     self.tokens -= 1
                     break
-                
+
                 # Wait for some tokens to accumulate
                 await asyncio.sleep(1.0 / self.rate)

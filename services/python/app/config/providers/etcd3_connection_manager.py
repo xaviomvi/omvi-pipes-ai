@@ -1,7 +1,9 @@
 import asyncio
-from typing import Dict, List, Optional
-import etcd3
 from dataclasses import dataclass
+from typing import List, Optional
+
+import etcd3
+
 from app.config.utils.retry_policy import RetryPolicy
 from app.utils.logger import create_logger
 
@@ -106,7 +108,7 @@ class Etcd3ConnectionManager:
                 'port': self.config.port,
                 'timeout': self.config.timeout,
             }
-            
+
             if any([self.config.ca_cert, self.config.cert_key, self.config.cert_cert]):
                 client_kwargs.update({
                     'ca_cert': self.config.ca_cert,

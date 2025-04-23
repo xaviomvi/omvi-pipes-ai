@@ -1,4 +1,5 @@
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
 
 class GoogleConnectorError(Exception):
     """Base exception for Google connector errors"""

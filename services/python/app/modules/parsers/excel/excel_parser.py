@@ -1,11 +1,19 @@
-from openpyxl import load_workbook
-from typing import Dict, List, Any
 import io
-from openpyxl.cell.cell import MergedCell
-from openpyxl.utils import get_column_letter
-from app.modules.parsers.excel.prompt_template import prompt, sheet_summary_prompt, table_summary_prompt, row_text_prompt
 import json
 from datetime import datetime
+from typing import Any, Dict, List
+
+from openpyxl import load_workbook
+from openpyxl.cell.cell import MergedCell
+from openpyxl.utils import get_column_letter
+
+from app.modules.parsers.excel.prompt_template import (
+    prompt,
+    row_text_prompt,
+    sheet_summary_prompt,
+    table_summary_prompt,
+)
+
 
 class ExcelParser:
     def __init__(self, logger):
@@ -87,7 +95,7 @@ class ExcelParser:
                 'total_cells': total_cells
             }
 
-        except Exception as e:
+        except Exception:
             raise
         finally:
             if self.workbook:
@@ -160,7 +168,7 @@ class ExcelParser:
 
             return sheet_data
 
-        except Exception as e:
+        except Exception:
             raise
 
     def find_tables(self, sheet) -> List[Dict[str, Any]]:
@@ -258,7 +266,7 @@ class ExcelParser:
 
             return tables
 
-        except Exception as e:
+        except Exception:
             raise
 
     def _process_cell(self, cell, header, row, col):
@@ -315,7 +323,7 @@ class ExcelParser:
                     }
                 }
             }
-        except Exception as e:
+        except Exception:
             raise
 
     async def get_tables_in_sheet(self, sheet_name: str) -> List[Dict[str, Any]]:
@@ -329,7 +337,7 @@ class ExcelParser:
                 return []
 
             sheet = self.workbook[sheet_name]
-            tables = self.find_tables(sheet)            
+            tables = self.find_tables(sheet)
 
             # Prepare context for LLM with all tables
             tables_context = []
@@ -393,13 +401,13 @@ class ExcelParser:
 
                     processed_tables.append(new_table)
 
-                except Exception as e:
+                except Exception:
                     # Fall back to original table
                     processed_tables.append(table)
 
             return processed_tables
 
-        except Exception as e:
+        except Exception:
             raise
 
     async def get_table_summary(self, table: Dict[str, Any]) -> str:
@@ -420,7 +428,7 @@ class ExcelParser:
             response = await self.llm.ainvoke(messages)
             return response.content
 
-        except Exception as e:
+        except Exception:
             raise
 
     async def get_rows_text(self, rows: List[List[Dict[str, Any]]], table_summary: str) -> List[str]:
@@ -461,7 +469,7 @@ class ExcelParser:
                     # If no array found, return response as single-item array
                     return [content]
 
-        except Exception as e:
+        except Exception:
             raise
 
     async def process_sheet_with_summaries(self, llm, sheet_name: str) -> Dict[str, Any]:
@@ -490,7 +498,7 @@ class ExcelParser:
             for i in range(0, len(table['data']), batch_size):
                 batch = table['data'][i:i + batch_size]
                 row_texts = await self.get_rows_text(batch, table_summary)
-                
+
 
                 # Add processed rows to results
                 for row, row_text in zip(batch, row_texts):

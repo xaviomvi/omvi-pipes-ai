@@ -1,12 +1,17 @@
+import traceback
+import uuid
 from typing import Dict
 
-import uuid
-import traceback
-from app.config.arangodb_constants import (CollectionNames, Connectors, 
-                                           RecordTypes, RecordRelations, 
-                                           OriginTypes, EventTypes)
-from app.utils.time_conversion import get_epoch_timestamp_in_ms, parse_timestamp
+from app.config.arangodb_constants import (
+    CollectionNames,
+    Connectors,
+    EventTypes,
+    OriginTypes,
+    RecordRelations,
+    RecordTypes,
+)
 from app.config.configuration_service import config_node_constants
+from app.utils.time_conversion import get_epoch_timestamp_in_ms, parse_timestamp
 
 
 class DriveChangeHandler:
@@ -14,7 +19,7 @@ class DriveChangeHandler:
         self.logger = logger
         self.config_service = config_service
         self.arango_service = arango_service
-        
+
     async def process_change(self, change: Dict, user_service, org_id, user_id):
         """Process a single change with revision checking"""
         txn = None
@@ -81,7 +86,7 @@ class DriveChangeHandler:
                 read=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                       CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
                       CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],
-                
+
                 write=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                       CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
                       CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],
@@ -120,9 +125,8 @@ class DriveChangeHandler:
                 self.logger.info(f"🚀 File key: {file_key}")
                 record = await self.arango_service.get_document(file_key, CollectionNames.RECORDS.value)
                 file = await self.arango_service.get_document(file_key, CollectionNames.FILES.value)
-                
+
                 if file:
-                    record_version = 0  # Initial version for new files
                     extension = file.get('extension')
                     mime_type = file.get('mimeType')
 
@@ -131,10 +135,10 @@ class DriveChangeHandler:
                 file = {}
                 extension = None
                 mime_type = None
-                
+
             endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
             connector_endpoint = endpoints.get('connectors').get('endpoint')
-            
+
             reindex_event = None
 
             # INSERTION
@@ -227,7 +231,7 @@ class DriveChangeHandler:
             existing_permissions = existing_permissions if existing_permissions else []
 
             self.logger.info("🚀 Existing permissions: %s", existing_permissions)
-            
+
             # Compare basic metadata first
             latest_revision_id = updated_file.get('headRevisionId')
             latest_file_name = updated_file.get('name')
@@ -290,7 +294,7 @@ class DriveChangeHandler:
                     db_parents != latest_parents or
                     permissions_changed
                 )
-                
+
                 reindex_var = (
                     db_modified_at != latest_modified_at
                 )
@@ -432,7 +436,7 @@ class DriveChangeHandler:
 
                     'lastIndexTimestamp': None,
                     'lastExtractionTimestamp': None,
-                    
+
                     'isDeleted': False,
                     'isDirty': False,
                     'reason': None,

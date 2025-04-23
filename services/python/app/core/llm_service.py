@@ -1,14 +1,15 @@
-from typing import Optional, Dict
 from datetime import datetime
-from pydantic import BaseModel, Field
-from langchain.chat_models.base import BaseChatModel
-from langchain.callbacks.base import BaseCallbackHandler
+from typing import Dict, Optional
 
-from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
-from app.config.ai_models_named_constants import AzureOpenAILLM
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.callbacks.base import BaseCallbackHandler
+from langchain.chat_models.base import BaseChatModel
 from langchain_anthropic import ChatAnthropic
 from langchain_aws import ChatBedrock
+from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import BaseModel, Field
+
+from app.config.ai_models_named_constants import AzureOpenAILLM
 
 
 class BaseLLMConfig(BaseModel):
@@ -42,7 +43,7 @@ class AwsBedrockLLMConfig(BaseLLMConfig):
 
 class CostTrackingCallback(BaseCallbackHandler):
     """Callback handler for tracking LLM usage and costs"""
-    
+
     def __init__(self, logger):
         super().__init__()
         self.logger = logger
@@ -97,7 +98,7 @@ class LLMFactory:
                 azure_deployment=config.azure_deployment,
                 callbacks=[cost_callback]
             )
-        
+
         elif isinstance(config, OpenAILLMConfig):
             return ChatOpenAI(
                 model=config.model,
@@ -117,7 +118,7 @@ class LLMFactory:
                 google_api_key=config.api_key,
                 callbacks=[cost_callback]
             )
-        
+
         elif isinstance(config, AnthropicLLMConfig):
             return ChatAnthropic(
                 model=config.model,
@@ -136,7 +137,7 @@ class LLMFactory:
                 region_name=config.region,
                 callbacks=[cost_callback]
             )
-        
+
         raise ValueError(f"Unsupported config type: {type(config)}")
 
     @staticmethod
@@ -148,7 +149,7 @@ class LLMFactory:
                     "tokens_in": callback.current_usage["tokens_in"],
                     "tokens_out": callback.current_usage["tokens_out"],
                     "processing_time": (
-                        callback.current_usage["end_time"] - 
+                        callback.current_usage["end_time"] -
                         callback.current_usage["start_time"]
                     ).total_seconds() if callback.current_usage["end_time"] else None,
                     "cost": callback.calculate_cost(llm.model_name)

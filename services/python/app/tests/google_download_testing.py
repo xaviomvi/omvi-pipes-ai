@@ -1,13 +1,12 @@
 import io
 import os
 import pickle
-from typing import Dict, List
+
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
-import uvicorn
-import google.auth
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
@@ -50,13 +49,13 @@ def authenticate():
 
 def download_file(service, real_file_id):
     """Downloads a file from Google Drive with comprehensive logging"""
-    
+
     try:
         print(f"📥 Starting download for file ID: {real_file_id}")
-        
+
         # First get file metadata to log details
         file_metadata = service.files().get(fileId=real_file_id, fields="name, size, mimeType").execute()
-        print(f"📋 File details:")
+        print("📋 File details:")
         print(f"   - Name: {file_metadata.get('name')}")
         print(f"   - Size: {file_metadata.get('size', 'Unknown')} bytes")
         print(f"   - Type: {file_metadata.get('mimeType')}")
@@ -65,12 +64,12 @@ def download_file(service, real_file_id):
         file = io.BytesIO()
         chunk_size = 1024 * 1024  # 1MB chunks
         downloader = MediaIoBaseDownload(file, request, chunksize=chunk_size)
-        
+
         print("⏳ Download in progress...")
         done = False
         total_size = int(file_metadata.get('size', 0))
         bytes_downloaded = 0
-        
+
         while done is False:
             status, done = downloader.next_chunk()
             current_pos = file.tell()
@@ -80,15 +79,15 @@ def download_file(service, real_file_id):
                 print(f"📊 Download progress: {percentage:.1f}% ({bytes_downloaded}/{total_size} bytes)")
 
         print("✅ Download completed successfully!")
-        
+
         # Verify downloaded content
         content = file.getvalue()
         content_size = len(content)
         print(f"📦 Downloaded content size: {content_size} bytes")
-        
+
         if content_size == 0:
             raise ValueError("Downloaded file is empty!")
-            
+
         return content
 
     except HttpError as error:

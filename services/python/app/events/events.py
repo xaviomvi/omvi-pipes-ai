@@ -1,10 +1,12 @@
-import aiohttp
-from io import BytesIO
-from app.config.arangodb_constants import EventTypes
-from app.config.arangodb_constants import CollectionNames
-import json
 import asyncio
 import io
+import json
+from io import BytesIO
+
+import aiohttp
+
+from app.config.arangodb_constants import CollectionNames, EventTypes
+
 
 class EventProcessor:
     def __init__(self, logger, processor, arango_service):
@@ -22,7 +24,7 @@ class EventProcessor:
                 - record_id: ID of the record
                 - record_version: Version of the record
                 - signed_url: Signed URL to download the file
-                - connector_name: Name of the connector 
+                - connector_name: Name of the connector
                 - metadata_route: Route to get metadata
         """
         try:
@@ -38,7 +40,7 @@ class EventProcessor:
             if not record_id:
                 self.logger.error("❌ No record ID provided in event data")
                 return
-            
+
             # Handle delete event
             if event_type == EventTypes.DELETE_RECORD.value:
                 self.logger.info(f"🗑️ Deleting embeddings for record {record_id}")
@@ -65,7 +67,7 @@ class EventProcessor:
             })
 
             docs = [doc]
-            await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)   
+            await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)
 
             # Extract necessary data
             record_version = event_data.get('version', 0)
@@ -73,19 +75,19 @@ class EventProcessor:
             connector = event_data.get('connectorName', '')
             extension = event_data.get('extension', 'unknown')
             mime_type = event_data.get('mimeType', 'unknown')
-            
+
             if extension is None and mime_type != 'text/gmail_content':
                 extension = event_data['recordName'].split('.')[-1]
-            
+
             self.logger.info("🚀 Checking for mime_type")
             self.logger.info("🚀 mime_type: %s", mime_type)
             self.logger.info("🚀 extension: %s", extension)
-            
-            supported_mime_types = ["text/gmail_content", 
-                                 "application/vnd.google-apps.presentation", 
-                                 "application/vnd.google-apps.document", 
+
+            supported_mime_types = ["text/gmail_content",
+                                 "application/vnd.google-apps.presentation",
+                                 "application/vnd.google-apps.document",
                                  "application/vnd.google-apps.spreadsheet"]
-            
+
             supported_extensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "html", "pptx", "ppt", "md", "txt"]
 
             if mime_type not in supported_mime_types and extension not in supported_extensions:
@@ -109,10 +111,10 @@ class EventProcessor:
                     source=connector,
                     orgId=org_id,
                     html_content=event_data.get('body'))
-                
+
                 self.logger.info(f"Content: {event_data.get('body')}")
                 return result
-            
+
             if signed_url:
                 self.logger.debug(f"Signed URL: {signed_url}")
                 # Download file using signed URL with chunked streaming
@@ -135,12 +137,12 @@ class EventProcessor:
                                     self.logger.error(f"❌ Failed to download file: {response.status}")
                                     self.logger.error(f"Response headers: {response.headers}")
                                     return
-                                
+
                                 # Get content length if available
                                 content_length = response.headers.get('Content-Length')
                                 if content_length:
                                     self.logger.info(f"Expected file size: {int(content_length) / (1024*1024):.2f} MB")
-                                
+
                                 self.logger.info("Starting chunked download...")
                                 try:
                                     async for chunk in response.content.iter_chunked(chunk_size):
@@ -149,7 +151,7 @@ class EventProcessor:
                                         if total_size - last_logged_size >= log_interval:
                                             self.logger.debug(f"Total size so far: {total_size / (1024*1024):.2f} MB")
                                             last_logged_size = total_size
-                                    
+
                                     file_content = file_buffer.getvalue()
                                     self.logger.info(f"✅ Download complete. Total size: {total_size / (1024*1024):.2f} MB")
                                 except asyncio.TimeoutError as e:
@@ -162,7 +164,7 @@ class EventProcessor:
                                     await self.arango_service.batch_upsert_nodes([doc], CollectionNames.RECORDS.value)
                                 finally:
                                     file_buffer.close()
-                            
+
 
                         except aiohttp.ClientError as e:
                             self.logger.error(f"❌ Network error during download: {repr(e)}")
@@ -179,9 +181,9 @@ class EventProcessor:
                         file_buffer.close()
             else:
                 file_content = event_data.get('buffer')
-            
+
             self.logger.debug(f"file_content type: {type(file_content)}")
-                
+
             if mime_type == "application/vnd.google-apps.presentation":
                 self.logger.info("🚀 Processing Google Slides")
                 # Decode JSON content if it's streamed data
@@ -217,7 +219,7 @@ class EventProcessor:
                         raise
                 result = await self.processor.process_google_sheets(record_id, record_version, org_id, file_content)
                 return result
-            
+
 
             if extension == "pdf":
                 result = await self.processor.process_pdf_document(
@@ -238,7 +240,7 @@ class EventProcessor:
                     orgId=org_id,
                     docx_binary=BytesIO(file_content)
                 )
-            
+
             elif extension == "doc":
                 result = await self.processor.process_doc_document(
                     recordName=f"Record-{record_id}",
@@ -275,7 +277,7 @@ class EventProcessor:
                     orgId=org_id,
                     csv_binary=file_content
                 )
-                
+
             elif extension == "html":
                 result = await self.processor.process_html_document(
                     recordName=f"Record-{record_id}",
@@ -285,7 +287,7 @@ class EventProcessor:
                     orgId=org_id,
                     html_content=file_content
                 )
-                
+
             elif extension == "pptx":
                 result = await self.processor.process_pptx_document(
                     recordName=f"Record-{record_id}",
@@ -295,7 +297,7 @@ class EventProcessor:
                     orgId=org_id,
                     pptx_binary=file_content
                 )
-                
+
             elif extension == "ppt":
                 result = await self.processor.process_ppt_document(
                     recordName=f"Record-{record_id}",
@@ -305,7 +307,7 @@ class EventProcessor:
                     orgId=org_id,
                     ppt_binary=file_content
                 )
-                
+
             elif extension == "md":
                 result = await self.processor.process_md_document(
                     recordName=f"Record-{record_id}",
@@ -335,7 +337,7 @@ class EventProcessor:
                 })
                 docs = [doc]
                 await self.arango_service.batch_upsert_nodes(docs, CollectionNames.RECORDS.value)
-                
+
                 return
 
 

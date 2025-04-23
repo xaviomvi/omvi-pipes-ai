@@ -1,17 +1,17 @@
 """Google Calendar Admin Service module for interacting with Google Calendar API"""
 
 # pylint: disable=E1101, W0718
-from typing import Dict, List, Optional
-import os
+from typing import Dict, List
+from uuid import uuid4
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from app.config.configuration_service import ConfigurationService, config_node_constants, Routes, TokenScopes
-from app.connectors.google.gcal.core.gcal_user_service import GCalUserService
+
+from app.config.arangodb_constants import CollectionNames
+from app.config.configuration_service import ConfigurationService
+from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
-from app.config.arangodb_constants import CollectionNames
-from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-from uuid import uuid4
 
 
 class GCalAdminService:
@@ -29,7 +29,7 @@ class GCalAdminService:
         """Initialize admin service with domain-wide delegation"""
         try:
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            
+
             credentials_json = await self.google_token_handler.get_enterprise_token(org_id)
             admin_email = credentials_json.get('adminEmail')
 

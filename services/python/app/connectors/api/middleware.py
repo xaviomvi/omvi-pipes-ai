@@ -3,6 +3,7 @@ src/api/middleware.py
 """
 
 from ipaddress import ip_address, ip_network
+
 from cryptography.exceptions import InvalidSignature
 from fastapi import Request
 

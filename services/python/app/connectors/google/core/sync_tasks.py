@@ -1,8 +1,11 @@
-from datetime import datetime, timedelta
-from app.core.celery_app import CeleryApp
 import asyncio
+from datetime import datetime, timedelta
+
 from app.config.arangodb_constants import CollectionNames
 from app.config.configuration_service import WebhookConfig
+from app.core.celery_app import CeleryApp
+
+
 class SyncTasks:
     """Class to manage sync-related Celery tasks"""
 
@@ -217,7 +220,7 @@ class SyncTasks:
             if not user_info:
                 self.logger.error("No user found for gmail sync")
                 return False
-            
+
             user_email = user_info[0]['email']
             user_id = await self.gmail_sync_service.arango_service.get_entity_id_by_email(user_email)
             current_user = await self.gmail_sync_service.arango_service.get_document(user_id, CollectionNames.USERS.value)
@@ -300,7 +303,7 @@ class SyncTasks:
         try:
             current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.logger.info(f"Manual sync control - Action: {action} at {current_time}")
-            
+
             if action == 'start':
                 self.logger.info("Starting sync")
                 success = await self.gmail_sync_service.start(org_id)
@@ -310,7 +313,7 @@ class SyncTasks:
 
             elif action == 'pause':
                 self.logger.info("Pausing sync")
-                
+
                 self.gmail_sync_service._stop_requested = True
                 self.logger.info("🚀 Setting stop requested")
 
@@ -348,7 +351,7 @@ class SyncTasks:
                 self.logger.warning(
                     f"Changes watch not created for user {user_email}")
                 return False
-            
+
             self.logger.info(
                 f"✅ Successfully created new changes watch for {user_email}")
 
