@@ -67,7 +67,6 @@ const updateUserBody = z.object({
   designation: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  fullName: z.string().optional(),
   address: z
     .object({
       addressLine1: z.string().optional(),
