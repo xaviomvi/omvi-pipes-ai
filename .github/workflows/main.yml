@@ -1,0 +1,59 @@
+name: PR Validations
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+
+jobs:
+  validate-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend dependencies
+        run: |
+          cd services/nodejs/apps
+          npm install
+
+      - name: Build backend
+        run: |
+          cd services/nodejs/apps
+          npm run build
+
+      # - name: Run backend tests
+      #   run: |
+      #     cd services/nodejs/apps
+      #     npm test
+
+  validate-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+      # - name: Run frontend tests
+      #   run: |
+      #     cd frontend
+      #     npm test
