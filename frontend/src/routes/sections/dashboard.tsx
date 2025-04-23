@@ -1,13 +1,15 @@
-import { lazy, Suspense, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+
+import { lazy, Suspense } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 
 import { CONFIG } from 'src/config-global';
+import { useAdmin } from 'src/context/AdminContext';
 import { DashboardLayout } from 'src/layouts/dashboard';
 
 import { LoadingScreen } from 'src/components/loading-screen';
 
 import { AuthGuard } from 'src/auth/guard';
-import { useAdmin } from 'src/context/AdminContext';
 import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------

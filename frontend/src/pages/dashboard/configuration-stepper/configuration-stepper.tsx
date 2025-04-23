@@ -33,6 +33,7 @@ import LlmConfigStep from './llm-config';
 import SmtpConfigStep from './smtp-config';
 import StorageConfigStep from './storage-config';
 import ConnectorConfigStep from './connector-config';
+import EmbeddingConfigStep from './embedding-config';
 
 import type {
   LlmFormValues,
@@ -43,7 +44,6 @@ import type {
   ConnectorFormValues,
   EmbeddingFormValues,
 } from './types';
-import EmbeddingConfigStep from './embedding-config';
 
 // Updated steps to include Storage
 const steps: string[] = ['LLM', 'Embeddings', 'Storage', 'Connector', 'SMTP'];
