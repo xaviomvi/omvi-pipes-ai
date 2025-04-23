@@ -1,9 +1,10 @@
+from typing import Dict, Optional
+
 from dependency_injector.wiring import inject
 from fastapi import APIRouter, Depends, HTTPException, Request
-from app.setups.query_setup import AppContainer
-from app.modules.retrieval.retrieval_arango import ArangoService
-from typing import Optional, Dict, Any, List
 
+from app.modules.retrieval.retrieval_arango import ArangoService
+from app.setups.query_setup import AppContainer
 
 router = APIRouter()
 

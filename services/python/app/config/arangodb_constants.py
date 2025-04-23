@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class DepartmentNames(Enum):
     LEGAL = "Legal"
     COMPLIANCE_RISK = "Compliance/Risk Management"
@@ -25,7 +26,7 @@ class DepartmentNames(Enum):
     INVESTOR_RELATIONS = "Investor Relationss"
     CUSTOMER_SUCCESS = "Customer Success"
     OTHERS = "Others"
-    
+
 class Connectors(Enum):
     GOOGLE_DRIVE = "DRIVE"
     GOOGLE_MAIL = "GMAIL"
@@ -37,21 +38,21 @@ class RecordTypes(Enum):
     LINK = "LINK"
     MAIL = "MAIL"
     DRIVE = "DRIVE"
-    
+
 class RecordRelations(Enum):
     PARENT_CHILD = "PARENT_CHILD"
     SIBLING = "SIBLING"
     ATTACHMENT = "ATTACHMENT"
-    
+
 class OriginTypes(Enum):
     CONNECTOR = "CONNECTOR"
     UPLOAD = "UPLOAD"
-    
+
 class EventTypes(Enum):
     NEW_RECORD = "newRecord"
     UPDATE_RECORD = "updateRecord"
     DELETE_RECORD = "deleteRecord"
-    
+
 class CollectionNames(Enum):
     # Records and Record relations
     RECORDS = 'records'
@@ -100,8 +101,8 @@ class CollectionNames(Enum):
 
     # Other
     CHANNEL_HISTORY = 'channelHistory'
-    PAGE_TOKENS = 'pageTokens' 
-    
+    PAGE_TOKENS = 'pageTokens'
+
     # Graphs
     FILE_ACCESS_GRAPH = "fileAccessGraph"
 
@@ -109,7 +110,6 @@ class CollectionNames(Enum):
     ORG_APP_RELATION = 'orgAppRelation'
     USER_APP_RELATION = 'userAppRelation'
     ORG_DEPARTMENT_RELATION = 'orgDepartmentRelation'
-    
+
 class QdrantCollectionNames(Enum):
     RECORDS = "records"
-    

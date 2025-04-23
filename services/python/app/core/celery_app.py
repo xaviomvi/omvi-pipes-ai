@@ -1,7 +1,15 @@
+from typing import Any
+
 from celery import Celery
 from celery.schedules import crontab
-from typing import Any
-from app.config.configuration_service import ConfigurationService, config_node_constants, CeleryConfig, RedisConfig
+
+from app.config.configuration_service import (
+    CeleryConfig,
+    ConfigurationService,
+    RedisConfig,
+    config_node_constants,
+)
+
 
 class CeleryApp:
     """Celery application manager"""

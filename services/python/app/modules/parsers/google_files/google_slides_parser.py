@@ -1,9 +1,11 @@
 """Google Slides Parser module for parsing Google Slides content"""
 
-from typing import Dict, List, Optional, Any
-from app.connectors.utils.decorators import exponential_backoff
+from typing import Any, Dict, Optional
+
 from app.connectors.google.admin.google_admin_service import GoogleAdminService
+from app.connectors.utils.decorators import exponential_backoff
 from app.modules.parsers.google_files.parser_user_service import ParserUserService
+
 
 class GoogleSlidesParser:
     """Parser class for Google Slides content"""
@@ -20,7 +22,7 @@ class GoogleSlidesParser:
             if not await self.user_service.connect_individual_user(org_id, user_id):
                 self.logger.error("❌ Failed to connect to Google Slides service")
                 return None
-            
+
             self.service = self.user_service.slides_service
             self.logger.info("🚀 Connected to Google Slides service: %s", self.service)
         elif self.admin_service:

@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Any
+from typing import Any, Dict
+
 import jwt
 from fastapi import HTTPException
 from jose import JWTError
 from pydantic import BaseModel, ValidationError
 
 from app.config.configuration_service import ConfigurationService, config_node_constants
+
 
 class SignedUrlConfig(BaseModel):
     private_key: str | None = None
@@ -23,7 +25,7 @@ class SignedUrlConfig(BaseModel):
             if not private_key:
                 raise ValueError("Private key must be provided through configuration or environment")
             return cls(private_key=private_key)
-        except Exception as e:
+        except Exception:
             raise
 
     def __init__(self, **data):
@@ -62,10 +64,10 @@ class SignedUrlHandler:
         try:
             expiration = datetime.now(timezone(timedelta(
                 hours=5, minutes=30))) + timedelta(minutes=self.signed_url_config.expiration_minutes)
-            
+
             endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
             connector_endpoint = endpoints.get('connectors').get('endpoint')
-            
+
             self.logger.info(f"user_id: {user_id}")
 
             payload = TokenPayload(

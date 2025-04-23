@@ -1,7 +1,8 @@
-import os
-import jwt
 import aiohttp
-from app.config.configuration_service import config_node_constants, Routes, TokenScopes
+import jwt
+
+from app.config.configuration_service import Routes, TokenScopes, config_node_constants
+
 
 class GoogleTokenHandler:
     def __init__(self, logger, config_service, arango_service):
@@ -10,7 +11,7 @@ class GoogleTokenHandler:
         self.service = None
         self.config_service = config_service
         self.arango_service = arango_service
-        
+
     async def get_individual_token(self, org_id, user_id):
         # Prepare payload for credentials API
         payload = {
@@ -18,7 +19,7 @@ class GoogleTokenHandler:
             "userId": user_id,
             "scopes": [TokenScopes.FETCH_CONFIG.value]
         }
-        
+
         secret_keys = await self.config_service.get_config(config_node_constants.SECRET_KEYS.value)
         scoped_jwt_secret = secret_keys.get('scopedJwtSecret')
         # Create JWT token
@@ -27,14 +28,14 @@ class GoogleTokenHandler:
             scoped_jwt_secret,
             algorithm='HS256'
         )
-        
+
         headers = {
             "Authorization": f"Bearer {jwt_token}"
         }
-        
+
         endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
         nodejs_endpoint = endpoints.get('cm').get('endpoint')
-        
+
         # Fetch credentials from API
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -46,14 +47,14 @@ class GoogleTokenHandler:
                     raise Exception(f"Failed to fetch credentials: {await response.json()}")
                 creds_data = await response.json()
                 self.logger.info("🚀 Fetch refreshed access token response: %s", creds_data)
-                        
+
         return creds_data
 
     async def refresh_token(self, org_id, user_id):
         """Refresh the access token"""
         try:
             self.logger.info("🔄 Refreshing access token")
-            
+
             payload = {
                 "orgId": org_id,
                 "userId": user_id,
@@ -61,17 +62,17 @@ class GoogleTokenHandler:
             }
             secret_keys = await self.config_service.get_config(config_node_constants.SECRET_KEYS.value)
             scoped_jwt_secret = secret_keys.get('scopedJwtSecret')
-            
+
             jwt_token = jwt.encode(
                 payload,
                 scoped_jwt_secret,
                 algorithm='HS256'
             )
-            
+
             headers = {
                 "Authorization": f"Bearer {jwt_token}"
             }
-            
+
             endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
             nodejs_endpoint = endpoints.get('cm').get('endpoint')
 
@@ -83,9 +84,9 @@ class GoogleTokenHandler:
                 ) as response:
                     if response.status != 200:
                         raise Exception(f"Failed to refresh token: {await response.json()}")
-                    
-                    creds_data = await response.json()
-                               
+
+                    await response.json()
+
             self.logger.info("✅ Successfully refreshed access token")
 
         except Exception as e:
@@ -98,23 +99,23 @@ class GoogleTokenHandler:
             "orgId": org_id,
             "scopes": [TokenScopes.FETCH_CONFIG.value]
         }
-        
+
         secret_keys = await self.config_service.get_config(config_node_constants.SECRET_KEYS.value)
         scoped_jwt_secret = secret_keys.get('scopedJwtSecret')
-        
+
         # Create JWT token
         jwt_token = jwt.encode(
             payload,
             scoped_jwt_secret,
             algorithm='HS256'
         )
-        
+
         headers = {
             "Authorization": f"Bearer {jwt_token}"
         }
         endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
         nodejs_endpoint = endpoints.get('cm').get('endpoint')
-        
+
         # Call credentials API
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -125,5 +126,5 @@ class GoogleTokenHandler:
                 if response.status != 200:
                     raise Exception(f"Failed to fetch credentials: {await response.json()}")
                 credentials_json = await response.json()
-        
+
         return credentials_json

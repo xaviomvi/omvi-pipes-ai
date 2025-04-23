@@ -22,7 +22,7 @@ user_schema = {
         "type": "object",
         "properties": {
             "_key": {"type": "string"}, #uuid
-            "userId" :{"type" : "string"}, 
+            "userId" :{"type" : "string"},
             "orgId": {"type": "string"},
             "firstName": {"type": "string"},
             "middleName": {"type": "string"},
@@ -196,17 +196,17 @@ mail_record_schema = {
             "date": {"type": "string"},
             "from": {"type": "string"},
             "to": {
-                "type": "array", 
+                "type": "array",
                 "items": {"type": "string", "minLength": 0},
                 "default": []
             },
             "cc": {
-                "type": "array", 
+                "type": "array",
                 "items": {"type": "string", "minLength": 0},
                 "default": []
             },
             "bcc": {
-                "type": "array", 
+                "type": "array",
                 "items": {"type": "string", "minLength": 0},
                 "default": []
             },

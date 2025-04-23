@@ -1,10 +1,15 @@
-from functools import wraps
 import asyncio
 import random
+from functools import wraps
+
 from googleapiclient.errors import HttpError
-from app.exceptions.connector_google_exceptions import (    
-    GoogleAuthError, AdminQuotaError, GoogleConnectorError
+
+from app.exceptions.connector_google_exceptions import (
+    AdminQuotaError,
+    GoogleAuthError,
+    GoogleConnectorError,
 )
+
 
 def token_refresh(func):
     """Decorator to check and refresh token before API call"""

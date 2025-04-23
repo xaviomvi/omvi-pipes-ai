@@ -1,11 +1,13 @@
 import os
-from fastapi import HTTPException, status, Request
+
+from dependency_injector.wiring import inject
+from fastapi import HTTPException, Request, status
 from jose import JWTError, jwt
-from dependency_injector.wiring import inject, Provide
-from fastapi import Depends
+
 from app.config.configuration_service import ConfigurationService, config_node_constants
 
-async def get_config_service(request: Request) -> ConfigurationService:    
+
+async def get_config_service(request: Request) -> ConfigurationService:
     container = request.app.container
     config_service = container.config_service()
     return config_service
@@ -42,7 +44,7 @@ async def isJwtTokenValid(request: Request):
     except JWTError as e:
         logger.error(f"JWT Error: {e}")
         raise credentials_exception
-    
+
 # Dependency for injecting authentication
 async def authMiddleware(request: Request):
     credentials_exception = HTTPException(

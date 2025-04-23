@@ -1,13 +1,18 @@
-from azure.core.credentials import AzureKeyCredential
-from azure.ai.formrecognizer.aio import DocumentAnalysisClient as AsyncDocumentAnalysisClient
-from typing import Dict, Any, List, Optional
-from io import BytesIO
-import fitz  # PyMuPDF for initial document check
-from app.modules.parsers.pdf.ocr_handler import OCRStrategy
-from spacy import Language
-import spacy
-import time
 import os
+import time
+from io import BytesIO
+from typing import Any, Dict, List
+
+import fitz  # PyMuPDF for initial document check
+import spacy
+from azure.ai.formrecognizer.aio import (
+    DocumentAnalysisClient as AsyncDocumentAnalysisClient,
+)
+from azure.core.credentials import AzureKeyCredential
+from spacy import Language
+
+from app.modules.parsers.pdf.ocr_handler import OCRStrategy
+
 
 class AzureOCRStrategy(OCRStrategy):
     def __init__(
@@ -80,7 +85,7 @@ class AzureOCRStrategy(OCRStrategy):
 
         self.logger.debug("🔄 Pre-processing document to match Azure's structure")
         self.document_analysis_result = self._preprocess_document(needs_ocr)
-        self.logger.info(f"✅ Document loaded!")
+        self.logger.info("✅ Document loaded!")
 
     @Language.component("custom_sentence_boundary")
     def custom_sentence_boundary(doc):
@@ -274,7 +279,7 @@ class AzureOCRStrategy(OCRStrategy):
                 page_height
             )
         return element_data
-    
+
     def _process_block_text_pymupdf(self, block: Dict[str, Any], page_width: float, page_height: float) -> Dict[str, Any]:
         """Process a text block to extract lines, sentences, and metadata
 
@@ -442,7 +447,7 @@ class AzureOCRStrategy(OCRStrategy):
         }
 
         return paragraph if block_text else None
-    
+
     def _should_merge_blocks(self, block1: Dict[str, Any], block2: Dict[str, Any], word_threshold: int = 15) -> bool:
         """
         Determine if blocks should be merged based on word count threshold.
@@ -507,10 +512,10 @@ class AzureOCRStrategy(OCRStrategy):
 
         if needs_ocr:
             doc_pages = self.doc.pages
-            
+
         else:
             doc_pages = range(len(self.doc))  # PyMuPDF case
-            
+
         # First pass: collect all lines and paragraphs by page
         for page in doc_pages:
             if hasattr(page, 'page_number'):
@@ -538,7 +543,7 @@ class AzureOCRStrategy(OCRStrategy):
                 self.logger.debug("PAGE RECT HEIGHT: %f", page_height)
                 page_unit = "point"
                 self.logger.debug("PAGE RECT UNIT: %s", page_unit)
-                
+
                 self.logger.debug("PAGE RECT NUMBER: %d", page_number)
 
             page_dict = {
@@ -550,7 +555,7 @@ class AzureOCRStrategy(OCRStrategy):
                 "words": [],
                 "tables": []
             }
-            
+
             if needs_ocr:
                 # Collect all lines from the page
                 page_lines = []
@@ -607,7 +612,7 @@ class AzureOCRStrategy(OCRStrategy):
                         result["tables"].append(table_data)
 
                 result["pages"].append(page_dict)
-                
+
             else:
                 self.logger.debug("📝 Extracting text blocks and paragraphs")
                 text_dict = page.get_text("dict")
@@ -656,7 +661,7 @@ class AzureOCRStrategy(OCRStrategy):
                                 "📑 Added sentence to document collection (Page %s, Block %s)", page.number + 1, sentence['block_number'])
 
                 self.logger.debug(f"✅ Completed processing page {page.number + 1}")
-                self.logger.debug(f"📊 Page statistics:")
+                self.logger.debug("📊 Page statistics:")
                 self.logger.debug(f"- Lines: {len(page_dict['lines'])}")
                 self.logger.debug(f"- Words: {len(page_dict['words'])}")
                 result["pages"].append(page_dict)
@@ -665,9 +670,9 @@ class AzureOCRStrategy(OCRStrategy):
             self.logger.debug(f"- Total pages: {len(result['pages'])}")
             self.logger.debug(f"- Total paragraphs: {len(result['paragraphs'])}")
             self.logger.debug(f"- Total sentences: {len(result['sentences'])}")
-                
+
         return result
-        
+
     def _get_lines_for_paragraph(
         self,
         page_lines: List[Dict[str, Any]],

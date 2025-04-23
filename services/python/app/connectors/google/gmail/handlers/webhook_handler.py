@@ -1,9 +1,9 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Optional, Set, List
 import asyncio
-from datetime import datetime, timezone
 import json
-import os
+from abc import ABC, abstractmethod
+from datetime import datetime, timezone
+from typing import Dict, Optional
+
 from app.config.arangodb_constants import CollectionNames
 from app.config.configuration_service import ConfigurationService
 
@@ -167,9 +167,9 @@ class IndividualGmailWebhookHandler(AbstractGmailWebhookHandler):
                 changes = await user_service.fetch_gmail_changes(email_address, current_history_id)
 
                 await self.arango_service.store_channel_history_id(changes['historyId'], channel_history['expiration'], email_address)
-                
+
                 user_id = await self.arango_service.get_entity_id_by_email(email_address)
-                
+
                 # Get org_id from belongsTo relation for this user
                 query = f"""
                 FOR edge IN belongsTo
@@ -260,7 +260,7 @@ class EnterpriseGmailWebhookHandler(AbstractGmailWebhookHandler):
                 changes = await user_service.fetch_gmail_changes(email_address, current_history_id)
 
                 await self.arango_service.store_channel_history_id(changes['historyId'], channel_history['expiration'], email_address)
-                
+
                 user_id = await self.arango_service.get_entity_id_by_email(email_address)
                 # Get org_id from belongsTo relation for this user
                 query = f"""

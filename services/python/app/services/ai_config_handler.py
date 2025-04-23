@@ -1,16 +1,17 @@
 import asyncio
 import json
-from confluent_kafka import Consumer, KafkaError
-import httpx
 from typing import Dict, List
-from app.config.configuration_service import config_node_constants, KafkaConfig
-from datetime import datetime, timezone
+
+from confluent_kafka import Consumer, KafkaError
+
+from app.config.configuration_service import KafkaConfig, config_node_constants
 from app.modules.retrieval.retrieval_service import RetrievalService
+
 
 class RetrievalAiConfigHandler:
     def __init__(self, logger, config_service, retrieval_service: RetrievalService):
         """Initialize the LLM config handler with required services
-        
+
         Args:
             config_service: Configuration service instance
             retrieval_service: RetrievalService instance to update
@@ -19,7 +20,7 @@ class RetrievalAiConfigHandler:
         self.running = False
         self.logger = logger
         self.config_service = config_service
-        
+
         self.retrieval_service = retrieval_service
         self.processed_messages: Dict[str, List[int]] = {}
 
@@ -29,7 +30,7 @@ class RetrievalAiConfigHandler:
             async def get_kafka_config():
                 kafka_config = await self.config_service.get_config(config_node_constants.KAFKA.value)
                 brokers = kafka_config['brokers']
-                
+
                 return {
                     'bootstrap.servers': ",".join(brokers),
                     'group.id': 'llm_config_consumer_group',
@@ -41,7 +42,7 @@ class RetrievalAiConfigHandler:
                 }
 
             KAFKA_CONFIG = await get_kafka_config()
-            
+
             self.consumer = Consumer(KAFKA_CONFIG)
             # Subscribe to entity-events topic
             self.consumer.subscribe(['entity-events'])
@@ -67,29 +68,29 @@ class RetrievalAiConfigHandler:
 
     async def handle_llm_configured(self) -> bool:
         """Handle LLM configuration update
-        
+
         Args:
             payload (dict): Event payload containing credentialsRoute
-            
+
         Returns:
             bool: True if successful, False otherwise
         """
         try:
             self.logger.info("📥 Processing LLM configured event")
-            
+
             await self.retrieval_service.get_llm_instance()
-                    
+
             self.logger.info("✅ Successfully updated LLM configuration in all services")
             return True
-                    
+
         except Exception as e:
             self.logger.error(f"❌ Failed to fetch AI configuration: {str(e)}")
             return False
-        
+
     async def handle_embedding_model_configured(self) -> bool:
         try:
             self.logger.info("📥 Processing embedding model configured event")
-            
+
             await self.retrieval_service.get_embedding_model_instance()
             self.logger.info("✅ Successfully updated embedding model in all services")
             return True
@@ -109,23 +110,23 @@ class RetrievalAiConfigHandler:
             message_value = message.value()
             if isinstance(message_value, bytes):
                 message_value = message_value.decode('utf-8')
-            
+
             if isinstance(message_value, str):
                 try:
                     value = json.loads(message_value)
                     if isinstance(value, str):
                         value = json.loads(value)
-                    
+
                     event_type = value.get('eventType')
-                    
+
                     if event_type == 'llmConfigured':
                         return await self.handle_llm_configured()
                     elif event_type == 'embeddingModelConfigured':
                         return await self.handle_embedding_model_configured()
-                    
+
                 except json.JSONDecodeError as e:
                     self.logger.error(f"Failed to parse JSON: {e}")
-            
+
             return False
 
         except Exception as e:

@@ -1,21 +1,27 @@
 # src/config/configuration_service.py
-from typing import Any
 import json
 import os
-import dotenv
-from app.config.key_value_store_factory import KeyValueStoreFactory, StoreConfig, StoreType
-from app.config.providers.etcd3_store import Etcd3DistributedKeyValueStore
-from enum import Enum
-from app.config.encryption.encryption_service import EncryptionService
-from cachetools import LRUCache
 import threading
 import time
+from enum import Enum
+from typing import Any
+
+import dotenv
+from cachetools import LRUCache
+
+from app.config.encryption.encryption_service import EncryptionService
+from app.config.key_value_store_factory import (
+    KeyValueStoreFactory,
+    StoreConfig,
+    StoreType,
+)
+from app.config.providers.etcd3_store import Etcd3DistributedKeyValueStore
 
 dotenv.load_dotenv()
 
 class config_node_constants(Enum):
     """Constants for ETCD configuration paths"""
-    
+
     # Service paths
     ARANGODB = "/services/arangodb"
     QDRANT = "/services/qdrant"
@@ -24,10 +30,10 @@ class config_node_constants(Enum):
     KAFKA = "/services/kafka"
     ENDPOINTS = "/services/endpoints"
     SECRET_KEYS = "/services/secretKeys"
-        
+
     # Non-service paths
     LOG_LEVEL = "/logLevel"
-    
+
 class TokenScopes(Enum):
     """Constants for token scopes"""
     SEND_MAIL = "mail:send"
@@ -35,27 +41,27 @@ class TokenScopes(Enum):
     PASSWORD_RESET = "password:reset"
     USER_LOOKUP = "user:lookup"
     TOKEN_REFRESH = "token:refresh"
-    
+
 class Routes(Enum):
     """Constants for routes"""
     INDIVIDUAL_CREDENTIALS = "/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials"
     INDIVIDUAL_REFRESH_TOKEN = "/api/v1/connectors/internal/refreshIndividualConnectorToken"
     BUSINESS_CREDENTIALS = "/api/v1/configurationManager/internal/connectors/business/googleWorkspaceCredentials"
     LLM_CONFIG = "/api/v1/configurationManager/internal/aiModelsConfig"
-    
+
 class WebhookConfig(Enum):
     """Constants for webhook configuration"""
     EXPIRATION_DAYS = 6
     EXPIRATION_HOURS = 23
     EXPIRATION_MINUTES = 59
     COALESCEDELAY = 30
-    
+
 class KafkaConfig(Enum):
     """Constants for kafka configuration"""
     CLIENT_ID_RECORDS = "record-processor"
     CLIENT_ID_MAIN = "enterprise-search"
     CLIENT_ID_LLM = "llm-configuration"
-    
+
 class CeleryConfig(Enum):
     """Constants for celery configuration"""
     TASK_SERIALIZER = "json"
@@ -67,11 +73,11 @@ class CeleryConfig(Enum):
         "syncStartTime": "23:00",
         "syncPauseTime": "05:00"
     }
-    
+
 class RedisConfig(Enum):
     """Constants for redis configuration"""
     REDIS_DB = 0
-    
+
 class ConfigurationService():
     """Service to manage configuration using etcd store"""
 
@@ -84,18 +90,18 @@ class ConfigurationService():
             raise ValueError("SECRET_KEY environment variable is required")
         self.encryption_service = EncryptionService.get_instance("aes-256-gcm", secret_key)
         self.logger.debug("🔐 Initialized EncryptionService")
-        
+
         # Initialize LRU cache
         self.cache = LRUCache(maxsize=1000)
         self.logger.debug("📦 Initialized LRU cache with max size 1000")
-        
+
         self.logger.debug("🔧 Creating ETCD store...")
         self.store = self._create_store()
-        
+
         # Start watch in background
         self._start_watch()
         self.logger.debug("👀 Started ETCD watch")
-        
+
         self.logger.debug("✅ ConfigurationService initialized successfully")
 
     def _create_store(self) -> Etcd3DistributedKeyValueStore:
@@ -166,7 +172,7 @@ class ConfigurationService():
         """Load default configuration into etcd."""
         self.logger.debug("🔄 Starting to load default configuration")
         self.logger.debug("📂 Reading default_config.json...")
-        
+
         with open('default_config.json', 'r') as f:
             default_config = json.load(f)
             self.logger.debug("📋 Default config loaded: %s", default_config)
@@ -181,7 +187,7 @@ class ConfigurationService():
             else:
                 # Store non-dict values directly
                 await self._store_config_value(key, value, overwrite)
-        
+
         self.logger.debug("✅ Default configuration loaded completely")
 
     async def _store_config_value(self, key: str, value: Any, overwrite: bool) -> bool:
@@ -192,10 +198,10 @@ class ConfigurationService():
             if existing_value is not None and not overwrite:
                 self.logger.debug("⏭️ Skipping existing key: %s", key)
                 return True
-            
+
             # Convert value to JSON string
             value_json = json.dumps(value)
-            
+
             EXCLUDED_KEYS = [
                 '/services/endpoints',
             ]
@@ -204,26 +210,26 @@ class ConfigurationService():
                 encrypted_value = self.encryption_service.encrypt(value_json)
             else:
                 encrypted_value = value_json
-                
+
             self.logger.debug("🔒 Encrypted value for key %s", key)
-            
+
             # Store the encrypted value
             success = await self.store.create_key(key, encrypted_value)
             if success:
                 self.logger.debug("✅ Successfully stored encrypted key: %s", key)
-                
+
                 # Verify the stored value
                 encrypted_stored_value = await self.store.get_key(key)
                 if encrypted_stored_value:
                     decrypted_value = self.encryption_service.decrypt(encrypted_stored_value)
                     stored_value = json.loads(decrypted_value)
-                    
+
                     if stored_value != value:
                         self.logger.warning("⚠️ Verification failed for key: %s", key)
                         self.logger.warning("  Expected: %s", value)
                         self.logger.warning("  Got: %s", stored_value)
                         return False
-                    
+
                 return True
             else:
                 self.logger.error("❌ Failed to store key: %s", key)
@@ -267,7 +273,7 @@ class ConfigurationService():
                 self.logger.debug("🔄 Waiting for ETCD client to be initialized...")
                 time.sleep(3)
             self.store.client.add_watch_prefix_callback("/", self._watch_callback)
-            
+
         self.watch_thread = threading.Thread(target=watch_etcd, daemon=True)
         self.watch_thread.start()
 
@@ -281,31 +287,31 @@ class ConfigurationService():
 
             # If not in cache, get from etcd
             encrypted_value = await self.store.get_key(key)
-            
+
             if encrypted_value is not None:
                 try:
                     # Determine if value needs decryption
                     UNENCRYPTED_KEYS = ['/services/endpoints']
                     needs_decryption = key not in UNENCRYPTED_KEYS
-                    
+
                     # Get decrypted or raw value
                     value = (
                         self.encryption_service.decrypt(encrypted_value)
                         if needs_decryption
                         else encrypted_value
                     )
-                    
+
                     # Parse value if it's not already a dict
                     result = (
                         json.loads(value)
                         if not isinstance(value, dict)
                         else value
                     )
-                    
+
                     # Cache and return result
                     self.cache[key] = result
                     return result
-                    
+
                 except Exception as e:
                     self.logger.error(f"❌ Failed to process value for key {key}: {str(e)}")
                     return default

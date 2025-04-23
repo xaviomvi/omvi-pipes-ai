@@ -1,14 +1,14 @@
 import json
-
 import os
 from datetime import datetime
 
-from app.modules.parsers.pdf.ocr_handler import OCRHandler
+from app.config.ai_models_named_constants import AzureDocIntelligenceModel, OCRProvider
 from app.config.arangodb_constants import CollectionNames
 from app.config.configuration_service import config_node_constants
-from app.config.ai_models_named_constants import OCRProvider, AzureDocIntelligenceModel
+from app.modules.parsers.pdf.ocr_handler import OCRHandler
 from app.utils.llm import get_llm
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
+
 
 class Processor:
     def __init__(self, logger, config_service, domain_extractor, indexing_pipeline, arango_service, parsers):
@@ -46,7 +46,7 @@ class Processor:
 
             for slide in presentation_data['slides']:
                 slide_text = []
-                
+
                 # Process each element in the slide
                 for element in slide['elements']:
                     if element['type'] == 'shape':
@@ -123,7 +123,7 @@ class Processor:
 
             for slide in presentation_data['slides']:
                 slide_number = slide['slideNumber']
-                
+
                 # Process text elements
                 for element in slide['elements']:
                     if element['type'] == 'shape':
@@ -247,7 +247,7 @@ class Processor:
                     }
                     numbered_items.append(element_entry)
                     formatted_content += f"[{idx}] {element['text'].strip()}\n\n"
-                
+
                 elif item['type'] == 'table':
                     table = item['content']
                     table_entry = {
@@ -261,7 +261,7 @@ class Processor:
                     }
                     numbered_items.append(table_entry)
                     formatted_content += f"[T{idx}] Table ({table['rows']}x{table['columns']})\n\n"
-                
+
                 elif item['type'] == 'image':
                     image = item['content']
                     image_entry = {
@@ -291,7 +291,7 @@ class Processor:
             # Create sentence data for indexing
             self.logger.debug("📑 Creating semantic sentences")
             sentence_data = []
-            
+
             # Keep track of previous items for context
             context_window = []
             context_window_size = 3
@@ -302,8 +302,8 @@ class Processor:
                     if text:
                         # Create context from previous items
                         previous_context = " ".join([
-                            prev['content']['text'].strip() 
-                            for prev in context_window 
+                            prev['content']['text'].strip()
+                            for prev in context_window
                             if prev['type'] == 'paragraph'
                         ])
 
@@ -375,25 +375,25 @@ class Processor:
         try:
             # Initialize Google Docs parser
             self.logger.debug("📄 Processing Google Sheets content")
-            
+
             all_sheets_result = content['all_sheet_results']
-            parsed_result = content['parsed_result']
+            content['parsed_result']
 
             combined_texts = []
             row_counter = 1
             domain_metadata = None
             sentence_data = []
-            
+
             for sheet_result in all_sheets_result:
                 for table in sheet_result['tables']:
                     for row in table['rows']:
                         combined_texts.append(f"{row_counter}. {row['natural_language_text']}")
                         row_counter += 1
-                        
+
             combined_text = "\n".join(combined_texts)
             if combined_text:
                 try:
-                    self.logger.info(f"🎯 Extracting metadata from Excel content")
+                    self.logger.info("🎯 Extracting metadata from Excel content")
                     metadata = await self.domain_extractor.extract_metadata(combined_text, orgId)
                     record = await self.domain_extractor.save_metadata_to_arango(record_id, metadata)
                     file = await self.arango_service.get_document(record_id, CollectionNames.FILES.value)
@@ -402,7 +402,7 @@ class Processor:
                 except Exception as e:
                     self.logger.error(f"❌ Error extracting metadata: {str(e)}")
                     domain_metadata = None
-                    
+
             for sheet_idx, sheet_result in enumerate(all_sheets_result, 1):
                 self.logger.info(f"sheet_name: {sheet_result['sheet_name']}")
                 for table in sheet_result['tables']:
@@ -421,14 +421,14 @@ class Processor:
                                 "blockText": json.dumps(row_data),
                             }
                         })
-                        
-                        
+
+
             # Index sentences if available
             if sentence_data:
                 self.logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
                 pipeline = self.indexing_pipeline
                 await pipeline.index_documents(sentence_data, merge_documents=False)
-    
+
 
             self.logger.info("✅ Google sheets processing completed successfully")
             return {
@@ -439,7 +439,7 @@ class Processor:
         except Exception as e:
             self.logger.error(f"❌ Error processing Google Sheets document: {str(e)}")
             raise
-    
+
     async def process_gmail_message(self, recordName, recordId, version, source, orgId, html_content):
         self.logger.info("🚀 Processing Gmail Message")
 
@@ -460,7 +460,7 @@ class Processor:
             # Process content in reading order
             self.logger.debug("📑 Processing document structure in reading order")
             ordered_content = self._process_content_in_order(doc_dict)
-            
+
             # Extract text in reading order
             text_content = "\n".join(
                 item['text'].strip()
@@ -487,7 +487,7 @@ class Processor:
             # Create sentence data for indexing
             self.logger.debug("📑 Creating semantic sentences")
             sentence_data = []
-            
+
             # Keep track of previous items for context
             context_window = []
             context_window_size = 3  # Number of previous items to include for context
@@ -495,10 +495,10 @@ class Processor:
             for idx, item in enumerate(ordered_content, 1):
                 if item['text'].strip():
                     context = item['context']
-                    
+
                     # Create context text from previous items
                     previous_context = " ".join([prev['text'].strip() for prev in context_window])
-                    
+
                     # Current item's context with previous items
                     full_context = {
                         "previous": previous_context,
@@ -506,7 +506,7 @@ class Processor:
                     }
 
                     # Handle potentially None page numbers
-                    page_num = context.get('pageNum')
+                    context.get('pageNum')
 
                     sentence_data.append({
                         'text': item['text'].strip(),
@@ -539,7 +539,7 @@ class Processor:
                     'lastExtractionTimestamp': get_epoch_timestamp_in_ms()
                 })
                 await self.arango_service.batch_upsert_nodes([record], CollectionNames.RECORDS.value)
-                
+
 
             # Prepare metadata
             metadata = {
@@ -591,15 +591,15 @@ class Processor:
             # Get OCR configurations
             ai_models = await self.config_service.get_config(config_node_constants.AI_MODELS.value)
             ocr_configs = ai_models['ocr']
-            
+
             # Configure OCR handler
             self.logger.debug("🛠️ Configuring OCR handler")
             handler = None
-            
+
             for config in ocr_configs:
                 provider = config['provider']
                 self.logger.info(f"🔧 Checking OCR provider: {provider}")
-                
+
                 if provider == OCRProvider.AZURE_PROVIDER.value:
                     self.logger.debug("☁️ Setting up Azure OCR handler")
                     handler = OCRHandler(
@@ -617,7 +617,7 @@ class Processor:
                         OCRProvider.OCRMYPDF_PROVIDER.value
                     )
                     break
-            
+
             if not handler:
                 self.logger.debug("📚 Setting up PyMuPDF OCR handler")
                 handler = OCRHandler(
@@ -625,7 +625,7 @@ class Processor:
                     OCRProvider.OCRMYPDF_PROVIDER.value
                 )
                 provider = OCRProvider.OCRMYPDF_PROVIDER.value
-            
+
             # Process document
             self.logger.info("🔄 Processing document with OCR handler")
             ocr_result = await handler.process_document(pdf_binary)
@@ -658,11 +658,9 @@ class Processor:
                     ocr_result["metadata"] = None
 
             # Use the OCR-processed PDF for highlighting if available
-            highlight_pdf_binary = handler.strategy.ocr_pdf_content or pdf_binary
 
             # Initialize containers
             self.logger.debug("🏗️ Initializing result containers")
-            output_pdf_path = f"{recordName}_highlighted.pdf"
             formatted_content = ""
             numbered_paragraphs = []
 
@@ -687,7 +685,7 @@ class Processor:
                     3: "list",
                     4: "header"
                 }
-                
+
 
                 # Prepare sentences for indexing with separated metadata
                 sentence_data = [{
@@ -769,14 +767,14 @@ class Processor:
             self.logger.debug("📄 Processing DOCX content")
             parser = self.parsers['docx']
             docx_result = parser.parse(docx_binary)
-            
+
             # Get the full document structure
             doc_dict = docx_result.export_to_dict()
 
             # Process content in reading order
             self.logger.debug("📑 Processing document structure in reading order")
             ordered_content = self._process_content_in_order(doc_dict)
-            
+
             # Extract text in reading order
             text_content = "\n".join(
                 item['text'].strip()
@@ -801,7 +799,7 @@ class Processor:
             # Create sentence data for indexing
             self.logger.debug("📑 Creating semantic sentences")
             sentence_data = []
-            
+
             # Keep track of previous items for context
             context_window = []
             context_window_size = 3  # Number of previous items to include for context
@@ -809,10 +807,10 @@ class Processor:
             for idx, item in enumerate(ordered_content, 1):
                 if item['text'].strip():
                     context = item['context']
-                    
+
                     # Create context text from previous items
                     previous_context = " ".join([prev['text'].strip() for prev in context_window])
-                    
+
                     # Current item's context with previous items
                     full_context = {
                         "previous": previous_context,
@@ -896,7 +894,7 @@ class Processor:
             self.logger.info("🎯 Extracting domain metadata")
             if excel_result['text_content']:
                 try:
-                    self.logger.info(f"🎯 Extracting metadata from Excel content")
+                    self.logger.info("🎯 Extracting metadata from Excel content")
                     metadata = await self.domain_extractor.extract_metadata(excel_result['text_content'], orgId)
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
@@ -937,7 +935,7 @@ class Processor:
                         row_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in row['raw_data'].items()}
                         formatted_content += f"Row Data: {row_data}\n"
                         formatted_content += f"Natural Text: {row['natural_language_text']}\n"
-                        
+
                         block_num = [int(row['row_num'])] if row['row_num'] else [0]
 
                         # Add processed rows to sentence data
@@ -982,21 +980,21 @@ class Processor:
         except Exception as e:
             self.logger.error(f"❌ Error processing Excel document: {str(e)}")
             raise
-        
+
     async def process_xls_document(self, recordName, recordId, version, source, orgId, xls_binary):
         """Process XLS document and extract structured content"""
         self.logger.info(f"🚀 Starting XLS document processing for record: {recordName}")
-        
+
         try:
             # Convert XLS to XLSX binary
             xls_parser = self.parsers['xls']
             xlsx_binary = xls_parser.convert_xls_to_xlsx(xls_binary)
-            
+
             # Process the converted XLSX using the Excel parser
             result = await self.process_excel_document(recordName, recordId, version, source, orgId, xlsx_binary)
-            self.logger.debug(f"📑 XLS document processed successfully")
+            self.logger.debug("📑 XLS document processed successfully")
             return result
-            
+
         except Exception as e:
             self.logger.error(f"❌ Error processing XLS document: {str(e)}")
             raise
@@ -1018,7 +1016,7 @@ class Processor:
             # Initialize CSV parser
             self.logger.debug("📊 Processing CSV content")
             parser = self.parsers['csv']
-            
+
             llm = await get_llm(self.logger, self.config_service)
 
             # Save temporary file to process CSV
@@ -1030,7 +1028,7 @@ class Processor:
                 # Try different encodings
                 encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
                 csv_result = None
-                
+
                 for encoding in encodings:
                     try:
                         self.logger.debug(f"Attempting to read CSV with {encoding} encoding")
@@ -1043,7 +1041,7 @@ class Processor:
                 if csv_result is None:
                     raise ValueError("Unable to decode CSV file with any supported encoding")
 
-                self.logger.debug(f"📑 CSV result processed")
+                self.logger.debug("📑 CSV result processed")
 
                 # Extract domain metadata from CSV content
                 self.logger.info("🎯 Extracting domain metadata")
@@ -1134,46 +1132,46 @@ class Processor:
         except Exception as e:
             self.logger.error(f"❌ Error processing CSV document: {str(e)}")
             raise
-        
+
     def _process_content_in_order(self, doc_dict):
         """
         Process document content in proper reading order by following references.
-        
+
         Args:
             doc_dict (dict): The document dictionary from Docling
-            
+
         Returns:
             list: Ordered list of text items with their context
         """
         ordered_items = []
         processed_refs = set()
-        
+
         def process_item(ref, level=0, parent_context=None):
             """Recursively process items following references"""
             if isinstance(ref, dict):
                 ref_path = ref.get('$ref', '')
             else:
                 ref_path = ref
-                
+
             if not ref_path or ref_path in processed_refs:
                 return
             processed_refs.add(ref_path)
-                
+
             if not ref_path.startswith('#/'):
                 return
-                
+
             path_parts = ref_path[2:].split('/')
             item_type = path_parts[0]  # 'texts', 'groups', etc.
             try:
                 item_index = int(path_parts[1])
             except (IndexError, ValueError):
                 return
-                
+
             items = doc_dict.get(item_type, [])
             if item_index >= len(items):
                 return
             item = items[item_index]
-            
+
             # Get page number from the item's page reference
             page_no = None
             if 'prov' in item:
@@ -1188,7 +1186,7 @@ class Processor:
                     pages = doc_dict.get('pages', [])
                     if page_index < len(pages):
                         page_no = pages[page_index].get('page_no')
-                        
+
             # Create context for current item
             current_context = {
                 'ref': item.get('self_ref'),
@@ -1198,23 +1196,23 @@ class Processor:
                 'slide_number': item.get('slide_number'),
                 'pageNum': page_no  # Add page number to context
             }
-            
+
             if item_type == 'texts':
                 ordered_items.append({
                     'text': item.get('text', ''),
                     'context': current_context
                 })
-            
+
             # Process children with current_context as parent
             children = item.get('children', [])
             for child in children:
                 process_item(child, level + 1, current_context)
-        
+
         # Start processing from body
         body = doc_dict.get('body', {})
         for child in body.get('children', []):
             process_item(child)
-            
+
         self.logger.debug(f"Processed {len(ordered_items)} items in order")
         return ordered_items
 
@@ -1231,7 +1229,7 @@ class Processor:
             self.logger.debug("📄 Processing HTML content")
             parser = self.parsers['html']
             html_result = parser.parse_string(html_content)
-            
+
             # Get the full document structure
             doc_dict = html_result.export_to_dict()
             self.logger.debug("📑 Document structure processed")
@@ -1239,7 +1237,7 @@ class Processor:
             # Process content in reading order
             self.logger.debug("📑 Processing document structure in reading order")
             ordered_content = self._process_content_in_order(doc_dict)
-            
+
             # Extract text in reading order
             text_content = "\n".join(
                 item['text'].strip()
@@ -1265,7 +1263,7 @@ class Processor:
             # Create sentence data for indexing
             self.logger.debug("📑 Creating semantic sentences")
             sentence_data = []
-            
+
             # Keep track of previous items for context
             context_window = []
             context_window_size = 3  # Number of previous items to include for context
@@ -1273,10 +1271,10 @@ class Processor:
             for idx, item in enumerate(ordered_content, 1):
                 if item['text'].strip():
                     context = item['context']
-                    
+
                     # Create context text from previous items
                     previous_context = " ".join([prev['text'].strip() for prev in context_window])
-                    
+
                     # Current item's context with previous items
                     full_context = {
                         "previous": previous_context,
@@ -1404,7 +1402,7 @@ class Processor:
             # Create sentence data for indexing
             self.logger.debug("📑 Creating semantic sentences")
             sentence_data = []
-            
+
             # Keep track of previous items for context
             context_window = []
             context_window_size = 3  # Number of previous items to include for context
@@ -1412,7 +1410,7 @@ class Processor:
             for idx, item in enumerate(doc_dict.get('texts', []), 1):
                 # Create context text from previous items
                 previous_context = " ".join([prev.get('text', '').strip() for prev in context_window])
-                
+
                 # Current item's context with previous items
                 full_context = {
                     "previous": previous_context,
@@ -1460,9 +1458,9 @@ class Processor:
                     "text_count": len(doc_dict.get('texts', [])),
                     "group_count": len(doc_dict.get('groups', [])),
                     "table_count": len(doc_dict.get('tables', [])),
-                    "code_block_count": len([item for item in doc_dict.get('texts', []) 
+                    "code_block_count": len([item for item in doc_dict.get('texts', [])
                                           if item.get('label') == 'code']),
-                    "heading_count": len([item for item in doc_dict.get('texts', []) 
+                    "heading_count": len([item for item in doc_dict.get('texts', [])
                                        if item.get('label') == 'heading'])
                 }
             }
@@ -1485,7 +1483,7 @@ class Processor:
         except Exception as e:
             self.logger.error(f"❌ Error processing Markdown document: {str(e)}")
             raise
-        
+
     async def process_txt_document(self, recordName, recordId, version, source, orgId, txt_binary):
         """Process TXT document and extract structured content"""
         self.logger.info(f"🚀 Starting TXT document processing for record: {recordName}")
@@ -1494,7 +1492,7 @@ class Processor:
             # Try different encodings to decode the binary content
             encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'iso-8859-1']
             text_content = None
-            
+
             for encoding in encodings:
                 try:
                     text_content = txt_binary.decode(encoding)
@@ -1520,12 +1518,12 @@ class Processor:
 
             # Split content into blocks (paragraphs)
             blocks = [block.strip() for block in text_content.split('\n\n') if block.strip()]
-            
+
             # Format content and create numbered items
             formatted_content = ""
             numbered_items = []
             sentence_data = []
-            
+
             # Keep track of previous blocks for context
             context_window = []
             context_window_size = 3
@@ -1542,7 +1540,7 @@ class Processor:
 
                 # Create context from previous blocks
                 previous_context = " ".join([prev for prev in context_window])
-                
+
                 # Current block's context with previous blocks
                 full_context = {
                     "previous": previous_context,
@@ -1630,7 +1628,7 @@ class Processor:
             doc_dict = pptx_result.export_to_dict()
 
             # Log structure counts
-            self.logger.debug(f"📊 Document structure counts:")
+            self.logger.debug("📊 Document structure counts:")
             self.logger.debug(f"- Texts: {len(doc_dict.get('texts', []))}")
             self.logger.debug(f"- Groups: {len(doc_dict.get('groups', []))}")
             self.logger.debug(f"- Pictures: {len(doc_dict.get('pictures', []))}")
@@ -1638,20 +1636,20 @@ class Processor:
             # Process content in reading order
             ordered_items = []
             processed_refs = set()
-            
+
             def process_item(ref, level=0, parent_context=None):
                 if isinstance(ref, dict):
                     ref_path = ref.get('$ref', '')
                 else:
                     ref_path = ref
-                    
+
                 if not ref_path or ref_path in processed_refs:
                     return
                 processed_refs.add(ref_path)
-                
+
                 if not ref_path.startswith('#/'):
                     return
-                    
+
                 path_parts = ref_path[2:].split('/')
                 item_type = path_parts[0]
                 try:
@@ -1660,12 +1658,12 @@ class Processor:
                     return
 
                 self.logger.debug(f"item_type: {item_type}")
-                
+
                 items = doc_dict.get(item_type, [])
                 if item_index >= len(items):
                     return
                 item = items[item_index]
-                
+
                 # Get page number from the item's page reference
                 page_no = None
                 if 'prov' in item:
@@ -1680,7 +1678,7 @@ class Processor:
                         pages = doc_dict.get('pages', [])
                         if page_index < len(pages):
                             page_no = pages[page_index].get('page_no')
-                
+
                 # Create context for current item
                 current_context = {
                     'ref': item.get('self_ref'),
@@ -1689,13 +1687,13 @@ class Processor:
                     'parent_context': parent_context,
                     'pageNum': page_no  # Add page number to context
                 }
-                
+
                 if item_type == 'texts':
                     ordered_items.append({
                         'text': item.get('text', ''),
                         'context': current_context
                     })
-                
+
                 children = item.get('children', [])
                 for child in children:
                     process_item(child, level + 1, current_context)
@@ -1721,16 +1719,16 @@ class Processor:
                     record = await self.domain_extractor.save_metadata_to_arango(recordId, metadata)
                     file = await self.arango_service.get_document(recordId, CollectionNames.FILES.value)
                     domain_metadata = {**record, **file}
-                     
+
                 except Exception as e:
                     self.logger.error(f"❌ Error extracting metadata: {str(e)}")
                     domain_metadata = None
-                    
+
 
             # Create numbered items with slide information
             numbered_items = []
             formatted_content = ""
-            
+
             for idx, item in enumerate(ordered_items, 1):
                 if item['text'].strip():
                     context = item['context']
@@ -1744,7 +1742,7 @@ class Processor:
                         "pageNum": context.get('pageNum')
                     }
                     numbered_items.append(item_entry)
-                    
+
                     # Format with slide numbers
                     slide_info = f"[Slide {context.get('slide_number', '?')}] " if context.get('slide_number') else ""
                     formatted_content += f"{slide_info}[{idx}] {item['text'].strip()}\n"
@@ -1752,7 +1750,7 @@ class Processor:
             # Create sentence data for indexing
             self.logger.debug("📑 Creating semantic sentences")
             sentence_data = []
-            
+
             # Keep track of previous items for context
             context_window = []
             context_window_size = 3  # Number of previous items to include for context
@@ -1760,10 +1758,10 @@ class Processor:
             for idx, item in enumerate(ordered_items, 1):
                 if item['text'].strip():
                     context = item['context']
-                    
+
                     # Create context text from previous items
                     previous_context = " ".join([prev['text'].strip() for prev in context_window])
-                    
+
                     # Current item's context with previous items
                     full_context = {
                         "previous": previous_context,
@@ -1813,8 +1811,8 @@ class Processor:
                     "text_count": len(doc_dict.get('texts', [])),
                     "group_count": len(doc_dict.get('groups', [])),
                     "picture_count": len(doc_dict.get('pictures', [])),
-                    "slide_count": len(set(item['context'].get('slide_number') 
-                                        for item in ordered_items 
+                    "slide_count": len(set(item['context'].get('slide_number')
+                                        for item in ordered_items
                                         if item['context'].get('slide_number')))
                 }
             }

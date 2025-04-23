@@ -1,7 +1,9 @@
+from typing import Dict, Optional
+
+from arango import ArangoClient
+
 from app.config.arangodb_constants import CollectionNames, RecordTypes
 from app.config.configuration_service import ConfigurationService, config_node_constants
-from arango import ArangoClient
-from typing import Optional, Dict
 
 
 class ArangoService():
@@ -23,7 +25,7 @@ class ArangoService():
             arango_user = arangodb_config['username']
             arango_password = arangodb_config['password']
             arango_db = arangodb_config['db']
-            
+
             if not isinstance(arango_url, str):
                 raise ValueError("ArangoDB URL must be a string")
             if not self.client:
@@ -40,7 +42,7 @@ class ArangoService():
             )
             self.logger.debug("System DB: %s", sys_db)
             self.logger.info("✅ Database created successfully")
-                
+
             # Connect to our database
             self.logger.debug("Connecting to our database")
             self.db = self.client.db(
@@ -89,7 +91,7 @@ class ArangoService():
     async def get_accessible_records(self, user_id: str, org_id: str, filters: dict = None) -> list:
         """
         Get all records accessible to a user based on their permissions and apply filters
-        
+
         Args:
             user_id (str): The userId field value in users collection
             org_id (str): The org_id to filter anyone collection
@@ -105,7 +107,7 @@ class ArangoService():
                 }
         """
         self.logger.info(f"Getting accessible records for user {user_id} in org {org_id} with filters {filters}")
-        
+
         try:
             # First get counts separately
             query = f"""
@@ -114,19 +116,19 @@ class ArangoService():
                 FILTER user.userId == @userId
                 RETURN user
             )
-            
+
             LET directRecords = (
                 FOR records IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS.value}
                 RETURN DISTINCT records
             )
-            
+
             LET groupRecords = (
                 FOR group, edge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
                 FILTER edge.entityType == 'GROUP'
                 FOR records IN 1..1 ANY group._id {CollectionNames.PERMISSIONS.value}
                 RETURN DISTINCT records
             )
-            
+
             LET orgRecords = (
                 FOR org, edge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
                 FILTER edge.entityType == 'ORGANIZATION'
@@ -135,7 +137,7 @@ class ArangoService():
             )
 
             LET directAndGroupRecords = UNION_DISTINCT(directRecords, groupRecords, orgRecords)
-            
+
             LET kbRecords = (
                 FOR kb IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value}
                 FOR records IN 1..1 ANY kb._id {CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value}
@@ -154,7 +156,7 @@ class ArangoService():
                 UNION(directAndGroupRecords, kbRecords, anyoneRecords)
             )
             """
-                        
+
             # Add filter conditions if provided
             filter_conditions = []
             if filters:
@@ -186,7 +188,7 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-                
+
                 if filters.get('subcategories2'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -196,7 +198,7 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-                
+
                 if filters.get('subcategories3'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -206,7 +208,7 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-                
+
                 if filters.get('languages'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -216,7 +218,7 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-                
+
                 if filters.get('topics'):
                     filter_conditions.append(f"""
                     LENGTH(
@@ -226,9 +228,9 @@ class ArangoService():
                         RETURN 1
                     ) > 0
                     """)
-                
+
                 if filters.get('apps'):
-                    filter_conditions.append(f"""
+                    filter_conditions.append("""
                     LENGTH(
                         FOR app IN @apps
                         FILTER LOWER(record.connectorName) == app
@@ -274,7 +276,7 @@ class ArangoService():
                     bind_vars['topicNames'] = filters['topics']  # Direct topic names
                 if filters.get('apps'):
                     bind_vars['apps'] = [app.lower() for app in filters['apps']]  # Lowercase app names
-                
+
             # Execute with profiling enabled
             cursor = self.db.aql.execute(
                 query,
@@ -314,12 +316,12 @@ class ArangoService():
     async def check_record_access_with_details(self, user_id: str, org_id: str, record_id: str):
         """
         Check record access and return record details if accessible
-        
+
         Args:
             user_id (str): The userId field value in users collection
             org_id (str): The organization ID
             record_id (str): The record ID to check access for
-            
+
         Returns:
             dict: Record details with permissions if accessible, None if not
         """
@@ -331,63 +333,63 @@ class ArangoService():
                 FILTER user.userId == @userId
                 RETURN user
             )
-            
+
             LET directAccess = (
                 FOR records, edge IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS.value}
                 FILTER records._key == @recordId
-                RETURN {{ 
-                    type: 'DIRECT', 
+                RETURN {{
+                    type: 'DIRECT',
                     source: userDoc,
-                    role: edge.role 
+                    role: edge.role
                 }}
             )
-            
+
             LET groupAccess = (
                 FOR group, belongsEdge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
                 FILTER belongsEdge.entityType == 'GROUP'
                 FOR records, permEdge IN 1..1 ANY group._id {CollectionNames.PERMISSIONS.value}
                 FILTER records._key == @recordId
-                RETURN {{ 
-                    type: 'GROUP', 
+                RETURN {{
+                    type: 'GROUP',
                     source: group,
-                    role: permEdge.role 
+                    role: permEdge.role
                 }}
             )
-            
+
             LET orgAccess = (
                 FOR org, belongsEdge IN 1..1 ANY userDoc._id {CollectionNames.BELONGS_TO.value}
                 FILTER belongsEdge.entityType == 'ORGANIZATION'
                 FOR records, permEdge IN 1..1 ANY org._id {CollectionNames.PERMISSIONS.value}
                 FILTER records._key == @recordId
-                RETURN {{ 
-                    type: 'ORGANIZATION', 
+                RETURN {{
+                    type: 'ORGANIZATION',
                     source: org,
-                    role: permEdge.role 
+                    role: permEdge.role
                 }}
             )
-            
+
             LET kbAccess = (
                 FOR kb, kbEdge IN 1..1 ANY userDoc._id {CollectionNames.PERMISSIONS_TO_KNOWLEDGE_BASE.value}
                 FOR records IN 1..1 ANY kb._id {CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value}
                 FILTER records._key == @recordId
-                RETURN {{ 
-                    type: 'KNOWLEDGE_BASE', 
+                RETURN {{
+                    type: 'KNOWLEDGE_BASE',
                     source: kb,
-                    role: kbEdge.role 
+                    role: kbEdge.role
                 }}
             )
-            
+
             LET anyoneAccess = (
                 FOR records IN @@anyone
                 FILTER records.organization == @orgId
                     AND records.file_key == @recordId
-                RETURN {{ 
-                    type: 'ANYONE', 
+                RETURN {{
+                    type: 'ANYONE',
                     source: null,
                     role: records.role
                 }}
             )
-            
+
             LET allAccess = UNION_DISTINCT(
                 directAccess,
                 groupAccess,
@@ -395,31 +397,31 @@ class ArangoService():
                 kbAccess,
                 anyoneAccess
             )
-            
+
             RETURN LENGTH(allAccess) > 0 ? allAccess : null
             """
-            
+
             bind_vars = {
                 'userId': user_id,
                 'orgId': org_id,
                 'recordId': record_id,
                 '@users': CollectionNames.USERS.value,
                 '@anyone': CollectionNames.ANYONE.value,
-            } 
-            
+            }
+
             cursor = self.db.aql.execute(access_query, bind_vars=bind_vars)
             access_result = next(cursor, None)
-            
+
             if not access_result:
                 return None
-            
+
             # If we have access, get the complete record details
             record = await self.get_document(record_id, CollectionNames.RECORDS.value)
             if not record:
                 return None
-            
+
             user = await self.get_user_by_user_id(user_id)
-            
+
             # Get file or mail details based on record type
             additional_data = None
             if record['recordType'] == RecordTypes.FILE.value:
@@ -429,10 +431,10 @@ class ArangoService():
                 message_id = record['externalRecordId']
                 # Format the webUrl with the user's email
                 additional_data['webUrl'] = f"https://mail.google.com/mail?authuser={user['email']}#all/{message_id}"
-            
+
             metadata_query = f"""
             LET record = DOCUMENT(CONCAT('{CollectionNames.RECORDS.value}/', @recordId))
-            
+
             LET departments = (
                 FOR dept IN OUTBOUND record._id {CollectionNames.BELONGS_TO_DEPARTMENT.value}
                 RETURN {{
@@ -440,7 +442,7 @@ class ArangoService():
                     name: dept.departmentName
                 }}
             )
-            
+
             LET categories = (
                 FOR cat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
                 FILTER PARSE_IDENTIFIER(cat._id).collection == '{CollectionNames.CATEGORIES.value}'
@@ -449,7 +451,7 @@ class ArangoService():
                     name: cat.name
                 }}
             )
-            
+
             LET subcategories1 = (
                 FOR subcat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
                 FILTER PARSE_IDENTIFIER(subcat._id).collection == '{CollectionNames.SUBCATEGORIES1.value}'
@@ -458,7 +460,7 @@ class ArangoService():
                     name: subcat.name
                 }}
             )
-            
+
             LET subcategories2 = (
                 FOR subcat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
                 FILTER PARSE_IDENTIFIER(subcat._id).collection == '{CollectionNames.SUBCATEGORIES2.value}'
@@ -467,7 +469,7 @@ class ArangoService():
                     name: subcat.name
                 }}
             )
-            
+
             LET subcategories3 = (
                 FOR subcat IN OUTBOUND record._id {CollectionNames.BELONGS_TO_CATEGORY.value}
                 FILTER PARSE_IDENTIFIER(subcat._id).collection == '{CollectionNames.SUBCATEGORIES3.value}'
@@ -476,7 +478,7 @@ class ArangoService():
                     name: subcat.name
                 }}
             )
-            
+
             LET topics = (
                 FOR topic IN OUTBOUND record._id {CollectionNames.BELONGS_TO_TOPIC.value}
                 RETURN {{
@@ -484,7 +486,7 @@ class ArangoService():
                     name: topic.name
                 }}
             )
-            
+
             LET languages = (
                 FOR lang IN OUTBOUND record._id {CollectionNames.BELONGS_TO_LANGUAGE.value}
                 RETURN {{
@@ -492,7 +494,7 @@ class ArangoService():
                     name: lang.name
                 }}
             )
-            
+
             RETURN {{
                 departments: departments,
                 categories: categories,
@@ -505,7 +507,7 @@ class ArangoService():
             """
             metadata_cursor = self.db.aql.execute(metadata_query, bind_vars={'recordId': record_id})
             metadata_result = next(metadata_cursor, None)
-            
+
             # Get knowledge base info if record is in a KB
             kb_info = None
             for access in access_result:
@@ -517,7 +519,7 @@ class ArangoService():
                         'orgId': kb['orgId']
                     }
                     break
-            
+
             # Format permissions from access paths
             permissions = []
             for access in access_result:
@@ -528,7 +530,7 @@ class ArangoService():
                     'relationship': access['role'],
                 }
                 permissions.append(permission)
-            
+
             return {
                 'record': {
                     **record,

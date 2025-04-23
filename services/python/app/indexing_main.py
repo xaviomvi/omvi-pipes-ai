@@ -1,13 +1,15 @@
-import uvicorn
 import asyncio
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
+from typing import AsyncGenerator
+
+import httpx
+import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-from datetime import datetime, timezone, timedelta
+
 from app.config.configuration_service import config_node_constants
 from app.setups.indexing_setup import AppContainer, initialize_container
-import httpx
 
 container = AppContainer()
 container_lock = asyncio.Lock()
@@ -62,7 +64,7 @@ async def health_check():
         connector_url = f"{connector_endpoint}/health"
         async with httpx.AsyncClient() as client:
             connector_response = await client.get(connector_url, timeout=5.0)
-            
+
             if connector_response.status_code != 200:
                 return JSONResponse(
                     status_code=500,
@@ -72,7 +74,7 @@ async def health_check():
                         "timestamp": datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()
                     }
                 )
-            
+
             return JSONResponse(
                 status_code=200,
                 content={
