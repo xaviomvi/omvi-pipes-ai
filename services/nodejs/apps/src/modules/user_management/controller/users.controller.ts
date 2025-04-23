@@ -4,8 +4,11 @@ import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
 import mongoose from 'mongoose';
 import { UserDisplayPicture } from '../schema/userDp.schema';
 import sharp from 'sharp';
-import jwt from 'jsonwebtoken';
-import { mailJwtGenerator } from '../../../libs/utils/createJwt';
+import {
+  fetchConfigJwtGenerator,
+  jwtGeneratorForForgotPasswordLink,
+  mailJwtGenerator,
+} from '../../../libs/utils/createJwt';
 import {
   BadRequestError,
   InternalServerError,
@@ -27,11 +30,13 @@ import {
 import { Logger } from '../../../libs/services/logger.service';
 import { AppConfig } from '../../tokens_manager/config/config';
 import { UserGroups } from '../schema/userGroup.schema';
+import { AuthService } from '../services/auth.service';
 @injectable()
 export class UserController {
   constructor(
     @inject('AppConfig') private config: AppConfig,
     @inject('MailService') private mailService: MailService,
+    @inject('AuthService') private authService: AuthService,
     @inject('Logger') private logger: Logger,
     @inject('EntitiesEventProducer')
     private eventService: EntitiesEventProducer,
@@ -643,32 +648,58 @@ export class UserController {
       }
 
       const email = user?.email;
-
-      const passwordResetToken = jwt.sign(
-        {
-          email,
-          scope: 'account-setup',
-        },
-        this.config.jwtSecret,
-        {
-          expiresIn: '7d',
-        },
+      const userId = req.user?.userId;
+      const orgId = req.user?.orgId;
+      const authToken = fetchConfigJwtGenerator(
+        userId,
+        orgId,
+        this.config.scopedJwtSecret,
       );
+      let result = await this.authService.passwordMethodEnabled(authToken);
 
-      const result = await this.mailService.sendMail({
-        emailTemplateType: 'appuserInvite',
-        initiator: {
-          jwtAuthToken: mailJwtGenerator(email, this.config.scopedJwtSecret),
-        },
-        usersMails: [email],
-        subject: 'You are invited to join pipeshub',
-        templateData: {
-          invitee: user?.fullName,
-          link: `${this.config.frontendUrl}/account-setup?token=${passwordResetToken}`,
-        },
-      });
       if (result.statusCode !== 200) {
-        throw new InternalServerError('Error sending invite');
+        throw new InternalServerError('Error fetching auth methods');
+      }
+      if (result.data?.hasPassword) {
+        const { passwordResetToken, mailAuthToken } =
+          jwtGeneratorForForgotPasswordLink(
+            email,
+            id,
+            orgId,
+            this.config.scopedJwtSecret,
+          );
+
+        result = await this.mailService.sendMail({
+          emailTemplateType: 'appuserInvite',
+          initiator: {
+            jwtAuthToken: mailAuthToken,
+          },
+          usersMails: [email],
+          subject: 'You are invited to join pipeshub',
+          templateData: {
+            invitee: user?.fullName,
+            link: `${this.config.frontendUrl}/reset-password?token=${passwordResetToken}`,
+          },
+        });
+        if (result.statusCode !== 200) {
+          throw new InternalServerError('Error sending invite');
+        }
+      } else {
+        result = await this.mailService.sendMail({
+          emailTemplateType: 'appuserInvite',
+          initiator: {
+            jwtAuthToken: mailJwtGenerator(email, this.config.scopedJwtSecret),
+          },
+          usersMails: [email],
+          subject: 'You are invited to join pipeshub',
+          templateData: {
+            invitee: user?.fullName,
+            link: `${this.config.frontendUrl}/sign-in`,
+          },
+        });
+        if (result.statusCode !== 200) {
+          throw new InternalServerError('Error sending invite');
+        }
       }
       // metric collection
       prometheusService.recordUserActivity(
@@ -795,7 +826,9 @@ export class UserController {
       for (let i = 0; i < emailsForNewAccounts.length; ++i) {
         const email = emailsForNewAccounts[i];
         const userId = newUsers[i]?._id;
-
+        if (!userId) {
+          throw new InternalServerError('User ID missing while inviting');
+        }
         await UserGroups.updateMany(
           { _id: { $in: groupIds }, orgId },
           { $addToSet: { users: userId } },
@@ -807,31 +840,60 @@ export class UserController {
           { $addToSet: { users: userId } }, // Add user to the group if not already present
         );
 
-        const passwordResetToken = jwt.sign(
-          {
-            email,
-            scope: 'account-setup',
-          },
-          this.config.jwtSecret,
-          {
-            expiresIn: '7d',
-          },
+        const authToken = fetchConfigJwtGenerator(
+          userId.toString(),
+          req.user?.orgId,
+          this.config.scopedJwtSecret,
         );
+        let result = await this.authService.passwordMethodEnabled(authToken);
 
-        const result = await this.mailService.sendMail({
-          emailTemplateType: 'appuserInvite',
-          initiator: {
-            jwtAuthToken: mailJwtGenerator(email, this.config.scopedJwtSecret),
-          },
-          usersMails: [email],
-          subject: 'You are invited to join pipeshub',
-          templateData: {
-            invitee: req.user?.fullName,
-            link: `${this.config.frontendUrl}/account-setup?token=${passwordResetToken}`,
-          },
-        });
         if (result.statusCode !== 200) {
-          throw new InternalServerError('Error sending invite');
+          throw new InternalServerError('Error fetching auth methods');
+        }
+
+        if (result.data?.hasPassword) {
+          const { passwordResetToken, mailAuthToken } =
+            jwtGeneratorForForgotPasswordLink(
+              email,
+              userId.toString(),
+              orgId,
+              this.config.scopedJwtSecret,
+            );
+
+          result = await this.mailService.sendMail({
+            emailTemplateType: 'appuserInvite',
+            initiator: {
+              jwtAuthToken: mailAuthToken,
+            },
+            usersMails: [email],
+            subject: 'You are invited to join pipeshub',
+            templateData: {
+              invitee: req.user?.fullName,
+              link: `${this.config.frontendUrl}/reset-password?token=${passwordResetToken}`,
+            },
+          });
+          if (result.statusCode !== 200) {
+            throw new InternalServerError('Error sending invite');
+          }
+        } else {
+          result = await this.mailService.sendMail({
+            emailTemplateType: 'appuserInvite',
+            initiator: {
+              jwtAuthToken: mailJwtGenerator(
+                email,
+                this.config.scopedJwtSecret,
+              ),
+            },
+            usersMails: [email],
+            subject: 'You are invited to join pipeshub',
+            templateData: {
+              invitee: req.user?.fullName,
+              link: `${this.config.frontendUrl}/sign-in`,
+            },
+          });
+          if (result.statusCode !== 200) {
+            throw new InternalServerError('Error sending invite');
+          }
         }
         // metric collection
         prometheusService.recordUserActivity(
@@ -869,30 +931,63 @@ export class UserController {
         if (!email) {
           continue;
         }
-        const passwordResetToken = jwt.sign(
-          {
-            email,
-            scope: 'account-setup',
-          },
-          this.config.jwtSecret,
-          {
-            expiresIn: '7d',
-          },
+        if (!userId) {
+          throw new InternalServerError('User ID missing while inviting');
+        }
+        const authToken = fetchConfigJwtGenerator(
+          userId.toString(),
+          req.user?.orgId,
+          this.config.scopedJwtSecret,
         );
-        const result = await this.mailService.sendMail({
-          emailTemplateType: 'appuserInvite',
-          initiator: {
-            jwtAuthToken: mailJwtGenerator(email, this.config.scopedJwtSecret),
-          },
-          usersMails: [email],
-          subject: 'You are invited to re-join PipesHub',
-          templateData: {
-            invitee: req.user?.fullName,
-            link: `${this.config.frontendUrl}/account-setup?token=${passwordResetToken}`,
-          },
-        });
+        let result = await this.authService.passwordMethodEnabled(authToken);
+
         if (result.statusCode !== 200) {
-          throw new InternalServerError('Error sending invite');
+          throw new InternalServerError('Error fetching auth methods');
+        }
+
+        if (result.data?.hasPassword) {
+          const { passwordResetToken, mailAuthToken } =
+            jwtGeneratorForForgotPasswordLink(
+              email,
+              userId.toString(),
+              orgId,
+              this.config.scopedJwtSecret,
+            );
+
+          result = await this.mailService.sendMail({
+            emailTemplateType: 'appuserInvite',
+            initiator: {
+              jwtAuthToken: mailAuthToken,
+            },
+            usersMails: [email],
+            subject: 'You are invited to re-join pipeshub',
+            templateData: {
+              invitee: req.user?.fullName,
+              link: `${this.config.frontendUrl}/reset-password?token=${passwordResetToken}`,
+            },
+          });
+          if (result.statusCode !== 200) {
+            throw new InternalServerError('Error sending invite');
+          }
+        } else {
+          result = await this.mailService.sendMail({
+            emailTemplateType: 'appuserInvite',
+            initiator: {
+              jwtAuthToken: mailJwtGenerator(
+                email,
+                this.config.scopedJwtSecret,
+              ),
+            },
+            usersMails: [email],
+            subject: 'You are invited to re-join pipeshub',
+            templateData: {
+              invitee: req.user?.fullName,
+              link: `${this.config.frontendUrl}/sign-in`,
+            },
+          });
+          if (result.statusCode !== 200) {
+            throw new InternalServerError('Error sending invite');
+          }
         }
 
         // metric collection

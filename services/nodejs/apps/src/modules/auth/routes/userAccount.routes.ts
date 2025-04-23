@@ -109,7 +109,11 @@ export function createUserAccountRouter(container: Container) {
   router.post(
     '/password/reset/token',
     authMiddleware.scopedTokenValidator(TokenScopes.PASSWORD_RESET),
-    async (req: AuthenticatedServiceRequest, res: Response, next: NextFunction) => {
+    async (
+      req: AuthenticatedServiceRequest,
+      res: Response,
+      next: NextFunction,
+    ) => {
       try {
         await userAccountController.resetPasswordViaEmailLink(req, res, next);
       } catch (error) {
@@ -123,6 +127,23 @@ export function createUserAccountRouter(container: Container) {
     async (req: AuthSessionRequest, res: Response, next: NextFunction) => {
       try {
         await userAccountController.forgotPasswordEmail(req, res, next);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  //sending mail for setting password for the first time
+  router.get(
+    '/internal/password/check',
+    authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
+    async (
+      req: AuthenticatedServiceRequest,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        await userAccountController.hasPasswordMethod(req, res, next);
       } catch (error) {
         next(error);
       }
