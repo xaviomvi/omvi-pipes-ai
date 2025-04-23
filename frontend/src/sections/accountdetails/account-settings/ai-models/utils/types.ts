@@ -1,13 +1,12 @@
 // types.ts
 import type { Icon as IconifyIcon } from '@iconify/react';
 
+import searchIcon from '@iconify-icons/mdi/magnify';
 import modelAltIcon from '@iconify-icons/carbon/model-alt';
 import robotOutlineIcon from '@iconify-icons/mdi/robot-outline';
 import modelTrainingIcon from '@iconify-icons/material-symbols/model-training';
 import machineLearningModelIcon from '@iconify-icons/carbon/machine-learning-model';
-import watsonMachineLearningIcon from '@iconify-icons/carbon/watson-machine-learning';
-import documentScanIcon from '@iconify-icons/material-symbols/document-scanner-outline';
-import searchIcon from '@iconify-icons/mdi/magnify'; // Added for embedding
+import documentScanIcon from '@iconify-icons/material-symbols/document-scanner-outline'; // Added for embedding
 
 export interface ModelConfig {
   name: string;

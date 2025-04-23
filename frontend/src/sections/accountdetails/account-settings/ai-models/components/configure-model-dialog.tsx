@@ -18,10 +18,11 @@ import {
 import { Iconify } from 'src/components/iconify';
 
 import LlmConfigForm from './llm-config-form';
+import EmbeddingConfigForm from './embedding-config-form';
 import { MODEL_TYPE_NAMES, MODEL_TYPE_ICONS } from '../utils/types';
 
 import type { LlmConfigFormRef } from './llm-config-form';
-import EmbeddingConfigForm, { EmbeddingConfigFormRef } from './embedding-config-form';
+import type { EmbeddingConfigFormRef } from './embedding-config-form';
 // import OcrConfigForm, { OcrConfigFormRef } from './model-forms/ocr-config-form';
 // import SlmConfigForm, { SlmConfigFormRef } from './model-forms/slm-config-form';
 // import ReasoningConfigForm, { ReasoningConfigFormRef } from './model-forms/reasoning-config-form';
