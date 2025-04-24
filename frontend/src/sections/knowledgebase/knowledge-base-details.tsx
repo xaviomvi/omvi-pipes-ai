@@ -79,7 +79,6 @@ import {
 import axios from 'src/utils/axios';
 
 import { CONFIG } from 'src/config-global';
-import { useUsers } from 'src/context/UserContext';
 
 import DeleteRecordDialog from './delete-record-dialog';
 import { handleDownloadDocument, uploadKnowledgeBaseFiles } from './utils';
@@ -155,7 +154,6 @@ export default function KnowledgeBaseDetails({
   const [menuItems, setMenuItems] = useState<ActionMenuItem[]>([]);
 
   const [uploadError, setUploadError] = useState<UploadErrorState>({ show: false, message: '' });
-  const users = useUsers();
 
   const navigate = useNavigate();
 
@@ -782,11 +780,11 @@ export default function KnowledgeBaseDetails({
             console.log(response.data.reindexResponse.success);
           } catch (error) {
             console.log('error in re indexing', error);
-            setSnackbar({
-              open: true,
-              message: 'Failed to start reindexing',
-              severity: 'error',
-            });
+            // setSnackbar({
+            //   open: true,
+            //   message: 'Failed to start reindexing',
+            //   severity: 'error',
+            // });
           }
         };
 
@@ -920,10 +918,10 @@ export default function KnowledgeBaseDetails({
       onSearchChange('');
     } catch (error: any) {
       console.error('Error uploading files:', error);
-      setUploadError({
-        show: true,
-        message: error.message || 'Failed to upload files. Please try again.',
-      });
+      // setUploadError({
+      //   show: true,
+      //   message: error.message || 'Failed to upload files. Please try again.',
+      // });
     } finally {
       setUploading(false);
     }

@@ -115,7 +115,7 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit }: Messag
       showSuccessSnackbar('Thank you for your positive feedback');
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      showErrorSnackbar('Failed to submit feedback. Please try again.');
+      // showErrorSnackbar('Failed to submit feedback. Please try again.');
     }
   };
 
@@ -140,7 +140,7 @@ const MessageFeedback = ({ messageId, conversationId, onFeedbackSubmit }: Messag
       showSuccessSnackbar('Thank you for your detailed feedback');
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      showErrorSnackbar('Failed to submit feedback. Please try again.');
+      // showErrorSnackbar('Failed to submit feedback. Please try again.');
     }
   };
 

@@ -194,11 +194,11 @@ export default function KnowledgeBaseSearch() {
       console.error('Search failed:', error);
       setSearchResults([]);
       setAggregatedCitations([]);
-      setSnackbar({
-        open: true,
-        message: 'Failed to search knowledge base. Please try again.',
-        severity: 'error',
-      });
+      // setSnackbar({
+      //   open: true,
+      //   message: 'Failed to search knowledge base. Please try again.',
+      //   severity: 'error',
+      // });
     } finally {
       setLoading(false);
     }
@@ -519,11 +519,11 @@ export default function KnowledgeBaseSearch() {
       }
     } catch (error) {
       console.error('Error fetching document:', error);
-      setSnackbar({
-        open: true,
-        message: `Error fetching document: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        severity: 'error',
-      });
+      // setSnackbar({
+      //   open: true,
+      //   message: `Error fetching document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      //   severity: 'error',
+      // });
     }
   };
 

@@ -21,7 +21,8 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-
+import { useAdmin } from 'src/context/AdminContext';
+import { useAuthContext } from 'src/auth/hooks';
 import { getSamlSsoConfig, updateSamlSsoConfig } from '../utils/auth-configuration-service';
 
 import type { SamlSsoConfig } from '../utils/auth-configuration-service';
@@ -45,7 +46,9 @@ const SamlSsoConfigPage = () => {
   const navigate = useNavigate();
   const [configuration, setConfiguration] = useState<SamlSsoConfig>(DEFAULT_SAML_CONFIG);
   const [xmlFile, setXmlFile] = useState<File | null>(null);
-
+  const { isAdmin } = useAdmin();
+  const { user } = useAuthContext();
+  const accountType = user?.accountType;
   const [errors, setErrors] = useState({
     entryPoint: '',
     certificate: '',
@@ -98,7 +101,7 @@ const SamlSsoConfigPage = () => {
         setConfiguration(DEFAULT_SAML_CONFIG);
       }
     } catch (error) {
-      showErrorSnackbar('Failed to load SAML configuration');
+      // showErrorSnackbar('Failed to load SAML configuration');
     } finally {
       setIsLoading(false);
     }
@@ -203,7 +206,7 @@ ${Array.from({ length: Math.ceil(certContent.length / 64) })
             }
           }
         } catch (err) {
-          showErrorSnackbar('Failed to parse XML file. Please check the format.');
+          // showErrorSnackbar('Failed to parse XML file. Please check the format.');
         }
       };
       reader.readAsText(file);
@@ -274,7 +277,7 @@ ${Array.from({ length: Math.ceil(certContent.length / 64) })
       await updateSamlSsoConfig(payload);
       showSuccessSnackbar('SAML configuration successfully updated');
     } catch (error) {
-      showErrorSnackbar('Failed to save SAML configuration');
+      // showErrorSnackbar('Failed to save SAML configuration');
     } finally {
       setIsSaving(false);
     }
@@ -282,7 +285,20 @@ ${Array.from({ length: Math.ceil(certContent.length / 64) })
 
   // Handle back button
   const handleBack = () => {
-    navigate('/account/individual/settings/authentication');
+    if (isAdmin && accountType === 'business') {
+      navigate('/account/company-settings/settings/authentication');
+      return;
+    }
+    if (isAdmin && accountType === 'individual') {
+      navigate('/account/individual/settings/authentication');
+      return;
+    }
+    setSnackbar({
+      open: false,
+      message: 'No access to the saml settings',
+      severity: 'error',
+    });
+    navigate('/');
   };
 
   return (

@@ -22,7 +22,8 @@ import {
 } from '@mui/material';
 
 import { Iconify } from 'src/components/iconify';
-
+import { useAdmin } from 'src/context/AdminContext';
+import { useAuthContext } from 'src/auth/hooks';
 import GoogleAuthForm from './google-auth-form';
 import SmtpConfigForm from './smtp-config-form';
 import AzureAdAuthForm from './azureAd-auth-form';
@@ -92,6 +93,9 @@ const ConfigureMethodDialog: React.FC<ConfigureMethodDialogProps> = ({
   const theme = useTheme();
   const navigate = useNavigate();
   const [isValid, setIsValid] = useState(false);
+  const { isAdmin } = useAdmin();
+  const { user } = useAuthContext();
+  const accountType = user?.accountType;
 
   // Using a more flexible ref approach
   const googleFormRef = useRef<GoogleAuthFormRef>(null);
@@ -107,9 +111,17 @@ const ConfigureMethodDialog: React.FC<ConfigureMethodDialogProps> = ({
     if (open && methodType === 'samlSso') {
       // Close dialog and navigate to SAML config page
       onClose();
-      navigate('/account/individual/settings/authentication/config-saml');
+      if (isAdmin && accountType === 'business') {
+        navigate('/account/company-settings/settings/authentication/saml');
+        return;
+      }
+      if (isAdmin && accountType === 'individual') {
+        navigate('/account/individual/settings/authentication/config-saml');
+        return;
+      }
+      navigate('/');
     }
-  }, [open, methodType, navigate, onClose]);
+  }, [open, methodType, navigate, onClose, accountType, isAdmin]);
 
   // If method type is samlSso, don't render the dialog
   if (methodType === 'samlSso') {

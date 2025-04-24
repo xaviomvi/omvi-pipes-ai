@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'src/utils/axios';
 
 import { UserProvider } from 'src/context/UserContext';
-import { GroupsProvider } from 'src/context/GroupsContext';
 
 import { ChatBotView } from 'src/sections/qna/view';
 
@@ -26,7 +25,7 @@ export default function Page() {
     try {
       setIsLoading(true);
       const response = await axios.get(`/api/v1/org/onboarding-status`);
-      const {status} = response.data;
+      const { status } = response.data;
 
       if (!status) {
         throw new Error('No status found in the response');
@@ -56,10 +55,10 @@ export default function Page() {
 
   // Handle closing the configuration dialog
   const handleClose = useCallback(() => {
-    // Just close the dialog - status updates are handled inside the ConfigurationStepper 
+    // Just close the dialog - status updates are handled inside the ConfigurationStepper
     // via explicit button actions now
     setConfigDialog(false);
-    
+
     // Refetch the status to make sure we have the latest status
     // This is important since the ConfigurationStepper may have updated it
     fetchOnboardingStatus();
@@ -100,10 +99,8 @@ export default function Page() {
       </Helmet>
       <AuthProvider>
         <UserProvider>
-          <GroupsProvider>
-            <ConfigurationStepper open={configDialog} onClose={handleClose} />
-            {!isLoading && <ChatBotView />}
-          </GroupsProvider>
+          <ConfigurationStepper open={configDialog} onClose={handleClose} />
+          {!isLoading && <ChatBotView />}
         </UserProvider>
       </AuthProvider>
     </>

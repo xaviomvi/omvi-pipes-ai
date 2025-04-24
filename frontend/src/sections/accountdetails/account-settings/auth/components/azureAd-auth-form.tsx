@@ -139,7 +139,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
           }));
         } catch (error) {
           console.error('Failed to load Azure AD auth config:', error);
-          showErrorSnackbar('Failed to load Azure AD authentication configuration');
+          // showErrorSnackbar('Failed to load Azure AD authentication configuration');
         } finally {
           setIsLoading(false);
         }
@@ -209,7 +209,7 @@ const AzureAdAuthForm = forwardRef<AzureAdAuthFormRef, AzureAdAuthFormProps>(
 
         return true;
       } catch (error) {
-        showErrorSnackbar('Failed to save Azure AD authentication configuration');
+        // showErrorSnackbar('Failed to save Azure AD authentication configuration');
         console.error('Error saving Azure AD auth config:', error);
         return false;
       } finally {

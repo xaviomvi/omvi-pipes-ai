@@ -111,11 +111,11 @@ export default function Groups() {
         const sortedGroups = [...data].sort((a, b) => a.name.localeCompare(b.name));
         setGroups(sortedGroups);
       } catch (error) {
-        setSnackbarState({
-          open: true,
-          message: error.errorMessage || 'Error loading groups',
-          severity: 'error',
-        });
+        // setSnackbarState({
+        //   open: true,
+        //   message: error.errorMessage || 'Error loading groups',
+        //   severity: 'error',
+        // });
       } finally {
         setLoading(false);
       }
@@ -157,7 +157,7 @@ export default function Groups() {
       dispatch(decrementGroupCount());
       setSnackbarState({ open: true, message: 'Group deleted successfully', severity: 'success' });
     } catch (error) {
-      setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
+      // setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
 
@@ -173,7 +173,7 @@ export default function Groups() {
       setSnackbarState({ open: true, message: 'Group created successfully', severity: 'success' });
     } catch (error) {
       setErrorMsg(error.errorMessage || 'Failed to create group. Please try again.');
-      setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
+      // setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
 

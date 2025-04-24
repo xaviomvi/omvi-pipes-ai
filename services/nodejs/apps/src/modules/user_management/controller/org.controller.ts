@@ -426,7 +426,8 @@ export class OrgController {
       const orgLogo = await OrgLogos.findOne({ orgId }).lean().exec();
 
       if (!orgLogo || !orgLogo.logo) {
-        throw new NotFoundError('Organisation logo not found');
+        res.status(204).end();
+        return
       }
 
       const logoBuffer = Buffer.from(orgLogo.logo, 'base64');

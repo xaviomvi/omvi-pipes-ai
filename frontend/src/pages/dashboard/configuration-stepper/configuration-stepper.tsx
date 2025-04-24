@@ -125,17 +125,8 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
       return;
     }
 
-    try {
-      await axios.put(`${ORG_API_BASE_URL}/onboarding-status`, { status });
-      statusUpdated.current = true;
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: `Failed to update on boarding status`,
-        severity: 'error',
-      });
-      throw error;
-    }
+    await axios.put(`${ORG_API_BASE_URL}/onboarding-status`, { status });
+    statusUpdated.current = true;
   };
 
   // Intercept the close action - ONLY update status if explicitly canceling via button

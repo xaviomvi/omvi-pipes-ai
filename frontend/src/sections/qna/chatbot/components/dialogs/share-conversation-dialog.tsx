@@ -65,11 +65,11 @@ const ShareConversationDialog = ({
         severity: 'success',
       });
     } catch (error) {
-      setSnackbarState({
-        open: true,
-        message: 'Failed to share conversation',
-        severity: 'error',
-      });
+      // setSnackbarState({
+      //   open: true,
+      //   message: 'Failed to share conversation',
+      //   severity: 'error',
+      // });
     }
   };
 
@@ -82,11 +82,11 @@ const ShareConversationDialog = ({
         severity: 'success',
       });
     } catch (error) {
-      setSnackbarState({
-        open: true,
-        message: 'Failed to copy link',
-        severity: 'error',
-      });
+      // setSnackbarState({
+      //   open: true,
+      //   message: 'Failed to copy link',
+      //   severity: 'error',
+      // });
     }
   };
 

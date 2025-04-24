@@ -135,11 +135,11 @@ const ArchivedChatsDialog = ({
       });
       setArchivedChats(response.data.conversations || []);
     } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Failed to load archived conversations',
-        severity: 'error',
-      });
+      // setSnackbar({
+      //   open: true,
+      //   message: 'Failed to load archived conversations',
+      //   severity: 'error',
+      // });
     } finally {
       setIsLoading(false);
     }
@@ -159,11 +159,11 @@ const ArchivedChatsDialog = ({
         severity: 'success',
       });
     } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Failed to unarchive conversation',
-        severity: 'error',
-      });
+      // setSnackbar({
+      //   open: true,
+      //   message: 'Failed to unarchive conversation',
+      //   severity: 'error',
+      // });
     } finally {
       setIsUnarchiving(false);
       setUnarchivingId(null);

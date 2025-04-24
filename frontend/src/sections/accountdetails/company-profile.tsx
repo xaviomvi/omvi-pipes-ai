@@ -119,11 +119,11 @@ export default function CompanyProfile() {
         setLoading(false);
       } catch (err) {
         setError('Failed to fetch organization data');
-        setSnackbar({
-          open: true,
-          message: err.errorMessage,
-          severity: 'error',
-        });
+        // setSnackbar({
+        //   open: true,
+        //   message: err.errorMessage,
+        //   severity: 'error',
+        // });
         setLoading(false);
       }
     };
@@ -147,11 +147,11 @@ export default function CompanyProfile() {
         } else {
           // For other errors, show the error message
           setError('Failed to fetch logo');
-          setSnackbar({
-            open: true,
-            message: err.errorMessage || 'Error loading logo',
-            severity: 'error',
-          });
+          // setSnackbar({
+          //   open: true,
+          //   message: err.errorMessage || 'Error loading logo',
+          //   severity: 'error',
+          // });
           console.error(err, 'error in fetching logo');
         }
       }
@@ -172,7 +172,7 @@ export default function CompanyProfile() {
       });
     } catch (err) {
       setError('Failed to update organization');
-      setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
+      // setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
     } finally {
       setSaveChanges(false);
     }
@@ -188,7 +188,7 @@ export default function CompanyProfile() {
       setLogo(null);
     } catch (err) {
       setError('Failed to remove logo');
-      setSnackbar({ open: true, message: 'Failed to remove logo', severity: 'error' });
+      // setSnackbar({ open: true, message: 'Failed to remove logo', severity: 'error' });
       setDeleting(false);
     }
   };
@@ -209,7 +209,7 @@ export default function CompanyProfile() {
       setLogo(URL.createObjectURL(file));
     } catch (err) {
       setError('Failed to upload logo');
-      setSnackbar({ open: true, message: 'Failed to upload logo', severity: 'error' });
+      // setSnackbar({ open: true, message: 'Failed to upload logo', severity: 'error' });
       setUploading(false);
     }
   };
@@ -465,35 +465,37 @@ export default function CompanyProfile() {
                   </Grid>
                 </Paper>
 
-                <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <LoadingButton
-                    color="primary"
-                    type="submit"
-                    variant="contained"
-                    loading={saveChanges}
-                    loadingIndicator="Saving..."
-                    startIcon={<Iconify icon={disketteBoldIcon} width={18} height={18} />}
-                    disabled={!isValid || !isDirty || !isAdmin}
-                    sx={{
-                      height: 42,
-                      px: 3,
-                      borderRadius: 1,
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.9rem',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                      '&:hover': {
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      },
-                      '&.Mui-disabled': {
-                        cursor: 'not-allowed',
-                        pointerEvents: 'auto',
-                      },
-                    }}
-                  >
-                    Save changes
-                  </LoadingButton>
-                </Box>
+                {isAdmin && (
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <LoadingButton
+                      color="primary"
+                      type="submit"
+                      variant="contained"
+                      loading={saveChanges}
+                      loadingIndicator="Saving..."
+                      startIcon={<Iconify icon={disketteBoldIcon} width={18} height={18} />}
+                      disabled={!isValid || !isDirty || !isAdmin}
+                      sx={{
+                        height: 42,
+                        px: 3,
+                        borderRadius: 1,
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.9rem',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        '&:hover': {
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        },
+                        '&.Mui-disabled': {
+                          cursor: 'not-allowed',
+                          pointerEvents: 'auto',
+                        },
+                      }}
+                    >
+                      Save changes
+                    </LoadingButton>
+                  </Box>
+                )}
               </Form>
             </Grid>
 

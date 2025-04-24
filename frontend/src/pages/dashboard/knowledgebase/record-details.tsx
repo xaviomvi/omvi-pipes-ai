@@ -4,7 +4,6 @@ import { Box } from '@mui/material';
 
 import { CONFIG } from 'src/config-global';
 import { UserProvider } from 'src/context/UserContext';
-import { GroupsProvider } from 'src/context/GroupsContext';
 
 import RecordDetails from 'src/sections/knowledgebase/record-details';
 
@@ -21,9 +20,7 @@ export default function Page() {
 
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', zIndex: 0 }}>
         <UserProvider>
-          <GroupsProvider>
-            <RecordDetails />
-          </GroupsProvider>
+          <RecordDetails />
         </UserProvider>
       </Box>
     </>

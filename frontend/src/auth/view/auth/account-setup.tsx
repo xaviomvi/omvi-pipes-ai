@@ -318,11 +318,11 @@ export const AccountSetupForm: React.FC<AccountSetupFormProps> = ({ accountType 
       reset(initialFormData);
       navigate('/auth/sign-in');
     } catch (error) {
-      setSnackbar({
-        open: true,
-        message: `Failed to create ${accountType === 'business' ? 'business' : 'account'}`,
-        severity: 'error',
-      });
+      // setSnackbar({
+      //   open: true,
+      //   message: `Failed to create ${accountType === 'business' ? 'business' : 'account'}`,
+      //   severity: 'error',
+      // });
     }
   };
 
