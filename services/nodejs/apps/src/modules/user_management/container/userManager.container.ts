@@ -10,6 +10,7 @@ import { EntitiesEventProducer } from '../services/entity_events.service';
 import { AuthTokenService } from '../../../libs/services/authtoken.service';
 import { AuthMiddleware } from '../../../libs/middlewares/auth.middleware';
 import { AppConfig } from '../../tokens_manager/config/config';
+import { AuthService } from '../services/auth.service';
 
 const loggerConfig = {
   service: 'User Manager Container',
@@ -43,6 +44,9 @@ export class UserManagerContainer {
       const mailService = new MailService(appConfig, container.get('Logger'));
       container.bind<MailService>('MailService').toConstantValue(mailService);
 
+      const authService = new AuthService(appConfig, container.get('Logger'));
+      container.bind<AuthService>('AuthService').toConstantValue(authService);
+
       const keyValueStoreService = KeyValueStoreService.getInstance(
         container.get<ConfigurationManagerConfig>('ConfigurationManagerConfig'),
       );
@@ -73,6 +77,7 @@ export class UserManagerContainer {
       const userController = new UserController(
         appConfig,
         mailService,
+        authService,
         container.get('Logger'),
         entityEventsService,
       );

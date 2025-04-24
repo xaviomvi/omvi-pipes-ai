@@ -165,6 +165,28 @@ export class UserAccountController {
 
     return userCredentials;
   }
+  async hasPasswordMethod(
+    req: AuthenticatedServiceRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const orgId = req.tokenPayload?.orgId;
+      const isPasswordAuthEnabled = !!(await OrgAuthConfig.exists({
+        orgId,
+        authSteps: {
+          $elemMatch: {
+            allowedMethods: { $elemMatch: { type: 'password' } },
+          },
+        },
+      }));
+      res.json({
+        isPasswordAuthEnabled,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 
   async initAuth(
     req: AuthSessionRequest,
