@@ -44,7 +44,7 @@ export class UserManagerContainer {
       const mailService = new MailService(appConfig, container.get('Logger'));
       container.bind<MailService>('MailService').toConstantValue(mailService);
 
-      const authService = new AuthService(appConfig);
+      const authService = new AuthService(appConfig, container.get('Logger'));
       container.bind<AuthService>('AuthService').toConstantValue(authService);
 
       const keyValueStoreService = KeyValueStoreService.getInstance(

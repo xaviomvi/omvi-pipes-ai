@@ -660,7 +660,7 @@ export class UserController {
       if (result.statusCode !== 200) {
         throw new InternalServerError('Error fetching auth methods');
       }
-      if (result.data?.hasPassword) {
+      if (result.data?.isPasswordAuthEnabled) {
         const { passwordResetToken, mailAuthToken } =
           jwtGeneratorForForgotPasswordLink(
             email,
@@ -675,7 +675,7 @@ export class UserController {
             jwtAuthToken: mailAuthToken,
           },
           usersMails: [email],
-          subject: 'You are invited to join pipeshub',
+          subject: 'You are invited to join Pipeshub',
           templateData: {
             invitee: user?.fullName,
             link: `${this.config.frontendUrl}/reset-password?token=${passwordResetToken}`,
@@ -691,7 +691,7 @@ export class UserController {
             jwtAuthToken: mailJwtGenerator(email, this.config.scopedJwtSecret),
           },
           usersMails: [email],
-          subject: 'You are invited to join pipeshub',
+          subject: 'You are invited to join Pipeshub',
           templateData: {
             invitee: user?.fullName,
             link: `${this.config.frontendUrl}/sign-in`,
@@ -827,7 +827,9 @@ export class UserController {
         const email = emailsForNewAccounts[i];
         const userId = newUsers[i]?._id;
         if (!userId) {
-          throw new InternalServerError('User ID missing while inviting');
+          throw new InternalServerError(
+            'User ID missing while inviting new user. Please ensure user creation was successful.',
+          );
         }
         await UserGroups.updateMany(
           { _id: { $in: groupIds }, orgId },
@@ -851,7 +853,7 @@ export class UserController {
           throw new InternalServerError('Error fetching auth methods');
         }
 
-        if (result.data?.hasPassword) {
+        if (result.data?.isPasswordAuthEnabled) {
           const { passwordResetToken, mailAuthToken } =
             jwtGeneratorForForgotPasswordLink(
               email,
@@ -866,7 +868,7 @@ export class UserController {
               jwtAuthToken: mailAuthToken,
             },
             usersMails: [email],
-            subject: 'You are invited to join pipeshub',
+            subject: 'You are invited to join Pipeshub',
             templateData: {
               invitee: req.user?.fullName,
               link: `${this.config.frontendUrl}/reset-password?token=${passwordResetToken}`,
@@ -885,7 +887,7 @@ export class UserController {
               ),
             },
             usersMails: [email],
-            subject: 'You are invited to join pipeshub',
+            subject: 'You are invited to join Pipeshub',
             templateData: {
               invitee: req.user?.fullName,
               link: `${this.config.frontendUrl}/sign-in`,
@@ -932,7 +934,9 @@ export class UserController {
           continue;
         }
         if (!userId) {
-          throw new InternalServerError('User ID missing while inviting');
+          throw new InternalServerError(
+            'User ID missing while inviting restored user. Please ensure user restoration was successful.',
+          );
         }
         const authToken = fetchConfigJwtGenerator(
           userId.toString(),
@@ -945,7 +949,7 @@ export class UserController {
           throw new InternalServerError('Error fetching auth methods');
         }
 
-        if (result.data?.hasPassword) {
+        if (result.data?.isPasswordAuthEnabled) {
           const { passwordResetToken, mailAuthToken } =
             jwtGeneratorForForgotPasswordLink(
               email,
@@ -960,7 +964,7 @@ export class UserController {
               jwtAuthToken: mailAuthToken,
             },
             usersMails: [email],
-            subject: 'You are invited to re-join pipeshub',
+            subject: 'You are invited to re-join Pipeshub',
             templateData: {
               invitee: req.user?.fullName,
               link: `${this.config.frontendUrl}/reset-password?token=${passwordResetToken}`,
@@ -979,7 +983,7 @@ export class UserController {
               ),
             },
             usersMails: [email],
-            subject: 'You are invited to re-join pipeshub',
+            subject: 'You are invited to re-join Pipeshub',
             templateData: {
               invitee: req.user?.fullName,
               link: `${this.config.frontendUrl}/sign-in`,

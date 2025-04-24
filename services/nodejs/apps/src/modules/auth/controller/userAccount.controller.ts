@@ -172,7 +172,7 @@ export class UserAccountController {
   ): Promise<void> {
     try {
       const orgId = req.tokenPayload?.orgId;
-      const hasPassword = !!(await OrgAuthConfig.exists({
+      const isPasswordAuthEnabled = !!(await OrgAuthConfig.exists({
         orgId,
         authSteps: {
           $elemMatch: {
@@ -181,7 +181,7 @@ export class UserAccountController {
         },
       }));
       res.json({
-        hasPassword,
+        isPasswordAuthEnabled,
       });
     } catch (error) {
       next(error);
