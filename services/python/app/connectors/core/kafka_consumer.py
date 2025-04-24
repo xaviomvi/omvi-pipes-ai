@@ -1,18 +1,23 @@
 import asyncio
 import json
-from confluent_kafka import Consumer, KafkaError
-import httpx
-from dependency_injector.wiring import inject
-from typing import Dict, List
-from app.config.arangodb_constants import CollectionNames, Connectors
-from app.config.configuration_service import Routes, KafkaConfig
-from uuid import uuid4
 import time
-from app.setups.connector_setup import initialize_individual_account_services_fn, initialize_enterprise_account_services_fn
-from app.utils.time_conversion import get_epoch_timestamp_in_ms
+from typing import Dict, List
+from uuid import uuid4
+
+import httpx
+from confluent_kafka import Consumer, KafkaError
+from dependency_injector.wiring import inject
+
+from app.config.arangodb_constants import CollectionNames, Connectors
 
 # Import required services
-from app.config.configuration_service import config_node_constants
+from app.config.configuration_service import KafkaConfig, config_node_constants
+from app.setups.connector_setup import (
+    initialize_enterprise_account_services_fn,
+    initialize_individual_account_services_fn,
+)
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
+
 
 class KafkaRouteConsumer:
     def __init__(self, logger, config_service, arango_service, routes=[], app_container=None):
@@ -47,6 +52,7 @@ class KafkaRouteConsumer:
                 'appEnabled': self.handle_app_enabled,
                 'appDisabled': self.handle_app_disabled,
                 'llmConfigured': self.handle_llm_configured,
+                'embeddingConfigured': self.handle_embedding_configured,
             }
         }
 
@@ -55,9 +61,9 @@ class KafkaRouteConsumer:
         try:
             async def get_kafka_config():
                 kafka_config = await self.config_service.get_config(config_node_constants.KAFKA.value)
-                
+
                 brokers = kafka_config['brokers']
-    
+
                 return {
                     'bootstrap.servers': ",".join(brokers),
                     'group.id': 'record_consumer_group',
@@ -69,7 +75,7 @@ class KafkaRouteConsumer:
                 }
 
             KAFKA_CONFIG = await get_kafka_config()
-            
+
             self.consumer = Consumer(KAFKA_CONFIG)
             # Add a small delay to allow for topic creation
             time.sleep(2)
@@ -109,7 +115,7 @@ class KafkaRouteConsumer:
             message_value = message.value()
             if isinstance(message_value, bytes):
                 message_value = message_value.decode('utf-8')
-            
+
             if isinstance(message_value, str):
                 try:
                     value = json.loads(message_value)
@@ -122,7 +128,7 @@ class KafkaRouteConsumer:
                     self.logger.error(f"Failed to parse JSON: {e}")
             else:
                 self.logger.error(f"Unexpected message value type: {type(message_value)}")
-            
+
             if not event_type or topic not in self.route_mapping:
                 self.logger.error(f"Invalid topic or missing event_type: {topic}, {event_type}")
                 return False
@@ -142,7 +148,7 @@ class KafkaRouteConsumer:
         """Handle sync-related events by calling appropriate routes"""
         try:
             self.logger.info(f"Handling Sync event: {event_type}")
-            
+
             # Get the route mapping for the event type
             route_info = self.route_mapping['sync-events'].get(event_type)
             if not route_info:
@@ -150,7 +156,7 @@ class KafkaRouteConsumer:
                 return False
 
             route_path, method = route_info
-                        
+
             # Find the matching route handler
             route_handler = None
             for route in self.routes:
@@ -165,13 +171,13 @@ class KafkaRouteConsumer:
             # Format the route path with parameters from the value
             path_params = value.get('path_params', {})
             formatted_path = route_handler.format(**path_params)
-            
+
             endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
             connector_endpoint = endpoints.get('connectors').get('endpoint')
-            
+
             self.logger.info(f"connector_endpoint: {connector_endpoint}")
             self.logger.info(f"formatted_path: {formatted_path}")
-            
+
             # Make HTTP request to the route
             async with httpx.AsyncClient() as client:
                 try:
@@ -185,7 +191,7 @@ class KafkaRouteConsumer:
                     return False
             self.logger.info(f"✅ Successfully handled sync event: {event_type}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"❌ Unable to handle sync properly: {str(e)}")
             return False
@@ -203,22 +209,22 @@ class KafkaRouteConsumer:
 # ORG EVENTS
     async def handle_org_created(self, payload: dict) -> bool:
         """Handle organization creation event"""
-        
+
         accountType = "enterprise" if payload["accountType"] in ["business", "enterprise"] else "individual"
         try:
             org_data = {
                 '_key': payload['orgId'],
                 'name': payload.get('registeredName', 'Individual Account'),
                 'accountType': accountType,
- 
+
                 'isActive': True,
                 'createdAtTimestamp': get_epoch_timestamp_in_ms(),
                 'updatedAtTimestamp': get_epoch_timestamp_in_ms()
             }
-            
+
             # Batch upsert org
             await self.arango_service.batch_upsert_nodes([org_data], CollectionNames.ORGS.value)
-            
+
             # Write a query to get departments with orgId == None
             query = f"""
                 FOR d IN {CollectionNames.DEPARTMENTS.value}
@@ -227,7 +233,7 @@ class KafkaRouteConsumer:
             """
             cursor = self.arango_service.db.aql.execute(query)
             departments = list(cursor)
-            
+
             # Create relationships between org and departments
             org_department_relations = []
             for department in departments:
@@ -237,7 +243,7 @@ class KafkaRouteConsumer:
                     'createdAtTimestamp': get_epoch_timestamp_in_ms()
                 }
                 org_department_relations.append(relation_data)
-            
+
             if org_department_relations:
                 await self.arango_service.batch_create_edges(
                     org_department_relations,
@@ -246,7 +252,7 @@ class KafkaRouteConsumer:
                 self.logger.info(f"✅ Successfully created organization: {payload['orgId']} and relationships with departments")
             else:
                 self.logger.info(f"✅ Successfully created organization: {payload['orgId']}")
-            
+
             return True
 
         except Exception as e:
@@ -318,7 +324,7 @@ class KafkaRouteConsumer:
                     'orgId': payload['orgId'],
                     'email': payload['email'],
                     'fullName': payload.get('fullName', ''),
-                    'firstName': payload.get('firstName', ''),  
+                    'firstName': payload.get('firstName', ''),
                     'middleName': payload.get('middleName', ''),
                     'lastName': payload.get('lastName', ''),
                     'designation': payload.get('designation', ''),
@@ -346,7 +352,7 @@ class KafkaRouteConsumer:
                 'createdAtTimestamp': current_timestamp
             }
             await self.arango_service.batch_create_edges(
-                [edge_data], 
+                [edge_data],
                 CollectionNames.BELONGS_TO.value,
             )
 
@@ -367,7 +373,7 @@ class KafkaRouteConsumer:
                         [app_edge_data],
                         CollectionNames.USER_APP_RELATION.value,
                     )
-                    
+
                     if app['name'].lower() in ['calendar']:
                             self.logger.info("Skipping init")
                             continue
@@ -391,7 +397,7 @@ class KafkaRouteConsumer:
             self.logger.info(f"📥 Processing user updated event: {payload}")
             # Find existing user by email
             existing_user = await self.arango_service.get_user_by_user_id(
-                payload['userId'], 
+                payload['userId'],
             )
 
             if not existing_user:
@@ -467,7 +473,7 @@ class KafkaRouteConsumer:
             # Create app entities
             app_docs = []
             for app_name in apps:
-                
+
                 app_data = {
                     '_key': f"{org_id}_{app_name}",
                     'name': app_name,
@@ -545,9 +551,9 @@ class KafkaRouteConsumer:
                                         'syncState': 'NOT_STARTED',
                                         'lastSyncUpdate': get_epoch_timestamp_in_ms()
                                     }
-                                    
+
                                     user_app_edges.append(edge_data)
-                
+
                                 if user_app_edges:  # Only create edges if there are new relations to create
                                     await self.arango_service.batch_create_edges(
                                         user_app_edges,
@@ -561,16 +567,16 @@ class KafkaRouteConsumer:
 
                         # Initialize app (this will fetch and create users)
                         await self._handle_sync_event(
-                            f'{app_name.lower()}.init', 
+                            f'{app_name.lower()}.init',
                             {'path_params': {'org_id': org_id}}
                         )
-                        
+
                         await asyncio.sleep(5)
-                        
+
                         if sync_action == 'immediate':
                             # Start sync for all users
                             await self._handle_sync_event(
-                                f'{app_name.lower()}.start', 
+                                f'{app_name.lower()}.start',
                                 {'path_params': {'org_id': org_id}}
                             )
                             await asyncio.sleep(5)
@@ -579,7 +585,7 @@ class KafkaRouteConsumer:
                 else:
                     active_users = await self.arango_service.get_users(org_id, active = True)
                     user_app_edges = []
-                    
+
                     for user in active_users:
                         for app in app_docs:
                             if app['name'] in enabled_apps:
@@ -600,9 +606,9 @@ class KafkaRouteConsumer:
                                         'syncState': 'NOT_STARTED',
                                         'lastSyncUpdate': get_epoch_timestamp_in_ms()
                                     }
-                                    
+
                                     user_app_edges.append(edge_data)
-                
+
                                 if user_app_edges:  # Only create edges if there are new relations to create
                                     await self.arango_service.batch_create_edges(
                                         user_app_edges,
@@ -617,10 +623,10 @@ class KafkaRouteConsumer:
 
                         # Initialize app
                         await self._handle_sync_event(
-                            f'{app_name.lower()}.init', 
+                            f'{app_name.lower()}.init',
                             {'path_params': {'org_id': org_id}}
                         )
-                        
+
                         await asyncio.sleep(5)
 
                     # Then create edges and start sync if needed
@@ -631,9 +637,9 @@ class KafkaRouteConsumer:
                                     if app["name"] in [Connectors.GOOGLE_CALENDAR.value]:
                                         self.logger.info("Skipping start")
                                         continue
-                                    
+
                                     await self._handle_sync_event(
-                                        f'{app["name"].lower()}.start', 
+                                        f'{app["name"].lower()}.start',
                                         {
                                             'path_params': {
                                                 'org_id': org_id,
@@ -655,7 +661,7 @@ class KafkaRouteConsumer:
         try:
             org_id = payload['orgId']
             apps = payload['apps']
-            
+
             # Stop sync for each app
             self.logger.info(f"📥 Processing app disabled event: {payload}")
 
@@ -687,14 +693,23 @@ class KafkaRouteConsumer:
         except Exception as e:
             self.logger.error(f"❌ Error disabling apps: {str(e)}")
             return False
-        
+
     async def handle_llm_configured(self, payload: dict) -> bool:
         """Handle LLM configured event"""
         try:
-            self.logger.info(f"📥 Processing LLM configured event in Query Service")
+            self.logger.info("📥 Processing LLM configured event in Query Service")
             return True
         except Exception as e:
             self.logger.error(f"❌ Error handling LLM configured event: {str(e)}")
+            return False
+
+    async def handle_embedding_configured(self, payload: dict) -> bool:
+        """Handle embedding configured event"""
+        try:
+            self.logger.info("📥 Processing embedding configured event in Query Service")
+            return True
+        except Exception as e:
+            self.logger.error(f"❌ Error handling embedding configured event: {str(e)}")
             return False
 
     async def consume_messages(self):

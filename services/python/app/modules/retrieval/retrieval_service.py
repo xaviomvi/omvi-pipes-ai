@@ -1,14 +1,33 @@
-from typing import List, Dict, Any, Optional, Set, Tuple
-from app.config.configuration_service import config_node_constants
-from app.utils.embeddings import get_default_embedding_model
+from typing import Any, Dict, List, Optional
+
+from langchain_qdrant import FastEmbedSparse, QdrantVectorStore, RetrievalMode
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Filter, FieldCondition, MatchValue
-from langchain_qdrant import QdrantVectorStore, FastEmbedSparse, RetrievalMode
+from qdrant_client.http.models import FieldCondition, Filter, MatchValue
+
+from app.config.ai_models_named_constants import (
+    AzureOpenAILLM,
+    EmbeddingModel,
+    EmbeddingProvider,
+    LLMProvider,
+)
+from app.config.arangodb_constants import CollectionNames, RecordTypes
+from app.config.configuration_service import config_node_constants
+from app.core.embedding_service import (
+    AzureEmbeddingConfig,
+    EmbeddingFactory,
+    OpenAIEmbeddingConfig,
+)
+from app.core.llm_service import (
+    AnthropicLLMConfig,
+    AwsBedrockLLMConfig,
+    AzureLLMConfig,
+    GeminiLLMConfig,
+    LLMFactory,
+    OpenAILLMConfig,
+)
 from app.modules.retrieval.retrieval_arango import ArangoService
-from app.config.arangodb_constants import CollectionNames,RecordTypes
-from app.core.llm_service import AzureLLMConfig, OpenAILLMConfig, GeminiLLMConfig, AnthropicLLMConfig, AwsBedrockLLMConfig, LLMFactory
-from app.core.embedding_service import AzureEmbeddingConfig, OpenAIEmbeddingConfig, EmbeddingFactory
-from app.config.ai_models_named_constants import LLMProvider, AzureOpenAILLM, EmbeddingProvider, EmbeddingModel
+from app.utils.embeddings import get_default_embedding_model
+
 
 class RetrievalService:
     def __init__(
@@ -56,7 +75,7 @@ class RetrievalService:
         self.collection_name = collection_name
         self.vector_store = None
 
-        
+
     async def get_llm_instance(self):
         try:
             self.logger.info("Getting LLM")
@@ -65,7 +84,7 @@ class RetrievalService:
             # For now, we'll use the first available provider that matches our supported types
             # We will add logic to choose a specific provider based on our needs
             llm_config = None
-            
+
             for config in llm_configs:
                 provider = config['provider']
                 if provider == LLMProvider.AZURE_OPENAI_PROVIDER.value:
@@ -111,11 +130,11 @@ class RetrievalService:
 
             self.llm = LLMFactory.create_llm(self.logger, llm_config)
             self.logger.info("LLM created successfully")
-            return self.llm        
+            return self.llm
         except Exception as e:
             self.logger.error(f"Error getting LLM: {str(e)}")
             return None
-        
+
     async def get_embedding_model_instance(self):
         try:
             self.logger.info("Getting embedding model")
@@ -136,7 +155,7 @@ class RetrievalService:
                         model=config['configuration']['model'],
                         api_key=config['configuration']['apiKey'],
                     )
-                
+
             if not embedding_model:
                 self.logger.info("No embedding model found in configuration, using default embedding model")
                 embedding_model = EmbeddingModel.DEFAULT_EMBEDDING_MODEL.value
@@ -144,13 +163,13 @@ class RetrievalService:
             else:
                 self.logger.info(f"Using embedding model: {embedding_model}")
                 self.dense_embeddings = EmbeddingFactory.create_embedding_model(embedding_model)
-            
+
             self.logger.info(f"Embedding model: {embedding_model}")
             return self.dense_embeddings
         except Exception as e:
             self.logger.error(f"Error getting embedding model: {str(e)}")
             return None
-        
+
     def _preprocess_query(self, query: str) -> str:
         """
         Preprocess the query text.
@@ -161,9 +180,10 @@ class RetrievalService:
         Returns:
             Preprocessed query text
         """
-        # Add query prefix for better retrieval performance (BGE recommendation)
-        # Same as in indexing pipeline
-        return f"Represent this document for retrieval: {query.strip()}"
+        # Check if using BGE model before adding the prefix
+        if hasattr(self.dense_embeddings, 'model_name') and 'bge' in self.dense_embeddings.model_name.lower():
+            return f"Represent this document for retrieval: {query.strip()}"
+        return query.strip()
 
     def _format_results(self, results: List[tuple]) -> List[Dict[str, Any]]:
         """Format search results into a consistent structure with flattened metadata."""
@@ -221,9 +241,9 @@ class RetrievalService:
             # Get accessible records
             if not arango_service:
                 raise ValueError("ArangoService is required for permission checking")
-            
+
             filter_groups = filter_groups or {}
-            
+
             # Convert filter_groups to format expected by get_accessible_records
             arango_filters = {}
             if filter_groups:  # Only process if filter_groups is not empty
@@ -231,7 +251,7 @@ class RetrievalService:
                     # Convert key to match collection naming
                     metadata_key = key.lower()  # e.g., 'departments', 'categories', etc.
                     arango_filters[metadata_key] = values
-            
+
             accessible_records = await arango_service.get_accessible_records(
                 user_id=user_id,
                 org_id=org_id,
@@ -240,20 +260,21 @@ class RetrievalService:
 
             if not accessible_records:
                 return []
-            
+
             # Extract record IDs from accessible records
             record_ids = [record['_key'] for record in accessible_records if record is not None]
             # Build Qdrant filter
             qdrant_filter = self._build_qdrant_filter(org_id, record_ids)
-            
+
             all_results = []
             seen_chunks = set()
-            
+
             if not self.vector_store:
-                # Check if collection exists in Qdrant
+                # Check if collection exists and is not empty in Qdrant
                 collections = self.qdrant_client.get_collections()
-                if not any(col.name == self.collection_name for col in collections.collections):
-                    self.logger.info(f"Collection {self.collection_name} not found in Qdrant. Indexing may not be complete.")
+                collection_info = self.qdrant_client.get_collection(self.collection_name) if any(col.name == self.collection_name for col in collections.collections) else None
+                if not collection_info or collection_info.points_count == 0:
+                    self.logger.info(f"Collection {self.collection_name} not found in Qdrant or is empty. Indexing may not be complete.")
                     return {"searchResults": [], "records": []}
 
                 if not self.dense_embeddings:
@@ -261,8 +282,7 @@ class RetrievalService:
                     self.dense_embeddings = await self.get_embedding_model_instance()
                 if not self.dense_embeddings:
                     raise ValueError("No dense embeddings found, please configure an embedding model or ensure indexing is complete")
-                
-                
+
                 self.logger.info("Dense embeddings: %s", self.dense_embeddings)
                 self.vector_store = QdrantVectorStore(
                     client=self.qdrant_client,
@@ -283,17 +303,18 @@ class RetrievalService:
                     k=limit,
                     filter=qdrant_filter
                 )
+                self.logger.info(f"Results: {results}")
                 # Add to results if content not already seen
                 for doc, score in results:
                    if doc.page_content not in seen_chunks:
                         all_results.append((doc, score))
                         seen_chunks.add(doc.page_content)
-            
+
 
             search_results = self._format_results(all_results)
             record_ids = list(set(result['metadata']['recordId'] for result in search_results))
             user = await arango_service.get_user_by_user_id(user_id)
-            
+
             # Get full record documents from Arango
             records = []
             if record_ids:
@@ -309,11 +330,11 @@ class RetrievalService:
                         mail['webUrl'] = f"https://mail.google.com/mail?authuser={user['email']}#all/{message_id}"
                         record = {**record, **mail}
                     records.append(record)
-            
+
             return {
                 "searchResults": search_results,
                 "records": records
             }
-            
+
         except Exception as e:
             raise ValueError(f"Filtered search failed: {str(e)}")

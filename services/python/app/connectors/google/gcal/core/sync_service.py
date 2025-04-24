@@ -1,17 +1,17 @@
 """Base and specialized sync services for Google Calendar synchronization"""
 
 # pylint: disable=E1101, W0718, W0719
-from abc import ABC, abstractmethod
-from datetime import datetime, timezone, timedelta
 import asyncio
+from abc import ABC, abstractmethod
 
 from app.config.arangodb_constants import CollectionNames
+from app.config.configuration_service import ConfigurationService
+from app.connectors.core.kafka_service import KafkaService
 from app.connectors.google.core.arango_service import ArangoService
 from app.connectors.google.gcal.core.gcal_admin_service import GCalAdminService
 from app.connectors.google.gcal.core.gcal_user_service import GCalUserService
-from app.connectors.core.kafka_service import KafkaService
-from app.config.configuration_service import ConfigurationService
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
+
 
 class GCalSyncProgress:
     """Class to track sync progress"""
@@ -135,7 +135,6 @@ class GCalSyncEnterpriseService(BaseGCalSyncService):
                 return False
 
             users = []
-            groups = []
 
             # List and store enterprise users
             source_users = await self.gcal_admin_service.list_enterprise_users(org_id)

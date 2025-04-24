@@ -1,11 +1,17 @@
 """Google Sheets Parser module for parsing Google Sheets content"""
 
-from typing import Dict, List, Optional, Any
-from app.connectors.utils.decorators import exponential_backoff
-from app.connectors.google.admin.google_admin_service import GoogleAdminService
-from app.modules.parsers.google_files.parser_user_service import ParserUserService
 import json
-from app.modules.parsers.excel.prompt_template import prompt, sheet_summary_prompt, table_summary_prompt, row_text_prompt
+from typing import Any, Dict, List, Optional
+
+from app.connectors.google.admin.google_admin_service import GoogleAdminService
+from app.connectors.utils.decorators import exponential_backoff
+from app.modules.parsers.excel.prompt_template import (
+    prompt,
+    row_text_prompt,
+    table_summary_prompt,
+)
+from app.modules.parsers.google_files.parser_user_service import ParserUserService
+
 
 class GoogleSheetsParser:
     """Parser class for Google Sheets content"""
@@ -16,7 +22,7 @@ class GoogleSheetsParser:
         self.admin_service = admin_service
         self.user_service = user_service
         self.service = None
-        
+
         self.table_summary_prompt = table_summary_prompt
         self.row_text_prompt = row_text_prompt
 
@@ -25,7 +31,7 @@ class GoogleSheetsParser:
             if not await self.user_service.connect_individual_user(org_id, user_id):
                 self.logger.error("❌ Failed to connect to Google Sheets service")
                 return None
-            
+
             self.service = self.user_service.sheets_service
             self.logger.info("🚀 Connected to Google Sheets service: %s", self.service)
         elif self.admin_service:
@@ -70,7 +76,7 @@ class GoogleSheetsParser:
             for sheet in spreadsheet['sheets']:
                 sheet_props = sheet['properties']
                 sheet_name = sheet_props['title']
-                
+
                 # Get sheet data
                 range_name = f"{sheet_name}!A1:ZZ"
                 result = self.service.spreadsheets().values().get(
@@ -90,7 +96,7 @@ class GoogleSheetsParser:
                     row_data = []
                     # Pad row with None values if needed
                     padded_row = row + [None] * (len(headers) - len(row))
-                    
+
                     for col_idx, value in enumerate(padded_row, 1):
                         cell_data = {
                             'value': value,
@@ -264,7 +270,7 @@ class GoogleSheetsParser:
             # Find all tables in the sheet
             for row_idx, row in enumerate(values):
                 for col_idx, cell in enumerate(row):
-                    if (cell and isinstance(cell, str) and 
+                    if (cell and isinstance(cell, str) and
                         (row_idx, col_idx) not in visited_cells):
                         table = get_table(row_idx, col_idx)
                         if table and table['data']:  # Only add if table has data
@@ -282,7 +288,7 @@ class GoogleSheetsParser:
             return values
 
         max_cols = max(len(row) for row in values)
-        
+
         # Normalize row lengths
         for row in values:
             while len(row) < max_cols:
@@ -383,7 +389,7 @@ class GoogleSheetsParser:
 
             return processed_tables
 
-        except Exception as e:
+        except Exception:
             raise
 
     @exponential_backoff()
@@ -426,7 +432,7 @@ class GoogleSheetsParser:
                 'sheet_name': sheet_name,
                 'tables': processed_tables
             }
-            
+
         except Exception as e:
             self.logger.error(f"❌ Error processing sheet with summaries: {str(e)}")
             raise

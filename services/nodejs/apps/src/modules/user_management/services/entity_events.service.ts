@@ -24,6 +24,9 @@ export enum EventType {
   AppEnabledEvent = 'appEnabled',
   AppDisabledEvent = 'appDisabled',
   LLMConfiguredEvent = 'llmConfigured',
+  ConnectorPublicUrlChangedEvent = 'connectorPublicUrlChanged',
+  GmailUpdatesEnabledEvent = 'gmailUpdatesEnabledEvent',
+  GmailUpdatesDisabledEvent = 'gmailUpdatesDisabledEvent',
 }
 
 export interface Event {
@@ -38,7 +41,10 @@ export interface Event {
     | UserUpdatedEvent
     | AppEnabledEvent
     | AppDisabledEvent
-    | LLMConfiguredEvent;
+    | LLMConfiguredEvent
+    | ConnectorPublicUrlChangedEvent
+    | GmailUpdatesEnabledEvent
+    | GmailUpdatesEnabledEvent;
 }
 
 export interface OrgAddedEvent {
@@ -101,6 +107,18 @@ export interface AppDisabledEvent {
 
 export interface LLMConfiguredEvent {
   credentialsRoute: string;
+}
+
+export interface ConnectorPublicUrlChangedEvent {
+  url: string;
+}
+
+export interface GmailUpdatesEnabledEvent {
+  orgId: string;
+  topicName: string;
+}
+export interface GmailUpdatesDisabledEvent {
+  orgId: string;
 }
 
 @injectable()

@@ -1,30 +1,47 @@
-from fastapi import APIRouter, UploadFile, File
+import asyncio
 import base64
-import json
-import jwt
-from google.oauth2 import service_account
-from dependency_injector.wiring import inject, Provide
-from fastapi import Request, Depends, HTTPException, BackgroundTasks, status
-from app.setups.connector_setup import AppContainer
-from app.utils.logger import create_logger
-from fastapi.responses import StreamingResponse
-import os
-import subprocess
-from app.utils.llm import get_llm
-from app.config.configuration_service import ConfigurationService, config_node_constants
-from app.config.arangodb_constants import CollectionNames, RecordRelations, Connectors, RecordTypes
-from app.connectors.google.scopes import GOOGLE_CONNECTOR_ENTERPRISE_SCOPES, GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
-from typing import Optional, Any
-import google.oauth2.credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
 import io
-from jose import JWTError
-from pydantic import ValidationError
-from app.connectors.api.middleware import WebhookAuthVerifier
+import json
+import os
 import tempfile
 from pathlib import Path
-import asyncio
+from typing import Any, Optional
+
+import google.oauth2.credentials
+import jwt
+from dependency_injector.wiring import Provide, inject
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.responses import StreamingResponse
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+from jose import JWTError
+from pydantic import ValidationError
+
+from app.config.arangodb_constants import (
+    CollectionNames,
+    Connectors,
+    RecordRelations,
+    RecordTypes,
+)
+from app.config.configuration_service import config_node_constants
+from app.connectors.api.middleware import WebhookAuthVerifier
+from app.connectors.google.scopes import (
+    GOOGLE_CONNECTOR_ENTERPRISE_SCOPES,
+    GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES,
+)
+from app.setups.connector_setup import AppContainer
+from app.utils.llm import get_llm
+from app.utils.logger import create_logger
 
 logger = create_logger("Python Connector Service")
 
@@ -38,7 +55,7 @@ async def get_drive_webhook_handler(request: Request) -> Optional[Any]:
     except Exception as e:
         logger.warning(f"Failed to get drive webhook handler: {str(e)}")
         return None
-    
+
 @router.post("/drive/webhook")
 @inject
 async def handle_drive_webhook(
@@ -47,13 +64,13 @@ async def handle_drive_webhook(
 ):
     """Handle incoming webhook notifications from Google Drive"""
     try:
-        
+
         verifier = WebhookAuthVerifier(logger)
         if not await verifier.verify_request(request):
             raise HTTPException(status_code=401, detail="Unauthorized webhook request")
 
         drive_webhook_handler = await get_drive_webhook_handler(request)
-        
+
         if drive_webhook_handler is None:
             logger.warning("Drive webhook handler not yet initialized - skipping webhook processing")
             return {"status": "skipped", "message": "Webhook handler not yet initialized"}
@@ -105,7 +122,7 @@ async def handle_gmail_webhook(
     """Handles incoming Pub/Sub messages"""
     try:
         gmail_webhook_handler = await get_gmail_webhook_handler(request)
-        
+
         if gmail_webhook_handler is None:
             logger.warning("Gmail webhook handler not yet initialized - skipping webhook processing")
             return {"status": "skipped", "message": "Webhook handler not yet initialized"}
@@ -413,7 +430,7 @@ async def get_signed_url(
     except Exception as e:
         logger.error(f"Error getting signed URL: {repr(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 async def get_google_docs_parser(request: Request):
     try:
         container: AppContainer = request.app.container
@@ -422,7 +439,7 @@ async def get_google_docs_parser(request: Request):
     except Exception as e:
         logger.warning(f"Failed to get google docs parser: {str(e)}")
         return None
-    
+
 async def get_google_sheets_parser(request: Request):
     try:
         container: AppContainer = request.app.container
@@ -431,7 +448,7 @@ async def get_google_sheets_parser(request: Request):
     except Exception as e:
         logger.warning(f"Failed to get google sheets parser: {str(e)}")
         return None
-    
+
 async def get_google_slides_parser(request: Request):
     try:
         container: AppContainer = request.app.container
@@ -481,31 +498,31 @@ async def download_file(
     signed_url_handler=Depends(Provide[AppContainer.signed_url_handler]),
     config_service=Depends(Provide[AppContainer.config_service]),
 ):
-    
+
     async def get_service_account_credentials(user_id):
         """Helper function to get service account credentials"""
         try:
             # Load service account credentials from environment or secure storage
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            
+
             credentials_json = await google_token_handler.get_enterprise_token(org_id)
             credentials = service_account.Credentials.from_service_account_info(
                 credentials_json,
                 scopes=SCOPES
             )
             user = await arango_service.get_user_by_user_id(user_id)
-            
+
             # # Get the user email from the record to impersonate
             credentials = credentials.with_subject(user['email'])
             return credentials
-        
+
         except Exception as e:
             logger.error(f"Error getting service account credentials: {str(e)}")
             raise HTTPException(
                 status_code=500,
                 detail="Error accessing service account credentials"
             )
-            
+
     async def get_user_credentials(org_id, user_id):
         """Helper function to get user credentials"""
         try:
@@ -524,9 +541,9 @@ async def download_file(
             )
             if not creds_data.get('access_token'):
                 raise HTTPException(status_code=401, detail="Invalid credentials. Access token not found")
-            
+
             return creds
-        
+
         except Exception as e:
             logger.error(f"Error getting user credentials: {str(e)}")
             raise HTTPException(
@@ -537,7 +554,7 @@ async def download_file(
     try:
         logger.info(f"Downloading file {record_id} with connector {connector}")
         # Verify signed URL using the handler
-        
+
         payload = signed_url_handler.validate_token(token)
         user_id = payload.user_id
         user = await arango_service.get_user_by_user_id(user_id)
@@ -559,9 +576,9 @@ async def download_file(
         record = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
         if not record:
             raise HTTPException(status_code=404, detail="Record not found")
-        
+
         file_id = record.get('externalRecordId')
-        
+
         # Different auth handling based on account type
         if org['accountType'] in ['enterprise', 'business']:
             # Use service account credentials
@@ -576,18 +593,18 @@ async def download_file(
                 logger.info(f"Downloading Drive file: {file_id}")
                 # Build the Drive service
                 drive_service = build('drive', 'v3', credentials=creds)
-                
+
                 file = await arango_service.get_document(record_id, CollectionNames.FILES.value)
                 if not file:
                     raise HTTPException(status_code=404, detail="File not found")
                 mime_type = file.get('mimeType')
-                                
+
                 if mime_type == "application/vnd.google-apps.presentation":
                     logger.info("🚀 Processing Google Slides")
                     google_slides_parser = await get_google_slides_parser(request)
                     await google_slides_parser.connect_service(user_email, org_id, user_id)
                     result = await google_slides_parser.process_presentation(file_id)
-                    
+
                     # Convert result to JSON and return as StreamingResponse
                     json_data = json.dumps(result).encode('utf-8')
                     return StreamingResponse(
@@ -610,7 +627,7 @@ async def download_file(
                         'headers': headers,
                         'footers': footers
                     }
-                    
+
                     # Convert result to JSON and return as StreamingResponse
                     json_data = json.dumps(result).encode('utf-8')
                     return StreamingResponse(
@@ -628,26 +645,26 @@ async def download_file(
                     all_sheet_results = []
                     for sheet_idx, sheet in enumerate(parsed_result['sheets'], 1):
                         sheet_name = sheet['name']
-                        
+
                         # Process sheet with summaries
                         sheet_data = await google_sheets_parser.process_sheet_with_summaries(llm, sheet_name, file_id)
                         if sheet_data is None:
                             continue
-                        
+
                         all_sheet_results.append(sheet_data)
-                                            
+
                     result = {
                         'parsed_result': parsed_result,
                         'all_sheet_results': all_sheet_results
                     }
-                                 
+
                     # Convert result to JSON and return as StreamingResponse
                     json_data = json.dumps(result).encode('utf-8')
                     return StreamingResponse(
                         iter([json_data]),
                         media_type='application/json'
                     )
-                
+
                 # Enhanced logging for regular file download
                 logger.info(f"Starting binary file download for file_id: {file_id}")
                 async def file_stream():
@@ -664,7 +681,7 @@ async def download_file(
 
                         # Reset buffer position to start
                         file_buffer.seek(0)
-                                    
+
                         # Stream the response with content type from metadata
                         logger.info("Initiating streaming response...")
                         yield file_buffer.read()
@@ -680,23 +697,23 @@ async def download_file(
                         )
                     finally:
                         file_buffer.close()
-                
+
                 # Get file metadata to set correct content type
                 try:
                     file_metadata = drive_service.files().get(
-                        fileId=file_id, 
+                        fileId=file_id,
                         fields='mimeType'
                     ).execute()
                     mime_type = file_metadata.get('mimeType', 'application/octet-stream')
                 except Exception as e:
                     logger.warning(f"Could not get file mime type: {str(e)}")
                     mime_type = 'application/octet-stream'
-                
+
                 # Return streaming response with proper headers
                 headers = {
                     'Content-Disposition': f'attachment; filename="{record.get("recordName", "")}"'
                 }
-                
+
                 return StreamingResponse(
                     file_stream(),
                     media_type=mime_type,
@@ -706,7 +723,7 @@ async def download_file(
             elif connector == "gmail":
                 logger.info(f"Downloading Gmail attachment for record_id: {record_id}")
                 gmail_service = build('gmail', 'v1', credentials=creds)
-                
+
                 # Get the related message's externalRecordId using AQL
                 aql_query = f"""
                 FOR v, e IN 1..1 ANY '{CollectionNames.RECORDS.value}/{record_id}' {CollectionNames.RECORD_RELATIONS.value}
@@ -720,6 +737,7 @@ async def download_file(
 
                 cursor = arango_service.db.aql.execute(aql_query)
                 messages = list(cursor)
+                logger.info(f"messages: {messages}")
 
                 async def attachment_stream():
                     try:
@@ -738,32 +756,32 @@ async def download_file(
                                 messageId=message_id,
                                 id=file_id
                             ).execute()
-                            
+
                             # Decode the attachment data
                             file_data = base64.urlsafe_b64decode(attachment['data'])
                             yield file_data
-                            
+
                         except Exception as gmail_error:
                             logger.info(f"Failed to get attachment from Gmail: {str(gmail_error)}, trying Drive...")
-                            
+
                             # Try to get the file from Drive as fallback
                             file_buffer = io.BytesIO()
                             try:
                                 drive_service = build('drive', 'v3', credentials=creds)
                                 request = drive_service.files().get_media(fileId=file_id)
                                 downloader = MediaIoBaseDownload(file_buffer, request)
-                                
+
                                 done = False
                                 while not done:
                                     status, done = downloader.next_chunk()
                                     logger.info(f"Download {int(status.progress() * 100)}%.")
-                                    
+
                                     # Yield current chunk and reset buffer
                                     file_buffer.seek(0)
                                     yield file_buffer.getvalue()
                                     file_buffer.seek(0)
                                     file_buffer.truncate()
-                                    
+
                             except Exception as drive_error:
                                 logger.error(f"Failed to get file from both Gmail and Drive. Gmail error: {str(gmail_error)}, Drive error: {str(drive_error)}")
                                 raise HTTPException(
@@ -772,7 +790,7 @@ async def download_file(
                                 )
                             finally:
                                 file_buffer.close()
-                                
+
                     except Exception as e:
                         logger.error(f"Error in attachment stream: {str(e)}")
                         raise HTTPException(
@@ -818,32 +836,32 @@ async def stream_record(
         try:
             # Load service account credentials from environment or secure storage
             SCOPES = GOOGLE_CONNECTOR_ENTERPRISE_SCOPES
-            
+
             credentials_json = await google_token_handler.get_enterprise_token(org_id)
             credentials = service_account.Credentials.from_service_account_info(
                 credentials_json,
                 scopes=SCOPES
             )
             user = await arango_service.get_user_by_user_id(user_id)
-            
+
             # # Get the user email from the record to impersonate
             credentials = credentials.with_subject(user['email'])
             return credentials
-        
+
         except Exception as e:
             logger.error(f"Error getting service account credentials: {str(e)}")
             raise HTTPException(
                 status_code=500,
                 detail="Error accessing service account credentials"
             )
-            
+
     async def get_user_credentials(org_id, user_id):
         """Helper function to get user credentials"""
         try:
             SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
             await google_token_handler.refresh_token(org_id, user_id)
             creds_data = await google_token_handler.get_individual_token(org_id, user_id)
-            
+
             # Create credentials object from the response using google.oauth2.credentials.Credentials
             creds = google.oauth2.credentials.Credentials(
                 token=creds_data.get('access_token'),
@@ -855,15 +873,15 @@ async def stream_record(
             )
             if not creds_data.get('access_token'):
                 raise HTTPException(status_code=401, detail="Invalid credentials. Access token not found")
-            
+
             return creds
-        
+
         except Exception as e:
             logger.error(f"Error getting user credentials: {str(e)}")
             raise HTTPException(
                 status_code=500,
                 detail="Error accessing user credentials"
-            )            
+            )
     try:
         try:
             auth_header = request.headers.get('Authorization')
@@ -884,7 +902,7 @@ async def stream_record(
 
             org_id = payload.get('orgId')
             user_id = payload.get('userId')
-            
+
         except JWTError as e:
             logger.error("JWT validation error: %s", str(e))
             raise HTTPException(
@@ -902,15 +920,15 @@ async def stream_record(
         org = await arango_service.get_document(org_id, CollectionNames.ORGS.value)
         if not org:
             raise HTTPException(status_code=404, detail="Organization not found")
-        
+
         record = await arango_service.get_document(record_id, CollectionNames.RECORDS.value)
         if not record:
             raise HTTPException(status_code=404, detail="Record not found")
-        
+
         file_id = record.get('externalRecordId')
         connector = record.get('connectorName')
         recordType = record.get('recordType')
-        
+
         # Different auth handling based on account type
         if org['accountType'] in ['enterprise', 'business']:
             # Use service account credentials
@@ -925,25 +943,25 @@ async def stream_record(
                 logger.info(f"Downloading Drive file: {file_id}")
                 drive_service = build('drive', 'v3', credentials=creds)
                 file_name = record.get('recordName', '')
-                
+
                 # Check if PDF conversion is requested
                 if convertTo == 'pdf':
                     with tempfile.TemporaryDirectory() as temp_dir:
                         temp_file_path = os.path.join(temp_dir, file_name)
-                        
+
                         # Download file to temp directory
                         with open(temp_file_path, 'wb') as f:
                             request = drive_service.files().get_media(fileId=file_id)
                             downloader = MediaIoBaseDownload(f, request)
-                            
+
                             done = False
                             while not done:
                                 status, done = downloader.next_chunk()
                                 logger.info(f"Download {int(status.progress() * 100)}%.")
-                        
+
                         # Convert to PDF
                         pdf_path = await convert_to_pdf(temp_file_path, temp_dir)
-                        
+
                         # Create async generator to properly handle file cleanup
                         async def file_iterator():
                             try:
@@ -963,7 +981,7 @@ async def stream_record(
                                 'Content-Disposition': f'inline; filename="{Path(file_name).stem}.pdf"'
                             }
                         )
-                
+
                 # Regular file download without conversion - now with direct streaming
                 async def file_stream():
                     try:
@@ -973,35 +991,35 @@ async def stream_record(
                             buffer,
                             request
                         )
-                        
+
                         done = False
                         while not done:
                             try:
                                 status, done = downloader.next_chunk()
                                 if status:
                                     logger.debug(f"Download progress: {int(status.progress() * 100)}%")
-                                
+
                                 # Get the data from buffer
                                 buffer.seek(0)
                                 chunk = buffer.read()
-                                
+
                                 if chunk:  # Only yield if we have data
                                     yield chunk
-                                
+
                                 # Clear buffer for next chunk
                                 buffer.seek(0)
                                 buffer.truncate(0)
-                                
+
                                 # Yield control back to event loop
                                 await asyncio.sleep(0)
-                                
+
                             except Exception as chunk_error:
                                 logger.error(f"Error streaming chunk: {str(chunk_error)}")
                                 raise HTTPException(
                                     status_code=500,
                                     detail="Error during file streaming"
                                 )
-                                
+
                     except Exception as stream_error:
                         logger.error(f"Error in file stream: {str(stream_error)}")
                         raise HTTPException(
@@ -1010,23 +1028,23 @@ async def stream_record(
                         )
                     finally:
                         buffer.close()
-                
+
                 # Get file metadata to set correct content type
                 try:
                     file_metadata = drive_service.files().get(
-                        fileId=file_id, 
+                        fileId=file_id,
                         fields='mimeType'
                     ).execute()
                     mime_type = file_metadata.get('mimeType', 'application/octet-stream')
                 except Exception as e:
                     logger.warning(f"Could not get file mime type: {str(e)}")
                     mime_type = 'application/octet-stream'
-                
+
                 # Return streaming response with proper headers
                 headers = {
                     'Content-Disposition': f'attachment; filename="{file_name}"'
                 }
-                
+
                 return StreamingResponse(
                     file_stream(),
                     media_type=mime_type,
@@ -1036,12 +1054,12 @@ async def stream_record(
                 # streaming response chunk size
                 # download and stream time
                 # direct stream while download.
-                
+
 
             elif connector == Connectors.GOOGLE_MAIL.value:
                 logger.info(f"Handling Gmail request for record_id: {record_id}, type: {recordType}")
                 gmail_service = build('gmail', 'v1', credentials=creds)
-                
+
                 if recordType == RecordTypes.MAIL.value:
                     try:
                         # Fetch the full message from Gmail
@@ -1055,7 +1073,7 @@ async def stream_record(
                             # If there are no parts, return the direct body data
                             if 'parts' not in payload:
                                 return payload.get('body', {}).get('data', '')
-                            
+
                             # Search for a text/html part that isn't an attachment (empty filename)
                             for part in payload.get('parts', []):
                                 if part.get('mimeType') == 'text/html' and part.get('filename', '') == '':
@@ -1089,17 +1107,17 @@ async def stream_record(
                             status_code=500,
                             detail="Failed to fetch mail content"
                         )
-                
+
                 # Handle attachment download
                 logger.info(f"Downloading Gmail attachment for record_id: {record_id}")
-                
+
                 # Get file metadata first
                 file = await arango_service.get_document(record_id, CollectionNames.FILES.value)
                 if not file:
                     raise HTTPException(status_code=404, detail="File not found")
-                
+
                 file_name = file.get('name', '')
-                
+
                 # Get the related message's externalRecordId using AQL
                 aql_query = f"""
                 FOR v, e IN 1..1 ANY '{CollectionNames.RECORDS.value}/{record_id}' {CollectionNames.RECORD_RELATIONS.value}
@@ -1129,17 +1147,17 @@ async def stream_record(
                         messageId=message_id,
                         id=file_id
                     ).execute()
-                    
+
                     file_data = base64.urlsafe_b64decode(attachment['data'])
-                    
+
                     if convertTo == 'pdf':
                         with tempfile.TemporaryDirectory() as temp_dir:
                             temp_file_path = os.path.join(temp_dir, file_name)
-                            
+
                             # Write attachment data to temp file
                             with open(temp_file_path, 'wb') as f:
                                 f.write(file_data)
-                            
+
                             # Convert to PDF
                             pdf_path = await convert_to_pdf(temp_file_path, temp_dir)
                             return StreamingResponse(
@@ -1149,34 +1167,34 @@ async def stream_record(
                                     'Content-Disposition': f'inline; filename="{Path(file_name).stem}.pdf"'
                                 }
                             )
-                    
+
                     # Return original file if no conversion requested
                     return StreamingResponse(
                         iter([file_data]),
                         media_type='application/octet-stream'
                     )
-                    
+
                 except Exception as gmail_error:
                     logger.info(f"Failed to get attachment from Gmail: {str(gmail_error)}, trying Drive...")
-                    
+
                     # Try Drive as fallback
                     try:
                         drive_service = build('drive', 'v3', credentials=creds)
-                        
+
                         if convertTo == 'pdf':
                             with tempfile.TemporaryDirectory() as temp_dir:
                                 temp_file_path = os.path.join(temp_dir, file_name)
-                                
+
                                 # Download from Drive to temp file
                                 with open(temp_file_path, 'wb') as f:
                                     request = drive_service.files().get_media(fileId=file_id)
                                     downloader = MediaIoBaseDownload(f, request)
-                                    
+
                                     done = False
                                     while not done:
                                         status, done = downloader.next_chunk()
                                         logger.info(f"Download {int(status.progress() * 100)}%.")
-                                
+
                                 # Convert to PDF
                                 pdf_path = await convert_to_pdf(temp_file_path, temp_dir)
                                 return StreamingResponse(
@@ -1186,12 +1204,12 @@ async def stream_record(
                                         'Content-Disposition': f'inline; filename="{Path(file_name).stem}.pdf"'
                                     }
                                 )
-                        
+
                         # Regular file download with streaming
                         # Get file metadata to set correct content type
                         try:
                             file_metadata = drive_service.files().get(
-                                fileId=file_id, 
+                                fileId=file_id,
                                 fields='mimeType'
                             ).execute()
                             mime_type = file_metadata.get('mimeType', 'application/octet-stream')
@@ -1212,32 +1230,32 @@ async def stream_record(
                                     buffer,
                                     request
                                 )
-                                
+
                                 done = False
                                 while not done:
                                     try:
                                         status, done = downloader.next_chunk()
                                         if status:
                                             logger.debug(f"Download progress: {int(status.progress() * 100)}%")
-                                        
+
                                         buffer.seek(0)
                                         chunk = buffer.read()
-                                        
+
                                         if chunk:
                                             yield chunk
-                                        
+
                                         buffer.seek(0)
                                         buffer.truncate(0)
-                                        
+
                                         await asyncio.sleep(0)
-                                        
+
                                     except Exception as chunk_error:
                                         logger.error(f"Error streaming chunk: {str(chunk_error)}")
                                         raise HTTPException(
                                             status_code=500,
                                             detail="Error during file streaming"
                                         )
-                                    
+
                             except Exception as stream_error:
                                 logger.error(f"Error in file stream: {str(stream_error)}")
                                 raise HTTPException(
@@ -1252,7 +1270,7 @@ async def stream_record(
                             media_type=mime_type,
                             headers=headers
                         )
-                        
+
                     except Exception as drive_error:
                         logger.error(f"Failed to get file from both Gmail and Drive. Gmail error: {str(gmail_error)}, Drive error: {str(drive_error)}")
                         raise HTTPException(
@@ -1278,7 +1296,7 @@ async def stream_record(
 
 @router.post("/api/v1/record/buffer/convert")
 async def get_record_stream(request: Request, file: UploadFile = File(...)):
-    from_format = request.query_params.get('from')
+    request.query_params.get('from')
     to_format = request.query_params.get('to')
 
     if to_format == 'pdf':
@@ -1360,7 +1378,7 @@ async def get_record_stream(request: Request, file: UploadFile = File(...)):
                         detail=f"Conversion error: {str(e)}"
                     )
         finally:
-            await file.close() 
+            await file.close()
 
     raise HTTPException(
         status_code=400,
@@ -1389,20 +1407,26 @@ async def handle_admin_webhook(
             raise HTTPException(status_code=401, detail="Unauthorized webhook request")
 
         admin_webhook_handler = await get_admin_webhook_handler(request)
-        
+
         if admin_webhook_handler is None:
             logger.warning("Admin webhook handler not yet initialized - skipping webhook processing")
             return {"status": "skipped", "message": "Webhook handler not yet initialized"}
 
-        # Log incoming request details
-        body = await request.json()
+        # Try to get the request body, handle empty body case
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            # This might be a verification request
+            logger.info("Received request with empty/invalid JSON body - might be verification request")
+            return {"status": "accepted", "message": "Verification request received"}
+
         logger.info("📥 Incoming admin webhook request: %s", body)
 
         # Get the event type from the events array
         events = body.get('events', [])
         if not events:
             raise HTTPException(status_code=400, detail="No events found in webhook body")
-        
+
         event_type = events[0].get('name')  # We'll process the first event
         if not event_type:
             raise HTTPException(status_code=400, detail="Missing event name in webhook body")
@@ -1415,12 +1439,6 @@ async def handle_admin_webhook(
         )
         return {"status": "accepted"}
 
-    except json.JSONDecodeError as e:
-        logger.error("Invalid JSON in webhook body: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid JSON format: {str(e)}"
-        )
     except Exception as e:
         logger.error("Error processing webhook: %s", str(e))
         raise HTTPException(
@@ -1431,7 +1449,7 @@ async def handle_admin_webhook(
 async def convert_to_pdf(file_path: str, temp_dir: str) -> str:
     """Helper function to convert file to PDF"""
     pdf_path = os.path.join(temp_dir, f"{Path(file_path).stem}.pdf")
-    
+
     try:
         conversion_cmd = [
             'soffice',
@@ -1445,7 +1463,7 @@ async def convert_to_pdf(file_path: str, temp_dir: str) -> str:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        
+
         # Add timeout to communicate
         try:
             conversion_output, conversion_error = await asyncio.wait_for(process.communicate(), timeout=30.0)
@@ -1461,7 +1479,7 @@ async def convert_to_pdf(file_path: str, temp_dir: str) -> str:
                 status_code=500,
                 detail="PDF conversion timed out"
             )
-        
+
         if process.returncode != 0:
             error_msg = f"LibreOffice conversion failed: {conversion_error.decode('utf-8', errors='replace')}"
             logger.error(error_msg)
@@ -1469,7 +1487,7 @@ async def convert_to_pdf(file_path: str, temp_dir: str) -> str:
                 status_code=500,
                 detail="Failed to convert file to PDF"
             )
-        
+
         if os.path.exists(pdf_path):
             return pdf_path
         else:

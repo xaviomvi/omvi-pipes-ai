@@ -5,8 +5,6 @@ import upIcon from '@iconify-icons/mdi/chevron-up';
 import accountIcon from '@iconify-icons/mdi/account';
 import downIcon from '@iconify-icons/mdi/chevron-down';
 import { useLocation, useNavigate } from 'react-router';
-import spiderWebIcon from '@iconify-icons/mdi/spider-web';
-import connectionIcon from '@iconify-icons/mdi/connection';
 import shieldLockIcon from '@iconify-icons/mdi/shield-lock';
 import linkVariantIcon from '@iconify-icons/mdi/link-variant';
 import accountGroupIcon from '@iconify-icons/mdi/account-group';
@@ -22,10 +20,11 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemButton from '@mui/material/ListItemButton';
 
+import { useAdmin } from 'src/context/AdminContext';
+
 import { Iconify } from 'src/components/iconify';
 
 import { useAuthContext } from 'src/auth/hooks';
-import { useAdmin } from 'src/context/AdminContext';
 
 const drawerWidth = 240;
 

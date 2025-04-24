@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class LLMProvider(Enum):
     AZURE_OPENAI_PROVIDER = "azureOpenAI"
     OPENAI_PROVIDER = "openAI"
@@ -7,11 +8,11 @@ class LLMProvider(Enum):
     VERTEX_AI_PROVIDER = "vertexAI"
     ANTHROPIC_PROVIDER = "anthropic"
     AWS_BEDROCK_PROVIDER = "bedrock"
-    
+
 class OCRProvider(Enum):
     AZURE_PROVIDER = "azureDI"
     OCRMYPDF_PROVIDER = "ocrmypdf"
-    
+
 class EmbeddingProvider(Enum):
     AZURE_OPENAI_PROVIDER = "azureOpenAI"
     OPENAI_PROVIDER = "openAI"
@@ -25,6 +26,6 @@ class EmbeddingModel(Enum):
 
 class AzureOpenAILLM(Enum):
     AZURE_OPENAI_VERSION = "2023-07-01-preview"
-    
+
 class AzureDocIntelligenceModel(Enum):
     PREBUILT_DOCUMENT = "prebuilt-document"

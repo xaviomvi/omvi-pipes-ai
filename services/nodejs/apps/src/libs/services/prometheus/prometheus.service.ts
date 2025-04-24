@@ -176,19 +176,18 @@ export class PrometheusService {
     // Add a small delay to ensure previous interval is fully cleared
     setTimeout(() => {
       logger.debug(
-        'Starting to push metrics to server every',
-        this.pushIntervalMs,
+        `Starting to push metrics to server every ${this.pushIntervalMs}ms`,
       );
 
       // Store the interval ID and log it for debugging
       this.pushInterval = setInterval(() => {
-        logger.debug('Pushing metrics with interval ID:', this.pushInterval);
+        logger.debug(`Pushing metrics to the remote server: ${this.metricsServerUrl}`);
         this.pushMetricsToServer().catch((err) => {
           logger.error('Failed to push metrics:', err);
         });
       }, this.pushIntervalMs);
 
-      logger.debug('Created new interval with ID:', this.pushInterval);
+      logger.debug('Created new metrics push interval');
     }, 200);
   }
 

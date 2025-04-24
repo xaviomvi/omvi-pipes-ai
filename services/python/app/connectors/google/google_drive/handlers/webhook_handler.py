@@ -1,10 +1,14 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Set
 import asyncio
 import json
-from app.utils.time_conversion import get_epoch_timestamp_in_ms
-from app.config.configuration_service import ConfigurationService, config_node_constants, WebhookConfig
+from abc import ABC, abstractmethod
+from typing import Dict, Set
+
 from app.config.arangodb_constants import CollectionNames
+from app.config.configuration_service import (
+    ConfigurationService,
+    WebhookConfig,
+)
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 
 class AbstractDriveWebhookHandler(ABC):
@@ -142,7 +146,7 @@ class IndividualDriveWebhookHandler(AbstractDriveWebhookHandler):
             page_token=page_token['token']
         )
         user_id = await self.arango_service.get_entity_id_by_email(user_email)
-        
+
         # # Get org_id from belongsTo relation for this user
         # query = f"""
         # FOR edge IN belongsTo
@@ -256,7 +260,7 @@ class EnterpriseDriveWebhookHandler(AbstractDriveWebhookHandler):
                 changes, new_token = await user_service.get_changes(
                     page_token=page_token['token']
                 )
-                
+
                 user_id = await self.arango_service.get_entity_id_by_email(page_token['userEmail'])
                 # Get org_id from belongsTo relation for this user
                 query = f"""

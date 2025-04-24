@@ -1,27 +1,29 @@
 # pylint: disable=E1101, W0718
 
 import base64
-import re
-from datetime import datetime, timezone, timedelta
-from uuid import uuid4
 import os
-import jwt
-import aiohttp
-from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
+import re
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List
-from googleapiclient.discovery import build
+from uuid import uuid4
+
 import google.oauth2.credentials
-from app.config.configuration_service import ConfigurationService, config_node_constants
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+from app.config.configuration_service import ConfigurationService
+from app.connectors.google.gmail.core.gmail_drive_interface import GmailDriveInterface
+from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from app.connectors.utils.decorators import exponential_backoff, token_refresh
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
-from app.connectors.google.gmail.core.gmail_drive_interface import GmailDriveInterface
-from app.utils.time_conversion import get_epoch_timestamp_in_ms
-import asyncio
 from app.exceptions.connector_google_exceptions import (
-    GoogleAuthError, GoogleMailError, MailOperationError, 
-    MailSyncError, MailThreadError, BatchOperationError
+    BatchOperationError,
+    GoogleAuthError,
+    GoogleMailError,
+    MailOperationError,
 )
-from googleapiclient.errors import HttpError
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
+
 
 class GmailUserService:
     """GmailUserService class for interacting with Google Gmail API"""
@@ -50,6 +52,7 @@ class GmailUserService:
             self.token_expiry = None
             self.org_id = None
             self.user_id = None
+            self.is_delegated = credentials is not None  # True if created through admin service
         except Exception as e:
             raise GoogleMailError(
                 "Failed to initialize Gmail service: " + str(e),
@@ -62,9 +65,9 @@ class GmailUserService:
         try:
             self.org_id = org_id
             self.user_id = user_id
-            
+
             SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
-            
+
             try:
                 creds_data = await self.google_token_handler.get_individual_token(org_id, user_id)
                 if not creds_data:
@@ -104,7 +107,7 @@ class GmailUserService:
                         "error": str(e)
                     }
                 )
-            
+
             # Update token expiry time
             try:
                 self.token_expiry = datetime.fromtimestamp(
@@ -152,21 +155,23 @@ class GmailUserService:
 
     async def _check_and_refresh_token(self):
         """Check token expiry and refresh if needed"""
+        self.logger.info("Checking token expiry and refreshing if needed")
+
         if not self.token_expiry:
             # self.logger.warning("⚠️ Token expiry time not set.")
             return
-        
+
         if not self.org_id or not self.user_id:
             self.logger.warning("⚠️ Org ID or User ID not set yet.")
             return
-        
+
         now = datetime.now(timezone.utc)
         time_until_refresh = self.token_expiry - now - timedelta(minutes=20)
         self.logger.info(f"Time until refresh: {time_until_refresh.total_seconds()} seconds")
-        
+
         if time_until_refresh.total_seconds() <= 0:
             await self.google_token_handler.refresh_token(self.org_id, self.user_id)
-                    
+
             creds_data = await self.google_token_handler.get_individual_token(self.org_id, self.user_id)
 
             creds = google.oauth2.credentials.Credentials(
@@ -277,7 +282,7 @@ class GmailUserService:
                 )
 
             self.logger.info("✅ Individual user info fetched successfully")
-            
+
             try:
                 return [{
                     '_key': str(uuid4()),
@@ -357,7 +362,7 @@ class GmailUserService:
                             "response_type": type(current_messages)
                         }
                     )
-                
+
                 messages.extend(current_messages)
 
                 page_token = results.get('nextPageToken')
@@ -420,7 +425,7 @@ class GmailUserService:
                         return ''
 
             return ''
-                
+
         try:
             try:
                 message = self.service.users().messages().get(
@@ -453,11 +458,12 @@ class GmailUserService:
                 for header in headers:
                     if header['name'] in ['Subject', 'From', 'To', 'Cc', 'Bcc', 'Date', 'Message-ID']:
                         if header['name'] in ['From', 'To', 'Cc', 'Bcc']:
-                            start = header['value'].find('<')
-                            end = header['value'].find('>')
-                            if start != -1 and end != -1:
-                                header['value'] = header['value'][start+1:end]
+                            # Extract all email addresses using regex
+                            emails = re.findall(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', header['value'])
+                            header['value'] = emails if emails else []
                         header_dict[header['name']] = header['value']
+
+                self.logger.debug("📝 Headers: %s", header_dict)
 
                 # Extract message content
                 payload = message.get('payload', {})
@@ -563,7 +569,7 @@ class GmailUserService:
                     "Invalid message format: " + str(e),
                     details={"type": type(message)}
                 )
-                
+
             user_id = user.get('userId')
             user_email = user.get('email')
 
@@ -599,7 +605,7 @@ class GmailUserService:
             # Process Drive attachments
             try:
                 self.logger.info(f"🎯 Processing Drive attachments for message: {message['id']}")
-                
+
                 file_ids = await self.get_file_ids(message)
                 if file_ids:
                     for file_id in file_ids:
@@ -675,7 +681,7 @@ class GmailUserService:
             def process_part(part):
                 if not isinstance(part, dict):
                     return []
-                
+
                 file_ids = []
 
                 # Check for body data
@@ -696,7 +702,7 @@ class GmailUserService:
             # Start processing from the payload
             if not isinstance(message, dict):
                 return []
-            
+
             payload = message.get('payload', {})
             all_file_ids = process_part(payload)
 
@@ -705,8 +711,8 @@ class GmailUserService:
 
         except Exception as e:
             self.logger.error(
-                "❌ Failed to get file ids for message %s: %s", 
-                message.get('id', 'unknown'), 
+                "❌ Failed to get file ids for message %s: %s",
+                message.get('id', 'unknown'),
                 str(e)
             )
             return []
@@ -723,7 +729,7 @@ class GmailUserService:
             self.logger.info(f"🚀 Enable real time updates: {enable_real_time_updates}")
             if not enable_real_time_updates:
                 return {}
-            
+
             topic = creds_data.get('topicName', '')
             self.logger.info(f"🚀 Topic: {topic}")
             if not topic:
@@ -731,7 +737,7 @@ class GmailUserService:
                     "Topic is required",
                     details={"user_id": user_id}
                 )
-            
+
             self.logger.info("🚀 Creating user watch for user %s", user_id)
 
             try:
@@ -803,7 +809,7 @@ class GmailUserService:
         """Fetches new emails using Gmail API's history endpoint"""
         try:
             self.logger.info("🚀 Fetching changes in user mail")
-            
+
             if not history_id:
                 raise MailOperationError(
                     "History ID is required",
@@ -819,14 +825,14 @@ class GmailUserService:
                         labelId='INBOX',
                         historyTypes=['messageAdded', 'messageDeleted']
                     ).execute()
-                    
+
                     sent_response = self.service.users().history().list(
                         userId=user_email,
                         startHistoryId=history_id,
                         labelId='SENT',
                         historyTypes=['messageAdded', 'messageDeleted']
                     ).execute()
-                    
+
             except HttpError as e:
                 if e.resp.status == 404:
                     raise MailOperationError(

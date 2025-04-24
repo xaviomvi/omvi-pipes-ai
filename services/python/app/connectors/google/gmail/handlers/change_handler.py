@@ -1,8 +1,15 @@
-from datetime import datetime, timezone
 import uuid
+from datetime import datetime, timezone
+
+from app.config.arangodb_constants import (
+    CollectionNames,
+    Connectors,
+    EventTypes,
+    OriginTypes,
+    RecordRelations,
+    RecordTypes,
+)
 from app.config.configuration_service import config_node_constants
-from app.config.arangodb_constants import (CollectionNames, Connectors, 
-                                           RecordTypes, OriginTypes, EventTypes)
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 
@@ -11,7 +18,7 @@ class GmailChangeHandler:
         self.config_service = config_service
         self.arango_service = arango_service
         self.logger = logger
-        
+
 
     async def process_changes(self, user_service, changes, org_id, user) -> bool:
         """Process changes since last sync time"""
@@ -54,17 +61,17 @@ class GmailChangeHandler:
 
                         # Extract headers
                         headers = message_data.get('headers', {})
-                        
+
                         message_record = {
                             '_key': str(uuid.uuid4()),
                             'threadId': message_data.get('threadId'),
                             'isParent': message_data.get('threadId') == message_id,  # Check if threadId and messageId are same
                             'internalDate': message_data.get('internalDate'),
                             'subject': headers.get('Subject', 'No Subject'),
-                            'from': headers.get('From'),
-                            'to': headers.get('To', '').split(', '),
-                            'cc': headers.get('Cc', '').split(', '),
-                            'bcc': headers.get('Bcc', '').split(', '),
+                            'from': headers.get('From', [""])[0],
+                            'to': headers.get('To', []),
+                            'cc': headers.get('Cc', []),
+                            'bcc': headers.get('Bcc', []),
                             'messageIdHeader': headers.get('Message-ID', None),
                             'historyId': message_data.get('historyId'),
                             'webUrl': f"https://mail.google.com/mail?authuser={{user.email}}#all/{message_id}",
@@ -74,7 +81,7 @@ class GmailChangeHandler:
                         record = {
                             "_key": message_record['_key'],
                             "orgId": org_id,
-                            
+
                             "recordName": headers.get('Subject', 'No Subject'),
                             "externalRecordId": message_id,
                             "externalRevisionId": None,
@@ -89,10 +96,10 @@ class GmailChangeHandler:
                             "lastSyncTimestamp":  get_epoch_timestamp_in_ms(),
                             "sourceCreatedAtTimestamp": message.get('internalDate'),
                             "sourceLastModifiedTimestamp": message.get('internalDate'),
-                            
+
                             "isDeleted": False,
                             "isArchived": False,
-                            
+
                             "lastIndexTimestamp": None,
                             "lastExtractionTimestamp": None,
 
@@ -114,15 +121,17 @@ class GmailChangeHandler:
                         # Start transaction
                         txn = self.arango_service.db.begin_transaction(
                             read=[CollectionNames.MAILS.value,
-                                  CollectionNames.RECORDS.value, 
+                                  CollectionNames.RECORDS.value,
                                   CollectionNames.FILES.value,
                                   CollectionNames.PERMISSIONS.value,
-                                  CollectionNames.IS_OF_TYPE.value],
-                            write=[CollectionNames.MAILS.value, 
-                                   CollectionNames.RECORDS.value, 
+                                  CollectionNames.IS_OF_TYPE.value,
+                                  CollectionNames.RECORD_RELATIONS.value],
+                            write=[CollectionNames.MAILS.value,
+                                   CollectionNames.RECORDS.value,
                                    CollectionNames.FILES.value,
                                    CollectionNames.PERMISSIONS.value,
-                                   CollectionNames.IS_OF_TYPE.value]
+                                   CollectionNames.IS_OF_TYPE.value,
+                                   CollectionNames.RECORD_RELATIONS.value]
                         )
 
                         try:
@@ -148,6 +157,7 @@ class GmailChangeHandler:
                                 attachment_records = []
                                 record_records = []
                                 is_of_type_records = []
+                                record_relations = []
                                 for attachment in attachments:
                                     attachment_record = {
                                         '_key': str(uuid.uuid4()),
@@ -162,34 +172,34 @@ class GmailChangeHandler:
 
                                     attachment_records.append(
                                         attachment_record)
-                                    
+
                                     record = {
                                         "_key": attachment_record['_key'],
                                         "orgId": org_id,
                                         "recordName": attachment.get('filename'),
                                         "recordType": RecordTypes.FILE.value,
                                         "version": 0,
-                                        
+
                                         "createdAtTimestamp": get_epoch_timestamp_in_ms(),
                                         "updatedAtTimestamp": get_epoch_timestamp_in_ms(),
                                         "sourceCreatedAtTimestamp": message.get('internalDate'),
                                         "sourceLastModifiedTimestamp": message.get('internalDate'),
-                                        
-                                        "externalRecordId": attachment_record['_key'],
+
+                                        "externalRecordId": attachment.get('attachment_id'),
                                         "externalRevisionId": None,
-                                        
+
                                         "origin": OriginTypes.CONNECTOR.value,
                                         "connectorName": Connectors.GOOGLE_MAIL.value,
-                                        
+
                                         "lastSyncTimestamp": get_epoch_timestamp_in_ms(),
                                         "isDeleted": False,
                                         "isArchived": False,
-                                        
+
                                         "lastIndexTimestamp": None,
                                         "lastExtractionTimestamp": None,
                                         "indexingStatus": "NOT_STARTED",
                                         "extractionStatus": "NOT_STARTED",
-                                        
+
                                         "isLatestVersion": True,
                                         "isDirty": False,
                                         "reason": None
@@ -200,9 +210,15 @@ class GmailChangeHandler:
                                         "createdAtTimestamp" : get_epoch_timestamp_in_ms(),
                                         "updatedAtTimestamp" : get_epoch_timestamp_in_ms(),
                                     }
+                                    record_relation = {
+                                        '_from': f'records/{message_record["_key"]}',
+                                        '_to': f'records/{attachment_record["_key"]}',
+                                        "relationType": RecordRelations.ATTACHMENT.value,
+                                    }
 
                                     record_records.append(record)
                                     is_of_type_records.append(is_of_type_record)
+                                    record_relations.append(record_relation)
                                 await self.arango_service.batch_upsert_nodes(
                                     attachment_records,
                                     collection=CollectionNames.FILES.value,
@@ -214,10 +230,16 @@ class GmailChangeHandler:
                                     collection=CollectionNames.RECORDS.value,
                                     transaction=txn
                                 )
-                                
+
                                 await self.arango_service.batch_create_edges(
                                     is_of_type_records,
                                     collection=CollectionNames.IS_OF_TYPE.value,
+                                    transaction=txn
+                                )
+
+                                await self.arango_service.batch_create_edges(
+                                    record_relations,
+                                    collection=CollectionNames.RECORD_RELATIONS.value,
                                     transaction=txn
                                 )
 
@@ -259,10 +281,10 @@ class GmailChangeHandler:
                             self.logger.error(
                                 f"❌ Error processing message addition: {str(e)}")
                             continue
-                        
+
                         endpoints = await self.config_service.get_config(config_node_constants.ENDPOINTS.value)
                         connector_endpoint = endpoints.get('connectors').get('endpoint')
-                                                
+
                         message_event = {
                             "orgId": org_id,
                             "recordId": message_record['_key'],
@@ -279,12 +301,12 @@ class GmailChangeHandler:
                             "createdAtSourceTimestamp": int(message.get('internalDate', datetime.now(timezone.utc).timestamp())),
                             "modifiedAtSourceTimestamp": int(message.get('internalDate', datetime.now(timezone.utc).timestamp()))
                         }
-                            
+
                         # SEND KAFKA EVENT FOR INDEXING
                         await self.arango_service.kafka_service.send_event_to_kafka(
                             message_event)
                         self.logger.info("📨 Sent Kafka reindexing event for record %s", record["_key"])
-                        
+
                         if attachment_records:
                             for attachment in attachment_records:
                                 attachment_key = attachment['_key']
@@ -328,12 +350,12 @@ class GmailChangeHandler:
                             if not existing_message:
                                 self.logger.debug("⚠️ Message %s not found in ArangoDB, skipping deletion", message_id)
                                 continue
-                            
+
                             txn = self.arango_service.db.begin_transaction(
                                 read=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                                     CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
                                     CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],
-                                
+
                                 write=[CollectionNames.FILES.value, CollectionNames.MAILS.value, CollectionNames.RECORDS.value, CollectionNames.RECORD_RELATIONS.value, CollectionNames.IS_OF_TYPE.value,
                                     CollectionNames.USERS.value, CollectionNames.GROUPS.value, CollectionNames.ORGS.value, CollectionNames.ANYONE.value, CollectionNames.PERMISSIONS.value,
                                     CollectionNames.BELONGS_TO.value, CollectionNames.BELONGS_TO_DEPARTMENT.value, CollectionNames.BELONGS_TO_CATEGORY.value, CollectionNames.BELONGS_TO_KNOWLEDGE_BASE.value, CollectionNames.BELONGS_TO_LANGUAGE.value, CollectionNames.BELONGS_TO_TOPIC.value],

@@ -1,8 +1,6 @@
-import subprocess
 import os
+import subprocess
 import tempfile
-import shutil
-from io import BytesIO
 
 
 class PPTParser:
@@ -13,13 +11,13 @@ class PPTParser:
 
     def convert_ppt_to_pptx(self, binary: bytes) -> bytes:
         """Convert .ppt file to .pptx using LibreOffice
-        
+
         Args:
             binary (bytes): The binary content of the .ppt file
-            
+
         Returns:
             bytes: The converted .pptx file content as bytes
-            
+
         Raises:
             subprocess.CalledProcessError: If LibreOffice is not installed or conversion fails
             FileNotFoundError: If the converted file is not found
@@ -32,13 +30,13 @@ class PPTParser:
 
                 # Create input file path
                 temp_ppt = os.path.join(temp_dir, 'input.ppt')
-                
+
                 # Write binary content to temporary file
                 with open(temp_ppt, 'wb') as f:
                     f.write(binary)
 
                 # Convert .ppt to .pptx using LibreOffice
-                result = subprocess.run([
+                subprocess.run([
                     'libreoffice',
                     '--headless',
                     '--convert-to', 'pptx',
@@ -55,7 +53,7 @@ class PPTParser:
                 # Read the converted file into bytes
                 with open(pptx_file, 'rb') as f:
                     pptx_content = f.read()
-                
+
                 return pptx_content
 
             except subprocess.CalledProcessError as e:
@@ -63,9 +61,9 @@ class PPTParser:
                 if e.stderr:
                     error_msg += f"\nError details: {e.stderr.decode('utf-8', errors='replace')}"
                 raise subprocess.CalledProcessError(
-                    e.returncode, 
-                    e.cmd, 
-                    output=e.output, 
+                    e.returncode,
+                    e.cmd,
+                    output=e.output,
                     stderr=error_msg.encode()
                 )
             except subprocess.TimeoutExpired as e:

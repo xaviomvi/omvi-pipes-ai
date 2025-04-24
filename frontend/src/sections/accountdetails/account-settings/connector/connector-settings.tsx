@@ -7,6 +7,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   Box,
   Grid,
+  Link,
   Alert,
   Paper,
   Container,
@@ -18,6 +19,8 @@ import {
 import axios from 'src/utils/axios';
 
 import { Iconify } from 'src/components/iconify';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import { CONNECTORS_LIST } from './components/connectors-list';
 
@@ -36,6 +39,8 @@ export interface ConfigStatus {
 
 const ConnectorSettings = () => {
   const theme = useTheme();
+  const { user } = useAuthContext();
+  const accountType = user?.accountType || 'individual';
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -418,6 +423,27 @@ const ConnectorSettings = () => {
           </Box>
         </Box>
       </Paper>
+      <Alert variant="outlined" severity="info" sx={{ my: 3 }}>
+        Refer to{' '}
+        {accountType === 'business' ? (
+          <Link
+            href="https://docs.pipeshub.com/enterprise/connectors/overview"
+            target="_blank"
+            rel="noopener"
+          >
+            the documentation
+          </Link>
+        ) : (
+          <Link
+            href="https://docs.pipeshub.com/individual/connectors/overview"
+            target="_blank"
+            rel="noopener"
+          >
+            the documentation
+          </Link>
+        )}{' '}
+        for more information.
+      </Alert>
     </Container>
   );
 };

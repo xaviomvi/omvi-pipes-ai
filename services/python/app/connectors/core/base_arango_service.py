@@ -1,31 +1,32 @@
 """ArangoDB service for interacting with the database"""
 
 # pylint: disable=E1101, W0718
-from arango import ArangoClient
-from app.config.configuration_service import ConfigurationService
-from app.config.arangodb_constants import CollectionNames
-from app.config.configuration_service import config_node_constants
 import uuid
-from app.config.arangodb_constants import DepartmentNames
+
+from arango import ArangoClient
+
+from app.config.arangodb_constants import CollectionNames, DepartmentNames
+from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.schema.arango.documents import (
-    user_schema,
-    orgs_schema,
     app_schema,
-    record_schema,
-    file_record_schema,
-    mail_record_schema,
     department_schema,
-    kb_schema
+    file_record_schema,
+    kb_schema,
+    mail_record_schema,
+    orgs_schema,
+    record_schema,
+    user_schema,
 )
 from app.schema.arango.edges import (
-    record_relations_schema,
+    basic_edge_schema,
+    belongs_to_schema,
     is_of_type_schema,
     permissions_schema,
-    belongs_to_schema,
-    user_drive_relation_schema,
+    record_relations_schema,
     user_app_relation_schema,
-    basic_edge_schema
+    user_drive_relation_schema,
 )
+
 
 class BaseArangoService():
     """Base ArangoDB service class for interacting with the database"""
@@ -102,7 +103,7 @@ class BaseArangoService():
             arango_user = arangodb_config['username']
             arango_password = arangodb_config['password']
             arango_db = arangodb_config['db']
-            
+
             if not isinstance(arango_url, str):
                 raise ValueError("ArangoDB URL must be a string")
             if not self.client:
@@ -263,7 +264,7 @@ class BaseArangoService():
                     if self.db.has_collection(CollectionNames.USER_APP_RELATION.value)
                     else self.db.create_collection(CollectionNames.USER_APP_RELATION.value, edge=True, schema=user_app_relation_schema)
                 )
-                
+
                 self._collections[CollectionNames.CATEGORIES.value] = (
                     self.db.collection(CollectionNames.CATEGORIES.value)
                     if self.db.has_collection(CollectionNames.CATEGORIES.value)
@@ -399,15 +400,15 @@ class BaseArangoService():
                 )
 
                 new_departments = [
-                    dept for dept in departments 
+                    dept for dept in departments
                     if dept['departmentName'] not in existing_department_names
                 ]
-                
+
                 if new_departments:
                     self.logger.info(f"🚀 Inserting {len(new_departments)} departments")
                     self._collections[CollectionNames.DEPARTMENTS.value].insert_many(new_departments)
                     self.logger.info("✅ Departments initialized successfully")
-                    
+
                 return True
 
             except Exception as e:
@@ -438,8 +439,8 @@ class BaseArangoService():
         """Get all apps associated with an organization"""
         try:
             query = f"""
-            FOR app IN OUTBOUND 
-                '{CollectionNames.ORGS.value}/{org_id}' 
+            FOR app IN OUTBOUND
+                '{CollectionNames.ORGS.value}/{org_id}'
                 {CollectionNames.ORG_APP_RELATION.value}
             FILTER app.isActive == true
             RETURN app
@@ -454,8 +455,8 @@ class BaseArangoService():
         """Get all apps associated with a user"""
         try:
             query = f"""
-            FOR app IN OUTBOUND 
-                '{CollectionNames.USERS.value}/{user_id}' 
+            FOR app IN OUTBOUND
+                '{CollectionNames.USERS.value}/{user_id}'
                 {CollectionNames.USER_APP_RELATION.value}
             RETURN app
             """

@@ -268,7 +268,15 @@ export class UserController {
       if (updateFields.designation) {
         user.designation = updateFields.designation;
       }
-
+      if (updateFields.mobile) {
+        user.mobile = updateFields.mobile;
+      }
+      if (updateFields.address) {
+        user.address = updateFields.address;
+      }
+      if (updateFields.hasLoggedIn) {
+        user.hasLoggedIn = updateFields.hasLoggedIn;
+      }
       await user.save();
 
       await this.eventService.start();

@@ -25,8 +25,8 @@ export const validateModelConfiguration = (
       if (llmConfig.modelType === 'openai') {
         // Client ID is now optional
         return { valid: true };
-        // eslint-disable-next-line
-      } else if (llmConfig.modelType === 'azure') {
+      } 
+      if (llmConfig.modelType === 'azure') {
         if (!llmConfig.endpoint) {
           return { valid: false, message: 'Endpoint is required for Azure OpenAI' };
         }

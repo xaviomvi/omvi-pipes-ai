@@ -1,10 +1,15 @@
-from typing import TypeVar, Generic, Callable, Optional, List, Any
-import etcd3
-from app.config.key_value_store import DistributedKeyValueStore
-from app.config.providers.etcd3_connection_manager import Etcd3ConnectionManager, ConnectionConfig
-from app.utils.logger import create_logger
 import asyncio
 import json
+from typing import Any, Callable, Generic, List, Optional, TypeVar
+
+import etcd3
+
+from app.config.key_value_store import DistributedKeyValueStore
+from app.config.providers.etcd3_connection_manager import (
+    ConnectionConfig,
+    Etcd3ConnectionManager,
+)
+from app.utils.logger import create_logger
 
 logger = create_logger('etcd')
 

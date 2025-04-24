@@ -1,8 +1,10 @@
 import asyncio
-from confluent_kafka import Producer
 import json
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
+
+from confluent_kafka import Producer
+
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 # Configure logging
@@ -29,17 +31,17 @@ class KafkaTestProducer:
         try:
             # Convert message to JSON string
             message_str = json.dumps(message)
-            
+
             # Produce message
             self.producer.produce(
                 topic=topic,
                 value=message_str.encode('utf-8'),
                 callback=self.delivery_report
             )
-            
+
             # Flush to ensure message is sent
             self.producer.flush()
-            
+
             logger.info(f"Message sent to topic {topic}: {message}")
             return True
         except Exception as e:
@@ -50,7 +52,7 @@ class KafkaTestProducer:
         """Test organization-related events"""
         current_timestamp = get_epoch_timestamp_in_ms()  # Convert to milliseconds
         org_id = "org_12345"
-        
+
         # Create org event
         create_event = {
             "eventType": "orgCreated",
@@ -62,10 +64,10 @@ class KafkaTestProducer:
             }
         }
         await self.send_message('entity-events', create_event)
-        
+
         # # Wait 10 seconds
         # await asyncio.sleep(10)
-        
+
         # # Update org event
         # current_timestamp = get_epoch_timestamp_in_ms()
         # update_event = {
@@ -78,10 +80,10 @@ class KafkaTestProducer:
         #     }
         # }
         # await self.send_message('entity-events', update_event)
-        
+
         # # Wait 10 seconds
         # await asyncio.sleep(10)
-        
+
         # Delete org event
         # current_timestamp = get_epoch_timestamp_in_ms()
         # delete_event = {
@@ -98,7 +100,7 @@ class KafkaTestProducer:
         current_timestamp = get_epoch_timestamp_in_ms()  # Convert to milliseconds
         org_id = "org_12345"
         user_id = "user_6789"
-        
+
         # Create user event
         create_event = {
             "eventType": "userAdded",
@@ -117,10 +119,10 @@ class KafkaTestProducer:
             }
         }
         await self.send_message('entity-events', create_event)
-        
+
         # org_id = "org_12345"
         # user_id = "user_678910"
-        
+
         # # Create user event
         # create_event = {
         #     "eventType": "newUserEvent",
@@ -137,10 +139,10 @@ class KafkaTestProducer:
         #     }
         # }
         # await self.send_message('entity-events', create_event)
-        
+
         # Wait 10 seconds
         # await asyncio.sleep(10)
-        
+
         # # Update user event
         # current_timestamp = get_epoch_timestamp_in_ms()
         # update_event = {
@@ -157,10 +159,10 @@ class KafkaTestProducer:
         #     }
         # }
         # await self.send_message('entity-events', update_event)
-        
+
         # # Wait 10 seconds
         # await asyncio.sleep(10)
-        
+
         # Delete user event
         # current_timestamp = get_epoch_timestamp_in_ms()
         # delete_event = {
@@ -177,19 +179,16 @@ class KafkaTestProducer:
     async def test_app_events(self):
         """Test app-related events"""
 
-        current_timestamp = get_epoch_timestamp_in_ms() 
-        org_id = "org_12345"
-        app_group_id = "groupid_xyz"
-        apps = ["drive"]
-        
+        get_epoch_timestamp_in_ms()
+
         # Enable apps event
         enable_event = {'eventType': 'appEnabled', 'timestamp': 1742552263073, 'payload': {'orgId': '67dd3c71cc22f87eac2b2178', 'appGroup': 'Google Workspace', 'appGroupId': '67dd3cc7cc22f87eac2b21db', 'credentialsRoute': 'http://localhost:3000/api/v1/configurationManager/internal/connectors/individual/googleWorkspaceCredentials', 'refreshTokenRoute': 'http://localhost:3000/api/v1/connectors/internal/refreshIndividualConnectorToken', 'apps': ['DRIVE', 'GMAIL', 'CALENDAR'], 'syncAction': 'immediate'}}
 
         await self.send_message('entity-events', enable_event)
-        
+
         # # Wait 30 seconds
         # await asyncio.sleep(30)
-        
+
         # # Disable apps event
         # current_timestamp = get_epoch_timestamp_in_ms()
         # disable_event = {
@@ -207,7 +206,7 @@ class KafkaTestProducer:
 async def main():
     """Main function to run all tests"""
     producer = KafkaTestProducer()
-    
+
     # # Test org events
     # logger.info("Testing org events...")
     # await producer.test_org_events()
@@ -221,4 +220,4 @@ async def main():
     await producer.test_app_events()
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

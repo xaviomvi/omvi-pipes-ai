@@ -1,15 +1,18 @@
 """ArangoDB service for interacting with the database"""
 
-from typing import Dict, List, Optional, Set, Tuple
-from datetime import datetime, timezone, timedelta
-from app.config.configuration_service import ConfigurationService
-from arango.database import TransactionDatabase
-import uuid
 import json
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List, Optional, Set, Tuple
+
 from arango import ArangoClient
+from arango.database import TransactionDatabase
+
+from app.config.arangodb_constants import CollectionNames, Connectors
+from app.config.configuration_service import ConfigurationService
 from app.connectors.core.base_arango_service import BaseArangoService
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
-from app.config.arangodb_constants import CollectionNames, Connectors
+
 
 class ArangoService(BaseArangoService):
     """ArangoDB service class for interacting with the database"""
@@ -158,13 +161,13 @@ class ArangoService(BaseArangoService):
 
             query = """
             UPSERT { userEmail: @userEmail }
-            INSERT { 
-                userEmail: @userEmail, 
+            INSERT {
+                userEmail: @userEmail,
                 historyId: @historyId,
                 expiration: @expiration,
                 updatedAt: DATE_NOW()
             }
-            UPDATE { 
+            UPDATE {
                 historyId: @historyId,
                 expiration: @expiration,
                 updatedAt: DATE_NOW()
@@ -372,7 +375,7 @@ class ArangoService(BaseArangoService):
                     FILTER rel._to == @record_id
                     RETURN rel._from
             )
-            
+
             LET parent_keys = (
                 FOR rel IN relations
                     LET key = PARSE_IDENTIFIER(rel).key
@@ -381,17 +384,17 @@ class ArangoService(BaseArangoService):
                         parsed_key: key
                     }
             )
-            
+
             LET parent_files = (
                 FOR parent IN parent_keys
-                    FOR record IN @@records 
+                    FOR record IN @@records
                         FILTER record._key == parent.parsed_key
                         RETURN {
                             key: record._key,
                             externalRecordId: record.externalRecordId
                         }
             )
-            
+
             RETURN {
                 input_file_key: @file_key,
                 found_relations: relations,
@@ -889,8 +892,7 @@ class ArangoService(BaseArangoService):
             self.logger.info("🚀 Deleting node %s from collection Records, Files (hard_delete=%s)", node_key, hard_delete)
 
             db = transaction if transaction else self.db
-            record_id_full = f"records/{node_key}"
-            
+
             record = await self.get_document(node_key, CollectionNames.RECORDS.value)
             if not record:
                 self.logger.warning("⚠️ Record %s not found in Records collection", node_key)
@@ -941,7 +943,7 @@ class ArangoService(BaseArangoService):
                     REMOVE doc IN @@files
                     RETURN OLD
             )
-            
+
             LET removed_mail = (
                 FOR doc IN @@mails
                     FILTER doc._key == @node_key
@@ -999,7 +1001,7 @@ class ArangoService(BaseArangoService):
                     FILTER user.isActive == true
                     RETURN user
                 """
-                
+
             else:
                 query = """
                 FOR edge IN belongsTo
@@ -1157,7 +1159,7 @@ class ArangoService(BaseArangoService):
                 str(e)
             )
             return None
-        
+
     async def get_key_by_attachment_id(self, external_attachment_id: str, transaction: Optional[TransactionDatabase] = None) -> Optional[str]:
         """
         Get internal attachment key using the external attachment ID
@@ -1199,7 +1201,7 @@ class ArangoService(BaseArangoService):
                 str(e)
             )
             return None
-        
+
     async def get_user_by_user_id(self, user_id: str) -> Optional[Dict]:
         """Get user by user ID"""
         try:
@@ -1217,15 +1219,15 @@ class ArangoService(BaseArangoService):
 
     async def get_account_type(self, org_id: str) -> str:
         """Get account type for an organization
-        
+
         Args:
             org_id (str): Organization ID
-            
+
         Returns:
             str: Account type ('individual' or 'business')
         """
         try:
-            query = f"""
+            query = """
                 FOR org IN organizations
                     FILTER org._key == @org_id
                     RETURN org.accountType
@@ -1244,26 +1246,26 @@ class ArangoService(BaseArangoService):
         Args:
             user_email (str): Email of the user
             state (str): Sync state (NOT_STARTED, RUNNING, PAUSED, COMPLETED)
-            service_type (str): Type of service 
+            service_type (str): Type of service
 
         Returns:
             Optional[Dict]: Updated relation document if successful, None otherwise
         """
         try:
-            self.logger.info("🚀 Updating %s sync state for user %s to %s", 
+            self.logger.info("🚀 Updating %s sync state for user %s to %s",
                        service_type, user_email, state)
-            
+
             user_key = await self.get_entity_id_by_email(user_email)
 
             # Get user key and app key based on service type and update the sync state
             query = f"""
-            LET app = FIRST(FOR a IN {CollectionNames.APPS.value} 
+            LET app = FIRST(FOR a IN {CollectionNames.APPS.value}
                           FILTER LOWER(a.name) == LOWER(@service_type)
                           RETURN {{
                               _key: a._key,
                               name: a.name
                           }})
-            
+
             LET edge = FIRST(
                 FOR rel in {CollectionNames.USER_APP_RELATION.value}
                     FILTER rel._from == CONCAT('users/', @user_key)
@@ -1271,7 +1273,7 @@ class ArangoService(BaseArangoService):
                     UPDATE rel WITH {{ syncState: @state, lastSyncUpdate: @lastSyncUpdate }} IN {CollectionNames.USER_APP_RELATION.value}
                     RETURN NEW
             )
-            
+
             RETURN edge
             """
 
@@ -1287,19 +1289,19 @@ class ArangoService(BaseArangoService):
 
             result = next(cursor, None)
             if result:
-                self.logger.info("✅ Successfully updated %s sync state for user %s to %s", 
+                self.logger.info("✅ Successfully updated %s sync state for user %s to %s",
                            service_type, user_email, state)
                 return result
 
-            self.logger.warning("⚠️ UPDATE:No user-app relation found for email %s and service %s", 
+            self.logger.warning("⚠️ UPDATE:No user-app relation found for email %s and service %s",
                           user_email, service_type)
             return None
 
         except Exception as e:
-            self.logger.error("❌ Failed to update user %s sync state: %s", 
+            self.logger.error("❌ Failed to update user %s sync state: %s",
                         service_type, str(e))
             return None
-        
+
     async def get_user_sync_state(self, user_email: str, service_type: str = Connectors.GOOGLE_DRIVE.value) -> Optional[Dict]:
         """
         Get user's sync state from USER_APP_RELATION collection for specific service
@@ -1312,26 +1314,26 @@ class ArangoService(BaseArangoService):
             Optional[Dict]: Relation document containing sync state if found, None otherwise
         """
         try:
-            self.logger.info("🔍 Getting %s sync state for user %s", 
+            self.logger.info("🔍 Getting %s sync state for user %s",
                        service_type, user_email)
-            
+
             user_key = await self.get_entity_id_by_email(user_email)
-            
+
             query = f"""
-            LET app = FIRST(FOR a IN {CollectionNames.APPS.value} 
+            LET app = FIRST(FOR a IN {CollectionNames.APPS.value}
                           FILTER LOWER(a.name) == LOWER(@service_type)
                           RETURN {{
                               _key: a._key,
                               name: a.name
                           }})
-            
+
             LET edge = FIRST(
                 FOR rel in {CollectionNames.USER_APP_RELATION.value}
                     FILTER rel._from == CONCAT('users/', @user_key)
                     FILTER rel._to == CONCAT('apps/', app._key)
                     RETURN rel
             )
-            
+
             RETURN edge
             """
 
@@ -1346,46 +1348,46 @@ class ArangoService(BaseArangoService):
             result = next(cursor, None)
             if result:
                 self.logger.info("Result: %s", result)
-                self.logger.info("✅ Found %s sync state for user %s: %s", 
+                self.logger.info("✅ Found %s sync state for user %s: %s",
                            service_type, user_email, result['syncState'])
                 return result
-            
-            self.logger.warning("⚠️ GET:No user-app relation found for email %s and service %s", 
+
+            self.logger.warning("⚠️ GET:No user-app relation found for email %s and service %s",
                             user_email, service_type)
             return None
 
         except Exception as e:
-            self.logger.error("❌ Failed to get user %s sync state: %s", 
+            self.logger.error("❌ Failed to get user %s sync state: %s",
                         service_type, str(e))
             return None
 
     async def update_drive_sync_state(self, drive_id: str, state: str) -> Optional[Dict]:
         """
         Update drive's sync state in drives collection
-        
+
         Args:
             drive_id (str): ID of the drive
             state (str): Sync state (NOT_STARTED, RUNNING, PAUSED, COMPLETED)
             additional_data (dict, optional): Additional data to update
-            
+
         Returns:
             Optional[Dict]: Updated drive document if successful, None otherwise
         """
         try:
             self.logger.info("🚀 Updating sync state for drive %s to %s", drive_id, state)
-            
+
             update_data = {
                 'sync_state': state,
                 'last_sync_update': get_epoch_timestamp_in_ms()
             }
-                            
+
             query = """
             FOR drive IN drives
                 FILTER drive._key == @drive_id
                 UPDATE drive WITH @update IN drives
                 RETURN NEW
             """
-            
+
             cursor = self.db.aql.execute(
                 query,
                 bind_vars={
@@ -1393,47 +1395,47 @@ class ArangoService(BaseArangoService):
                     'update': update_data
                 }
             )
-            
+
             result = next(cursor, None)
             if result:
                 self.logger.info("✅ Successfully updated sync state for drive %s", drive_id)
                 return result
-                
+
             self.logger.warning("⚠️ No drive found with ID %s", drive_id)
             return None
-            
+
         except Exception as e:
             self.logger.error("❌ Failed to update drive sync state: %s", str(e))
             return None
 
     async def get_drive_sync_state(self, drive_id: str) -> Optional[str]:
         """Get sync state for a specific drive
-        
+
         Args:
             drive_id (str): ID of the drive to check
-            
+
         Returns:
             Optional[str]: Current sync state of the drive ('NOT_STARTED', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'FAILED')
                           or None if drive not found
         """
         try:
             self.logger.info("🔍 Getting sync state for drive %s", drive_id)
-            
+
             query = """
             FOR drive IN drives
                 FILTER drive._key == @drive_id
                 RETURN drive.sync_state
             """
-            
+
             result = list(self.db.aql.execute(
                 query,
                 bind_vars={'drive_id': drive_id}
             ))
-            
+
             if result:
                 self.logger.debug("✅ Found sync state for drive %s: %s", drive_id, result[0])
                 return result[0]
-            
+
             self.logger.debug("No sync state found for drive %s, assuming NOT_STARTED", drive_id)
             return 'NOT_STARTED'
 
@@ -1445,13 +1447,13 @@ class ArangoService(BaseArangoService):
         """Check if an edge exists between two nodes in a specified collection."""
         try:
             self.logger.info("🔍 Checking if edge exists from %s to %s in collection %s", from_id, to_id, collection)
-            
+
             query = """
             FOR edge IN @@collection
                 FILTER edge._from == @from_id AND edge._to == @to_id
                 RETURN edge
             """
-            
+
             cursor = self.db.aql.execute(
                 query,
                 bind_vars={
@@ -1460,7 +1462,7 @@ class ArangoService(BaseArangoService):
                     '@collection': collection
                 }
             )
-            
+
             result = next(cursor, None)
             exists = result is not None
             self.logger.info("✅ Edge exists: %s", exists)

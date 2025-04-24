@@ -1,6 +1,8 @@
-from typing import Dict, List, Optional, Any
-from rocksdict import Rdict, Options
 import json
+from typing import Any, Dict, List
+
+from rocksdict import Options, Rdict
+
 
 class RockDBService:
     def __init__(self, logger, db_path: str = "data/rockdb"):
@@ -52,7 +54,6 @@ class RockDBService:
         try:
             # Create sentence to paragraph mapping
             sent_to_para_mapping = {}
-            current_para_idx = 0
 
             # Store paragraphs
             for para_idx, para in enumerate(paragraphs):
@@ -125,7 +126,7 @@ class RockDBService:
                 para_data = self.db.get(para_key)
                 if para_data:
                     paragraph = json.loads(para_data)
-                    self.logger.debug(f"✅ Retrieved sentence with context")
+                    self.logger.debug("✅ Retrieved sentence with context")
                     return {
                         "sentence": sentence,
                         "paragraph": paragraph

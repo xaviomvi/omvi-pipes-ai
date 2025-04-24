@@ -8,7 +8,7 @@ Instructions must be strictly followed, failure to do so will result in terminat
    - Choose **1 to 3 departments** ONLY from the provided list below.
    - Each department MUST **exactly match one** of the values in the list.
    - Any unlisted or paraphrased value is INVALID.
-   - Use the following list:  
+   - Use the following list:
      {department_list}
 
 2. Document Type Categories & Subcategories:

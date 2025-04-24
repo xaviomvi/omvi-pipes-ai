@@ -1,19 +1,20 @@
 """ArangoDB service for interacting with the database"""
 
 # pylint: disable=E1101, W0718
-from arango import ArangoClient
-from app.config.configuration_service import ConfigurationService
-
 from typing import Dict, List, Optional
-from app.config.arangodb_constants import CollectionNames
+
+from arango import ArangoClient
 from arango.database import TransactionDatabase
-from app.config.configuration_service import config_node_constants
+
+from app.config.arangodb_constants import CollectionNames
+from app.config.configuration_service import ConfigurationService, config_node_constants
+
 
 class ArangoService():
     """ArangoDB service for interacting with the database"""
 
     def __init__(self, logger, arango_client: ArangoClient, config: ConfigurationService):
-        self.logger = logger 
+        self.logger = logger
         self.logger.info("🚀 Initializing ArangoService")
         self.config_service = config
         self.client = arango_client
@@ -28,7 +29,7 @@ class ArangoService():
             arango_user = arangodb_config['username']
             arango_password = arangodb_config['password']
             arango_db = arangodb_config['db']
-            
+
             if not isinstance(arango_url, str):
                 raise ValueError("ArangoDB URL must be a string")
             if not self.client:
@@ -54,7 +55,7 @@ class ArangoService():
             #     )
             #     sys_db.create_database(arango_db)
             #     self.logger.info("✅ Database created successfully")
-                
+
             # Connect to our database
             self.logger.debug("Connecting to our database")
             self.db = self.client.db(
@@ -167,7 +168,7 @@ class ArangoService():
                 str(e)
             )
             return None
-        
+
     async def get_key_by_attachment_id(self, external_attachment_id: str, transaction: Optional[TransactionDatabase] = None) -> Optional[str]:
         """
         Get internal attachment key using the external attachment ID
@@ -264,7 +265,7 @@ class ArangoService():
             if transaction:
                 raise
             return False
-        
+
     async def batch_create_edges(self, edges: List[Dict], collection: str, transaction: Optional[TransactionDatabase] = None):
         """Batch create PARENT_CHILD relationships"""
         try:
@@ -312,10 +313,10 @@ class ArangoService():
     async def get_departments(self, org_id: Optional[str] = None) -> List[str]:
         """
         Get all departments that either have no org_id or match the given org_id
-        
+
         Args:
             org_id (Optional[str]): Organization ID to filter departments
-            
+
         Returns:
             List[str]: List of department names
         """

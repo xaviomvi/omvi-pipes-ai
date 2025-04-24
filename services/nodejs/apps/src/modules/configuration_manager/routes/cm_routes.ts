@@ -291,6 +291,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
   router.post(
     '/redisConfig',
     authMiddleware.authenticate,
+    userAdminCheck,
     metricsMiddleware(container),
     ValidationMiddleware.validate(redisConfigSchema),
     checkRedisHealth,
@@ -314,6 +315,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
   router.post(
     '/qdrantConfig',
     authMiddleware.authenticate,
+    userAdminCheck,
     metricsMiddleware(container),
     ValidationMiddleware.validate(qdrantConfigSchema),
     checkQdrantHealth,
@@ -390,6 +392,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
         keyValueStoreService,
         req.user.userId,
         req.user.orgId,
+        eventService,
       )(req, res, next);
     },
   );
@@ -415,6 +418,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
         keyValueStoreService,
         req.tokenPayload.userId,
         req.tokenPayload.orgId,
+        eventService,
       )(req, res, next);
     },
   );
@@ -500,7 +504,16 @@ export function createConfigurationManagerRouter(container: Container): Router {
     userAdminCheck,
     metricsMiddleware(container),
     ValidationMiddleware.validate(googleWorkspaceConfigSchema),
-    setGoogleWorkspaceOauthConfig(keyValueStoreService),
+    (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
+      if (!req.user) {
+        throw new NotFoundError('User not found');
+      }
+      return setGoogleWorkspaceOauthConfig(
+        keyValueStoreService,
+        eventService,
+        req.user.orgId,
+      )(req, res, next);
+    },
   );
 
   router.get(
@@ -515,7 +528,16 @@ export function createConfigurationManagerRouter(container: Container): Router {
     authMiddleware.scopedTokenValidator(TokenScopes.FETCH_CONFIG),
     metricsMiddleware(container),
     ValidationMiddleware.validate(googleWorkspaceConfigSchema),
-    setGoogleWorkspaceOauthConfig(keyValueStoreService),
+    (req: AuthenticatedServiceRequest, res: Response, next: NextFunction) => {
+      if (!req.tokenPayload) {
+        throw new NotFoundError('User not found');
+      }
+      return setGoogleWorkspaceOauthConfig(
+        keyValueStoreService,
+        eventService,
+        req.tokenPayload?.orgId,
+      )(req, res, next);
+    },
   );
 
   // ai models config routes
@@ -559,6 +581,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
   router.get(
     '/frontendPublicUrl',
     authMiddleware.authenticate,
+    userAdminCheck,
     metricsMiddleware(container),
     getFrontendUrl(keyValueStoreService),
   );
@@ -566,6 +589,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
   router.post(
     '/frontendPublicUrl',
     authMiddleware.authenticate,
+    userAdminCheck,
     ValidationMiddleware.validate(urlSchema),
     metricsMiddleware(container),
     setFrontendUrl(keyValueStoreService),
@@ -574,6 +598,7 @@ export function createConfigurationManagerRouter(container: Container): Router {
   router.get(
     '/connectorPublicUrl',
     authMiddleware.authenticate,
+    userAdminCheck,
     metricsMiddleware(container),
     getConnectorPublicUrl(keyValueStoreService),
   );
@@ -581,9 +606,10 @@ export function createConfigurationManagerRouter(container: Container): Router {
   router.post(
     '/connectorPublicUrl',
     authMiddleware.authenticate,
+    userAdminCheck,
     ValidationMiddleware.validate(urlSchema),
     metricsMiddleware(container),
-    setConnectorPublicUrl(keyValueStoreService),
+    setConnectorPublicUrl(keyValueStoreService, eventService),
   );
 
   return router;

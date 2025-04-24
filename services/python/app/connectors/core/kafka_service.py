@@ -1,8 +1,10 @@
-from confluent_kafka import Producer
-from app.config.configuration_service import ConfigurationService, config_node_constants
-from app.config.arangodb_constants import EventTypes
-import json
 import asyncio
+import json
+
+from confluent_kafka import Producer
+
+from app.config.arangodb_constants import EventTypes
+from app.config.configuration_service import ConfigurationService, config_node_constants
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 
@@ -60,7 +62,7 @@ class KafkaService:
                 brokers = ",".join(brokers)
             elif isinstance(brokers, str) and brokers.startswith("[") and brokers.endswith("]"):
                 brokers = brokers.strip("[]").replace("'", "").replace('"', '').strip()
-            
+
             producer_config = {
                 'bootstrap.servers': brokers,
                 'client.id': kafka_config.get('client_id', 'file-processor')

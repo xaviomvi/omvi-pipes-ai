@@ -3,16 +3,17 @@
 # pylint: disable=E1101, W0718
 import os
 import pickle
-from typing import Dict, List
-from app.config.configuration_service import config_node_constants
 from datetime import datetime, timezone
+from typing import Dict, List
+
 from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
-from app.config.configuration_service import ConfigurationService
+from googleapiclient.discovery import build
+
+from app.config.configuration_service import ConfigurationService, config_node_constants
+from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from app.connectors.utils.decorators import exponential_backoff
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
-from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 
 
 class GCalUserService:

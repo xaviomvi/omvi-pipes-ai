@@ -1,12 +1,13 @@
+import os
+import tempfile
+from typing import Any, Dict, List, Tuple
+
 import fitz
 import ocrmypdf
-import tempfile
-import os
 import spacy
-import time
-from typing import Dict, Any, List, Tuple, Optional
-from app.modules.parsers.pdf.ocr_handler import OCRStrategy
 from spacy.language import Language
+
+from app.modules.parsers.pdf.ocr_handler import OCRStrategy
 
 
 class PyMuPDFOCRStrategy(OCRStrategy):
@@ -198,7 +199,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
 
     def _merge_lines_to_sentences(self, lines_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Merge lines into sentences using spaCy"""
-        self.logger.debug(f"🚀 Merging lines to sentences")
+        self.logger.debug("🚀 Merging lines to sentences")
 
         nlp = spacy.load("en_core_web_sm")
         self.nlp = self._create_custom_tokenizer(
@@ -483,7 +484,7 @@ class PyMuPDFOCRStrategy(OCRStrategy):
                             "📑 Added sentence to document collection (Page %s, Block %s)", page_idx + 1, sentence['block_number'])
 
             self.logger.debug(f"✅ Completed processing page {page_idx + 1}")
-            self.logger.debug(f"📊 Page statistics:")
+            self.logger.debug("📊 Page statistics:")
             self.logger.debug(f"- Lines: {len(page_dict['lines'])}")
             self.logger.debug(f"- Words: {len(page_dict['words'])}")
             result["pages"].append(page_dict)

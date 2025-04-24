@@ -1,26 +1,33 @@
 # pylint: disable=E1101, W0718
-import json
 import asyncio
 import uuid
-import os
-from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta, timezone
+from typing import Dict, List, Optional, Tuple
+from uuid import uuid4
+
+import google.oauth2.credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import BatchHttpRequest
-from app.config.arangodb_constants import Connectors, RecordTypes
-from app.config.configuration_service import ConfigurationService, config_node_constants, WebhookConfig
+
+from app.config.arangodb_constants import Connectors, OriginTypes, RecordTypes
+from app.config.configuration_service import (
+    ConfigurationService,
+    WebhookConfig,
+    config_node_constants,
+)
+from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
 from app.connectors.utils.decorators import exponential_backoff, token_refresh
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
-from app.connectors.google.scopes import GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
-from app.config.arangodb_constants import OriginTypes
-from uuid import uuid4
-from app.utils.time_conversion import get_epoch_timestamp_in_ms
-import google.oauth2.credentials
 from app.exceptions.connector_google_exceptions import (
-    GoogleAuthError, GoogleDriveError, DriveOperationError, 
-    DrivePermissionError, DriveSyncError, BatchOperationError
+    BatchOperationError,
+    DriveOperationError,
+    DrivePermissionError,
+    GoogleAuthError,
+    GoogleDriveError,
 )
+from app.utils.time_conversion import get_epoch_timestamp_in_ms
+
 
 class DriveUserService:
     """DriveService class for interacting with Google Drive API"""
@@ -46,6 +53,7 @@ class DriveUserService:
         self.token_expiry = None
         self.org_id = None
         self.user_id = None
+        self.is_delegated = credentials is not None
 
     @token_refresh
     async def connect_individual_user(self, org_id: str, user_id: str) -> bool:
@@ -53,9 +61,9 @@ class DriveUserService:
         try:
             self.org_id = org_id
             self.user_id = user_id
-            
+
             SCOPES = GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES
-            
+
             try:
                 creds_data = await self.google_token_handler.get_individual_token(org_id, user_id)
             except Exception as e:
@@ -93,7 +101,7 @@ class DriveUserService:
                 creds_data.get('access_token_expiry_time', 0) / 1000,
                 tz=timezone.utc
             )
-            
+
             try:
                 self.service = build('drive', 'v3', credentials=creds)
             except Exception as e:
@@ -123,10 +131,11 @@ class DriveUserService:
 
     async def _check_and_refresh_token(self):
         """Check token expiry and refresh if needed"""
+        self.logger.info("Checking token expiry and refreshing if needed")
         if not self.token_expiry:
             # self.logger.warning("⚠️ Token expiry time not set.")
             return
-        
+
         if not self.org_id or not self.user_id:
             self.logger.warning("⚠️ Org ID or User ID not set yet.")
             return
@@ -134,10 +143,10 @@ class DriveUserService:
         now = datetime.now(timezone.utc)
         time_until_refresh = self.token_expiry - now - timedelta(minutes=20)
         self.logger.info(f"Time until refresh: {time_until_refresh.total_seconds()} seconds")
-        
+
         if time_until_refresh.total_seconds() <= 0:
             await self.google_token_handler.refresh_token(self.org_id, self.user_id)
-                    
+
             creds_data = await self.google_token_handler.get_individual_token(self.org_id, self.user_id)
 
             creds = google.oauth2.credentials.Credentials(
@@ -208,7 +217,7 @@ class DriveUserService:
 
                 user = about.get('user', {})
                 self.logger.info("🚀 User info: %s", user)
-                
+
                 user = {
                     '_key': str(uuid4()),
                     'userId': str(uuid4()),
@@ -370,12 +379,12 @@ class DriveUserService:
                             "Missing webhook endpoint configuration",
                             details={"endpoints": endpoints}
                         )
-                    
+
                     # Return None if webhook uses HTTP or localhost
                     if webhook_endpoint.startswith('http://') or 'localhost' in webhook_endpoint:
                         self.logger.warning("⚠️ Skipping changes watch - webhook endpoint uses HTTP or localhost")
                         return None
-                        
+
                 except Exception as e:
                     raise DriveOperationError(
                         "Failed to get webhook configuration: " + str(e),
@@ -455,7 +464,7 @@ class DriveUserService:
                 "Unexpected error creating changes watch: " + str(e),
                 details={"error": str(e)}
             )
-            
+
     async def stop_watch(self, channel_id: str, resource_id: str) -> bool:
         """Stop a changes watch"""
         try:
@@ -590,7 +599,7 @@ class DriveUserService:
             self.logger.info("🚀 Batch fetching metadata and content for %s files", len(file_ids))
             failed_items = []
             metadata_results = {}
-            
+
             if files:
                 metadata_results = {f['id']: f.copy() for f in files if 'id' in f}
 
@@ -598,7 +607,7 @@ class DriveUserService:
 
             def metadata_callback(request_id, response, exception):
                 req_type, file_id = request_id.split('_', 1)
-                
+
                 if exception is None:
                     if file_id not in metadata_results:
                         metadata_results[file_id] = {}
@@ -613,7 +622,7 @@ class DriveUserService:
                         'request_type': req_type,
                         'error': str(exception)
                     }
-                    
+
                     if isinstance(exception, HttpError):
                         if exception.resp.status == 403:
                             self.logger.info(
@@ -638,7 +647,7 @@ class DriveUserService:
                             req_type, file_id, str(exception)
                         )
                         failed_items.append(error_details)
-                    
+
                     if req_type == 'meta':
                         metadata_results[file_id] = None
 
@@ -684,13 +693,13 @@ class DriveUserService:
                             fields="revisions(id, modifiedTime)",
                             pageSize=10
                         ).execute()
-                        
+
                         revisions_list = revisions.get('revisions', [])
                         if revisions_list:
                             result['headRevisionId'] = revisions_list[-1].get('id', '')
                         else:
                             result['headRevisionId'] = ''
-                            
+
                         self.logger.info("✅ Fetched head revision ID for file: %s", file_id)
                     except HttpError as e:
                         if e.resp.status == 403:

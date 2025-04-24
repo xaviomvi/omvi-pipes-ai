@@ -1,19 +1,19 @@
-import os
-from typing import List, Literal
-from pydantic import BaseModel, Field
-from langchain.prompts import PromptTemplate
-from langchain.output_parsers import PydanticOutputParser
-from langchain.schema import HumanMessage, AIMessage
-from app.modules.extraction.prompt_template import prompt
 import uuid
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.decomposition import LatentDirichletAllocation
-from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime, timezone
-import numpy as np
-from app.config.arangodb_constants import CollectionNames, DepartmentNames
-from app.utils.llm import get_llm
+from typing import List, Literal
 
+import numpy as np
+from langchain.output_parsers import PydanticOutputParser
+from langchain.prompts import PromptTemplate
+from langchain.schema import AIMessage, HumanMessage
+from pydantic import BaseModel, Field
+from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+from app.config.arangodb_constants import CollectionNames, DepartmentNames
+from app.modules.extraction.prompt_template import prompt
+from app.utils.llm import get_llm
 
 # Update the Literal types
 SentimentType = Literal["Positive", "Neutral", "Negative"]
@@ -165,7 +165,7 @@ class DomainExtractor:
         """
         self.logger.info("🎯 Extracting domain metadata")
         self.llm = await get_llm(self.logger, self.config_service)
-        
+
         try:
             self.logger.info(f"🎯 Extracting departments for org_id: {org_id}")
             departments = await self.arango_service.get_departments(org_id)
@@ -176,7 +176,7 @@ class DomainExtractor:
             # Format department list for the prompt
             department_list = "\n".join(
                 f"     - \"{dept}\"" for dept in departments)
-            
+
             # Format sentiment list for the prompt
             sentiment_list = "\n".join(
                 f"     - \"{sentiment}\"" for sentiment in SentimentType.__args__)
@@ -216,50 +216,50 @@ class DomainExtractor:
             except Exception as parse_error:
                 self.logger.error(f"❌ Failed to parse response: {str(parse_error)}")
                 self.logger.error(f"Response content: {response_text}")
-                
+
                 # Reflection: attempt to fix the validation issue by providing feedback to the LLM
                 try:
                     self.logger.info("🔄 Attempting reflection to fix validation issues")
                     reflection_prompt = f"""
                     The previous response failed validation with the following error:
                     {str(parse_error)}
-                    
+
                     The response was:
                     {response_text}
-                    
-                    Please correct your response to match the expected schema. 
+
+                    Please correct your response to match the expected schema.
                     Ensure all fields are properly formatted and all required fields are present.
                     Respond only with valid JSON that matches the DocumentClassification schema.
                     """
-                    
+
                     reflection_messages = [
                         HumanMessage(content=formatted_prompt),
                         AIMessage(content=response_text),
                         HumanMessage(content=reflection_prompt)
                     ]
-                    
+
                     reflection_response = await self.llm.ainvoke(reflection_messages)
                     reflection_text = reflection_response.content.strip()
-                    
+
                     # Clean the reflection response
                     if reflection_text.startswith("```json"):
                         reflection_text = reflection_text.replace("```json", "", 1)
                     if reflection_text.endswith("```"):
                         reflection_text = reflection_text.rsplit("```", 1)[0]
                     reflection_text = reflection_text.strip()
-                    
+
                     self.logger.info(f"🎯 Reflection response: {reflection_text}")
-                    
+
                     # Try parsing again with the reflection response
                     parsed_reflection = self.parser.parse(reflection_text)
-                    
+
                     # Process topics through similarity check
                     canonical_topics = await self.process_new_topics(parsed_reflection.topics)
                     parsed_reflection.topics = canonical_topics
-                    
+
                     self.logger.info("✅ Reflection successful - validation passed on second attempt")
                     return parsed_reflection
-                    
+
                 except Exception as reflection_error:
                     self.logger.error(f"❌ Reflection attempt failed: {str(reflection_error)}")
                     # Re-raise the original error after reflection attempt failed
@@ -274,7 +274,7 @@ class DomainExtractor:
         Extract metadata from a document in ArangoDB and create department relationships
         """
         self.logger.info("🚀 Saving metadata to ArangoDB")
-        
+
         try:
             # Retrieve the document content from ArangoDB
             record = await self.arango_service.get_document(document_id, CollectionNames.RECORDS.value)
@@ -302,7 +302,7 @@ class DomainExtractor:
                     )
                     dept_doc = cursor.next()
                     self.logger.info(f"🚀 Department: {dept_doc}")
-                    
+
                     if dept_doc:
                         edge = {
                             "_from": f"{CollectionNames.RECORDS.value}/{document_id}",
@@ -318,7 +318,7 @@ class DomainExtractor:
                 except Exception as e:
                     self.logger.error(f"❌ Error creating relationship with department {department}: {str(e)}")
                     continue
-                
+
             # Handle single category
             category_query = f'FOR c IN {CollectionNames.CATEGORIES.value} FILTER c.name == @name RETURN c'
             cursor = self.arango_service.db.aql.execute(
@@ -337,8 +337,8 @@ class DomainExtractor:
 
             # Create category relationship if it doesn't exist
             edge_query = f'''
-            FOR e IN {CollectionNames.BELONGS_TO_CATEGORY.value} 
-            FILTER e._from == @from AND e._to == @to 
+            FOR e IN {CollectionNames.BELONGS_TO_CATEGORY.value}
+            FILTER e._from == @from AND e._to == @to
             RETURN e
             '''
             cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
@@ -371,8 +371,8 @@ class DomainExtractor:
 
                 # Create belongs_to relationship
                 edge_query = f'''
-                FOR e IN {CollectionNames.BELONGS_TO_CATEGORY.value} 
-                FILTER e._from == @from AND e._to == @to 
+                FOR e IN {CollectionNames.BELONGS_TO_CATEGORY.value}
+                FILTER e._from == @from AND e._to == @to
                 RETURN e
                 '''
                 cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
@@ -390,7 +390,7 @@ class DomainExtractor:
                 if parent_key:
                     edge_query = f'''
                     FOR e IN {CollectionNames.INTER_CATEGORY_RELATIONS.value}
-                    FILTER e._from == @from AND e._to == @to 
+                    FILTER e._from == @from AND e._to == @to
                     RETURN e
                     '''
                     cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
@@ -428,8 +428,8 @@ class DomainExtractor:
 
                 # Create relationship if it doesn't exist
                 edge_query = f'''
-                FOR e IN {CollectionNames.BELONGS_TO_LANGUAGE.value} 
-                FILTER e._from == @from AND e._to == @to 
+                FOR e IN {CollectionNames.BELONGS_TO_LANGUAGE.value}
+                FILTER e._from == @from AND e._to == @to
                 RETURN e
                 '''
                 cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
@@ -461,8 +461,8 @@ class DomainExtractor:
 
                 # Create relationship if it doesn't exist
                 edge_query = f'''
-                FOR e IN {CollectionNames.BELONGS_TO_TOPIC.value} 
-                FILTER e._from == @from AND e._to == @to 
+                FOR e IN {CollectionNames.BELONGS_TO_TOPIC.value}
+                FILTER e._from == @from AND e._to == @to
                 RETURN e
                 '''
                 cursor = self.arango_service.db.aql.execute(edge_query, bind_vars={
@@ -477,7 +477,7 @@ class DomainExtractor:
                     })
 
             self.logger.info(f"🚀 Metadata saved successfully for document: {document_id}")
-            
+
             # Add metadata fields to doc
             doc.update({
                 "departments": [dept for dept in metadata.departments],

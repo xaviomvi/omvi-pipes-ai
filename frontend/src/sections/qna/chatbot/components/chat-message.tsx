@@ -4,11 +4,11 @@ import type { Record, ChatMessageProps, MessageContentProps } from 'src/types/ch
 import remarkGfm from 'remark-gfm';
 import { Icon } from '@iconify/react';
 import ReactMarkdown from 'react-markdown';
+import upIcon from '@iconify-icons/mdi/chevron-up';
 import eyeIcon from '@iconify-icons/mdi/eye-outline';
 import refreshIcon from '@iconify-icons/mdi/refresh';
 import loadingIcon from '@iconify-icons/mdi/loading';
 import downIcon from '@iconify-icons/mdi/chevron-down';
-import upIcon from '@iconify-icons/mdi/chevron-up';
 import robotIcon from '@iconify-icons/mdi/robot-outline';
 import rightIcon from '@iconify-icons/mdi/chevron-right';
 import accountIcon from '@iconify-icons/mdi/account-outline';
