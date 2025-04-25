@@ -158,7 +158,7 @@ export const createRecords =
         result = await recordRelationService.insertRecordsAndFileRecords(
           records,
           fileRecords,
-          keyValueStoreService
+          keyValueStoreService,
         );
         logger.info(
           `Successfully inserted ${result.insertedRecords.length} records and file records`,
@@ -250,8 +250,17 @@ export const getRecordById =
           // body: { query, limit },
         });
 
-        const aiResponse =
-          (await aiCommand.execute()) as AIServiceResponse<IServiceRecordsResponse>;
+        let aiResponse;
+        try {
+          aiResponse =
+            (await aiCommand.execute()) as AIServiceResponse<IServiceRecordsResponse>;
+        } catch (error: any) {
+          if (error.cause && error.cause.code === 'ECONNREFUSED') {
+            throw new InternalServerError('AI Service is currently unavailable. Please check your network connection or try again later.',error);
+          }
+          logger.error(' Failed error ', error);
+          throw new InternalServerError('Failed to get AI response', error);
+        }
         if (!aiResponse || aiResponse.statusCode !== 200 || !aiResponse.data) {
           throw new InternalServerError(
             'Failed to get response from AI service',
@@ -1062,8 +1071,17 @@ export const reindexRecord =
           // body: { query, limit },
         });
 
-        const aiResponse =
-          (await aiCommand.execute()) as AIServiceResponse<IServiceRecordsResponse>;
+        let aiResponse;
+        try {
+          aiResponse =
+            (await aiCommand.execute()) as AIServiceResponse<IServiceRecordsResponse>;
+        } catch (error: any) {
+          if (error.cause && error.cause.code === 'ECONNREFUSED') {
+            throw new InternalServerError('AI Service is currently unavailable. Please check your network connection or try again later.',error);
+          }
+          logger.error(' Failed error ', error);
+          throw new InternalServerError('Failed to get AI response', error);
+        }
         if (!aiResponse || aiResponse.statusCode !== 200 || !aiResponse.data) {
           throw new UnauthorizedError(
             'User has no access to this record',

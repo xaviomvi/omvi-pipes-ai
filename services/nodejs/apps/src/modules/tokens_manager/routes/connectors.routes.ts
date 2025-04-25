@@ -309,6 +309,14 @@ export function createConnectorRouter(container: Container) {
               config.scopedJwtSecret,
             );
             if (response.statusCode !== 200) {
+              if (
+                response.data &&
+                typeof response.data === 'object' &&
+                Object.keys(response.data).length === 0
+              ) {
+                res.status(204).end();
+                return;
+              }
               throw new InternalServerError(
                 'Error getting config',
                 response?.data,
@@ -337,6 +345,7 @@ export function createConnectorRouter(container: Container) {
               config.cmBackend,
               config.scopedJwtSecret,
             );
+            logger.error('Config response', response);
             if (response.statusCode !== 200) {
               throw new InternalServerError(
                 'Error getting credentials',
@@ -349,6 +358,14 @@ export function createConnectorRouter(container: Container) {
                   isConfigured: true,
                 });
               } else {
+                if (
+                  response.data &&
+                  typeof response.data === 'object' &&
+                  Object.keys(response.data).length === 0
+                ) {
+                  res.status(204).end();
+                  return;
+                }
                 throw new InternalServerError(
                   'Error getting config',
                   response?.data,
