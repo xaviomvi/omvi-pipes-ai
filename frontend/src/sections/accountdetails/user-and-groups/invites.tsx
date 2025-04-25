@@ -82,7 +82,7 @@ export default function Invites() {
         const pendingUsers = response.filter((user) => user.hasLoggedIn === false);
         setUsers(pendingUsers);
       } catch (error) {
-        setSnackbar({ open: true, message: error.errorMessage, severity: 'error' });
+        // setSnackbar({ open: true, message: error.errorMessage, severity: 'error' });
       } finally {
         setIsLoading(false);
       }
@@ -142,7 +142,7 @@ export default function Invites() {
         });
       }
     } catch (error) {
-      setSnackbar({ open: true, message: error.errorMessage, severity: 'error' });
+      // setSnackbar({ open: true, message: error.errorMessage, severity: 'error' });
     } finally {
       setConfirmDialog({ ...confirmDialog, open: false });
     }

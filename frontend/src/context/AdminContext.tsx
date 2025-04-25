@@ -33,9 +33,9 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       }
 
       // Get userId from the auth context - with safe type checking
-      const {user} = auth;
+      const { user } = auth;
       const userId = user?.id || user?._id || user?.userId;
-      
+
       if (!userId) {
         console.error('User ID not found in auth context');
         setIsAdmin(false);
@@ -43,40 +43,33 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       }
 
       try {
-        const response = await axios.get(`${CONFIG.backendUrl}/api/v1/users/${userId}/adminCheck`);
-        if (response) {
-          const data = await response.data;
-          setIsAdmin(data.message === "User has admin access");
-        } else {
-          setIsAdmin(false);
-        }
+        const response = await axios.get(`${CONFIG.backendUrl}/api/v1/userGroups/users/${userId}`);
+        const groups = response.data;
+        const isAdminTypeGroup = groups.some((group: any) => group.type === 'admin');
+        setIsAdmin(isAdminTypeGroup );
       } catch (error) {
         setIsAdmin(false);
       }
     };
 
     checkAdmin();
-    // eslint-disable-next-line 
+    // eslint-disable-next-line
   }, [auth?.user, auth?.authenticated]);
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({ isAdmin }), [isAdmin]);
 
-  return (
-    <AdminContext.Provider value={contextValue}>
-      {children}
-    </AdminContext.Provider>
-  );
+  return <AdminContext.Provider value={contextValue}>{children}</AdminContext.Provider>;
 };
 
 // Simple hook to use the admin context
 export const useAdmin = (): AdminContextType => {
   const context = useContext(AdminContext);
-  
+
   // Ensure the context exists (in case someone uses the hook outside the provider)
   if (context === undefined) {
     throw new Error('useAdmin must be used within an AdminProvider');
   }
-  
+
   return context;
 };

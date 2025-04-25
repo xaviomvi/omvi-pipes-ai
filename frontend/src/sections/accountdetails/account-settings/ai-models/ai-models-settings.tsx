@@ -84,7 +84,7 @@ const AiModelsSettings = () => {
 
       setAiModels(modelsList);
     } catch (err) {
-      setError('Failed to load AI models configuration');
+      // setError('Failed to load AI models configuration');
     } finally {
       setIsLoading(false);
     }

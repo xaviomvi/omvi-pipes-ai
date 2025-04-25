@@ -146,7 +146,7 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
           }
         } catch (error) {
           console.error('Failed to load Google authentication configuration', error);
-          showErrorSnackbar('Failed to load Google authentication configuration');
+          // showErrorSnackbar('Failed to load Google authentication configuration');
         } finally {
           setIsLoading(false);
         }
@@ -209,7 +209,7 @@ const GoogleAuthForm = forwardRef<GoogleAuthFormRef, GoogleAuthFormProps>(
 
         return true;
       } catch (error) {
-        showErrorSnackbar('Failed to save Google authentication configuration');
+        // showErrorSnackbar('Failed to save Google authentication configuration');
         return false;
       } finally {
         setIsSaving(false);

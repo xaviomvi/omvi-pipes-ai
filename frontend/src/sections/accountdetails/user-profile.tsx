@@ -131,11 +131,11 @@ export default function UserProfile() {
         setLoading(false);
       } catch (err) {
         setError('Failed to fetch user data');
-        setSnackbar({
-          open: true,
-          message: err.errorMessage,
-          severity: 'error',
-        });
+        // setSnackbar({
+        //   open: true,
+        //   message: err.errorMessage,
+        //   severity: 'error',
+        // });
         setLoading(false);
       }
     };
@@ -151,7 +151,7 @@ export default function UserProfile() {
         setLogo(logoUrl);
       } catch (err) {
         setError('Failed to fetch user photo');
-        setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
+        // setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
       }
     };
 
@@ -171,7 +171,7 @@ export default function UserProfile() {
       });
     } catch (err) {
       setError('Failed to update user');
-      setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
+      // setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
     } finally {
       setSaveChanges(false);
     }
@@ -187,7 +187,7 @@ export default function UserProfile() {
       setDeleting(false);
       setLogo(null);
     } catch (err) {
-      setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
+      // setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
       setDeleting(false);
     }
   };
@@ -209,7 +209,7 @@ export default function UserProfile() {
       setLogo(URL.createObjectURL(file));
     } catch (err) {
       setError('Failed to upload photo');
-      setSnackbar({ open: true, message: 'Failed to upload photo', severity: 'error' });
+      // setSnackbar({ open: true, message: 'Failed to upload photo', severity: 'error' });
       setUploading(false);
     }
   };
@@ -228,7 +228,7 @@ export default function UserProfile() {
       setIsChangePasswordOpen(false);
       passwordMethods.reset();
     } catch (err) {
-      setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
+      // setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
     }
   };
 

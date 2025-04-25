@@ -5,10 +5,11 @@ import SvgIcon from '@mui/material/SvgIcon';
 import { Iconify } from 'src/components/iconify';
 
 import { useAuthContext } from 'src/auth/hooks';
+import { useAdmin } from 'src/context/AdminContext';
 // ----------------------------------------------------------------------
 
 // Business-specific menu items
-const businessMenuItems = [
+const baseBusinessMenuItems = [
   {
     label: 'Company Profile',
     href: '/account/company-settings/profile',
@@ -43,11 +44,11 @@ const businessMenuItems = [
       </SvgIcon>
     ),
   },
-  {
-    label: 'Settings',
-    href: '/account/company-settings/settings/authentication',
-    icon: <Iconify icon={settingsIcon} />,
-  },
+  // {
+  //   label: 'Settings',
+  //   href: '/account/company-settings/settings/authentication',
+  //   icon: <Iconify icon={settingsIcon} />,
+  // },
   // {
   //   label: 'Users & Groups',
   //   href: '/account/company-settings/users',
@@ -64,6 +65,13 @@ const businessMenuItems = [
   //   icon: <Iconify icon="solar:shield-keyhole-bold-duotone" />,
   // }
 ];
+
+// Admin-only menu item for business accounts
+const adminSettingsItem = {
+  label: 'Settings',
+  href: '/account/company-settings/settings/authentication',
+  icon: <Iconify icon={settingsIcon} />,
+};
 
 // Individual-specific menu items
 const individualMenuItems = [
@@ -97,13 +105,22 @@ const individualMenuItems = [
  */
 export const useAccountMenu = () => {
   const { user } = useAuthContext();
+  const { isAdmin } = useAdmin();
 
   // Check for business account type
   const isBusiness = user?.accountType === 'business' || user?.accountType === 'organization';
 
   // Return different menu items based on account type
   if (isBusiness) {
-    return businessMenuItems;
+    // Start with base business menu items
+    const businessItems = [...baseBusinessMenuItems];
+
+    // Only add settings item if user is an admin
+    if (isAdmin === true) {
+      businessItems.push(adminSettingsItem);
+    }
+
+    return businessItems;
   }
 
   // Default to individual menu items

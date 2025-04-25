@@ -113,7 +113,7 @@ const Users = () => {
         setUsers(loggedInUsers);
         setGroups(groupsData);
       } catch (error) {
-        setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
+        // setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
       } finally {
         setLoading(false);
       }
@@ -164,7 +164,7 @@ const Users = () => {
       setUsers(loggedInUsers);
       setSnackbarState({ open: true, message: 'User removed successfully', severity: 'success' });
     } catch (error) {
-      setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
+      // setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
 
@@ -195,7 +195,7 @@ const Users = () => {
         severity: 'success',
       });
     } catch (error) {
-      setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
+      // setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
 
@@ -211,7 +211,7 @@ const Users = () => {
         severity: 'success',
       });
     } catch (error) {
-      setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
+      // setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
 
@@ -793,7 +793,7 @@ function AddUserModal({ open, onClose, groups, onUsersAdded }: AddUserModalProps
       onUsersAdded();
       onClose();
     } catch (error) {
-      setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
+      // setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
 
@@ -916,7 +916,7 @@ function AddUsersToGroupsModal({
       onUsersAdded();
       onClose();
     } catch (error) {
-      setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
+      // setSnackbarState({ open: true, message: error.errorMessage, severity: 'error' });
     }
   };
 

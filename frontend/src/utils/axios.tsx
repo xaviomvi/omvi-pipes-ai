@@ -1,8 +1,8 @@
 import type { AxiosRequestConfig } from 'axios';
-
 import axios from 'axios';
-
 import { CONFIG } from 'src/config-global';
+import React, { useState, createContext, useContext, ReactNode, useEffect, useMemo, useCallback } from 'react';
+import { Snackbar, Alert } from '@mui/material';
 
 // ----------------------------------------------------------------------
 
@@ -26,6 +26,25 @@ export interface ProcessedError {
   retry?: boolean; // Flag indicating if this error can be retried
 }
 
+// Context for error handling and snackbar
+interface ErrorContextType {
+  showError: (message: string) => void;
+}
+
+const ErrorContext = createContext<ErrorContextType | null>(null);
+
+export const useError = (): ErrorContextType => {
+  const context = useContext(ErrorContext);
+  if (!context) {
+    throw new Error('useError must be used within an ErrorProvider');
+  }
+  return context;
+};
+
+interface ErrorProviderProps {
+  children: ReactNode;
+}
+
 // Create axios instance with config
 const axiosInstance = axios.create({ baseURL: CONFIG.backendUrl });
 
@@ -34,7 +53,6 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     // Default error structure
-
     const processedError: ProcessedError = {
       type: ErrorType.UNKNOWN_ERROR,
       message:
@@ -97,9 +115,63 @@ axiosInstance.interceptors.response.use(
       processedError.message = error.message;
     }
 
+    // Try to show error in snackbar if ErrorContext is available
+    try {
+      const errorContext = (window as any).__errorContext;
+      if (errorContext && errorContext.showError) {
+        errorContext.showError(processedError.message);
+      }
+    } catch (e) {
+      console.error('Failed to show error in snackbar:', e);
+    }
+
     return Promise.reject(processedError);
   }
 );
+
+// Error provider component that provides snackbar functionality
+export const ErrorProvider: React.FC<ErrorProviderProps> = ({ children }) => {
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  const showError = useCallback((message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarOpen(true);
+  }, []);
+
+  const handleClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
+
+  const contextValue = useMemo(() => ({ showError }), [showError]);
+
+  // Make error handler available globally
+  useEffect(() => {
+    (window as any).__errorContext = contextValue;
+    return () => {
+      delete (window as any).__errorContext;
+    };
+  }, [contextValue]);
+
+  return (
+    <ErrorContext.Provider value={contextValue}>
+      {children}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleClose} severity="error" sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+    </ErrorContext.Provider>
+  );
+};
 
 export default axiosInstance;
 

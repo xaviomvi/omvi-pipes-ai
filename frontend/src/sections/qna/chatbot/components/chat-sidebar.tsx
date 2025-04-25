@@ -118,11 +118,11 @@ const ChatSidebar = ({
         if (!isMounted.current) return;
 
         setHasMore(false);
-        setSnackbar({
-          open: true,
-          message: 'Failed to fetch conversations. Please try again later.',
-          severity: 'error',
-        });
+        // setSnackbar({
+        //   open: true,
+        //   message: 'Failed to fetch conversations. Please try again later.',
+        //   severity: 'error',
+        // });
       } finally {
         if (isMounted.current) {
           setIsLoading(false);
@@ -280,11 +280,11 @@ const ChatSidebar = ({
         });
         handleEditCancel();
       } catch (error) {
-        setSnackbar({
-          open: true,
-          message: 'Failed to rename conversation. Please try again.',
-          severity: 'error',
-        });
+        // setSnackbar({
+        //   open: true,
+        //   message: 'Failed to rename conversation. Please try again.',
+        //   severity: 'error',
+        // });
       }
     },
     [editingChat, editTitle, handleEditCancel]
@@ -317,11 +317,11 @@ const ChatSidebar = ({
         severity: 'success',
       });
     } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Failed to delete conversation. Please try again.',
-        severity: 'error',
-      });
+      // setSnackbar({
+      //   open: true,
+      //   message: 'Failed to delete conversation. Please try again.',
+      //   severity: 'error',
+      // });
     } finally {
       setIsDeleting(false);
       setDeleteDialog({ open: false, chat: null });
@@ -341,11 +341,11 @@ const ChatSidebar = ({
           severity: 'success',
         });
       } catch (error) {
-        setSnackbar({
-          open: true,
-          message: 'Failed to archive conversation. Please try again.',
-          severity: 'error',
-        });
+        // setSnackbar({
+        //   open: true,
+        //   message: 'Failed to archive conversation. Please try again.',
+        //   severity: 'error',
+        // });
       }
     },
     [fetchConversations, handleMenuClose, onNewChat]

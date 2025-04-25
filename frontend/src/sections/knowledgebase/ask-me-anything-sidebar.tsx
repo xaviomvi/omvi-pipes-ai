@@ -153,11 +153,11 @@ const RecordSidebar = ({
         setPage(pageNum);
       } catch (error) {
         setHasMore(false);
-        setSnackbar({
-          open: true,
-          message: 'Failed to fetch conversations',
-          severity: 'error',
-        });
+        // setSnackbar({
+        //   open: true,
+        //   message: 'Failed to fetch conversations',
+        //   severity: 'error',
+        // });
       } finally {
         setIsLoading(false);
       }

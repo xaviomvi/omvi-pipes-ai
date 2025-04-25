@@ -128,11 +128,11 @@ export default function PersonalProfile() {
         setLoading(false);
       } catch (err) {
         setError('Failed to fetch organization data');
-        setSnackbar({
-          open: true,
-          message: err.errorMessage,
-          severity: 'error',
-        });
+        // setSnackbar({
+        //   open: true,
+        //   message: err.errorMessage,
+        //   severity: 'error',
+        // });
         setLoading(false);
       }
     };
@@ -187,7 +187,7 @@ export default function PersonalProfile() {
       setLoading(false);
     } catch (err) {
       setError('Failed to update user');
-      setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
+      // setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
       setLoading(false);
     } finally {
       setSaveChanges(false);
@@ -203,7 +203,7 @@ export default function PersonalProfile() {
       setDeleting(false);
       setLogo(null);
     } catch (err) {
-      setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
+      // setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
       setDeleting(false);
     }
   };
@@ -224,7 +224,7 @@ export default function PersonalProfile() {
       setLogo(URL.createObjectURL(file));
     } catch (err) {
       setError('Failed to upload photo');
-      setSnackbar({ open: true, message: 'Failed to upload photo', severity: 'error' });
+      // setSnackbar({ open: true, message: 'Failed to upload photo', severity: 'error' });
       setUploading(false);
     }
   };
@@ -243,7 +243,7 @@ export default function PersonalProfile() {
       setIsChangePasswordOpen(false);
       passwordMethods.reset();
     } catch (err) {
-      setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
+      // setSnackbar({ open: true, message: err.errorMessage, severity: 'error' });
     }
   };
 
@@ -536,7 +536,7 @@ export default function PersonalProfile() {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert
           onClose={handleCloseSnackbar}

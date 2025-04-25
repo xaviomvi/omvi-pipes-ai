@@ -116,7 +116,7 @@ const MessageContent: React.FC<MessageContentProps> = ({
   // Split content by newlines first
   const lines = useMemo(() => content.split('\n'), [content]);
 
-  const handleMouseEnter = useCallback(
+  const handleCitationInteraction = useCallback(
     (citationRef: string, citationId: string) => {
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
@@ -135,6 +135,13 @@ const MessageContent: React.FC<MessageContentProps> = ({
       }
     },
     [citationNumberMap, aggregatedCitations]
+  );
+
+  const handleMouseEnter = useCallback(
+    (citationRef: string, citationId: string) => {
+      handleCitationInteraction(citationRef, citationId);
+    },
+    [handleCitationInteraction]
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -156,6 +163,48 @@ const MessageContent: React.FC<MessageContentProps> = ({
     setHoveredRecordCitations([]);
     setHoveredCitation(null);
   }, []);
+
+  const handleClick = useCallback(
+    (citationRef: string, citationId: string, event: React.MouseEvent) => {
+      // Prevent any parent click handlers from firing
+      event.stopPropagation();
+      console.log('citation clicked');
+
+      // Get the citation number and citation object
+      const citationNumber = parseInt(citationRef.replace(/[[\]]/g, ''), 10);
+      const citation = citationNumberMap[citationNumber];
+
+      if (citation) {
+        let recordCitationsForDoc: CustomCitation[] = [];
+
+        if (citation.metadata?.recordId) {
+          const recordCitations = aggregatedCitations[citation.metadata.recordId] || [];
+          recordCitationsForDoc = recordCitations;
+          setHoveredRecordCitations(recordCitations);
+        }
+        setHoveredCitation(citation);
+        setHoveredCitationId(citationId);
+
+        // Open the document if it's a PDF, Excel, or CSV
+        if (citation.metadata?.recordId) {
+          try {
+            const isExcelOrCSV = ['csv', 'xlsx', 'xls'].includes(citation.metadata?.extension);
+            const citationMeta = citation.metadata;
+            onViewPdf('', citationMeta, recordCitationsForDoc, isExcelOrCSV);
+          } catch (err) {
+            console.error('Failed to fetch document:', err);
+          }
+        }
+        console.log(recordCitationsForDoc);
+      }
+
+      // Toggle the hover card
+      if (hoveredCitationId === citationId) {
+        handleCloseHoverCard();
+      }
+    },
+    [hoveredCitationId, citationNumberMap, aggregatedCitations, onViewPdf, handleCloseHoverCard]
+  );
 
   // Render line with markdown and citations
   const renderLineWithMarkdown = (line: string, lineIndex: number) => {
@@ -187,6 +236,7 @@ const MessageContent: React.FC<MessageContentProps> = ({
               <Box
                 component="span"
                 onMouseEnter={() => handleMouseEnter(part, citationId)}
+                onClick={(e) => handleClick(part, citationId, e)}
                 onMouseLeave={handleMouseLeave}
                 sx={{
                   display: 'inline-flex',

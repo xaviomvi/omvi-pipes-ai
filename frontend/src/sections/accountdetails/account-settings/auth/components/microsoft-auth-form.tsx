@@ -141,7 +141,7 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
             tenantId: config?.tenantId || 'common',
           }));
         } catch (error) {
-          showErrorSnackbar('Failed to load Microsoft authentication configuration');
+          // showErrorSnackbar('Failed to load Microsoft authentication configuration');
         } finally {
           setIsLoading(false);
         }
@@ -211,7 +211,7 @@ const MicrosoftAuthForm = forwardRef<MicrosoftAuthFormRef, MicrosoftAuthFormProp
 
         return true;
       } catch (error) {
-        showErrorSnackbar('Failed to save Microsoft authentication configuration');
+        // showErrorSnackbar('Failed to save Microsoft authentication configuration');
         return false;
       } finally {
         setIsSaving(false);

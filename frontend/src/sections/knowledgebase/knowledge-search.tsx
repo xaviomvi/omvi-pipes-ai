@@ -37,7 +37,6 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import { useUsers } from 'src/context/UserContext';
 
 import { ORIGIN } from './constants/knowledge-search';
 
@@ -168,7 +167,6 @@ const KnowledgeSearch = ({
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const navigate = useNavigate();
   const observer = useRef<IntersectionObserver | null>(null);
-  const users = useUsers();
   const [hasSearched, setHasSearched] = useState<boolean>(false);
 
   // Synchronize searchQuery with parent component's state

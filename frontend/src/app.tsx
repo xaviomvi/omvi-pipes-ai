@@ -21,6 +21,7 @@ import { SettingsDrawer, defaultSettings, SettingsProvider } from 'src/component
 import { AuthProvider as JwtAuthProvider } from 'src/auth/context/jwt';
 
 import store from './store/store';
+import { ErrorProvider } from './utils/axios';
 
 // ----------------------------------------------------------------------
 
@@ -41,7 +42,11 @@ export default function App() {
                     <Snackbar />
                     <ProgressBar />
                     <SettingsDrawer />
-                    <Router />
+                    <>
+                      <ErrorProvider>
+                        <Router />
+                      </ErrorProvider>
+                    </>
                   </MotionLazy>
                 </AdminProvider>
               </ThemeProvider>

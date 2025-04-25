@@ -30,7 +30,6 @@ const AUTH_METHOD_TYPES = ['password', 'otp', 'google', 'microsoft', 'azureAd', 
 // Main component
 const AuthenticationSettings: React.FC = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [authMethods, setAuthMethods] = useState<AuthMethod[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +59,7 @@ const AuthenticationSettings: React.FC = () => {
       setSmtpConfigured(!!response.data?.host && !!response.data?.fromEmail);
     } catch (err) {
       setSmtpConfigured(false);
-      showErrorSnackbar('Failed to check SMTP configuration');
+      // showErrorSnackbar('Failed to check SMTP configuration');
     }
   };
 
@@ -88,7 +87,7 @@ const AuthenticationSettings: React.FC = () => {
       setAuthMethods(allMethods);
     } catch (err) {
       setError('Failed to load authentication settings');
-      showErrorSnackbar('Failed to load authentication settings');
+      // showErrorSnackbar('Failed to load authentication settings');
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +141,7 @@ const AuthenticationSettings: React.FC = () => {
       fetchAuthMethods();
     } catch (err) {
       setError('Failed to save changes. Please try again.');
-      showErrorSnackbar('Failed to save changes. Please try again.');
+      // showErrorSnackbar('Failed to save changes. Please try again.');
     } finally {
       setIsLoading(false);
     }

@@ -193,7 +193,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
               showErrorSnackbar('Please correct the form errors before saving');
             } else {
               // Handle API errors
-              showErrorSnackbar('Failed to save SMTP configuration');
+              // showErrorSnackbar('Failed to save SMTP configuration');
             }
             return false;
           } finally {
@@ -225,7 +225,7 @@ const SmtpConfigForm = forwardRef<SmtpConfigFormRef, SmtpConfigFormProps>(
             setFormData(loadedData);
           }
         } catch (error) {
-          showErrorSnackbar('Failed to load SMTP configuration');
+          // showErrorSnackbar('Failed to load SMTP configuration');
         } finally {
           setIsLoading(false);
           setInitialLoad(false);

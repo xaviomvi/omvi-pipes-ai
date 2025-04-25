@@ -129,11 +129,11 @@ export default function GroupDetails() {
         setGroup(groupData);
         setGroupUsers(filteredUsersList);
       } catch (error) {
-        setSnackbarState({
-          open: true,
-          message: error.errorMessage || 'Error fetching group data',
-          severity: 'error',
-        });
+        // setSnackbarState({
+        //   open: true,
+        //   message: error.errorMessage || 'Error fetching group data',
+        //   severity: 'error',
+        // });
       } finally {
         setIsLoading(false);
       }
@@ -217,11 +217,11 @@ export default function GroupDetails() {
       const filteredUsersList = filterGroupUsers(loggedInUsers, groupData.users);
       setGroupUsers(filteredUsersList);
     } catch (error) {
-      setSnackbarState({
-        open: true,
-        message: 'Error refreshing user data, please reload',
-        severity: 'error',
-      });
+      // setSnackbarState({
+      //   open: true,
+      //   message: 'Error refreshing user data, please reload',
+      //   severity: 'error',
+      // });
     }
   };
 
@@ -236,11 +236,11 @@ export default function GroupDetails() {
         severity: 'success',
       });
     } catch (error) {
-      setSnackbarState({
-        open: true,
-        message: error.errorMessage || 'Error removing user',
-        severity: 'error',
-      });
+      // setSnackbarState({
+      //   open: true,
+      //   message: error.errorMessage || 'Error removing user',
+      //   severity: 'error',
+      // });
     }
   };
 
@@ -872,11 +872,11 @@ function EditGroupModal({
       });
       onClose();
     } catch (error) {
-      setSnackbarState({
-        open: true,
-        message: error.errorMessage || 'Error updating group',
-        severity: 'error',
-      });
+      // setSnackbarState({
+      //   open: true,
+      //   message: error.errorMessage || 'Error updating group',
+      //   severity: 'error',
+      // });
     }
   };
 
@@ -1032,11 +1032,11 @@ function AddUsersToGroupsModal({
       onUsersAdded();
       onClose();
     } catch (error) {
-      setSnackbarState({
-        open: true,
-        message: error.errorMessage || 'Error adding users to group',
-        severity: 'error',
-      });
+      // setSnackbarState({
+      //   open: true,
+      //   message: error.errorMessage || 'Error adding users to group',
+      //   severity: 'error',
+      // });
     }
   };
 

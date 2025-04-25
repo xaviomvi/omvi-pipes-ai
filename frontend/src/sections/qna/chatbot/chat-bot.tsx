@@ -429,11 +429,11 @@ const ChatInterface = () => {
       }
     } catch (err) {
       console.error('Failed to fetch document:', err);
-      setSnackbar({
-        open: true,
-        message: err.message.includes('fetch failed') ? 'Failed to fetch document' : err.message,
-        severity: 'error',
-      });
+      // setSnackbar({
+      //   open: true,
+      //   message: err.message.includes('fetch failed') ? 'Failed to fetch document' : err.message,
+      //   severity: 'error',
+      // });
       setTimeout(() => {
         onClosePdf();
       }, 500);
