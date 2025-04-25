@@ -36,6 +36,10 @@ import {
   setFrontendUrl,
   getConnectorPublicUrl,
   setConnectorPublicUrl,
+  toggleMetricsCollection,
+  getMetricsCollection,
+  setMetricsCollectionPushInterval,
+  setMetricsCollectionRemoteServer,
 } from '../controller/cm_controller';
 import { KeyValueStoreService } from '../../../libs/services/keyValueStore.service';
 import { ValidationMiddleware } from '../../../libs/middlewares/validation.middleware';
@@ -53,6 +57,9 @@ import {
   arangoDBConfigSchema,
   qdrantConfigSchema,
   urlSchema,
+  metricsCollectionPushIntervalSchema,
+  metricsCollectionToggleSchema,
+  metricsCollectionRemoteServerSchema,
 } from '../validator/validators';
 import { FileProcessorFactory } from '../../../libs/middlewares/file_processor/fp.factory';
 import { FileProcessingType } from '../../../libs/middlewares/file_processor/fp.constant';
@@ -611,6 +618,42 @@ export function createConfigurationManagerRouter(container: Container): Router {
     metricsMiddleware(container),
     setConnectorPublicUrl(keyValueStoreService, eventService),
   );
+
+  // metrics collection routes
+  router.patch(
+    '/metricsCollection/toggle',
+    authMiddleware.authenticate,
+    userAdminCheck,
+    ValidationMiddleware.validate(metricsCollectionToggleSchema),
+    metricsMiddleware(container),
+    toggleMetricsCollection(keyValueStoreService),
+  )
+
+  router.get(
+    '/metricsCollection/',
+    authMiddleware.authenticate,
+    userAdminCheck,
+    metricsMiddleware(container),
+    getMetricsCollection(keyValueStoreService),
+  );
+
+  router.patch(
+    '/metricsCollection/pushInterval',
+    authMiddleware.authenticate,
+    userAdminCheck,
+    ValidationMiddleware.validate(metricsCollectionPushIntervalSchema),
+    metricsMiddleware(container),
+    setMetricsCollectionPushInterval(keyValueStoreService),
+  )
+
+  router.patch(
+    '/metricsCollection/serverUrl',
+    authMiddleware.authenticate,
+    userAdminCheck,
+    ValidationMiddleware.validate(metricsCollectionRemoteServerSchema),
+    metricsMiddleware(container),
+    setMetricsCollectionRemoteServer(keyValueStoreService),
+  )
 
   return router;
 }

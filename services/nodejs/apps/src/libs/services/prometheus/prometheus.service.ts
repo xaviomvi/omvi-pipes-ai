@@ -10,8 +10,8 @@ import {
   routeUsageFields,
   userActivityFields,
 } from './constants';
-import { etcdPath } from './paths';
 import { parseBoolean } from '../../../modules/storage/utils/utils';
+import { configPaths } from '../../../modules/configuration_manager/paths/paths';
 
 const logger = Logger.getInstance({
   service: 'Prometheus Service',
@@ -23,7 +23,7 @@ export class PrometheusService {
   private static instance: PrometheusService;
   private static defaultMetricHost =
     'https://metrics-collector.intellysense.com/collect-metrics';
-  private static defaultPushInterval = 50000; //ms
+  private static defaultPushInterval = 60000; //ms
   private apiCallCounter!: promClient.Counter;
   private activeUsers!: promClient.Gauge;
   private userActivityCounter!: promClient.Counter;
@@ -80,12 +80,13 @@ export class PrometheusService {
     this.register.registerMetric(this.routeUsageCounter);
 
     // add watch for enable metric collection field
-    this.watchKeysForMetricsCollection(etcdPath);
+    this.watchKeysForMetricsCollection(configPaths.metricsCollection);
 
     PrometheusService.instance = this;
   }
 
   async initAndStartMetricsCollection() {
+    logger.debug('Initializing and starting metrics collection');
     try {
       const metricsServer = await this.getOrSet(
         keyValues.SERVER_URL,
@@ -141,27 +142,28 @@ export class PrometheusService {
   }
 
   async startOrStopMetricCollection() {
-    const etcdValue = JSON.parse(
-      (await this.kvStore.get<string>(etcdPath)) || '{}',
+    logger.debug('Starting or stopping metrics collection');
+    const metricsCollection = JSON.parse(
+      (await this.kvStore.get<string>(configPaths.metricsCollection)) || '{}',
     );
-    const currentValue = parseBoolean(etcdValue.enableMetricCollection);
+    const currentValue = parseBoolean(metricsCollection.enableMetricCollection);
 
     if (currentValue === true) {
-      logger.debug('Flag is TRUE - Starting metrics push');
+      logger.debug('metrics collection flag is TRUE - Starting metrics push');
       this.startMetricsPush();
     } else if (currentValue === false) {
-      logger.debug('Flag is FALSE - Stopping metrics push');
+      logger.debug('metrics collection flag is FALSE - Stopping metrics push');
       this.stopMetricsPush();
     }
   }
 
   async getOrSet(key: string, value: string): Promise<string> {
     const etcdValue = JSON.parse(
-      (await this.kvStore.get<string>(etcdPath)) || '{}',
+      (await this.kvStore.get<string>(configPaths.metricsCollection)) || '{}',
     );
     if (!(key in etcdValue)) {
       etcdValue[key] = value; // Add the key-value pair while keeping others intact
-      await this.kvStore.set<string>(etcdPath, JSON.stringify(etcdValue)); // Save back to store
+      await this.kvStore.set<string>(configPaths.metricsCollection, JSON.stringify(etcdValue)); // Save back to store
       return value;
     }
 
@@ -195,10 +197,7 @@ export class PrometheusService {
    * Stop pushing metrics
    */
   stopMetricsPush(): void {
-    logger.debug(
-      'Attempting to stop metrics push - Current interval ID:',
-      this.pushInterval,
-    );
+    logger.debug('Attempting to stop metrics push');
 
     // Force clear any interval that might exist
     if (this.pushInterval !== null) {
@@ -273,8 +272,7 @@ export class PrometheusService {
         // The server responded with a status code outside the 2xx range
         logger.error('Error pushing metrics - Server responded with error:', {
           status: error.response.status,
-          headers: error.response.headers,
-          data: error.response.data,
+          serverUrl: this.metricsServerUrl,
         });
       } else if (error.request) {
         // The request was made but no response was received
