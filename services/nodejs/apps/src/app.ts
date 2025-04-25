@@ -80,8 +80,6 @@ export class Application {
       const configurationManagerConfig = loadConfigurationManagerConfig();
       const appConfig = await loadAppConfig();
 
-      this.logger.debug('Centralised Config:', appConfig);
-
       this.tokenManagerContainer = await TokenManagerContainer.initialize(
         configurationManagerConfig,
       );
