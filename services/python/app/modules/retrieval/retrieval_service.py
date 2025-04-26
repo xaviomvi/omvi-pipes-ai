@@ -5,8 +5,9 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.models import FieldCondition, Filter, MatchValue
 
 from app.config.ai_models_named_constants import (
+    AZURE_EMBEDDING_API_VERSION,
+    DEFAULT_EMBEDDING_MODEL,
     AzureOpenAILLM,
-    EmbeddingModel,
     EmbeddingProvider,
     LLMProvider,
 )
@@ -15,7 +16,9 @@ from app.config.configuration_service import config_node_constants
 from app.core.embedding_service import (
     AzureEmbeddingConfig,
     EmbeddingFactory,
+    HuggingFaceEmbeddingConfig,
     OpenAIEmbeddingConfig,
+    SentenceTransformersEmbeddingConfig,
 )
 from app.core.llm_service import (
     AnthropicLLMConfig,
@@ -23,6 +26,7 @@ from app.core.llm_service import (
     AzureLLMConfig,
     GeminiLLMConfig,
     LLMFactory,
+    OllamaConfig,
     OpenAILLMConfig,
 )
 from app.modules.retrieval.retrieval_arango import ArangoService
@@ -125,6 +129,12 @@ class RetrievalService:
                         access_secret=config['configuration']['aws_access_secret_key'],
                         api_key=config['configuration']['aws_access_secret_key'],
                     )
+                elif provider == LLMProvider.OLLAMA_PROVIDER.value:
+                    llm_config = OllamaConfig(
+                        model=config['configuration']['model'],
+                        temperature=0.2,
+                        api_key=config['configuration']['apiKey'],
+                    )
             if not llm_config:
                 raise ValueError("No supported LLM provider found in configuration")
 
@@ -148,17 +158,26 @@ class RetrievalService:
                         model=config['configuration']['model'],
                         api_key=config['configuration']['apiKey'],
                         azure_endpoint=config['configuration']['endpoint'],
-                        azure_api_version=EmbeddingModel.AZURE_EMBEDDING_VERSION.value,
+                        azure_api_version=AZURE_EMBEDDING_API_VERSION,
                     )
                 elif provider == EmbeddingProvider.OPENAI_PROVIDER.value:
                     embedding_model = OpenAIEmbeddingConfig(
                         model=config['configuration']['model'],
                         api_key=config['configuration']['apiKey'],
                     )
+                elif provider == EmbeddingProvider.HUGGING_FACE_PROVIDER.value:
+                    embedding_model =   HuggingFaceEmbeddingConfig(
+                      model=config['configuration']['model'],
+                      api_key=config['configuration']['apiKey'],
+                    )
+                elif provider == EmbeddingProvider.SENTENCE_TRANSFOMERS.value:
+                    embedding_model =   SentenceTransformersEmbeddingConfig(
+                      model=config['configuration']['model'],
+                    )
 
             if not embedding_model:
                 self.logger.info("No embedding model found in configuration, using default embedding model")
-                embedding_model = EmbeddingModel.DEFAULT_EMBEDDING_MODEL.value
+                embedding_model = DEFAULT_EMBEDDING_MODEL
                 self.dense_embeddings = await get_default_embedding_model()
             else:
                 self.logger.info(f"Using embedding model: {embedding_model}")
