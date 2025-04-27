@@ -1,4 +1,9 @@
-import type { Metadata, CustomCitation, FormattedMessage, ExpandedCitationsState } from 'src/types/chat-bot';
+import type {
+  Metadata,
+  CustomCitation,
+  FormattedMessage,
+  ExpandedCitationsState,
+} from 'src/types/chat-bot';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 
@@ -8,35 +13,47 @@ import ChatMessage from './chat-message';
 import WelcomeMessage from './welcome-message';
 
 type ChatMessagesAreaProps = {
-  messages : FormattedMessage[];
-  isLoading : boolean;
-  expandedCitations : ExpandedCitationsState;
-  onToggleCitations : (index : number) => void;
-  onRegenerateMessage : (messageId : string) => Promise<void>;
-  onFeedbackSubmit : (messageId : string, feedback : any) => Promise<void>;
-  conversationId : string | null;
-  isLoadingConversation : boolean;
-  onViewPdf : (url: string,citationMeta : Metadata, citations: CustomCitation[], isExcelFile?: boolean, buffer?: ArrayBuffer) => void;
-}
+  messages: FormattedMessage[];
+  isLoading: boolean;
+  expandedCitations: ExpandedCitationsState;
+  onToggleCitations: (index: number) => void;
+  onRegenerateMessage: (messageId: string) => Promise<void>;
+  onFeedbackSubmit: (messageId: string, feedback: any) => Promise<void>;
+  conversationId: string | null;
+  isLoadingConversation: boolean;
+  onViewPdf: (
+    url: string,
+    citationMeta: Metadata,
+    citations: CustomCitation[],
+    isExcelFile?: boolean,
+    buffer?: ArrayBuffer
+  ) => void;
+};
 
 type ProcessingIndicatorProps = {
-  isLoadingConversation : boolean;
-}
+  isLoadingConversation: boolean;
+};
 
 type MessageWithControlsProps = {
-  message :FormattedMessage;
-  index : number;
-  isExpanded : boolean;
-  onToggleCitations : (index : number) => void;
-  onViewPdf : (url: string,citationMeta : Metadata, citations: CustomCitation[], isExcelFile?: boolean,buffer?: ArrayBuffer) => void;
-  onFeedbackSubmit : (messageId : string, feedback : any) => Promise<void>;
-  conversationId : string | null;
-  onRegenerate : (messageId : string) => Promise<void>;
-  showRegenerate : boolean;
-}
+  message: FormattedMessage;
+  index: number;
+  isExpanded: boolean;
+  onToggleCitations: (index: number) => void;
+  onViewPdf: (
+    url: string,
+    citationMeta: Metadata,
+    citations: CustomCitation[],
+    isExcelFile?: boolean,
+    buffer?: ArrayBuffer
+  ) => void;
+  onFeedbackSubmit: (messageId: string, feedback: any) => Promise<void>;
+  conversationId: string | null;
+  onRegenerate: (messageId: string) => Promise<void>;
+  showRegenerate: boolean;
+};
 
 // Loading states for different scenarios
-const ProcessingIndicator = ({ isLoadingConversation } : ProcessingIndicatorProps) => (
+const ProcessingIndicator = ({ isLoadingConversation }: ProcessingIndicatorProps) => (
   <Fade in={Boolean(true)}>
     <Stack
       direction="row"
@@ -80,7 +97,7 @@ const ChatMessagesArea = ({
   onRegenerateMessage,
   onFeedbackSubmit,
   conversationId,
-  isLoadingConversation ,
+  isLoadingConversation,
   onViewPdf,
 }: ChatMessagesAreaProps) => {
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
@@ -90,10 +107,14 @@ const ChatMessagesArea = ({
 
   // Find the last bot message for regeneration
   const canRegenerateMessage = useCallback(
-    (message : FormattedMessage) => {
+    (message: FormattedMessage) => {
       const botMessages = messages.filter((msg) => msg.type === 'bot');
       const lastBotMessage = botMessages[botMessages.length - 1];
-      return message.type === 'bot' && message.id === lastBotMessage?.id;
+      return (
+        message.type === 'bot' &&
+        message.id === lastBotMessage?.id &&
+        !message.id.startsWith('error-')
+      );
     },
     [messages]
   );
@@ -120,7 +141,7 @@ const ChatMessagesArea = ({
         // ...scrollableContainerStyle,
       }}
     >
-    {isLoadingConversation ? (
+      {isLoadingConversation ? (
         // Centered loading indicator
         <Box
           sx={{
@@ -187,11 +208,11 @@ const MessageWithControls = React.memo(
     onFeedbackSubmit,
     conversationId,
     showRegenerate,
-    onViewPdf
-  } : MessageWithControlsProps) => {
+    onViewPdf,
+  }: MessageWithControlsProps) => {
     const [isRegenerating, setIsRegenerating] = useState(false);
 
-    const handleRegenerate = async (messageId : string) : Promise<void> => {
+    const handleRegenerate = async (messageId: string): Promise<void> => {
       setIsRegenerating(true);
       try {
         await onRegenerate(messageId);

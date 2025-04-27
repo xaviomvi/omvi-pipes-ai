@@ -920,33 +920,35 @@ const ChatMessage = ({
               <Divider sx={{ my: 1 }} />
               <Stack direction="row" spacing={1} alignItems="center">
                 {showRegenerate && (
-                  <Tooltip title="Regenerate response">
-                    <IconButton
-                      onClick={() => onRegenerate(message.id)}
-                      size="small"
-                      disabled={isRegenerating}
-                      sx={{
-                        color: 'text.secondary',
-                        '&:hover': {
-                          color: 'primary.main',
-                          backgroundColor: 'rgba(25, 118, 210, 0.05)',
-                        },
-                      }}
-                    >
-                      <Icon
-                        icon={isRegenerating ? loadingIcon : refreshIcon}
-                        width={16}
-                        height={16}
-                        className={isRegenerating ? 'spin' : ''}
-                      />
-                    </IconButton>
-                  </Tooltip>
+                  <>
+                    <Tooltip title="Regenerate response">
+                      <IconButton
+                        onClick={() => onRegenerate(message.id)}
+                        size="small"
+                        disabled={isRegenerating}
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                            backgroundColor: 'rgba(25, 118, 210, 0.05)',
+                          },
+                        }}
+                      >
+                        <Icon
+                          icon={isRegenerating ? loadingIcon : refreshIcon}
+                          width={16}
+                          height={16}
+                          className={isRegenerating ? 'spin' : ''}
+                        />
+                      </IconButton>
+                    </Tooltip>
+                    <MessageFeedback
+                      messageId={message.id}
+                      conversationId={conversationId}
+                      onFeedbackSubmit={onFeedbackSubmit}
+                    />
+                  </>
                 )}
-                <MessageFeedback
-                  messageId={message.id}
-                  conversationId={conversationId}
-                  onFeedbackSubmit={onFeedbackSubmit}
-                />
               </Stack>
             </>
           )}
