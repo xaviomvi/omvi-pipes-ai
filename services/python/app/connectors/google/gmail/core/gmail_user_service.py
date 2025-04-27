@@ -551,7 +551,6 @@ class GmailUserService:
             failed_items = []
 
             self.logger.info(f"🎯 Processing attachments for message: {message['id']}")
-            self.logger.info(f"🎯 Message: {message}")
 
             # Process regular attachments
             if "payload" in message and "parts" in message["payload"]:
@@ -790,6 +789,9 @@ class GmailUserService:
         """Fetches new emails using Gmail API's history endpoint"""
         try:
             self.logger.info("🚀 Fetching changes in user mail")
+            if self.service is None:
+                self.logger.error("Service is not initialized yet")
+                return {}
 
             if not history_id:
                 raise MailOperationError(

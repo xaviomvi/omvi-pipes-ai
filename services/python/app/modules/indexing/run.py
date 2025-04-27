@@ -437,13 +437,14 @@ class IndexingPipeline:
                     details={"collection": self.collection_name, "error": str(e)},
                 )
 
-    async def get_embedding_model_instance(self):
+    async def get_embedding_model_instance(self, embedding_configs = None):
         try:
             self.logger.info("Getting embedding model")
-            ai_models = await self.config_service.get_config(
-                config_node_constants.AI_MODELS.value
-            )
-            embedding_configs = ai_models["embedding"]
+            if not embedding_configs:
+                ai_models = await self.config_service.get_config(
+                    config_node_constants.AI_MODELS.value
+                )
+                embedding_configs = ai_models["embedding"]
             self.logger.info(f"Embedding configs: {embedding_configs}")
             embedding_model = None
 
@@ -498,10 +499,14 @@ class IndexingPipeline:
                 self.logger.warning(
                     f"Error with configured embedding model, falling back to default: {str(e)}"
                 )
-                embedding_model = DEFAULT_EMBEDDING_MODEL
-                self.dense_embeddings = await get_default_embedding_model()
-                sample_embedding = self.dense_embeddings.embed_query("test")
-                embedding_size = len(sample_embedding)
+                raise IndexingError(
+                    "Failed to get embedding model: " + str(e),
+                    details={"error": str(e)},
+                )
+                # embedding_model = DEFAULT_EMBEDDING_MODEL
+                # self.dense_embeddings = await get_default_embedding_model()
+                # sample_embedding = self.dense_embeddings.embed_query("test")
+                # embedding_size = len(sample_embedding)
 
             self.logger.info(
                 f"Using embedding model: {embedding_model}, embedding_size: {embedding_size}"
@@ -572,6 +577,8 @@ class IndexingPipeline:
                         "Failed to process metadata for chunk: " + str(e),
                         details={"error": str(e), "metadata": meta},
                     )
+
+            self.logger.debug("Enhanced metadata processed")
 
             # Store in vector store
             try:
@@ -832,7 +839,6 @@ class IndexingPipeline:
             if meta.get("pageNum"):
                 enhanced_metadata["pageNum"] = meta.get("pageNum")
 
-            self.logger.debug("Enhanced metadata processed")
             return enhanced_metadata
 
         except MetadataProcessingError:
