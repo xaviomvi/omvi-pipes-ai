@@ -49,7 +49,7 @@ export const UploadNewSchema = z.object({
     .object({
       documentName: z.string(),
       documentPath: z.string().optional(),
-      alternativeDocumentName: z.string().optional(),
+      alternateDocumentName: z.string().optional(),
       permissions: z.string().optional(),
       customMetadata: z.any().optional(),
       isVersionedFile: z.string(),

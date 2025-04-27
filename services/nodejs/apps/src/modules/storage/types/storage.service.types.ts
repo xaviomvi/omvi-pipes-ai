@@ -44,7 +44,7 @@ export interface Document {
   /**
    * An alternative name for the document.
    */
-  alternativeDocumentName?: string;
+  alternateDocumentName?: string;
 
   /**
    * The path where the document is stored.

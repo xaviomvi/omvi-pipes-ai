@@ -147,7 +147,7 @@ export async function createPlaceholderDocument(
   try {
     const {
       documentName,
-      alternativeDocumentName,
+      alternateDocumentName,
       documentPath,
       permissions,
       customMetadata,
@@ -170,7 +170,7 @@ export async function createPlaceholderDocument(
     const documentInfo: Partial<Document> = {
       documentName,
       documentPath,
-      alternativeDocumentName,
+      alternateDocumentName,
       orgId: new mongoose.Types.ObjectId(orgId),
       isVersionedFile: isVersionedFile,
       permissions: permissions,
