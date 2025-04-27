@@ -1,7 +1,15 @@
 import type { AxiosRequestConfig } from 'axios';
 import axios from 'axios';
 import { CONFIG } from 'src/config-global';
-import React, { useState, createContext, useContext, ReactNode, useEffect, useMemo, useCallback } from 'react';
+import React, {
+  useState,
+  createContext,
+  useContext,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useCallback,
+} from 'react';
 import { Snackbar, Alert } from '@mui/material';
 
 // ----------------------------------------------------------------------
@@ -83,9 +91,19 @@ axiosInstance.interceptors.response.use(
         if (error.response.data) {
           if (typeof error.response.data === 'string') {
             processedError.message = error.response.data;
-          } else if (error.response.data.message) {
-            processedError.message = error.response.data.message;
-            processedError.details = error.response.data;
+          } else {
+            // Check for error.metadata.detail first
+            if (error.response.data.error && error.response.data.error.metadata?.detail) {
+              processedError.message = error.response.data.error.metadata.detail;
+            }
+            // If not found, check for error.message
+            else if (error.response.data.error && error.response.data.error?.message) {
+              processedError.message = error.response.data.error.message;
+            }
+            // Store additional details if available
+            if (error.response.data.error) {
+              processedError.details = error.response.data.error;
+            }
           }
         }
 
