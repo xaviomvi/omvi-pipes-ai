@@ -64,7 +64,7 @@ const DocumentSchema = new Schema(
       required: true,
       trim: true,
     },
-    alternativeDocumentName: {
+    alternateDocumentName: {
       type: String,
       trim: true,
     },

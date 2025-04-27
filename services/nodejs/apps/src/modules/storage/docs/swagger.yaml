@@ -39,7 +39,7 @@ components:
         documentName:
           type: string
           description: Name of the document
-        alternativeDocumentName:
+        alternateDocumentName:
           type: string
           description: Alternative name for the document
         documentPath:
@@ -189,7 +189,7 @@ components:
         documentPath:
           type: string
           description: Optional path for document storage
-        alternativeDocumentName:
+        alternateDocumentName:
           type: string
           description: Alternative name for the document
         permissions:
@@ -284,7 +284,7 @@ paths:
                 documentPath:
                   type: string
                   description: Optional path for document storage
-                alternativeDocumentName:
+                alternateDocumentName:
                   type: string
                   description: Alternative name for the document
                 permissions:
@@ -843,7 +843,7 @@ paths:
                 documentPath:
                   type: string
                   description: Optional path for document storage
-                alternativeDocumentName:
+                alternateDocumentName:
                   type: string
                   description: Alternative name for the document
                 permissions:

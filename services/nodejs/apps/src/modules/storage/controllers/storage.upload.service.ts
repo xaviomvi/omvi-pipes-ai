@@ -172,7 +172,7 @@ export class UploadDocumentService {
   ): Promise<void> {
     const {
       documentName,
-      alternativeDocumentName,
+      alternateDocumentName,
       documentPath,
       permissions,
       customMetadata,
@@ -188,7 +188,7 @@ export class UploadDocumentService {
     const userId = extractUserId(req);
     const documentInfo: Partial<Document> = {
       documentName,
-      alternativeDocumentName,
+      alternateDocumentName,
       orgId: new mongoose.Types.ObjectId(orgId),
       isVersionedFile: isVersioned,
       initiatorUserId: userId ? new mongoose.Types.ObjectId(userId) : null,

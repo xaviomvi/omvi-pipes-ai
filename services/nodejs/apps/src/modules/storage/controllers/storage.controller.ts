@@ -211,7 +211,7 @@ export class StorageController {
     try {
       const {
         documentName,
-        alternativeDocumentName,
+        alternateDocumentName,
         documentPath,
         permissions,
         customMetadata,
@@ -243,7 +243,7 @@ export class StorageController {
       const documentInfo: Partial<Document> = {
         documentName,
         documentPath,
-        alternativeDocumentName,
+        alternateDocumentName,
         orgId: new mongoose.Types.ObjectId(orgId),
         isVersionedFile: isVersionedFile,
         initiatorUserId: userId ? new mongoose.Types.ObjectId(userId) : null,
