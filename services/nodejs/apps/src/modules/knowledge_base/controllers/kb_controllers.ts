@@ -75,7 +75,10 @@ export const createRecords =
       );
 
       // Get or create a knowledge base for this organization
-      const kb = await recordRelationService.getOrCreateKnowledgeBase(userId,orgId);
+      const kb = await recordRelationService.getOrCreateKnowledgeBase(
+        userId,
+        orgId,
+      );
 
       // Make sure the user has permission on this knowledge base
       await recordRelationService.createKbUserPermission(
@@ -307,7 +310,7 @@ export const getRecordById =
   };
 
 export const getRecordBuffer =
-  () =>
+  (connectorUrl: string) =>
   async (
     req: AuthenticatedUserRequest,
     res: Response,
@@ -323,7 +326,7 @@ export const getRecordBuffer =
 
       // Make request to FastAPI backend
       const response = await axios.get(
-        `http://127.0.0.1:8088/api/v1/stream/record/${recordId}`,
+        `${connectorUrl}/api/v1/stream/record/${recordId}`,
         {
           responseType: 'stream',
           headers: {
@@ -717,8 +720,10 @@ export const getRecords =
       }
 
       // Check if knowledge base exists
-      const { exists: kbExists } =
-        await recordRelationService.checkKBExists(userId,orgId); 
+      const { exists: kbExists } = await recordRelationService.checkKBExists(
+        userId,
+        orgId,
+      );
       if (!kbExists) {
         logger.warn(
           'Attempting to fetch records for organization without knowledge base',
