@@ -30,6 +30,7 @@ import { Logger } from '../../../libs/services/logger.service';
 import { AppConfig } from '../../tokens_manager/config/config';
 import { UserGroups } from '../schema/userGroup.schema';
 import { AuthService } from '../services/auth.service';
+import { Org } from '../schema/org.schema';
 @injectable()
 export class UserController {
   constructor(
@@ -637,6 +638,10 @@ export class UserController {
         throw new BadRequestError('Id is required');
       }
 
+      if (!req.user) {
+        throw new NotFoundError('User not found');
+      }
+      const org = await Org.findOne({ _id: req.user.orgId, isDeleted: false });
       const user = await Users.findOne({ _id: id, isDeleted: false });
       if (!user) {
         throw new UnauthorizedError('Error getting the user');
@@ -673,7 +678,7 @@ export class UserController {
             jwtAuthToken: mailAuthToken,
           },
           usersMails: [email],
-          subject: 'You are invited to join PipesHub',
+          subject: `You are invited to join ${org?.registeredName} `,
           templateData: {
             invitee: user?.fullName,
             link: `${this.config.frontendUrl}/reset-password?token=${passwordResetToken}`,
@@ -689,7 +694,7 @@ export class UserController {
             jwtAuthToken: mailJwtGenerator(email, this.config.scopedJwtSecret),
           },
           usersMails: [email],
-          subject: 'You are invited to join PipesHub',
+          subject: `You are invited to join ${org?.registeredName} `,
           templateData: {
             invitee: user?.fullName,
             link: `${this.config.frontendUrl}/sign-in`,
@@ -715,11 +720,15 @@ export class UserController {
     try {
       const { emails } = req.body;
       const { groupIds } = req.body;
+      if (!req.user) {
+        throw new NotFoundError('User not found');
+      }
       if (!emails) {
         throw new BadRequestError('emails are required');
       }
 
       const orgId = req.user?.orgId;
+      const org = await Org.findOne({ _id: req.user.orgId, isDeleted: false });
       // Check if emails array is provided
       if (!emails || !Array.isArray(emails)) {
         throw new BadRequestError('Please provide an array of email addresses');
@@ -854,7 +863,7 @@ export class UserController {
               jwtAuthToken: mailAuthToken,
             },
             usersMails: [email],
-            subject: 'You are invited to join PipesHub',
+            subject: `You are invited to join ${org?.registeredName} `,
             templateData: {
               invitee: req.user?.fullName,
               link: `${this.config.frontendUrl}/reset-password?token=${passwordResetToken}`,
@@ -873,7 +882,7 @@ export class UserController {
               ),
             },
             usersMails: [email],
-            subject: 'You are invited to join PipesHub',
+            subject: `You are invited to join ${org?.registeredName} `,
             templateData: {
               invitee: req.user?.fullName,
               link: `${this.config.frontendUrl}/sign-in`,
@@ -938,7 +947,7 @@ export class UserController {
               jwtAuthToken: mailAuthToken,
             },
             usersMails: [email],
-            subject: 'You are invited to re-join PipesHub',
+            subject: `You are invited to re-join ${org?.registeredName} `,
             templateData: {
               invitee: req.user?.fullName,
               link: `${this.config.frontendUrl}/reset-password?token=${passwordResetToken}`,
@@ -957,7 +966,7 @@ export class UserController {
               ),
             },
             usersMails: [email],
-            subject: 'You are invited to re-join PipesHub',
+            subject: `You are invited to re-join ${org?.registeredName} `,
             templateData: {
               invitee: req.user?.fullName,
               link: `${this.config.frontendUrl}/sign-in`,
