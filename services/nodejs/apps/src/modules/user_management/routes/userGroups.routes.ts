@@ -8,7 +8,8 @@ import { UserGroupController } from '../controller/userGroups.controller';
 import { AuthenticatedUserRequest } from '../../../libs/middlewares/types';
 
 const UserGroupIdUrlParams = z.object({
-  groupId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid UserGroupId'),
+  groupId: z.string().min(1, "Group ID is required")
+    .regex(/^[0-9a-fA-F]{24}$/, "Invalid group ID format")
 });
 
 const UserGroupIdValidationSchema = z.object({

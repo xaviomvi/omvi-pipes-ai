@@ -267,6 +267,7 @@ const ChatSidebar = ({
           title: editTitle.trim(),
         });
 
+        // Optimistically update the UI immediately
         setConversations((prev) =>
           prev.map((chat) =>
             chat._id === editingChat._id ? { ...chat, title: editTitle.trim() } : chat
@@ -280,6 +281,8 @@ const ChatSidebar = ({
         });
         handleEditCancel();
       } catch (error) {
+        // In case of failure, show an error but don't revert the UI
+        // to avoid flickering - when the list refreshes it will get the correct state
         // setSnackbar({
         //   open: true,
         //   message: 'Failed to rename conversation. Please try again.',
@@ -303,11 +306,17 @@ const ChatSidebar = ({
     setIsDeleting(true);
 
     try {
-      await axiosInstance.delete(`/api/v1/conversations/${deleteDialog.chat._id}`);
-
+      // Immediately update the UI by removing the conversation
       setConversations((prev) => prev.filter((chat) => chat._id !== deleteDialog.chat?._id));
 
-      if (selectedId === deleteDialog.chat._id && onNewChat) {
+      // Check if the deleted chat is the currently selected one
+      const isCurrentChatDeleted = selectedId === deleteDialog.chat._id;
+      
+      // Send API request in the background
+      await axiosInstance.delete(`/api/v1/conversations/${deleteDialog.chat._id}`);
+
+      // If we deleted the current chat, navigate to a new conversation
+      if (isCurrentChatDeleted && onNewChat) {
         onNewChat();
       }
 
@@ -317,6 +326,9 @@ const ChatSidebar = ({
         severity: 'success',
       });
     } catch (error) {
+      // If the API request fails, fetch conversations again to restore the correct state
+      fetchConversations(1);
+      
       // setSnackbar({
       //   open: true,
       //   message: 'Failed to delete conversation. Please try again.',
@@ -326,21 +338,36 @@ const ChatSidebar = ({
       setIsDeleting(false);
       setDeleteDialog({ open: false, chat: null });
     }
-  }, [deleteDialog.chat, selectedId, onNewChat]);
+  }, [deleteDialog.chat, selectedId, onNewChat, fetchConversations]);
 
   const handleArchive = useCallback(
     async (chat: Conversation): Promise<void> => {
       try {
+        // First update UI optimistically
+        setConversations((prev) => prev.filter((c) => c._id !== chat._id));
+        
+        // Check if the archived chat is the currently selected one
+        const isCurrentChatArchived = selectedId === chat._id;
+        
+        // Make API call in background
         await axiosInstance.patch(`/api/v1/conversations/${chat._id}/archive`);
-        await fetchConversations(1); // Refresh conversations after archiving
+        
+        // If we archived the current chat, navigate to a new conversation
+        if (isCurrentChatArchived && onNewChat) {
+          onNewChat();
+        }
+
         handleMenuClose();
-        if (onNewChat) onNewChat();
+        
         setSnackbar({
           open: true,
           message: 'Conversation archived successfully',
           severity: 'success',
         });
       } catch (error) {
+        // If API request fails, restore the list
+        fetchConversations(1);
+        
         // setSnackbar({
         //   open: true,
         //   message: 'Failed to archive conversation. Please try again.',
@@ -348,11 +375,12 @@ const ChatSidebar = ({
         // });
       }
     },
-    [fetchConversations, handleMenuClose, onNewChat]
+    [fetchConversations, handleMenuClose, onNewChat, selectedId]
   );
 
   const handleUnarchive = useCallback(async (): Promise<void> => {
-    await fetchConversations(1); // Refresh conversations after unarchiving
+    // Just refresh the list after unarchiving
+    await fetchConversations(1);
   }, [fetchConversations]);
 
   const handleShareConversation = useCallback(
@@ -634,16 +662,14 @@ const ChatSidebar = ({
           <Box
             sx={{
               display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
               justifyContent: 'center',
-              height: '100%',
+              alignItems: 'center', 
+              minHeight: 200,
+              width: '100%',
+              py: 4,
             }}
           >
-            <CircularProgress size={40} thickness={4} sx={{ mb: 2 }} />
-            <Typography variant="body2" color="text.secondary">
-              Loading conversations...
-            </Typography>
+            <CircularProgress size={36} />
           </Box>
         ) : Object.keys(groupedConversations).length === 0 ? (
           <EmptyState />

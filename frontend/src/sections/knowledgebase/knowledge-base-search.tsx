@@ -230,7 +230,7 @@ export default function KnowledgeBaseSearch() {
     }
   }
 
-  const viewCitations = async (recordId: string, extension: string) => {
+  const viewCitations = async (recordId: string, extension: string): Promise<void> => {
     // Reset view states;
 
     // Reset all document type states

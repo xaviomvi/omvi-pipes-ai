@@ -111,6 +111,6 @@ export interface KnowledgeSearchProps {
   loading: boolean;
   onSearchQueryChange: (query: string) => void;
   onTopKChange: (callback: (prevTopK: number) => number) => void;
-  onViewCitations: (recordId: string, extension : string) => void;
+  onViewCitations: (recordId: string, extension : string) => Promise<void>;
   recordsMap: Record<string, PipesHub.Record>;
 }
