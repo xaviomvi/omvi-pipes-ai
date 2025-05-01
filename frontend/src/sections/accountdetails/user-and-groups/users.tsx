@@ -120,7 +120,7 @@ const Users = () => {
         const loggedInUsers = response.filter(
           (user) => user?.email !== null && user?.fullName && user.hasLoggedIn === true
         );
-        console.log(users)
+        console.log(users);
         setUsers(loggedInUsers);
         setGroups(groupsData);
       } catch (error) {
@@ -131,7 +131,7 @@ const Users = () => {
     };
 
     fetchUsersAndGroups();
-     // eslint-disable-next-line
+    // eslint-disable-next-line
   }, []);
 
   const filteredUsers = users.filter(
