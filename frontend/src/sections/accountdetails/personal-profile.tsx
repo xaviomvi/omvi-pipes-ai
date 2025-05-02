@@ -268,10 +268,36 @@ export default function PersonalProfile() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: '80vh',
+          minHeight: '80vh',
+          mx:'auto',
+          my:'auto'
         }}
       >
-        <CircularProgress size={36} />
+        <Paper
+          sx={{
+            p: 4,
+            borderRadius: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            maxWidth: '300px',
+            width: '100%',
+          }}
+        >
+          <CircularProgress size={40} thickness={4} color="primary" />
+          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+            <Typography
+              variant="body1"
+              sx={{
+                ml: 1,
+                color: 'text.secondary',
+                fontWeight: 500,
+              }}
+            >
+              Loading your profile...
+            </Typography>
+          </Box>
+        </Paper>
       </Box>
     );
   }

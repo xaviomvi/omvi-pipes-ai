@@ -167,6 +167,7 @@ const KnowledgeSearch = ({
   const navigate = useNavigate();
   const observer = useRef<IntersectionObserver | null>(null);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
+  const [loadingRecordId, setLoadingRecordId] = useState<string | null>(null);
 
   // Synchronize searchQuery with parent component's state
   useEffect(() => {
@@ -183,6 +184,7 @@ const KnowledgeSearch = ({
 
     const recordId = record.metadata?.recordId || '';
     const extension = record.metadata?.extension || '';
+    setLoadingRecordId(recordId);
 
     const isPdf = extension.toLowerCase() === 'pdf';
     const isExcel = ['xlsx', 'xls', 'csv'].includes(extension.toLowerCase());
@@ -192,7 +194,10 @@ const KnowledgeSearch = ({
     const isMarkdown = ['md'].includes(extension.toLowerCase());
     if (isPdf || isExcel || isDocx || isHtml || isTextFile || isMarkdown) {
       if (onViewCitations) {
-        onViewCitations(recordId, extension);
+        onViewCitations(recordId, extension).finally(() => {
+          // Reset loading state when complete (whether success or error)
+          setLoadingRecordId(null);
+        });
       }
     }
   };
@@ -244,11 +249,10 @@ const KnowledgeSearch = ({
     if (recordMeta.origin === 'UPLOAD' && !webUrl.startsWith('http')) {
       const baseUrl = `${window.location.protocol}//${window.location.host}`;
       const newWebUrl = baseUrl + webUrl;
-      window.open(newWebUrl,'_blank');
+      window.open(newWebUrl, '_blank');
     } else {
       window.open(webUrl, '_blank'); // Opens in a new tab/window
     }
-   
   };
 
   // Function to get record details for metadata display
@@ -650,7 +654,13 @@ const KnowledgeSearch = ({
                                   <Button
                                     size="small"
                                     variant="outlined"
-                                    startIcon={<Icon icon={eyeIcon} />}
+                                    startIcon={
+                                      loadingRecordId === result.metadata?.recordId ? (
+                                        <CircularProgress size={16} color="inherit" />
+                                      ) : (
+                                        <Icon icon={eyeIcon} />
+                                      )
+                                    }
                                     onClick={(e) => handleViewCitations(result, e)}
                                     sx={{
                                       fontSize: '0.75rem',
@@ -660,8 +670,11 @@ const KnowledgeSearch = ({
                                       textTransform: 'none',
                                       borderRadius: '4px',
                                     }}
+                                    disabled={loadingRecordId === result.metadata?.recordId}
                                   >
-                                    View Citations
+                                    {loadingRecordId === result.metadata?.recordId
+                                      ? 'Loading...'
+                                      : 'View Citations'}
                                   </Button>
                                 )}
 

@@ -140,12 +140,12 @@ export class UserGroupController {
     req: AuthenticatedUserRequest,
     res: Response,
   ): Promise<void> {
-    const { id } = req.params;
+    const { groupId } = req.params;
     const orgId = req.user?.orgId;
     const userId = req.user?.userId;
 
     const group = await UserGroups.findOne({
-      _id: id,
+      _id: groupId,
       orgId,
       isDeleted: false,
     }).exec();
@@ -154,7 +154,7 @@ export class UserGroupController {
       throw new NotFoundError('User group not found');
     }
 
-    if (group.type !== 'custom') {
+    if (group && group.type !== 'custom') {
       throw new ForbiddenError('Only custom groups can be deleted');
     }
 
