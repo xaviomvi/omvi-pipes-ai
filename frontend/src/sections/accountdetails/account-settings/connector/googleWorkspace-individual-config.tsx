@@ -88,22 +88,22 @@ const GoogleWorkspaceIndividualPage = () => {
       // Check if each configuration has required fields
       const googleConfigured =
         results[0].status === 'fulfilled' && results[0].value && !!results[0].value.googleClientId;
-      // Update the configuredStatus while preserving lastConfigured state
-      setConfiguredStatus((prev) => {
-        // Get the current connector that was just configured (if any)
-        const justConfigured = lastConfigured;
 
-        return {
+      // Update the configuredStatus while preserving lastConfigured state
+      setConfiguredStatus((prev) =>
+        // Get the current connector that was just configured (if any)
+
+        ({
           ...prev,
-          googleWorkspace: justConfigured === 'googleWorkspace' ? true && googleConfigured : false,
-        };
-      });
+          googleWorkspace: googleConfigured,
+        })
+      );
     } catch (err) {
       console.error('Error checking connector configurations:', err);
     } finally {
       setCheckingConfigs(false);
     }
-  }, [fetchConnectorConfig, lastConfigured]);
+  }, [fetchConnectorConfig]);
 
   // Fetch connectors from API
   const fetchConnectorStatuses = useCallback(async () => {
