@@ -591,8 +591,23 @@ export const updateRecord =
 /**
  * Delete (soft-delete) a record
  */
+
+/**
+ * Interface for record permission from AI service
+ */
+interface RecordPermission {
+  id: string;
+  name: string;
+  type: string;
+  relationship: string;
+}
+
+/**
+ * Controller function for deleting records via AI service
+ * Handles both KB-type records and direct access records
+ */
 export const deleteRecord =
-  (recordRelationService: RecordRelationService) =>
+  (recordRelationService: RecordRelationService, appConfig: AppConfig) =>
   async (
     req: AuthenticatedUserRequest,
     res: Response,
@@ -601,52 +616,162 @@ export const deleteRecord =
     try {
       const { recordId } = req.params as { recordId: string };
       const { userId, orgId } = req.user || {};
+      const aiBackendUrl = appConfig.aiBackend;
 
       if (!userId || !orgId) {
         throw new UnauthorizedError('User authentication is required');
       }
 
-      // Check if user has permission to delete records
-      try {
-        await recordRelationService.validateUserKbAccess(userId, orgId, [
-          'OWNER',
-          'WRITER',
-          'FILEORGANIZER',
-        ]);
-      } catch (error) {
-        throw new ForbiddenError('Permission denied');
-      }
+      logger.info('Processing record deletion request', {
+        recordId,
+        userId,
+        orgId,
+        requestId: req.context?.requestId,
+      });
 
-      // Get the current record to confirm it exists
+      // First get the record via AI service to verify existence and access
       let existingRecord;
       try {
-        existingRecord = await recordRelationService.getRecordById(
+        // Set up AI service command to fetch record details
+        const aiCommand = new AIServiceCommand({
+          uri: `${aiBackendUrl}/api/v1/records/${recordId}`,
+          method: HttpMethod.GET,
+          headers: req.headers as Record<string, string>,
+        });
+
+        let aiResponse;
+        try {
+          aiResponse = (await aiCommand.execute()) as AIServiceResponse<any>;
+        } catch (error: any) {
+          if (error.cause && error.cause.code === 'ECONNREFUSED') {
+            throw new InternalServerError(
+              AI_SERVICE_UNAVAILABLE_MESSAGE,
+              error,
+            );
+          }
+          throw new InternalServerError('Failed to get AI response', error);
+        }
+
+        if (!aiResponse || aiResponse.statusCode !== 200 || !aiResponse.data) {
+          throw new InternalServerError(
+            'Failed to get response from AI service',
+            aiResponse?.data,
+          );
+        }
+
+        existingRecord = aiResponse.data;
+
+        // Verify the record exists and has required data
+        if (!existingRecord || !existingRecord.record) {
+          logger.warn('Record not found or invalid response from AI service', {
+            recordId,
+            userId,
+            orgId,
+            requestId: req.context?.requestId,
+          });
+          throw new NotFoundError(`Record with ID ${recordId} not found`);
+        }
+
+        // Check permissions based on source type
+        const isConnectorRecord = existingRecord.record.origin === 'CONNECTOR';
+
+        // For KB records, verify KB access
+        if (!isConnectorRecord) {
+          try {
+            // Verify user has delete permission at KB level
+            await recordRelationService.validateUserKbAccess(userId, orgId, [
+              'OWNER',
+              'WRITER',
+              'FILEORGANIZER',
+            ]);
+          } catch (error) {
+            logger.warn('User lacks KB permissions for record deletion', {
+              userId,
+              orgId,
+              recordId,
+              error,
+              requestId: req.context?.requestId,
+            });
+            throw new ForbiddenError('Permission denied for record deletion');
+          }
+        }
+        // For connector records, check direct permissions
+        else {
+          // Verify permissions array exists
+          if (
+            !existingRecord.permissions ||
+            !Array.isArray(existingRecord.permissions)
+          ) {
+            logger.warn('Record is missing permissions data', {
+              recordId,
+              userId,
+              requestId: req.context?.requestId,
+            });
+            throw new ForbiddenError(
+              'Cannot verify permissions for this record',
+            );
+          }
+
+          // Check if any permission has the required relationship for deletion
+          const hasDeletePermission = existingRecord.permissions.some(
+            (permission: RecordPermission) =>
+              ['OWNER', 'WRITER', 'FILEORGANIZER', 'READER'].includes(
+                permission.relationship,
+              ),
+          );
+
+          if (!hasDeletePermission) {
+            logger.warn('User lacks direct permissions for record deletion', {
+              userId,
+              recordId,
+              permissions: existingRecord.permissions,
+              requestId: req.context?.requestId,
+            });
+            throw new ForbiddenError(
+              'You do not have permission to delete this record',
+            );
+          }
+        }
+
+        logger.info('User has permission to delete record', {
+          recordId,
+          userId,
+          isConnectorRecord,
+          permissions: existingRecord.permissions,
+          requestId: req.context?.requestId,
+        });
+      } catch (error) {
+        if (
+          error instanceof NotFoundError ||
+          error instanceof ForbiddenError ||
+          error instanceof UnauthorizedError ||
+          error instanceof InternalServerError
+        ) {
+          throw error;
+        }
+
+        logger.error('Error fetching record details for deletion', {
           recordId,
           userId,
           orgId,
+          error,
+          requestId: req.context?.requestId,
+        });
+        throw new NotFoundError(
+          `Record with ID ${recordId} not found or inaccessible`,
         );
-        if (!existingRecord || !existingRecord.record) {
-          throw new NotFoundError(`Record with ID ${recordId} not found`);
-        }
-      } catch (error) {
-        throw new NotFoundError(`Record with ID ${recordId} not found`);
       }
-      // const time = Date.now();
-      // Perform soft delete
-      // const softDeleteData = {
-      //   isDeleted: true,
-      //   deletedByUserId: userId,
-      //   // deletedAtTimestamp: time,
-      //   updatedAtTimestamp: time,
-      //   isLatestVersion: true,
-      // };
 
-      // Update the record for soft delete
-      // await recordRelationService.updateRecord(recordId, softDeleteData);
-      await recordRelationService.softDeleteRecord(recordId, userId);
+      // Extract the record's internal ID to pass to soft delete function
+      const internalRecordId = existingRecord.record._key;
+
+      // Perform the soft delete operation
+      await recordRelationService.softDeleteRecord(internalRecordId, userId);
+
       // Log the successful deletion
       logger.info('Record soft-deleted successfully', {
         recordId,
+        internalRecordId,
         userId,
         orgId,
         requestId: req.context?.requestId,
@@ -662,7 +787,7 @@ export const deleteRecord =
       });
     } catch (error: any) {
       // Log the error for debugging
-      logger.error('Error deleting record', {
+      logger.error('Error in record deletion process', {
         recordId: req.params.recordId,
         error: error.message,
         stack: error.stack,
@@ -764,6 +889,16 @@ export const getRecords =
       const origins = req.query.origins
         ? String(req.query.origins).split(',')
         : undefined;
+
+      // Add missing parameters
+      const connectors = req.query.connectors
+        ? String(req.query.connectors).split(',')
+        : undefined;
+
+      const permissions = req.query.permissions
+        ? String(req.query.permissions).split(',')
+        : undefined;
+
       const indexingStatus = req.query.indexingStatus
         ? String(req.query.indexingStatus).split(',')
         : undefined;
@@ -786,6 +921,22 @@ export const getRecords =
           ? sortOrderParam
           : undefined;
 
+      // Parse source parameter
+      const source = req.query.source
+        ? ['all', 'local', 'connector'].includes(String(req.query.source))
+          ? (String(req.query.source) as 'all' | 'local' | 'connector')
+          : 'all'
+        : 'all';
+
+      // Debug log for troubleshooting filter parameters
+      logger.debug('API Controller parameters', {
+        userId,
+        orgId,
+        source,
+        connectors,
+        requestId: req.context?.requestId,
+      });
+
       // Retrieve records using the service
       const result = await recordRelationService.getRecords({
         orgId,
@@ -795,11 +946,14 @@ export const getRecords =
         search,
         recordTypes,
         origins,
+        connectors,
+        permissions,
         indexingStatus,
         dateFrom,
         dateTo,
         sortBy,
         sortOrder,
+        source,
       });
 
       // Log successful retrieval
@@ -1179,7 +1333,8 @@ export const getConnectorStats =
               in_progress  = SUM(doc.indexingStatus == "IN_PROGRESS" ? 1 : 0),
               completed    = SUM(doc.indexingStatus == "COMPLETED" ? 1 : 0),
               failed       = SUM(doc.indexingStatus == "FAILED" ? 1 : 0),
-              not_supported= SUM(doc.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0)
+              not_supported= SUM(doc.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0),
+              auto_index_off= SUM(doc.indexingStatus == "AUTO_INDEX_OFF" ? 1 : 0)
             RETURN {
               total,
               indexing_status: {
@@ -1187,7 +1342,8 @@ export const getConnectorStats =
                 IN_PROGRESS: in_progress,
                 COMPLETED: completed,
                 FAILED: failed,
-                FILE_TYPE_NOT_SUPPORTED: not_supported
+                FILE_TYPE_NOT_SUPPORTED: not_supported,
+                AUTO_INDEX_OFF: auto_index_off
               }
             }
         )[0]
@@ -1202,7 +1358,8 @@ export const getConnectorStats =
               in_progress  = SUM(doc.indexingStatus == "IN_PROGRESS" ? 1 : 0),
               completed    = SUM(doc.indexingStatus == "COMPLETED" ? 1 : 0),
               failed       = SUM(doc.indexingStatus == "FAILED" ? 1 : 0),
-              not_supported= SUM(doc.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0)
+              not_supported= SUM(doc.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0),
+              auto_index_off= SUM(doc.indexingStatus == "AUTO_INDEX_OFF" ? 1 : 0)
             RETURN {
               total,
               indexing_status: {
@@ -1210,7 +1367,8 @@ export const getConnectorStats =
                 IN_PROGRESS: in_progress,
                 COMPLETED: completed,
                 FAILED: failed,
-                FILE_TYPE_NOT_SUPPORTED: not_supported
+                FILE_TYPE_NOT_SUPPORTED: not_supported,
+                AUTO_INDEX_OFF: auto_index_off
               }
             }
         )[0]
@@ -1225,7 +1383,8 @@ export const getConnectorStats =
               in_progress  = SUM(doc.indexingStatus == "IN_PROGRESS" ? 1 : 0),
               completed    = SUM(doc.indexingStatus == "COMPLETED" ? 1 : 0),
               failed       = SUM(doc.indexingStatus == "FAILED" ? 1 : 0),
-              not_supported= SUM(doc.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0)
+              not_supported= SUM(doc.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0),
+              auto_index_off= SUM(doc.indexingStatus == "AUTO_INDEX_OFF" ? 1 : 0)
             RETURN {
               total,
               indexing_status: {
@@ -1233,7 +1392,8 @@ export const getConnectorStats =
                 IN_PROGRESS: in_progress,
                 COMPLETED: completed,
                 FAILED: failed,
-                FILE_TYPE_NOT_SUPPORTED: not_supported
+                FILE_TYPE_NOT_SUPPORTED: not_supported,
+                AUTO_INDEX_OFF: auto_index_off
               }
             }
         )[0]
@@ -1253,7 +1413,8 @@ export const getConnectorStats =
                   in_progress   = SUM(d.indexingStatus == "IN_PROGRESS" ? 1 : 0),
                   completed     = SUM(d.indexingStatus == "COMPLETED" ? 1 : 0),
                   failed        = SUM(d.indexingStatus == "FAILED" ? 1 : 0),
-                  not_supported = SUM(d.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0)
+                  not_supported = SUM(d.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0),
+                  auto_index_off = SUM(d.indexingStatus == "AUTO_INDEX_OFFF" ? 1 : 0)
                 RETURN {
                   total,
                   indexing_status: {
@@ -1261,7 +1422,8 @@ export const getConnectorStats =
                     IN_PROGRESS: in_progress,
                     COMPLETED: completed,
                     FAILED: failed,
-                    FILE_TYPE_NOT_SUPPORTED: not_supported
+                    FILE_TYPE_NOT_SUPPORTED: not_supported,
+                    AUTO_INDEX_OFF: auto_index_off
                   }
                 }
             )[0]
@@ -1278,7 +1440,8 @@ export const getConnectorStats =
                       in_progress   = SUM(td.indexingStatus == "IN_PROGRESS" ? 1 : 0),
                       completed     = SUM(td.indexingStatus == "COMPLETED" ? 1 : 0),
                       failed        = SUM(td.indexingStatus == "FAILED" ? 1 : 0),
-                      not_supported = SUM(td.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0)
+                      not_supported = SUM(td.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0),
+                      auto_index_off = SUM(td.indexingStatus == "AUTO_INDEX_OFF" ? 1 : 0)
                     RETURN {
                       total,
                       indexing_status: {
@@ -1286,7 +1449,8 @@ export const getConnectorStats =
                         IN_PROGRESS: in_progress,
                         COMPLETED: completed,
                         FAILED: failed,
-                        FILE_TYPE_NOT_SUPPORTED: not_supported
+                        FILE_TYPE_NOT_SUPPORTED: not_supported,
+                        AUTO_INDEX_OFF: auto_index_off
                       }
                     }
                 )[0]
@@ -1320,7 +1484,8 @@ export const getConnectorStats =
                   in_progress   = SUM(d.indexingStatus == "IN_PROGRESS" ? 1 : 0),
                   completed     = SUM(d.indexingStatus == "COMPLETED" ? 1 : 0),
                   failed        = SUM(d.indexingStatus == "FAILED" ? 1 : 0),
-                  not_supported = SUM(d.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0)
+                  not_supported = SUM(d.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0),
+                  auto_index_off = SUM(d.indexingStatus == "AUTO_INDEX_OFF" ? 1 : 0)
                 RETURN {
                   total,
                   indexing_status: {
@@ -1328,7 +1493,8 @@ export const getConnectorStats =
                     IN_PROGRESS: in_progress,
                     COMPLETED: completed,
                     FAILED: failed,
-                    FILE_TYPE_NOT_SUPPORTED: not_supported
+                    FILE_TYPE_NOT_SUPPORTED: not_supported,
+                    AUTO_INDEX_OFF: auto_index_off
                   }
                 }
             )[0]
@@ -1345,7 +1511,8 @@ export const getConnectorStats =
                       in_progress   = SUM(cd.indexingStatus == "IN_PROGRESS" ? 1 : 0),
                       completed     = SUM(cd.indexingStatus == "COMPLETED" ? 1 : 0),
                       failed        = SUM(cd.indexingStatus == "FAILED" ? 1 : 0),
-                      not_supported = SUM(cd.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0)
+                      not_supported = SUM(cd.indexingStatus == "FILE_TYPE_NOT_SUPPORTED" ? 1 : 0),
+                      auto_index_off = SUM(cd.indexingStatus == "AUTO_INDEX_OFF" ? 1 : 0)
                     RETURN {
                       total,
                       indexing_status: {
@@ -1353,7 +1520,8 @@ export const getConnectorStats =
                         IN_PROGRESS: in_progress,
                         COMPLETED: completed,
                         FAILED: failed,
-                        FILE_TYPE_NOT_SUPPORTED: not_supported
+                        FILE_TYPE_NOT_SUPPORTED: not_supported,
+                        AUTO_INDEX_OFF: auto_index_off
                       }
                     }
                 )[0]
@@ -1409,9 +1577,7 @@ export const getConnectorStats =
   };
 
 export const reindexAllRecords =
-  (
-    recordRelationService: RecordRelationService,
-  ) =>
+  (recordRelationService: RecordRelationService) =>
   async (req: AuthenticatedUserRequest, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?.userId;
@@ -1421,18 +1587,19 @@ export const reindexAllRecords =
         throw new BadRequestError('User not authenticated');
       }
 
-      const allowedApps = ["ONEDRIVE", "DRIVE", "GMAIL", "CONFLUENCE", "SLACK"]
-      if(!allowedApps.includes(app)){
-        throw new BadRequestError('APP not allowed')
+      const allowedApps = ['ONEDRIVE', 'DRIVE', 'GMAIL', 'CONFLUENCE', 'SLACK'];
+      if (!allowedApps.includes(app)) {
+        throw new BadRequestError('APP not allowed');
       }
 
       const reindexPayload = {
-        userId, orgId, app
-      }
+        userId,
+        orgId,
+        app,
+      };
 
-      const reindexResponse = await recordRelationService.reindexAllRecords(
-        reindexPayload,
-      );
+      const reindexResponse =
+        await recordRelationService.reindexAllRecords(reindexPayload);
 
       res.status(200).json({
         reindexResponse,

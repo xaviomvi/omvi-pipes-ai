@@ -24,7 +24,7 @@ export interface Record {
   id: string;
   externalRecordId: string;
   recordName: string;
-  recordType: 'FILE' | 'CONNECTOR' | 'LINK' | 'FAQ';
+  recordType: 'FILE' | 'CONNECTOR' | 'LINK' | 'FAQ' | 'MAIL';
   origin: 'UPLOAD' | 'CONNECTOR';
   indexingStatus: string | null;
   createdAtTimestamp: number;
@@ -45,7 +45,7 @@ export interface Pagination {
 }
 
 export interface Filters {
-  recordType?: string[];
+  recordTypes?: string[];
   origin?: string[];
   indexingStatus?: string[];
   department?: string[];
@@ -53,8 +53,9 @@ export interface Filters {
   searchTags?: string[];
   appSpecificRecordType?: string[];
   status?: string[];
-  connector?: string[];
-  app?:string[];
+  connectors?: string[];
+  app?: string[];
+  permissions?: string[];
 }
 
 export interface FilterHeaderProps {
