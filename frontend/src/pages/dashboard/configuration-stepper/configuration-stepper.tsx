@@ -581,6 +581,14 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
     }
   };
 
+  const createEmbeddingConfig = (provider: string, apiKey: string, model: string) => ({
+    provider,
+    configuration: {
+      apiKey,
+      model,
+    },
+  });
+
   // Submit all configurations at once
   const submitAllConfigurations = async (smtpData?: SmtpFormValues): Promise<void> => {
     try {
@@ -704,6 +712,20 @@ const ConfigurationStepper: React.FC<ConfigurationStepperProps> = ({ open, onClo
                 },
               },
             ];
+          }
+
+          if (embeddingValues.modelType === 'gemini') {
+            if (!embeddingValues.apiKey) {
+              return [];
+            }
+            return [createEmbeddingConfig('gemini', embeddingValues.apiKey, embeddingValues.model)];
+          }
+
+          if (embeddingValues.modelType === 'cohere') {
+            if (!embeddingValues.apiKey) {
+              return [];
+            }
+            return [createEmbeddingConfig('cohere', embeddingValues.apiKey, embeddingValues.model)];
           }
 
           // For Azure OpenAI embedding
