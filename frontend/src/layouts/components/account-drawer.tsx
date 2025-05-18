@@ -9,14 +9,13 @@ import Stack from '@mui/material/Stack';
 import Drawer from '@mui/material/Drawer';
 import SvgIcon from '@mui/material/SvgIcon';
 import MenuItem from '@mui/material/MenuItem';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme, styled } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import Divider from '@mui/material/Divider';
 
 import { paths } from 'src/routes/paths';
 import { useRouter, usePathname } from 'src/routes/hooks';
-
-import { varAlpha } from 'src/theme/styles';
 
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
@@ -30,6 +29,99 @@ import { useAuthContext } from 'src/auth/hooks';
 import { AccountButton } from './account-button';
 import { SignOutButton } from './sign-out-button';
 // ----------------------------------------------------------------------
+
+// Styled components to reduce inline styling and improve readability
+const CloseButton = styled(IconButton)(({ theme }) => {
+  const isDark = theme.palette.mode === 'dark';
+  return {
+    top: 16,
+    left: 16,
+    zIndex: 9,
+    position: 'absolute',
+    color: theme.palette.text.secondary,
+    backgroundColor: alpha(theme.palette.background.paper, isDark ? 0.3 : 0.8),
+    boxShadow: isDark
+      ? `0 2px 6px ${alpha(theme.palette.common.black, 0.2)}`
+      : `0 2px 8px ${alpha(theme.palette.common.black, 0.05)}`,
+    backdropFilter: 'blur(8px)',
+    '&:hover': {
+      backgroundColor: alpha(theme.palette.background.paper, isDark ? 0.5 : 1),
+    },
+    transition: 'all 0.2s ease-in-out',
+  };
+});
+
+const AccountLabel = styled(Label)(({ theme }) => {
+  const isDark = theme.palette.mode === 'dark';
+  return {
+    marginTop: 1.5,
+    padding: '0px 8px',
+    paddingTop: '4px',
+    paddingBottom: '4px',
+    fontSize: '0.7rem',
+    fontWeight: 500,
+    borderRadius: '4px',
+    letterSpacing: '0.02em',
+    textTransform: 'uppercase',
+    backgroundColor: isDark
+      ? alpha(theme.palette.primary.main, 0.16)
+      : alpha(theme.palette.primary.main, 0.08),
+    color: isDark
+      ? alpha(theme.palette.primary.main, 0.9)
+      : theme.palette.primary.main,
+  };
+});
+
+const MenuItemStyled = styled(MenuItem, {
+  shouldForwardProp: (prop) => prop !== 'isActive' && prop !== 'isDark',
+})<{ isActive: boolean; isDark: boolean }>(({ theme, isActive, isDark }) => ({
+  height: 44,
+  borderRadius: 1.5,
+  marginBottom: 0.5,
+  padding: '8px 12px',
+  color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
+  backgroundColor: isActive
+    ? isDark
+      ? alpha(theme.palette.primary.main, 0.16)
+      : alpha(theme.palette.primary.main, 0.08)
+    : 'transparent',
+  '& svg': {
+    width: 20,
+    height: 20,
+    color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
+    opacity: isDark ? 0.9 : 0.7,
+  },
+  '&:hover': {
+    backgroundColor: isActive
+      ? isDark
+        ? alpha(theme.palette.primary.main, 0.24)
+        : alpha(theme.palette.primary.main, 0.12)
+      : isDark
+        ? alpha(theme.palette.action.hover, 0.4)
+        : theme.palette.action.hover,
+    color: isActive ? theme.palette.primary.main : theme.palette.text.primary,
+  },
+  transition: 'all 0.2s ease-in-out',
+}));
+
+const IconContainer = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'isActive' && prop !== 'isDark',
+})<{ isActive: boolean; isDark: boolean }>(({ theme, isActive, isDark }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 32,
+  height: 32,
+  marginRight: 1.5,
+  borderRadius: 1,
+  backgroundColor: isActive
+    ? isDark
+      ? alpha(theme.palette.primary.main, 0.24)
+      : alpha(theme.palette.primary.main, 0.12)
+    : isDark
+      ? alpha(theme.palette.action.hover, 0.2)
+      : alpha(theme.palette.action.hover, 0.4),
+}));
 
 // Base account menu items
 const baseAccountItems = [
@@ -73,6 +165,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuthContext();
+  const isDark = theme.palette.mode === 'dark';
 
   const [open, setOpen] = useState(false);
   const [menuItems, setMenuItems] = useState(data);
@@ -81,6 +174,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
     user?.accountType === 'business' ||
     user?.accountType === 'organization' ||
     user?.role === 'business';
+    
   useEffect(() => {
     const fetchLogo = async () => {
       try {
@@ -107,8 +201,6 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
     // Otherwise build based on account type
     const items = [...baseAccountItems];
 
-    // Check for business account type with fallbacks
-
     if (isBusiness) {
       items.push(companySettingsItem);
     }
@@ -134,19 +226,22 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
 
   const renderAvatar = (
     <AnimateAvatar
-      width={96}
+      width={86}
       slotProps={{
         avatar: { src: user?.photoURL, alt: user?.displayName },
         overlay: {
-          border: 2,
-          spacing: 3,
-          color: `linear-gradient(135deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0)} 25%, ${theme.vars.palette.primary.main} 100%)`,
+          border: isDark ? 1 : 2,
+          spacing: 2.5,
+          color: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 25%, ${alpha(theme.palette.primary.main, 0.8)} 100%)`,
         },
       }}
     >
       {user?.displayName?.charAt(0).toUpperCase() || user?.fullName?.charAt(0).toUpperCase() || 'U'}
     </AnimateAvatar>
   );
+
+  // Use a theme-derived background color for dark mode
+  const darkModeGradient = `linear-gradient(180deg, ${alpha(theme.palette.grey[900], 0.8)} 0%, ${alpha(theme.palette.grey[900], 0.95)} 100%)`;
 
   return (
     <>
@@ -162,87 +257,136 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
         open={open}
         onClose={handleCloseDrawer}
         anchor="right"
-        slotProps={{ backdrop: { invisible: true } }}
-        PaperProps={{ sx: { width: 320 } }}
+        slotProps={{ 
+          backdrop: { 
+            invisible: false,
+            sx: { 
+              backdropFilter: 'blur(0.5px)',
+              backgroundColor: isDark 
+                ? alpha(theme.palette.common.black, 0.1) 
+                : alpha(theme.palette.common.white, 0.1)
+            }
+          } 
+        }}
+        PaperProps={{ 
+          sx: { 
+            width: 300,
+            borderRadius: isDark ? '12px 0 0 12px' : '16px 0 0 16px',
+            boxShadow: isDark 
+              ? `0 0 24px ${alpha(theme.palette.common.black, 0.3)}`
+              : `0 0 24px ${alpha(theme.palette.common.black, 0.1)}`,
+            backgroundColor: isDark 
+              ? alpha(theme.palette.background.default, 0.95) 
+              : theme.palette.background.default,
+            backgroundImage: isDark ? darkModeGradient : 'none',
+          } 
+        }}
       >
-        <IconButton
-          onClick={handleCloseDrawer}
-          sx={{ top: 12, left: 12, zIndex: 9, position: 'absolute' }}
-        >
+        <CloseButton onClick={handleCloseDrawer}>
           <Iconify icon={closeIcon} />
-        </IconButton>
+        </CloseButton>
 
         <Scrollbar>
-          <Stack alignItems="center" sx={{ pt: 8 }}>
+          <Stack alignItems="center" sx={{ pt: 9, pb: 2 }}>
             {renderAvatar}
 
-            <Typography variant="subtitle1" noWrap sx={{ mt: 2 }}>
+            <Typography 
+              variant="subtitle1" 
+              noWrap 
+              sx={{ 
+                mt: 2.5, 
+                fontWeight: 600,
+                letterSpacing: '0.01em',
+              }}
+            >
               {user?.fullName || user?.displayName}
             </Typography>
 
-            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }} noWrap>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: 'text.secondary', 
+                mt: 0.5,
+                fontSize: '0.8125rem',
+                opacity: 0.85,
+              }} 
+              noWrap
+            >
               {user?.email}
             </Typography>
 
             {/* Show account type if available */}
             {user?.accountType && (
-              <Label
+              <AccountLabel
                 color={
                   user.accountType === 'business' || user.accountType === 'organization'
                     ? 'primary'
                     : 'info'
                 }
-                sx={{ mt: 1 }}
               >
                 {user.accountType === 'business' || user.accountType === 'organization'
                   ? 'Business Account'
                   : 'Individual Account'}
-              </Label>
+              </AccountLabel>
             )}
           </Stack>
 
-          <Stack
-            sx={{
-              py: 3,
-              px: 2.5,
-              mt: 3,
-              borderTop: `dashed 1px ${theme.vars.palette.divider}`,
-              borderBottom: `dashed 1px ${theme.vars.palette.divider}`,
-            }}
-          >
-            {menuItems.map((option) => {
-              const rootLabel = pathname.includes('/dashboard') ? 'Home' : 'Dashboard';
-              const rootHref = pathname.includes('/dashboard') ? '/' : paths.dashboard.root;
+          <Box sx={{ px: 2, mt: 1 }}>
+            <Divider 
+              sx={{ 
+                my: 2,
+                opacity: isDark ? 0.2 : 0.4,
+                borderStyle: 'dashed',
+              }}
+            />
+            
+            <Stack spacing={0.25}>
+              {menuItems.map((option) => {
+                const rootLabel = pathname.includes('/dashboard') ? 'Home' : 'Dashboard';
+                const rootHref = pathname.includes('/dashboard') ? '/' : paths.dashboard.root;
+                const isActive = pathname === (option.label === 'Home' ? rootHref : option.href);
 
-              return (
-                <MenuItem
-                  key={option.label}
-                  onClick={() => handleClickItem(option.label === 'Home' ? rootHref : option.href)}
-                  sx={{
-                    py: 1,
-                    color: 'text.secondary',
-                    '& svg': { width: 24, height: 24 },
-                    '&:hover': { color: 'text.primary' },
-                  }}
-                >
-                  {option.icon}
+                return (
+                  <MenuItemStyled
+                    key={option.label}
+                    onClick={() => handleClickItem(option.label === 'Home' ? rootHref : option.href)}
+                    isActive={isActive}
+                    isDark={isDark}
+                  >
+                    <IconContainer isActive={isActive} isDark={isDark}>
+                      {option.icon}
+                    </IconContainer>
 
-                  <Box component="span" sx={{ ml: 2 }}>
-                    {option.label === 'Home' ? rootLabel : option.label}
-                  </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: isActive ? 600 : 400,
+                        flex: 1,
+                      }}
+                    >
+                      {option.label === 'Home' ? rootLabel : option.label}
+                    </Typography>
 
-                  {option.info && (
-                    <Label color="error" sx={{ ml: 1 }}>
-                      {option.info}
-                    </Label>
-                  )}
-                </MenuItem>
-              );
-            })}
-          </Stack>
+                    {option.info && (
+                      <Label 
+                        color="error" 
+                        sx={{ 
+                          ml: 1,
+                          fontSize: '0.65rem',
+                          height: 18,
+                        }}
+                      >
+                        {option.info}
+                      </Label>
+                    )}
+                  </MenuItemStyled>
+                );
+              })}
+            </Stack>
+          </Box>
         </Scrollbar>
 
-        <Box sx={{ p: 2.5 }}>
+        <Box sx={{ p: 2.5, mt: 1 }}>
           <SignOutButton onClose={handleCloseDrawer} />
         </Box>
       </Drawer>
