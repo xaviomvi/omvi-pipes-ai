@@ -28,6 +28,7 @@ from app.config.utils.named_constants.arangodb_constants import (
     CollectionNames,
     DepartmentNames,
 )
+from app.config.utils.named_constants.http_status_code_constants import HttpStatusCode
 from app.modules.extraction.prompt_template import prompt
 from app.utils.llm import get_llm
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
@@ -64,7 +65,7 @@ class DocumentClassification(BaseModel):
 
 
 class DomainExtractor:
-    def __init__(self, logger, base_arango_service, config_service):
+    def __init__(self, logger, base_arango_service, config_service) -> None:
         self.logger = logger
         self.arango_service = base_arango_service
         self.config_service = config_service
@@ -97,7 +98,7 @@ class DomainExtractor:
             f"Retrying LLM call after error. Attempt {retry_state.attempt_number}"
         ),
     )
-    async def _call_llm(self, messages):
+    async def _call_llm(self, messages) -> dict | None:
         """Wrapper for LLM calls with retry logic"""
         return await self.llm.ainvoke(messages)
 
@@ -302,7 +303,7 @@ class DomainExtractor:
 
     async def save_metadata_to_db(
         self, org_id: str, record_id: str, metadata: DocumentClassification, virtual_record_id: str
-    ):
+    ) -> dict | None:
         """
         Extract metadata from a document in ArangoDB and create department relationships
         """
@@ -392,7 +393,7 @@ class DomainExtractor:
                 )
 
             # Handle subcategories with similar pattern
-            def handle_subcategory(name, level, parent_key, parent_collection):
+            def handle_subcategory(name, level, parent_key, parent_collection) -> str:
                 collection_name = getattr(
                     CollectionNames, f"SUBCATEGORIES{level}"
                 ).value
@@ -620,11 +621,11 @@ class DomainExtractor:
             f"Retrying API call after error. Attempt {retry_state.attempt_number}"
         ),
     )
-    async def _create_placeholder(self, session, url, data, headers):
+    async def _create_placeholder(self, session, url, data, headers) -> dict | None:
         """Helper method to create placeholder with retry logic"""
         try:
             async with session.post(url, json=data, headers=headers) as response:
-                if response.status != 200:
+                if response.status != HttpStatusCode.SUCCESS.value:
                     try:
                         error_response = await response.json()
                         self.logger.error("❌ Failed to create placeholder. Status: %d, Error: %s",
@@ -652,11 +653,11 @@ class DomainExtractor:
             f"Retrying API call after error. Attempt {retry_state.attempt_number}"
         ),
     )
-    async def _get_signed_url(self, session, url, data, headers):
+    async def _get_signed_url(self, session, url, data, headers) -> dict | None:
         """Helper method to get signed URL with retry logic"""
         try:
             async with session.post(url, json=data, headers=headers) as response:
-                if response.status != 200:
+                if response.status != HttpStatusCode.SUCCESS.value:
                     try:
                         error_response = await response.json()
                         self.logger.error("❌ Failed to get signed URL. Status: %d, Error: %s",
@@ -684,7 +685,7 @@ class DomainExtractor:
             f"Retrying API call after error. Attempt {retry_state.attempt_number}"
         ),
     )
-    async def _upload_to_signed_url(self, session, signed_url, data):
+    async def _upload_to_signed_url(self, session, signed_url, data) -> int | None:
         """Helper method to upload to signed URL with retry logic"""
         try:
             async with session.put(
@@ -692,7 +693,7 @@ class DomainExtractor:
                 json=data,
                 headers={"Content-Type": "application/json"}
             ) as response:
-                if response.status != 200:
+                if response.status != HttpStatusCode.SUCCESS.value:
                     try:
                         error_response = await response.json()
                         self.logger.error("❌ Failed to upload to signed URL. Status: %d, Error: %s",
@@ -792,7 +793,7 @@ class DomainExtractor:
                         async with session.post(upload_url,
                                             data=form_data,
                                             headers=headers) as response:
-                            if response.status != 200:
+                            if response.status != HttpStatusCode.SUCCESS.value:
                                 try:
                                     error_response = await response.json()
                                     self.logger.error("❌ Failed to upload summary. Status: %d, Error: %s",

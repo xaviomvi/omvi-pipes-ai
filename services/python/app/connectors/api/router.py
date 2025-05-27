@@ -37,18 +37,22 @@ from app.config.utils.named_constants.arangodb_constants import (
     RecordRelations,
     RecordTypes,
 )
-from app.config.utils.named_constants.status_code_constants import StatusCodeConstants
+from app.config.utils.named_constants.http_status_code_constants import (
+    HttpStatusCode,
+)
 from app.connectors.api.middleware import WebhookAuthVerifier
-from app.connectors.google.admin.admin_webhook_handler import AdminWebhookHandler
-from app.connectors.google.gmail.handlers.gmail_webhook_handler import (
-    AbstractGmailWebhookHandler,
+from app.connectors.sources.google.admin.admin_webhook_handler import (
+    AdminWebhookHandler,
 )
-from app.connectors.google.google_drive.handlers.drive_webhook_handler import (
-    AbstractDriveWebhookHandler,
-)
-from app.connectors.google.scopes import (
+from app.connectors.sources.google.common.scopes import (
     GOOGLE_CONNECTOR_ENTERPRISE_SCOPES,
     GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES,
+)
+from app.connectors.sources.google.gmail.gmail_webhook_handler import (
+    AbstractGmailWebhookHandler,
+)
+from app.connectors.sources.google.google_drive.drive_webhook_handler import (
+    AbstractDriveWebhookHandler,
 )
 from app.modules.parsers.google_files.google_docs_parser import GoogleDocsParser
 from app.modules.parsers.google_files.google_sheets_parser import GoogleSheetsParser
@@ -79,7 +83,7 @@ async def handle_drive_webhook(request: Request, background_tasks: BackgroundTas
 
         verifier = WebhookAuthVerifier(logger)
         if not await verifier.verify_request(request):
-            raise HTTPException(status_code=401, detail="Unauthorized webhook request")
+            raise HTTPException(status_code=HttpStatusCode.UNAUTHORIZED.value, detail="Unauthorized webhook request")
 
         drive_webhook_handler = await get_drive_webhook_handler(request)
 
@@ -117,7 +121,7 @@ async def handle_drive_webhook(request: Request, background_tasks: BackgroundTas
 
     except Exception as e:
         logger.error("Error processing webhook: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail=str(e)) from e
 
 
 async def get_gmail_webhook_handler(request: Request) -> Optional[AbstractGmailWebhookHandler]:
@@ -174,7 +178,7 @@ async def handle_gmail_webhook(request: Request, background_tasks: BackgroundTas
             except Exception as e:
                 logger.error("Error processing message data: %s", str(e))
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
+                    status_code=HttpStatusCode.BAD_REQUEST.value,
                     detail=f"Invalid message data format: {str(e)}",
                 )
         else:
@@ -184,13 +188,13 @@ async def handle_gmail_webhook(request: Request, background_tasks: BackgroundTas
     except json.JSONDecodeError as e:
         logger.error("Invalid JSON in webhook body: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=HttpStatusCode.BAD_REQUEST.value,
             detail=f"Invalid JSON format: {str(e)}",
         )
     except Exception as e:
         logger.error("Error processing webhook: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail=str(e)
         )
 
 
@@ -218,7 +222,7 @@ async def get_signed_url(
         return {"signedUrl": signed_url}
     except Exception as e:
         logger.error(f"Error getting signed URL: {repr(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail=str(e))
 
 
 async def get_google_docs_parser(request: Request) -> Optional[GoogleDocsParser]:
@@ -262,7 +266,7 @@ async def handle_record_deletion(
         )
         if not response:
             raise HTTPException(
-                status_code=404, detail=f"Record with ID {record_id} not found"
+                status_code=HttpStatusCode.NOT_FOUND.value, detail=f"Record with ID {record_id} not found"
             )
         return {
             "status": "success",
@@ -274,7 +278,7 @@ async def handle_record_deletion(
     except Exception as e:
         logger.error(f"Error deleting record: {str(e)}")
         raise HTTPException(
-            status_code=500,
+            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
             detail=f"Internal server error while deleting record: {str(e)}",
         )
 
@@ -296,7 +300,7 @@ async def download_file(
             arango_service = request.app.state.arango_service
         except Exception as e:
             logger.error(f"Error getting dependencies: {str(e)}")
-            raise HTTPException(status_code=500, detail="Error getting dependencies")
+            raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Error getting dependencies")
 
         logger.info(f"Downloading file {record_id} with connector {connector}")
         # Verify signed URL using the handler
@@ -313,20 +317,20 @@ async def download_file(
                          payload.record_id} != {record_id}"""
             )
             raise HTTPException(
-                status_code=401, detail="Token does not match requested file"
+                status_code=HttpStatusCode.UNAUTHORIZED.value, detail="Token does not match requested file"
             )
 
         # Get org details to determine account type
         org = await arango_service.get_document(org_id, CollectionNames.ORGS.value)
         if not org:
-            raise HTTPException(status_code=404, detail="Organization not found")
+            raise HTTPException(status_code=HttpStatusCode.NOT_FOUND.value, detail="Organization not found")
 
         # Get record details
         record = await arango_service.get_document(
             record_id, CollectionNames.RECORDS.value
         )
         if not record:
-            raise HTTPException(status_code=404, detail="Record not found")
+            raise HTTPException(status_code=HttpStatusCode.NOT_FOUND.value, detail="Record not found")
 
         file_id = record.get("externalRecordId")
 
@@ -348,7 +352,7 @@ async def download_file(
                     record_id, CollectionNames.FILES.value
                 )
                 if not file:
-                    raise HTTPException(status_code=404, detail="File not found")
+                    raise HTTPException(status_code=HttpStatusCode.NOT_FOUND.value, detail="File not found")
                 mime_type = file.get("mimeType")
 
                 if mime_type == "application/vnd.google-apps.presentation":
@@ -457,7 +461,7 @@ async def download_file(
                                 f"Response content: {download_error.response.content}"
                             )
                         raise HTTPException(
-                            status_code=500,
+                            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
                             detail=f"File download failed: {repr(download_error)}",
                         )
                     finally:
@@ -534,7 +538,7 @@ async def download_file(
                                             .execute()
                                         )
                                     except Exception as access_error:
-                                        if hasattr(access_error, 'resp') and access_error.resp.status == StatusCodeConstants.NOT_FOUND.value:
+                                        if hasattr(access_error, 'resp') and access_error.resp.status == HttpStatusCode.NOT_FOUND.value:
                                             logger.info(f"Message not found with ID {message_id}, searching for related messages...")
 
                                             # Get messageIdHeader from the original mail
@@ -550,7 +554,7 @@ async def download_file(
 
                                             if not message_id_header:
                                                 raise HTTPException(
-                                                    status_code=404,
+                                                    status_code=HttpStatusCode.NOT_FOUND.value,
                                                     detail="Original mail not found"
                                                 )
 
@@ -587,7 +591,7 @@ async def download_file(
 
                                             if not message:
                                                 raise HTTPException(
-                                                    status_code=404,
+                                                    status_code=HttpStatusCode.NOT_FOUND.value,
                                                     detail="No accessible messages found."
                                                 )
                                         else:
@@ -610,7 +614,7 @@ async def download_file(
                                 except Exception as e:
                                     logger.error(f"Error extracting attachment ID: {str(e)}")
                                     raise HTTPException(
-                                        status_code=400,
+                                        status_code=HttpStatusCode.BAD_REQUEST.value,
                                         detail=f"Invalid attachment ID format: {str(e)}"
                                     )
 
@@ -624,9 +628,9 @@ async def download_file(
                                     .execute()
                                 )
                             except Exception as attachment_error:
-                                if hasattr(attachment_error, 'resp') and attachment_error.resp.status == StatusCodeConstants.NOT_FOUND.value:
+                                if hasattr(attachment_error, 'resp') and attachment_error.resp.status == HttpStatusCode.NOT_FOUND.value:
                                     raise HTTPException(
-                                        status_code=StatusCodeConstants.NOT_FOUND.value,
+                                        status_code=HttpStatusCode.NOT_FOUND.value,
                                         detail="Attachment not found in accessible messages"
                                     )
                                 raise attachment_error
@@ -667,7 +671,7 @@ async def download_file(
                                     f"Failed to get file from both Gmail and Drive. Gmail error: {str(gmail_error)}, Drive error: {str(drive_error)}"
                                 )
                                 raise HTTPException(
-                                    status_code=500,
+                                    status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
                                     detail="Failed to download file from both Gmail and Drive",
                                 )
                             finally:
@@ -676,7 +680,7 @@ async def download_file(
                     except Exception as e:
                         logger.error(f"Error in attachment stream: {str(e)}")
                         raise HTTPException(
-                            status_code=500,
+                            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
                             detail=f"Error streaming attachment: {str(e)}",
                         )
 
@@ -684,12 +688,12 @@ async def download_file(
                     attachment_stream(), media_type="application/octet-stream"
                 )
             else:
-                raise HTTPException(status_code=400, detail="Invalid connector type")
+                raise HTTPException(status_code=HttpStatusCode.BAD_REQUEST.value, detail="Invalid connector type")
 
         except Exception as e:
             logger.error(f"Error downloading file: {str(e)}")
             raise HTTPException(
-                status_code=500, detail=f"Error downloading file: {str(e)}"
+                status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail=f"Error downloading file: {str(e)}"
             )
 
     except HTTPException as e:
@@ -697,7 +701,7 @@ async def download_file(
         raise e
     except Exception as e:
         logger.error("Error downloading file: %s", str(e))
-        raise HTTPException(status_code=500, detail="Error downloading file")
+        raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Error downloading file")
 
 
 @router.get("/api/v1/stream/record/{record_id}", response_model=None)
@@ -714,13 +718,13 @@ async def stream_record(
             arango_service = request.app.state.arango_service
         except Exception as e:
             logger.error(f"Error getting dependencies: {str(e)}")
-            raise HTTPException(status_code=500, detail="Error getting dependencies")
+            raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Error getting dependencies")
         try:
             logger.info(f"Stream Record Start: {time.time()}")
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    status_code=HttpStatusCode.UNAUTHORIZED.value,
                     detail="Missing or invalid Authorization header",
                 )
             # Extract the token
@@ -734,13 +738,13 @@ async def stream_record(
             user_id = payload.get("userId")
         except JWTError as e:
             logger.error("JWT validation error: %s", str(e))
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+            raise HTTPException(status_code=HttpStatusCode.UNAUTHORIZED.value, detail="Invalid or expired token")
         except ValidationError as e:
             logger.error("Payload validation error: %s", str(e))
-            raise HTTPException(status_code=400, detail="Invalid token payload")
+            raise HTTPException(status_code=HttpStatusCode.BAD_REQUEST.value, detail="Invalid token payload")
         except Exception as e:
             logger.error("Unexpected error during token validation: %s", str(e))
-            raise HTTPException(status_code=500, detail="Error validating token")
+            raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Error validating token")
 
         org_task = arango_service.get_document(org_id, CollectionNames.ORGS.value)
         record_task = arango_service.get_document(
@@ -749,9 +753,9 @@ async def stream_record(
         org, record = await asyncio.gather(org_task, record_task)
 
         if not org:
-            raise HTTPException(status_code=404, detail="Organization not found")
+            raise HTTPException(status_code=HttpStatusCode.NOT_FOUND.value, detail="Organization not found")
         if not record:
-            raise HTTPException(status_code=404, detail="Record not found")
+            raise HTTPException(status_code=HttpStatusCode.NOT_FOUND.value, detail="Record not found")
 
         file_id = record.get("externalRecordId")
         connector = record.get("connectorName")
@@ -799,7 +803,7 @@ async def stream_record(
                             except Exception as e:
                                 logger.error(f"Error reading PDF file: {str(e)}")
                                 raise HTTPException(
-                                    status_code=500,
+                                    status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
                                     detail="Error reading converted PDF file",
                                 )
 
@@ -847,7 +851,7 @@ async def stream_record(
                                     f"Error streaming chunk: {str(chunk_error)}"
                                 )
                                 raise HTTPException(
-                                    status_code=500,
+                                    status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
                                     detail="Error during file streaming",
                                 )
                         logger.info(f"Time check xxx File stream end: {time.time()}")
@@ -855,7 +859,7 @@ async def stream_record(
                     except Exception as stream_error:
                         logger.error(f"Error in file stream: {str(stream_error)}")
                         raise HTTPException(
-                            status_code=500, detail="Error setting up file stream"
+                            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Error setting up file stream"
                         )
                     finally:
                         buffer.close()
@@ -894,7 +898,7 @@ async def stream_record(
                                 .execute()
                             )
                         except Exception as access_error:
-                            if hasattr(access_error, 'resp') and access_error.resp.status == StatusCodeConstants.NOT_FOUND.value:
+                            if hasattr(access_error, 'resp') and access_error.resp.status == HttpStatusCode.NOT_FOUND.value:
                                 logger.info(f"Message not found with ID {file_id}, searching for related messages...")
 
                                 # Get messageIdHeader from the original mail
@@ -910,7 +914,7 @@ async def stream_record(
 
                                 if not message_id_header:
                                     raise HTTPException(
-                                        status_code=StatusCodeConstants.NOT_FOUND.value,
+                                        status_code=HttpStatusCode.NOT_FOUND.value,
                                         detail="Original mail not found"
                                     )
 
@@ -946,7 +950,7 @@ async def stream_record(
 
                                 if not message:
                                     raise HTTPException(
-                                        status_code=StatusCodeConstants.NOT_FOUND.value,
+                                        status_code=HttpStatusCode.NOT_FOUND.value,
                                         detail="No accessible messages found."
                                     )
                             else:
@@ -995,7 +999,7 @@ async def stream_record(
                     except Exception as mail_error:
                         logger.error(f"Failed to fetch mail content: {str(mail_error)}")
                         raise HTTPException(
-                            status_code=500, detail="Failed to fetch mail content"
+                            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Failed to fetch mail content"
                         )
 
                 # Handle attachment download
@@ -1006,7 +1010,7 @@ async def stream_record(
                     record_id, CollectionNames.FILES.value
                 )
                 if not file:
-                    raise HTTPException(status_code=404, detail="File not found")
+                    raise HTTPException(status_code=HttpStatusCode.NOT_FOUND.value, detail="File not found")
 
                 file_name = file.get("name", "")
 
@@ -1049,7 +1053,7 @@ async def stream_record(
                                     .execute()
                                 )
                             except Exception as access_error:
-                                if hasattr(access_error, 'resp') and access_error.resp.status == StatusCodeConstants.NOT_FOUND.value:
+                                if hasattr(access_error, 'resp') and access_error.resp.status == HttpStatusCode.NOT_FOUND.value:
                                     logger.info(f"Message not found with ID {message_id}, searching for related messages...")
 
                                     # Get messageIdHeader from the original mail
@@ -1065,7 +1069,7 @@ async def stream_record(
 
                                     if not message_id_header:
                                         raise HTTPException(
-                                            status_code=StatusCodeConstants.NOT_FOUND.value,
+                                            status_code=HttpStatusCode.NOT_FOUND.value,
                                             detail="Original mail not found"
                                         )
 
@@ -1102,7 +1106,7 @@ async def stream_record(
 
                                     if not message:
                                         raise HTTPException(
-                                            status_code=StatusCodeConstants.NOT_FOUND.value,
+                                            status_code=HttpStatusCode.NOT_FOUND.value,
                                             detail="No accessible messages found."
                                         )
                                 else:
@@ -1125,7 +1129,7 @@ async def stream_record(
                         except Exception as e:
                             logger.error(f"Error extracting attachment ID: {str(e)}")
                             raise HTTPException(
-                                status_code=400,
+                                status_code=HttpStatusCode.BAD_REQUEST.value,
                                 detail=f"Invalid attachment ID format: {str(e)}"
                             )
 
@@ -1139,9 +1143,9 @@ async def stream_record(
                             .execute()
                         )
                     except Exception as attachment_error:
-                        if hasattr(attachment_error, 'resp') and attachment_error.resp.status == StatusCodeConstants.NOT_FOUND.value:
+                        if hasattr(attachment_error, 'resp') and attachment_error.resp.status == HttpStatusCode.NOT_FOUND.value:
                             raise HTTPException(
-                                status_code=StatusCodeConstants.NOT_FOUND.value,
+                                status_code=HttpStatusCode.NOT_FOUND.value,
                                 detail="Attachment not found in accessible messages"
                             )
                         raise attachment_error
@@ -1268,7 +1272,7 @@ async def stream_record(
                                             f"Error streaming chunk: {str(chunk_error)}"
                                         )
                                         raise HTTPException(
-                                            status_code=500,
+                                            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
                                             detail="Error during file streaming",
                                         )
 
@@ -1277,7 +1281,7 @@ async def stream_record(
                                     f"Error in file stream: {str(stream_error)}"
                                 )
                                 raise HTTPException(
-                                    status_code=500,
+                                    status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
                                     detail="Error setting up file stream",
                                 )
                             finally:
@@ -1292,24 +1296,24 @@ async def stream_record(
                             f"Failed to get file from both Gmail and Drive. Gmail error: {str(gmail_error)}, Drive error: {str(drive_error)}"
                         )
                         raise HTTPException(
-                            status_code=500,
+                            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
                             detail="Failed to download file from both Gmail and Drive",
                         )
 
             else:
-                raise HTTPException(status_code=400, detail="Invalid connector type")
+                raise HTTPException(status_code=HttpStatusCode.BAD_REQUEST.value, detail="Invalid connector type")
 
         except Exception as e:
             logger.error(f"Error downloading file: {str(e)}")
             raise HTTPException(
-                status_code=500, detail=f"Error downloading file: {str(e)}"
+                status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail=f"Error downloading file: {str(e)}"
             )
 
     except HTTPException as e:
         raise e
     except Exception as e:
         logger.error("Error downloading file: %s", str(e))
-        raise HTTPException(status_code=500, detail="Error downloading file")
+        raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Error downloading file")
 
 
 @router.post("/api/v1/record/buffer/convert")
@@ -1354,7 +1358,7 @@ async def get_record_stream(request: Request, file: UploadFile = File(...)) -> S
                             "LibreOffice conversion timed out after 30 seconds"
                         )
                         raise HTTPException(
-                            status_code=500, detail="PDF conversion timed out"
+                            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="PDF conversion timed out"
                         )
 
                     pdf_filename = file.filename.rsplit(".", 1)[0] + ".pdf"
@@ -1364,7 +1368,7 @@ async def get_record_stream(request: Request, file: UploadFile = File(...)) -> S
                         error_msg = f"LibreOffice conversion failed: {conversion_error.decode('utf-8', errors='replace')}"
                         logger.error(error_msg)
                         raise HTTPException(
-                            status_code=500, detail="Failed to convert file to PDF"
+                            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Failed to convert file to PDF"
                         )
 
                     if not os.path.exists(pdf_path):
@@ -1379,7 +1383,7 @@ async def get_record_stream(request: Request, file: UploadFile = File(...)) -> S
                         except Exception as e:
                             logger.error(f"Error reading PDF file: {str(e)}")
                             raise HTTPException(
-                                status_code=500,
+                                status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value,
                                 detail="Error reading converted PDF file",
                             )
 
@@ -1393,16 +1397,16 @@ async def get_record_stream(request: Request, file: UploadFile = File(...)) -> S
 
                 except FileNotFoundError as e:
                     logger.error(str(e))
-                    raise HTTPException(status_code=500, detail=str(e))
+                    raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail=str(e))
                 except Exception as e:
                     logger.error(f"Conversion error: {str(e)}")
                     raise HTTPException(
-                        status_code=500, detail=f"Conversion error: {str(e)}"
+                        status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail=f"Conversion error: {str(e)}"
                     )
         finally:
             await file.close()
 
-    raise HTTPException(status_code=400, detail="Invalid conversion request")
+    raise HTTPException(status_code=HttpStatusCode.BAD_REQUEST.value, detail="Invalid conversion request")
 
 
 async def get_admin_webhook_handler(request: Request) -> Optional[AdminWebhookHandler]:
@@ -1422,7 +1426,7 @@ async def handle_admin_webhook(request: Request, background_tasks: BackgroundTas
     try:
         verifier = WebhookAuthVerifier(logger)
         if not await verifier.verify_request(request):
-            raise HTTPException(status_code=401, detail="Unauthorized webhook request")
+            raise HTTPException(status_code=HttpStatusCode.UNAUTHORIZED.value, detail="Unauthorized webhook request")
 
         admin_webhook_handler = await get_admin_webhook_handler(request)
 
@@ -1451,13 +1455,13 @@ async def handle_admin_webhook(request: Request, background_tasks: BackgroundTas
         events = body.get("events", [])
         if not events:
             raise HTTPException(
-                status_code=400, detail="No events found in webhook body"
+                status_code=HttpStatusCode.BAD_REQUEST.value, detail="No events found in webhook body"
             )
 
         event_type = events[0].get("name")  # We'll process the first event
         if not event_type:
             raise HTTPException(
-                status_code=400, detail="Missing event name in webhook body"
+                status_code=HttpStatusCode.BAD_REQUEST.value, detail="Missing event name in webhook body"
             )
 
         # Process notification in background
@@ -1469,7 +1473,7 @@ async def handle_admin_webhook(request: Request, background_tasks: BackgroundTas
     except Exception as e:
         logger.error("Error processing webhook: %s", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail=str(e)
         )
 
 
@@ -1506,26 +1510,26 @@ async def convert_to_pdf(file_path: str, temp_dir: str) -> str:
             except asyncio.TimeoutError:
                 process.kill()  # Force kill if termination takes too long
             logger.error("LibreOffice conversion timed out after 30 seconds")
-            raise HTTPException(status_code=500, detail="PDF conversion timed out")
+            raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="PDF conversion timed out")
 
         if process.returncode != 0:
             error_msg = f"LibreOffice conversion failed: {conversion_error.decode('utf-8', errors='replace')}"
             logger.error(error_msg)
-            raise HTTPException(status_code=500, detail="Failed to convert file to PDF")
+            raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Failed to convert file to PDF")
 
         if os.path.exists(pdf_path):
             return pdf_path
         else:
             raise HTTPException(
-                status_code=500, detail="PDF conversion failed - output file not found"
+                status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="PDF conversion failed - output file not found"
             )
     except asyncio.TimeoutError:
         # This catch is for any other timeout that might occur
         logger.error("Timeout during PDF conversion")
-        raise HTTPException(status_code=500, detail="PDF conversion timed out")
+        raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="PDF conversion timed out")
     except Exception as conv_error:
         logger.error(f"Error during conversion: {str(conv_error)}")
-        raise HTTPException(status_code=500, detail="Error converting file to PDF")
+        raise HTTPException(status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Error converting file to PDF")
 
 
 async def get_service_account_credentials(org_id: str, user_id: str, logger, arango_service, google_token_handler, container) -> google.oauth2.credentials.Credentials:
@@ -1570,14 +1574,14 @@ async def get_service_account_credentials(org_id: str, user_id: str, logger, ara
     except Exception as e:
         logger.error(f"Error getting service account credentials: {str(e)}")
         raise HTTPException(
-            status_code=500, detail="Error accessing service account credentials"
+            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Error accessing service account credentials"
         )
 
 async def get_user_credentials(org_id: str, user_id: str, logger, google_token_handler, container) -> google.oauth2.credentials.Credentials:
     """Helper function to get cached user credentials"""
     try:
-        user_creds_lock = container.user_creds_lock()
         cache_key = f"{org_id}_{user_id}"
+        user_creds_lock = container.user_creds_lock()
 
         async with user_creds_lock:
             if not hasattr(container, 'user_creds_cache'):
@@ -1606,7 +1610,7 @@ async def get_user_credentials(org_id: str, user_id: str, logger, google_token_h
 
             if not creds_data.get("access_token"):
                 raise HTTPException(
-                    status_code=401,
+                    status_code=HttpStatusCode.UNAUTHORIZED.value,
                     detail="Invalid credentials. Access token not found",
                 )
 
@@ -1628,9 +1632,8 @@ async def get_user_credentials(org_id: str, user_id: str, logger, google_token_h
     except Exception as e:
         logger.error(f"Error getting user credentials: {str(e)}")
         # Remove from cache if there's an error
-        async with user_creds_lock:
-            if hasattr(container, 'user_creds_cache'):
-                container.user_creds_cache.pop(cache_key, None)
+        if hasattr(container, 'user_creds_cache'):
+            container.user_creds_cache.pop(cache_key, None)
         raise HTTPException(
-            status_code=500, detail="Error accessing user credentials"
+            status_code=HttpStatusCode.INTERNAL_SERVER_ERROR.value, detail="Error accessing user credentials"
         )

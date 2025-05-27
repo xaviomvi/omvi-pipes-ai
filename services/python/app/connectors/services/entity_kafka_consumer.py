@@ -15,7 +15,6 @@ from app.config.utils.named_constants.arangodb_constants import (
     Connectors,
 )
 from app.setups.connector_setup import (
-    cache_google_workspace_service_credentials,
     initialize_enterprise_account_services_fn,
     initialize_individual_account_services_fn,
 )
@@ -107,6 +106,7 @@ class EntityKafkaRouteConsumer:
     @inject
     async def process_message(self, message) -> bool:
         """Process incoming Kafka messages and route them to appropriate handlers"""
+        message_id = None
         try:
             message_id = f"{message.topic()}-{message.partition()}-{message.offset()}"
             self.logger.debug(f"Processing message {message_id}")
@@ -504,9 +504,6 @@ class EntityKafkaRouteConsumer:
                         value={"email": payload["email"]},
                     )
 
-                    if app["appGroup"] == "Google Workspace":
-                        await cache_google_workspace_service_credentials(org_id, self.arango_service, self.logger, self.app_container)
-
             self.logger.info(
                 f"✅ Successfully created/updated user: {payload['email']}"
             )
@@ -665,7 +662,6 @@ class EntityKafkaRouteConsumer:
                 # Initialize services based on account type
                 if self.app_container:
                     accountType = org["accountType"]
-                    self.logger.info(f"Account type: {accountType}")
                     # Use the existing app container to initialize services
                     if accountType == AccountType.ENTERPRISE.value or accountType == AccountType.BUSINESS.value:
                         await initialize_enterprise_account_services_fn(

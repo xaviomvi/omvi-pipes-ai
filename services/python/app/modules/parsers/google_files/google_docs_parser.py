@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional, Tuple
 
-from app.connectors.google.admin.google_admin_service import GoogleAdminService
+from app.connectors.sources.google.admin.google_admin_service import GoogleAdminService
 from app.connectors.utils.decorators import exponential_backoff
 from app.modules.parsers.google_files.parser_user_service import ParserUserService
 
@@ -15,7 +15,7 @@ class GoogleDocsParser:
         logger,
         admin_service: Optional[GoogleAdminService] = None,
         user_service: Optional[ParserUserService] = None,
-    ):
+    ) -> None:
         """Initialize with either admin or user service"""
         self.logger = logger
         self.admin_service = admin_service
@@ -24,7 +24,7 @@ class GoogleDocsParser:
 
     async def connect_service(
         self, user_email: str = None, org_id: str = None, user_id: str = None
-    ):
+    ) -> None:
         if self.user_service:
             if not await self.user_service.connect_individual_user(org_id, user_id):
                 self.logger.error("❌ Failed to connect to Google Docs service")

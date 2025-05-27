@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from app.connectors.google.admin.google_admin_service import GoogleAdminService
+from app.connectors.sources.google.admin.google_admin_service import GoogleAdminService
 from app.connectors.utils.decorators import exponential_backoff
 from app.modules.parsers.excel.prompt_template import (
     prompt,
@@ -23,7 +23,7 @@ class GoogleSheetsParser:
         logger,
         admin_service: Optional[GoogleAdminService] = None,
         user_service: Optional[ParserUserService] = None,
-    ):
+    ) -> None:
         """Initialize with either admin or user service"""
         self.logger = logger
         self.admin_service = admin_service
@@ -40,7 +40,7 @@ class GoogleSheetsParser:
 
     async def connect_service(
         self, user_email: str = None, org_id: str = None, user_id: str = None
-    ):
+    ) -> None:
         if self.user_service:
             if not await self.user_service.connect_individual_user(org_id, user_id):
                 self.logger.error("❌ Failed to connect to Google Sheets service")
@@ -180,7 +180,7 @@ class GoogleSheetsParser:
             result = chr(65 + remainder) + result
         return result
 
-    def _get_data_type(self, value: Any) -> str:
+    def _get_data_type(self, value) -> str:
         """Determine the data type of a value"""
         if value is None:
             return "n"  # null
@@ -214,7 +214,7 @@ class GoogleSheetsParser:
             if not values:
                 return tables
 
-            def get_table(start_row, start_col):
+            def get_table(start_row, start_col) -> Optional[Dict[str, Any]]:
                 """Extract a table starting from (start_row, start_col)."""
                 if start_row >= len(values):
                     return None
@@ -364,7 +364,7 @@ class GoogleSheetsParser:
         return values
 
     def _process_cell(
-        self, value: Any, header: str, row: int, col: int
+        self, value, header: str, row: int, col: int
     ) -> Dict[str, Any]:
         """Process a single cell and return its data"""
         return {
@@ -385,7 +385,7 @@ class GoogleSheetsParser:
             f"Retrying LLM call after error. Attempt {retry_state.attempt_number}"
         ),
     )
-    async def _call_llm(self, messages):
+    async def _call_llm(self, messages) -> dict:
         """Wrapper for LLM calls with retry logic"""
         return await self.llm.ainvoke(messages)
 

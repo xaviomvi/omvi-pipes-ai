@@ -20,6 +20,7 @@ from app.config.utils.named_constants.arangodb_constants import (
     MimeTypes,
     ProgressStatus,
 )
+from app.config.utils.named_constants.http_status_code_constants import HttpStatusCode
 from app.exceptions.indexing_exceptions import IndexingError
 
 # Concurrency control settings
@@ -53,7 +54,7 @@ async def make_api_call(signed_url_route: str, token: str) -> dict:
             async with session.get(url, headers=headers) as response:
                 content_type = response.headers.get("Content-Type", "").lower()
 
-                if response.status == 200 and "application/json" in content_type:
+                if response.status == HttpStatusCode.SUCCESS.value and "application/json" in content_type:
                     data = await response.json()
                     return {"is_json": True, "data": data}
                 else:
@@ -64,7 +65,7 @@ async def make_api_call(signed_url_route: str, token: str) -> dict:
 
 
 class KafkaConsumerManager:
-    def __init__(self, logger, config_service: ConfigurationService, event_processor, redis_scheduler):
+    def __init__(self, logger, config_service: ConfigurationService, event_processor, redis_scheduler) -> None:
         self.logger = logger
         self.consumer = None
         self.running = False
@@ -82,10 +83,10 @@ class KafkaConsumerManager:
         # Create task for processing scheduled updates
         self.scheduled_update_task = None
 
-    async def create_consumer(self):
+    async def create_consumer(self) -> None:
         try:
 
-            async def get_kafka_config():
+            async def get_kafka_config() -> Dict:
                 kafka_config = await self.config_service.get_config(
                     config_node_constants.KAFKA.value
                 )
@@ -116,7 +117,7 @@ class KafkaConsumerManager:
             )
             raise
 
-    async def process_message_wrapper(self, message):
+    async def process_message_wrapper(self, message) -> bool | None:
         """Wrapper to handle async task cleanup and semaphore release"""
         # Extract message identifiers for logging
         topic = message.topic()
@@ -138,7 +139,7 @@ class KafkaConsumerManager:
             # Release the semaphore to allow a new task to start
             self.semaphore.release()
 
-    async def _process_message(self, message):
+    async def _process_message(self, message) -> bool | None:
         start_time = datetime.now()
         topic_partition = f"{message.topic()}-{message.partition()}"
         offset = message.offset()
@@ -365,13 +366,13 @@ class KafkaConsumerManager:
             and offset in self.processed_messages[topic_partition]
         )
 
-    def mark_message_processed(self, topic_partition: str, offset: int):
+    def mark_message_processed(self, topic_partition: str, offset: int) -> None:
         """Mark a message as processed."""
         if topic_partition not in self.processed_messages:
             self.processed_messages[topic_partition] = []
         self.processed_messages[topic_partition].append(offset)
 
-    def cleanup_completed_tasks(self):
+    def cleanup_completed_tasks(self) -> None:
         """Remove completed tasks from the active tasks set"""
         done_tasks = {task for task in self.active_tasks if task.done()}
         self.active_tasks -= done_tasks
@@ -381,7 +382,7 @@ class KafkaConsumerManager:
             if task.exception():
                 self.logger.error(f"Task completed with exception: {task.exception()}")
 
-    async def start_processing_task(self, message):
+    async def start_processing_task(self, message) -> None:
         """Start a new task for processing a message with semaphore control"""
         # Wait for the rate limiter
         await self.rate_limiter.wait()
@@ -401,7 +402,7 @@ class KafkaConsumerManager:
             f"Active tasks: {len(self.active_tasks)}/{MAX_CONCURRENT_TASKS}"
         )
 
-    async def consume_messages(self):
+    async def consume_messages(self) -> None:
         """Main consumption loop."""
         start_time = datetime.now()
         processed_count = 0
@@ -509,7 +510,7 @@ class KafkaConsumerManager:
 
         return token
 
-    async def process_scheduled_updates(self):
+    async def process_scheduled_updates(self) -> None:
         """Process any scheduled updates that are ready"""
         while self.running:
             try:
@@ -599,7 +600,7 @@ class KafkaConsumerManager:
                 self.logger.error(f"Error in scheduled update processor: {str(e)}")
                 await asyncio.sleep(60)
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the consumer and scheduled update processor."""
         try:
             # Clean up any documents stuck in IN_PROGRESS state
@@ -613,7 +614,7 @@ class KafkaConsumerManager:
             self.logger.error(f"❌ Error starting Kafka consumer: {str(e)}")
             raise
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the consumer and scheduled update processor."""
         self.running = False
         if self.scheduled_update_task:
@@ -625,7 +626,7 @@ class KafkaConsumerManager:
         indexing_status: str,
         extraction_status: str,
         reason: str = None,
-    ):
+    ) -> None:
         """Update document status in Arango"""
         try:
             record = await self.event_processor.arango_service.get_document(
@@ -657,7 +658,7 @@ class KafkaConsumerManager:
         except Exception as e:
             self.logger.error(f"❌ Failed to update document status: {str(e)}")
 
-    async def cleanup_in_progress_documents(self):
+    async def cleanup_in_progress_documents(self) -> None:
         """
         Cleanup documents that were left in IN_PROGRESS state due to application crash
         """
@@ -700,13 +701,13 @@ class KafkaConsumerManager:
 class RateLimiter:
     """Simple rate limiter to control how many tasks start per second"""
 
-    def __init__(self, rate_limit_per_second):
+    def __init__(self, rate_limit_per_second) -> None:
         self.rate = rate_limit_per_second
         self.last_check = datetime.now()
         self.tokens = rate_limit_per_second
         self.lock = asyncio.Lock()
 
-    async def wait(self):
+    async def wait(self) -> None:
         """Wait until a token is available"""
         async with self.lock:
             while True:

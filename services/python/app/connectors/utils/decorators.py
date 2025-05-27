@@ -1,18 +1,19 @@
 import asyncio
 import random
 from functools import wraps
+from typing import Callable
 
-from app.exceptions.connector_google_exceptions import (
+from app.connectors.sources.google.common.connector_google_exceptions import (
     GoogleAuthError,
     GoogleConnectorError,
 )
 
 
-def token_refresh(func):
+def token_refresh(func: Callable) -> Callable:
     """Decorator to check and refresh token before API call"""
 
     @wraps(func)
-    async def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs) -> None:
         try:
             # Skip token refresh for delegated credentials
             has_is_delegated = hasattr(self, "is_delegated")
@@ -32,15 +33,15 @@ def token_refresh(func):
 
 def exponential_backoff(
     max_retries: int = 5, initial_delay: float = 1.0, max_delay: float = 32.0
-):
+) -> Callable:
     """
     Decorator implementing exponential backoff for rate limiting and server errors.
     Works with existing error conversion in methods.
     """
 
-    def decorator(func):
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs) -> None:
             retries = 0
             delay = initial_delay
             last_exception = None

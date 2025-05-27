@@ -15,7 +15,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.records import router as records_router
 from app.api.routes.search import router as search_router
 from app.config.configuration_service import DefaultEndpoints, config_node_constants
-from app.config.utils.named_constants.status_code_constants import StatusCodeConstants
+from app.config.utils.named_constants.http_status_code_constants import HttpStatusCode
 from app.setups.query_setup import AppContainer
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
@@ -165,7 +165,7 @@ async def health_check() -> JSONResponse:
         async with httpx.AsyncClient() as client:
             connector_response = await client.get(connector_url, timeout=5.0)
 
-            if connector_response.status_code != StatusCodeConstants.SUCCESS.value:
+            if connector_response.status_code != HttpStatusCode.SUCCESS.value:
                 return JSONResponse(
                     status_code=500,
                     content={
