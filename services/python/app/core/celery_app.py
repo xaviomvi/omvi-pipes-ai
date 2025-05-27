@@ -1,6 +1,5 @@
 import threading
 from datetime import timedelta
-from typing import Any
 
 from celery import Celery
 

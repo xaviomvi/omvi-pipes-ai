@@ -107,6 +107,7 @@ class EntityKafkaRouteConsumer:
     @inject
     async def process_message(self, message) -> bool:
         """Process incoming Kafka messages and route them to appropriate handlers"""
+        message_id = None
         try:
             message_id = f"{message.topic()}-{message.partition()}-{message.offset()}"
             self.logger.debug(f"Processing message {message_id}")

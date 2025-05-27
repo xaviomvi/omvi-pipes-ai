@@ -41,7 +41,7 @@ async def process_drive_file(metadata: dict, org_id: str) -> Tuple[FileRecord, R
             )
             .build()
         )
-        # Shared files are not indexed and extracted by default as any public file opened by a user in Google Drive 
+        # Shared files are not indexed and extracted by default as any public file opened by a user in Google Drive
         # is also shown as shared file
         is_shared = metadata.get("isSharedWithMe", False)
         status = ProgressStatus.AUTO_INDEX_OFF.value if is_shared else ProgressStatus.NOT_STARTED.value

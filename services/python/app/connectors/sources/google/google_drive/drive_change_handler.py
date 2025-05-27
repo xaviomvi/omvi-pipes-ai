@@ -1,5 +1,4 @@
 import traceback
-import uuid
 from typing import Dict
 
 from app.config.configuration_service import DefaultEndpoints, config_node_constants
@@ -7,7 +6,6 @@ from app.config.utils.named_constants.arangodb_constants import (
     CollectionNames,
     Connectors,
     EventTypes,
-    MimeTypes,
     OriginTypes,
     RecordRelations,
     RecordTypes,
@@ -522,7 +520,7 @@ class DriveChangeHandler:
                                     "relationType": RecordRelations.PARENT_CHILD.value,
                                 }
                             )
-                
+
                 if file_record:
                     await self.arango_service.batch_upsert_nodes(
                         [file_record.to_dict()], CollectionNames.FILES.value, transaction=transaction
@@ -567,7 +565,7 @@ class DriveChangeHandler:
             self.logger.info("🚀 Handling update of file: %s", updated_file.get("name"))
 
             permissions = updated_file.pop("permissions", [])
-            file_record, record, is_of_type_record = await process_file(updated_file, org_id)
+            # file_record, record, is_of_type_record = await process_drive_file(updated_file, org_id)
             file = {
                 "_key": existing_file["_key"],
                 "orgId": org_id,

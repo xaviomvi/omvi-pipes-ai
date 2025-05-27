@@ -16,34 +16,34 @@ class SyncTasks:
         self.gmail_sync_service = gmail_sync_service
         self.arango_service = arango_service
         self.logger.info("🔄 Initializing SyncTasks")
-        
+
         # Check if celery_app is properly initialized
         if not self.celery:
             self.logger.error("❌ Celery app is None!")
             raise ValueError("Celery app is not initialized")
-            
+
         # Check if celery has task decorator
         if not hasattr(self.celery, 'task'):
             self.logger.error("❌ Celery app does not have 'task' attribute!")
             self.logger.error(f"Celery app type: {type(self.celery)}")
             self.logger.error(f"Celery app attributes: {dir(self.celery)}")
             raise AttributeError("Celery app does not have 'task' decorator")
-            
+
         self.setup_tasks()
 
     def setup_tasks(self) -> None:
         """Setup Celery task decorators"""
         self.logger.info("🔄 Starting task registration")
-        
+
         # Get the Celery app instance - it might be wrapped
         celery_instance = self.celery
-        
+
         # If CeleryApp is a wrapper, get the actual Celery instance
         if hasattr(self.celery, 'app'):
             celery_instance = self.celery.app
         elif hasattr(self.celery, 'celery'):
             celery_instance = self.celery.celery
-            
+
         self.logger.info(f"📌 Using celery instance of type: {type(celery_instance)}")
 
         # Define the task using the actual Celery instance

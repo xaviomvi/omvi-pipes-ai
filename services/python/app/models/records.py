@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from app.models.graph import Node
-from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 
 @dataclass
@@ -38,13 +37,13 @@ class Record(Node):
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> 'Record':
         record = Record()
-        
+
         record._key = data.get("_key", "")
         record.org_id = data.get("orgId", "")
         record.record_name = data.get("recordName", "")
         record.external_record_id = data.get("externalRecordId", "")
         record.external_revision_id = data.get("externalRevisionId", None)
-        record.record_type = data.get("recordType", "")  
+        record.record_type = data.get("recordType", "")
         record.version = data.get("version", 0)
         record.origin = data.get("origin", "UPLOAD")
         record.connector_name = data.get("connectorName", None)
@@ -65,9 +64,9 @@ class Record(Node):
         record.summary_document_id = data.get("summaryDocumentId", None)
         record.virtual_record_id = data.get("virtualRecordId", None)
         record.deleted_by_user_id = data.get("deletedByUserId", None)
-        
+
         return record
-    
+
     def __post_init__(self) -> None:
         if not self._key:
             raise ValueError("_key must be set")
@@ -163,9 +162,9 @@ class FileRecord(Node):
         file_record.web_url = data.get("webUrl", None)
         file_record.path = data.get("path", None)
         file_record.md5_checksum = data.get("md5Checksum", None)
-        
+
         return file_record
-    
+
     def __post_init__(self) -> None:
         if not self._key:
             raise ValueError("_key must be set")
@@ -213,15 +212,15 @@ class MailRecord(Node):
         mail_record = MailRecord()
         mail_record._key = data.get("_key", "")
         mail_record.thread_id = data.get("threadId", "")
-        mail_record.is_parent = data.get("isParent", False) 
+        mail_record.is_parent = data.get("isParent", False)
         mail_record.subject = data.get("subject", None)
         mail_record.from_address = data.get("from", None)
         mail_record.to_addresses = data.get("to", [])
         mail_record.cc_addresses = data.get("cc", [])
         mail_record.bcc_addresses = data.get("bcc", [])
         mail_record.web_url = data.get("webUrl", None)
-        
-        return mail_record  
+
+        return mail_record
 
     def __post_init__(self) -> None:
         if not self._key:

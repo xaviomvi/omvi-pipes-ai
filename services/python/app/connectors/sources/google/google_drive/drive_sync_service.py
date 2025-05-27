@@ -396,7 +396,7 @@ class BaseDriveSyncService(ABC):
             self.logger.error("❌ Failed to process drive data: %s", str(e))
             return False
 
-    
+
 
     async def process_batch(self, file_metadata_list, org_id) -> bool | None:
         """Process a single batch with atomic operations"""

@@ -135,7 +135,7 @@ class GmailChangeHandler:
 
                     # Convert record to dictionary if it's a Record object
                     record_dict = record.to_dict() if hasattr(record, 'to_dict') else record
-                    
+
                     is_of_type_record = {
                         "_from": f'{CollectionNames.RECORDS.value}/{record_dict["_key"]}',
                         "_to": f'{CollectionNames.MAILS.value}/{message_record["_key"]}',

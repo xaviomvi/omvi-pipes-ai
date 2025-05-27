@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from app.config.configuration_service import ConfigurationService
 

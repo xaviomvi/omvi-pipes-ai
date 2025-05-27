@@ -39,7 +39,7 @@ class ArangoService(BaseArangoService):
         user_email: str,
         token: str,
         expiration: Optional[str] = None,
-    ) -> None:
+    ) -> Optional[Dict]:
         """Store page token with user channel information"""
         try:
             self.logger.info(
@@ -98,7 +98,7 @@ class ArangoService(BaseArangoService):
 
     async def get_page_token_db(
         self, channel_id: str = None, resource_id: str = None, user_email: str = None
-    ) -> Optional[str]:
+    ) -> Optional[Dict]:
         """Get page token for specific channel"""
         try:
             self.logger.info(

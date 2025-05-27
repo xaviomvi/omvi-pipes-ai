@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, List
+from typing import List
 
 from app.models.records import FileRecord, MailRecord, Record
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
@@ -119,10 +119,6 @@ class RecordBuilder:
 
     def with_external_revision_id(self, external_revision_id: str) -> 'RecordBuilder':
         self._external_revision_id = external_revision_id
-        return self
-
-    def with_last_sync_timestamp(self, last_sync_timestamp: float) -> 'RecordBuilder':
-        self._last_sync_timestamp = last_sync_timestamp
         return self
 
     def with_summary_document_id(self, summary_document_id: str) -> 'RecordBuilder':
