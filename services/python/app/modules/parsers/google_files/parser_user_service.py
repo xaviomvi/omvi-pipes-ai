@@ -6,12 +6,12 @@ import google.oauth2.credentials
 from googleapiclient.discovery import build
 
 from app.config.configuration_service import ConfigurationService
-from app.connectors.google.gmail.core.gmail_user_service import (
+from app.connectors.sources.google.common.scopes import GOOGLE_PARSER_SCOPES
+from app.connectors.sources.google.gmail.gmail_user_service import (
     GoogleAuthError,
     GoogleMailError,
     MailOperationError,
 )
-from app.connectors.google.scopes import GOOGLE_PARSER_SCOPES
 from app.connectors.utils.decorators import token_refresh
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 
@@ -26,7 +26,7 @@ class ParserUserService:
         rate_limiter: GoogleAPIRateLimiter,
         google_token_handler,
         credentials=None,
-    ):
+    ) -> None:
         try:
             self.logger = logger
             self.config_service = config
@@ -131,7 +131,7 @@ class ParserUserService:
                 details={"org_id": org_id, "user_id": user_id, "error": str(e)},
             )
 
-    async def _check_and_refresh_token(self):
+    async def _check_and_refresh_token(self) -> None:
         """Check token expiry and refresh if needed"""
         self.logger.info("Checking token expiry and refreshing if needed")
 
@@ -212,7 +212,7 @@ class ParserUserService:
                 details={"error": str(e)},
             )
 
-    async def disconnect(self):
+    async def disconnect(self) -> bool | None:
         """Disconnect and cleanup services"""
         try:
             self.logger.info("🔄 Disconnecting parser services")

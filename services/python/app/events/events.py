@@ -14,11 +14,12 @@ from app.config.utils.named_constants.arangodb_constants import (
     ProgressStatus,
     RecordTypes,
 )
+from app.config.utils.named_constants.http_status_code_constants import HttpStatusCode
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 
 class EventProcessor:
-    def __init__(self, logger, processor, arango_service):
+    def __init__(self, logger, processor, arango_service) -> None:
         self.logger = logger
         self.logger.info("🚀 Initializing EventProcessor")
         self.processor = processor
@@ -55,7 +56,7 @@ class EventProcessor:
                 async with aiohttp.ClientSession(timeout=timeout) as session:
                     try:
                         async with session.get(signed_url) as response:
-                            if response.status != 200:
+                            if response.status != HttpStatusCode.SUCCESS.value:
                                 raise aiohttp.ClientError(
                                     f"Failed to download file: {response.status}"
                                 )
@@ -134,7 +135,7 @@ class EventProcessor:
                 if not file_buffer.closed:
                     file_buffer.close()
 
-    async def on_event(self, event_data: dict):
+    async def on_event(self, event_data: dict) -> None:
         """
         Process events received from Kafka consumer
         Args:

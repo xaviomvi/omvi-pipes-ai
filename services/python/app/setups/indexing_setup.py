@@ -22,7 +22,7 @@ from app.config.utils.named_constants.arangodb_constants import (
     ExtensionTypes,
     QdrantCollectionNames,
 )
-from app.config.utils.named_constants.status_code_constants import StatusCodeConstants
+from app.config.utils.named_constants.http_status_code_constants import HttpStatusCode
 from app.core.ai_arango_service import ArangoService
 from app.core.redis_scheduler import RedisScheduler
 from app.events.events import EventProcessor
@@ -279,7 +279,7 @@ async def health_check_etcd(container) -> None:
 
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{etcd_url}/health") as response:
-                if response.status == StatusCodeConstants.SUCCESS.value:
+                if response.status == HttpStatusCode.SUCCESS.value:
                     response_text = await response.text()
                     logger.info("✅ etcd health check passed")
                     logger.debug(f"etcd health response: {response_text}")

@@ -1,6 +1,5 @@
 import threading
 from datetime import timedelta
-from typing import Any
 
 from celery import Celery
 
@@ -18,7 +17,7 @@ celery = Celery("drive_sync")
 class CeleryApp:
     """Celery application manager"""
 
-    def __init__(self, logger, config_service: ConfigurationService):
+    def __init__(self, logger, config_service: ConfigurationService) -> None:
         self.logger = logger
         self.config_service = config_service
         self.app = celery  # Use the module-level celery instance
@@ -74,7 +73,7 @@ class CeleryApp:
             # Add watch renewal task
             self.app.conf.beat_schedule = {
                 "renew-watches": {
-                    "task": "app.connectors.google.core.sync_tasks.schedule_next_changes_watch",
+                    "task": "app.connectors.sources.google.common.sync_tasks.schedule_next_changes_watch",
                     "schedule": interval_seconds,
                     "options": {
                         "expires": expiration_seconds
@@ -83,7 +82,7 @@ class CeleryApp:
             }
 
             self.logger.info("📋 Celery beat configuration:")
-            self.logger.info("   ├─ Task: app.connectors.google.core.sync_tasks.schedule_next_changes_watch")
+            self.logger.info("   ├─ Task: app.connectors.sources.google.common.sync_tasks.schedule_next_changes_watch")
             self.logger.info(f"   ├─ Interval: {interval_seconds} seconds")
             self.logger.info(f"   └─ Expiration: {expiration_seconds} seconds")
 
@@ -97,13 +96,13 @@ class CeleryApp:
         """Get the Celery application instance"""
         return self.app
 
-    def task(self, *args: Any, **kwargs: Any) -> Any:
+    def task(self, *args, **kwargs) -> None:
         """Decorator for registering tasks"""
-        return self.app.task(*args, **kwargs)
+        self.app.task(*args, **kwargs)
 
-    def start_worker(self):
+    def start_worker(self) -> None:
         """Start Celery worker in a separate thread"""
-        def _worker():
+        def _worker() -> None:
             self.logger.info("🚀 Starting Celery worker...")
             argv = [
                 'worker',
@@ -114,9 +113,9 @@ class CeleryApp:
 
         threading.Thread(target=_worker, daemon=True).start()
 
-    def start_beat(self):
+    def start_beat(self) -> None:
         """Start Celery beat scheduler in a separate thread"""
-        def _beat():
+        def _beat() -> None:
             self.logger.info("🕒 Starting Celery beat scheduler...")
             # argv = [
             #     'beat',

@@ -21,39 +21,43 @@ from app.config.configuration_service import (
     RedisConfig,
     config_node_constants,
 )
-from app.config.utils.named_constants.status_code_constants import StatusCodeConstants
-from app.connectors.core.kafka_service import KafkaService
-from app.connectors.core.sync_kafka_consumer import SyncKafkaRouteConsumer
-from app.connectors.google.admin.admin_webhook_handler import AdminWebhookHandler
-from app.connectors.google.admin.google_admin_service import GoogleAdminService
-from app.connectors.google.core.arango_service import ArangoService
-from app.connectors.google.core.sync_tasks import SyncTasks
-from app.connectors.google.gmail.core.gmail_sync_service import (
+from app.config.utils.named_constants.http_status_code_constants import HttpStatusCode
+from app.connectors.services.kafka_service import KafkaService
+from app.connectors.services.sync_kafka_consumer import SyncKafkaRouteConsumer
+from app.connectors.sources.google.admin.admin_webhook_handler import (
+    AdminWebhookHandler,
+)
+from app.connectors.sources.google.admin.google_admin_service import GoogleAdminService
+from app.connectors.sources.google.common.arango_service import ArangoService
+from app.connectors.sources.google.common.google_token_handler import GoogleTokenHandler
+from app.connectors.sources.google.common.scopes import (
+    GOOGLE_CONNECTOR_ENTERPRISE_SCOPES,
+    GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES,
+)
+from app.connectors.sources.google.common.sync_tasks import SyncTasks
+from app.connectors.sources.google.gmail.gmail_change_handler import GmailChangeHandler
+from app.connectors.sources.google.gmail.gmail_sync_service import (
     GmailSyncEnterpriseService,
     GmailSyncIndividualService,
 )
-from app.connectors.google.gmail.core.gmail_user_service import GmailUserService
-from app.connectors.google.gmail.handlers.gmail_change_handler import GmailChangeHandler
-from app.connectors.google.gmail.handlers.gmail_webhook_handler import (
+from app.connectors.sources.google.gmail.gmail_user_service import GmailUserService
+from app.connectors.sources.google.gmail.gmail_webhook_handler import (
     EnterpriseGmailWebhookHandler,
     IndividualGmailWebhookHandler,
 )
-from app.connectors.google.google_drive.core.drive_sync_service import (
+from app.connectors.sources.google.google_drive.drive_change_handler import (
+    DriveChangeHandler,
+)
+from app.connectors.sources.google.google_drive.drive_sync_service import (
     DriveSyncEnterpriseService,
     DriveSyncIndividualService,
 )
-from app.connectors.google.google_drive.core.drive_user_service import DriveUserService
-from app.connectors.google.google_drive.handlers.drive_change_handler import (
-    DriveChangeHandler,
+from app.connectors.sources.google.google_drive.drive_user_service import (
+    DriveUserService,
 )
-from app.connectors.google.google_drive.handlers.drive_webhook_handler import (
+from app.connectors.sources.google.google_drive.drive_webhook_handler import (
     EnterpriseDriveWebhookHandler,
     IndividualDriveWebhookHandler,
-)
-from app.connectors.google.helpers.google_token_handler import GoogleTokenHandler
-from app.connectors.google.scopes import (
-    GOOGLE_CONNECTOR_ENTERPRISE_SCOPES,
-    GOOGLE_CONNECTOR_INDIVIDUAL_SCOPES,
 )
 from app.connectors.utils.rate_limiter import GoogleAPIRateLimiter
 from app.core.celery_app import CeleryApp
@@ -78,6 +82,8 @@ async def initialize_individual_account_services_fn(org_id, container) -> None:
                 logger.info("Refreshing Google Workspace user credentials")
                 asyncio.create_task(refresh_google_workspace_user_credentials(org_id, arango_service,logger, container))
                 break
+
+        print("Initializing base services")
         # Initialize base services
         container.drive_service.override(
             providers.Singleton(
@@ -171,6 +177,7 @@ async def initialize_individual_account_services_fn(org_id, container) -> None:
                 arango_service=await container.arango_service(),
             )
         )
+
         sync_tasks = container.sync_tasks()
         assert isinstance(sync_tasks, SyncTasks)
 
@@ -241,7 +248,7 @@ async def initialize_individual_account_services_fn(org_id, container) -> None:
     container.wire(
         modules=[
             "app.core.celery_app",
-            "app.connectors.google.core.sync_tasks",
+            "app.connectors.sources.google.common.sync_tasks",
             "app.connectors.api.router",
             "app.connectors.api.middleware",
             "app.core.signed_url",
@@ -443,7 +450,7 @@ async def initialize_enterprise_account_services_fn(org_id, container) -> None:
         modules=[
             "app.core.celery_app",
             "app.connectors.api.router",
-            "app.connectors.google.core.sync_tasks",
+            "app.connectors.sources.google.common.sync_tasks",
             "app.connectors.api.middleware",
             "app.core.signed_url",
         ]
@@ -494,6 +501,7 @@ async def cache_google_workspace_service_credentials(org_id, arango_service, log
 
 async def refresh_google_workspace_user_credentials(org_id, arango_service, logger, container) -> None:
     """Background task to refresh user credentials before they expire"""
+    logger.debug("🔄 Checking refresh status of credentials for user")
     user_creds_lock = container.user_creds_lock()
 
     while True:
@@ -671,7 +679,7 @@ class AppContainer(containers.DeclarativeContainer):
         modules=[
             "app.core.celery_app",
             "app.connectors.api.router",
-            "app.connectors.google.core.sync_tasks",
+            "app.connectors.sources.google.common.sync_tasks",
             "app.connectors.api.middleware",
             "app.core.signed_url",
         ]
@@ -693,7 +701,7 @@ async def health_check_etcd(container) -> None:
 
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{etcd_url}/health") as response:
-                if response.status == StatusCodeConstants.SUCCESS.value:
+                if response.status == HttpStatusCode.SUCCESS.value:
                     response_text = await response.text()
                     logger.info("✅ etcd health check passed")
                     logger.debug(f"etcd health response: {response_text}")

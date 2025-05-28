@@ -8,12 +8,12 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from app.config.configuration_service import DefaultEndpoints, config_node_constants
+from app.config.utils.named_constants.http_status_code_constants import HttpStatusCode
 from app.setups.indexing_setup import AppContainer, initialize_container
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 container = AppContainer()
 container_lock = asyncio.Lock()
-
 
 async def get_initialized_container() -> AppContainer:
     """Dependency provider for initialized container"""
@@ -59,7 +59,7 @@ app = FastAPI(
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> JSONResponse:
     """Health check endpoint that also verifies connector service health"""
     try:
         endpoints = await app.container.config_service().get_config(
@@ -70,7 +70,7 @@ async def health_check():
         async with httpx.AsyncClient() as client:
             connector_response = await client.get(connector_url, timeout=5.0)
 
-            if connector_response.status_code != 200:
+            if connector_response.status_code != HttpStatusCode.SUCCESS.value:
                 return JSONResponse(
                     status_code=500,
                     content={
@@ -107,7 +107,7 @@ async def health_check():
         )
 
 
-def run(host: str = "0.0.0.0", port: int = 8091, reload: bool = True):
+def run(host: str = "0.0.0.0", port: int = 8091, reload: bool = True) -> None:
     """Run the application"""
     uvicorn.run(
         "app.indexing_main:app", host=host, port=port, log_level="info", reload=reload
