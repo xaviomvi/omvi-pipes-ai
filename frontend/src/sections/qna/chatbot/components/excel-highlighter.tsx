@@ -897,7 +897,7 @@ const ExcelViewer = ({ citations, fileUrl, excelBuffer, highlightCitation }: Exc
                               : theme.palette.primary.dark,
                           }}
                         />
-                        Row {citation.metadata.blockNum[0]}
+                        {citation.metadata.extension === 'csv' ? `Row ${citation.metadata.blockNum[0] + 1}` : `Row ${citation.metadata.blockNum[0]}`}
                       </MetaLabel>
                     )}
                   </Box>

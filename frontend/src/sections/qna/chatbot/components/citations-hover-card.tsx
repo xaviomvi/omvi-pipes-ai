@@ -332,10 +332,15 @@ const CitationHoverCard = ({
             {citation.metadata?.sheetName && ['xlsx', 'csv', 'xls'].includes(citation.metadata.extension) && (
               <MetaChip size="small" label={`${citation.metadata?.sheetName}`} />
             )}
-            {['xlsx', 'csv', 'xls'].includes(citation.metadata.extension) &&
+            {['xlsx', 'xls'].includes(citation.metadata.extension) &&
               citation.metadata?.blockNum &&
               citation.metadata.blockNum[0] && (
                 <MetaChip size="small" label={`Row ${citation.metadata.blockNum[0]}`} />
+              )}
+              {['csv'].includes(citation.metadata.extension) &&
+              citation.metadata?.blockNum &&
+              citation.metadata.blockNum[0] && (
+                <MetaChip size="small" label={`Row ${citation.metadata.blockNum[0] + 1}`} />
               )}
             {citation.metadata?.extension && (
               <MetaChip size="small" label={citation.metadata.extension.toUpperCase()} />
