@@ -777,21 +777,12 @@ const KnowledgeSearch = ({
                                   </Typography>
                                 </>
                               )}
-                              {['xlsx', 'xls'].includes(result.metadata.extension) &&
+                              {['xlsx', 'csv', 'xls'].includes(result.metadata.extension) &&
                                 result.metadata.blockNum && (
                                   <>
                                     <Divider orientation="vertical" flexItem sx={{ height: 12 }} />
                                     <Typography variant="caption" color="text.secondary">
-                                      Row {result.metadata.blockNum[0]}
-                                    </Typography>
-                                  </>
-                                )}
-                              {['csv'].includes(result.metadata.extension) &&
-                                result.metadata.blockNum && (
-                                  <>
-                                    <Divider orientation="vertical" flexItem sx={{ height: 12 }} />
-                                    <Typography variant="caption" color="text.secondary">
-                                      Row {result.metadata.blockNum[0] + 1}
+                                      Row {result.metadata?.extension === 'csv' ? result.metadata.blockNum[0] + 1 : result.metadata.blockNum[0]}
                                     </Typography>
                                   </>
                                 )}
