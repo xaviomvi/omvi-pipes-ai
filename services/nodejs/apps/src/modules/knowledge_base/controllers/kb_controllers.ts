@@ -106,7 +106,6 @@ export const createRecords =
               .substring(originalname.lastIndexOf('.') + 1)
               .toLowerCase()
           : null;
-
         // Generate a unique ID for the record
         const key: string = uuidv4();
 
