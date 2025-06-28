@@ -1,5 +1,5 @@
 // ===================================================================
-// 📁 Updated OnBoarding Stepper with Dynamic Form System
+// 📁 Complete Updated OnBoarding Stepper with Merged AI Models Configuration
 // ===================================================================
 
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
@@ -23,7 +23,7 @@ import {
 
 import axios from 'src/utils/axios';
 import { createScrollableContainerStyle } from 'src/sections/qna/chatbot/utils/styles/scrollbar';
-import { ConfigType } from 'src/components/dynamic-form';
+import { ConfigType, EmbeddingFormValues, LlmFormValues } from 'src/components/dynamic-form';
 import DynamicForm, { DynamicFormRef } from 'src/components/dynamic-form/components/dynamic-form';
 import {
   getLlmConfig,
@@ -36,6 +36,7 @@ import {
   updateUrlConfig,
   getSmtpConfig,
   updateSmtpConfig,
+  updateStepperAiModelsConfig, // NEW: Import the merged update function
 } from '../services/config-services';
 
 // Configuration steps definition with ConfigType
@@ -221,9 +222,9 @@ const OnBoardingStepper: React.FC<OnBoardingStepperProps> = ({ open, onClose, on
       case 'smtp':
         return { getConfig: getSmtpConfig, updateConfig: updateSmtpConfig };
       default:
-        return { 
-          getConfig: async () => null, 
-          updateConfig: async (config: any) => config 
+        return {
+          getConfig: async () => null,
+          updateConfig: async (config: any) => config,
         };
     }
   }, []);
@@ -255,6 +256,28 @@ const OnBoardingStepper: React.FC<OnBoardingStepperProps> = ({ open, onClose, on
     [getCurrentStep]
   );
 
+  // NEW: Helper function to prepare AI model configuration
+  const prepareAiModelConfig = useCallback(
+    (stepData: LlmFormValues | EmbeddingFormValues | null, configType: 'llm' | 'embedding') => {
+      if (!stepData) return null;
+
+      const { providerType, modelType, _provider, ...cleanConfig } = stepData;
+      const provider = providerType || modelType;
+      if (!provider) {
+        console.warn(`Provider is undefined for ${configType} configuration`);
+        return null;
+      }
+
+      return [
+        {
+          provider,
+          configuration: cleanConfig,
+        },
+      ];
+    },
+    []
+  );
+
   // Continue handler with proper isolation and validation
   const handleContinue = async () => {
     const currentStep = getCurrentStep();
@@ -263,7 +286,6 @@ const OnBoardingStepper: React.FC<OnBoardingStepperProps> = ({ open, onClose, on
     setSubmissionError('');
 
     const formRef = getCurrentFormRef();
-    const stepState = stepStates[currentStep.id];
 
     // ALWAYS fresh validation for the current form only
     if (formRef?.current) {
@@ -530,47 +552,69 @@ const OnBoardingStepper: React.FC<OnBoardingStepperProps> = ({ open, onClose, on
       // Collect all valid configurations
       const configurationsToSave = [];
 
-      // Add LLM configuration (required)
+      // Prepare LLM configuration (required)
+      let llmConfig = null;
       if (stepStates.llm.hasValidData && stepStates.llm.formData) {
-        configurationsToSave.push({
-          type: 'llm',
-          data: stepStates.llm.formData,
-          updateFn: updateLlmConfig,
-        });
+        llmConfig = prepareAiModelConfig(stepStates.llm.formData, 'llm');
+        if (!llmConfig) {
+          setSubmissionError('Invalid LLM configuration - provider is required.');
+          return;
+        }
       }
 
-      // Add optional configurations that are not skipped
+      // Prepare embedding configuration (optional)
+      let embeddingConfig = null;
+      if (stepStates.embedding.hasValidData && stepStates.embedding.formData) {
+        if (stepStates.embedding.formData.providerType === 'default') {
+          embeddingConfig = []; // Empty array for default
+        } else {
+          embeddingConfig = prepareAiModelConfig(stepStates.embedding.formData, 'embedding');
+          if (!embeddingConfig) {
+            setSubmissionError('Invalid embedding configuration - provider is required.');
+            return;
+          }
+        }
+      } else if (stepStates.embedding.skipped) {
+        embeddingConfig = []; // Empty array for skipped (default)
+      }
+
+      // Ensure we have LLM configuration
+      if (!llmConfig) {
+        setSubmissionError('LLM configuration is required to complete setup.');
+        return;
+      }
+
+      // Add AI models configuration (single call for both LLM and embedding)
+      configurationsToSave.push({
+        type: 'ai-models',
+        saveFn: () => updateStepperAiModelsConfig(llmConfig, embeddingConfig),
+      });
+
+      // Add other configurations that are not skipped
       Object.keys(stepStates).forEach((stepId) => {
-        if (stepId !== 'llm') {
+        if (stepId !== 'llm' && stepId !== 'embedding') {
           const state = stepStates[stepId];
           if (state.hasValidData && state.formData && !state.skipped) {
             const updateFns = {
-              embedding: updateEmbeddingConfig,
-              storage: updateStorageConfig,
-              url: updateUrlConfig,
-              smtp: updateSmtpConfig,
+              storage: () => updateStorageConfig(state.formData),
+              url: () => updateUrlConfig(state.formData),
+              smtp: () => updateSmtpConfig(state.formData),
             };
 
-            if (updateFns[stepId as keyof typeof updateFns]) {
+            const updateFn = updateFns[stepId as keyof typeof updateFns];
+            if (updateFn) {
               configurationsToSave.push({
                 type: stepId,
-                data: state.formData,
-                updateFn: updateFns[stepId as keyof typeof updateFns],
+                saveFn: updateFn,
               });
             }
           }
         }
       });
 
-      // Ensure we have at least LLM configuration
-      if (configurationsToSave.length === 0) {
-        setSubmissionError('No valid configurations found to save.');
-        return;
-      }
-
       // Save all configurations
       const savePromises = configurationsToSave.map((config) =>
-        config.updateFn(config.data).catch((error) => {
+        config.saveFn().catch((error: any) => {
           console.error(`Error saving ${config.type}:`, error);
           throw new Error(`Failed to save ${config.type} configuration`);
         })
