@@ -12,7 +12,7 @@ import { Icon } from '@iconify/react';
 import menuIcon from '@iconify-icons/mdi/menu';
 import closeIcon from '@iconify-icons/mdi/close';
 import { useParams, useNavigate } from 'react-router';
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 
 import {
   Box,
@@ -44,31 +44,22 @@ import PdfHighlighterComp from './components/pdf-highlighter';
 import MarkdownViewer from './components/markdown-highlighter';
 import DocxHighlighterComp from './components/docx-highlighter';
 import WelcomeMessage from './components/welcome-message';
+import { StreamingContext } from './components/chat-message';
 
 const DRAWER_WIDTH = 300;
 
-const StyledCloseButton = styled(Button)(({ theme }) => ({
-  position: 'fixed',
-  top: 72,
-  right: 32,
-  backgroundColor: theme.palette.primary.main,
-  color: theme.palette.primary.contrastText,
-  textTransform: 'none',
-  padding: '6px 12px',
-  minWidth: 'auto',
-  fontSize: '0.875rem',
-  fontWeight: 600,
-  zIndex: 9999,
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: theme.shadows[2],
-  '&:hover': {
-    backgroundColor: theme.palette.primary.dark,
-    boxShadow: theme.shadows[4],
-  },
-  '& .MuiSvgIcon-root': {
-    color: theme.palette.primary.contrastText,
-  },
-}));
+interface StreamingState {
+  messageId: string | null;
+  content: string;
+  citations: CustomCitation[];
+  isActive: boolean;
+}
+
+interface StreamingContextType {
+  streamingState: StreamingState;
+  updateStreamingContent: (messageId: string, content: string, citations: CustomCitation[]) => void;
+  clearStreaming: () => void;
+}
 
 const StyledOpenButton = styled(IconButton)(({ theme }) => ({
   position: 'absolute',
@@ -87,8 +78,62 @@ const StyledOpenButton = styled(IconButton)(({ theme }) => ({
   },
 }));
 
+interface StreamingController {
+  abort: () => void;
+}
+
+const getEngagingStatusMessage = (event: string, data: any): string | null => {
+  switch (event) {
+    case 'status': {
+      const message = data.message || data.status || 'Processing...';
+      switch (data.status) {
+        case 'searching':
+          return `${message}`;
+        case 'decomposing':
+          return `${message}`;
+        case 'parallel_processing':
+          return `${message}`;
+        case 'reranking':
+          return `${message}`;
+        case 'generating':
+          return `${message}`;
+        case 'deduplicating':
+          return `${message}`;
+        case 'preparing_context':
+          return `${message}`;
+        default:
+          return `⚙️ ${message}`;
+      }
+    }
+
+    case 'query_decomposed': {
+      const queryCount = data.queries?.length || 0;
+      if (queryCount > 1) {
+        return `Breaking your request into ${queryCount} questions for a better answer.`;
+      }
+      return 'Analyzing your request...';
+    }
+
+    case 'search_complete': {
+      const resultsCount = data.results_count || 0;
+      if (resultsCount > 0) {
+        return `Found ${resultsCount} potential sources. Now processing them...`;
+      }
+      return 'Finished searching...';
+    }
+
+    case 'connected':
+      return 'Processing ...';
+    case 'query_transformed':
+    case 'results_ready':
+      return null;
+
+    default:
+      return null;
+  }
+};
+
 const ChatInterface = () => {
-  // const [searchQuery, setSearchQuery] = useState<string>('');
   const [messages, setMessages] = useState<FormattedMessage[]>([]);
   const [inputValue, setInputValue] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -96,7 +141,6 @@ const ChatInterface = () => {
   const [expandedCitations, setExpandedCitations] = useState<ExpandedCitationsState>({});
   const [isDrawerOpen, setDrawerOpen] = useState<boolean>(true);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  // eslint-disable-next-line
   const [selectedChat, setSelectedChat] = useState<Conversation | null>(null);
   const [shouldRefreshSidebar, setShouldRefreshSidebar] = useState<boolean>(false);
   const navigate = useNavigate();
@@ -104,7 +148,6 @@ const ChatInterface = () => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [aggregatedCitations, setAggregatedCitations] = useState<CustomCitation[] | null>([]);
   const [openPdfView, setOpenPdfView] = useState<boolean>(false);
-  // const [showQuestionDetails, setShowQuestionDetails] = useState<boolean>(false);
   const [isExcel, setIsExcel] = useState<boolean>(false);
   const [isViewerReady, setIsViewerReady] = useState<boolean>(false);
   const [transitioning, setTransitioning] = useState<boolean>(false);
@@ -116,23 +159,35 @@ const ChatInterface = () => {
   const [isTextFile, setIsTextFile] = useState<boolean>(false);
   const [loadingConversations, setLoadingConversations] = useState<{ [key: string]: boolean }>({});
   const theme = useTheme();
-  const isCurrentConversationLoading = useCallback(
-    () =>
-      currentConversationId
-        ? loadingConversations[currentConversationId]
-        : loadingConversations.new,
-    [currentConversationId, loadingConversations]
-  );
+
+  const accumulatedContentRef = useRef<string>('');
+  const displayedContentRef = useRef<string>('');
+  const streamingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const wordQueueRef = useRef<string[]>([]);
+  const isStreamingActiveRef = useRef<boolean>(false);
+  const streamingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const completionDataRef = useRef<any>(null);
+  const pendingChunksRef = useRef<string[]>([]);
+  const isCompletionPendingRef = useRef<boolean>(false);
+  const finalMessageIdRef = useRef<string | null>(null);
+  const isProcessingCompletionRef = useRef<boolean>(false); 
+
+  const BATCH_SIZE = 1; 
+  const TYPING_SPEED = 25;
+  const COMPLETION_DELAY = 300;
 
   const [conversationStatus, setConversationStatus] = useState<{
     [key: string]: string | undefined;
   }>({});
+
+  const [conversationErrors, setConversationErrors] = useState<{
+    [key: string]: boolean;
+  }>({});
+
   const [pendingResponseConversationId, setPendingResponseConversationId] = useState<string | null>(
     null
   );
-  const [showWelcome, setShowWelcome] = useState<boolean>(
-    () => messages.length === 0 && !currentConversationId
-  );
+
   const [activeRequestTracker, setActiveRequestTracker] = useState<{
     current: string | null;
     type: 'create' | 'continue' | null;
@@ -142,10 +197,19 @@ const ChatInterface = () => {
   });
   const currentConversationIdRef = useRef<string | null>(null);
 
+  const isCurrentConversationLoading = useCallback(
+    () =>
+      currentConversationId
+        ? loadingConversations[currentConversationId]
+        : loadingConversations.new,
+    [currentConversationId, loadingConversations]
+  );
+
   const isCurrentConversationThinking = useCallback(() => {
     const conversationKey = currentConversationId || 'new';
     return conversationStatus[conversationKey] === 'Inprogress';
   }, [currentConversationId, conversationStatus]);
+
   const [highlightedCitation, setHighlightedCitation] = useState<CustomCitation | null>(null);
 
   const [snackbar, setSnackbar] = useState({
@@ -153,13 +217,27 @@ const ChatInterface = () => {
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info',
   });
+
   const handleCloseSnackbar = (): void => {
     setSnackbar({ open: false, message: '', severity: 'success' });
   };
+
+  const [showWelcome, setShowWelcome] = useState<boolean>(true);
+
+  const [streamingState, setStreamingState] = useState<StreamingState>({
+    messageId: null,
+    content: '',
+    citations: [],
+    isActive: false,
+  });
+
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [showStatus, setShowStatus] = useState<boolean>(false);
+
+  const [streamingController, setStreamingController] = useState<StreamingController | null>(null);
+
   const formatMessage = useCallback((apiMessage: Message): FormattedMessage | null => {
     if (!apiMessage) return null;
-
-    // Common base message properties
     const baseMessage = {
       id: apiMessage._id,
       timestamp: new Date(apiMessage.createdAt || new Date()),
@@ -170,17 +248,9 @@ const ChatInterface = () => {
       createdAt: apiMessage.createdAt ? new Date(apiMessage.createdAt) : new Date(),
       updatedAt: apiMessage.updatedAt ? new Date(apiMessage.updatedAt) : new Date(),
     };
-
-    // For user messages
     if (apiMessage.messageType === 'user_query') {
-      return {
-        ...baseMessage,
-        type: 'user',
-        feedback: apiMessage.feedback || [],
-      };
+      return { ...baseMessage, type: 'user', feedback: apiMessage.feedback || [] };
     }
-
-    // For bot messages
     if (apiMessage.messageType === 'bot_response') {
       return {
         ...baseMessage,
@@ -200,37 +270,620 @@ const ChatInterface = () => {
         })),
       };
     }
+    return baseMessage;
+  }, []);
 
-    if (apiMessage.messageType === 'error') {
-      return {
-        ...baseMessage,
-        type: 'bot',
-        messageType: 'error',
-        confidence: apiMessage.confidence || '',
-        citations: (apiMessage?.citations || []).map((citation: Citation) => ({
-          id: citation.citationId,
-          _id: citation?.citationData?._id || citation.citationId,
-          citationId: citation.citationId,
-          content: citation?.citationData?.content || '',
-          metadata: citation?.citationData?.metadata || [],
-          orgId: citation?.citationData?.metadata?.orgId || '',
-          citationType: citation?.citationType || '',
-          createdAt: citation?.citationData?.createdAt || new Date().toISOString(),
-          updatedAt: citation?.citationData?.updatedAt || new Date().toISOString(),
-          chunkIndex: citation?.citationData?.chunkIndex || 1,
-        })),
-      };
+  const clearStreaming = useCallback(() => {
+    if (isProcessingCompletionRef.current) {
+      return;
     }
 
-    return null;
+    // Clear all intervals and timeouts
+    if (streamingIntervalRef.current) {
+      clearInterval(streamingIntervalRef.current);
+      streamingIntervalRef.current = null;
+    }
+    if (streamingTimeoutRef.current) {
+      clearTimeout(streamingTimeoutRef.current);
+      streamingTimeoutRef.current = null;
+    }
+
+    // Reset all refs
+    accumulatedContentRef.current = '';
+    displayedContentRef.current = '';
+    pendingChunksRef.current = [];
+    isStreamingActiveRef.current = false;
+    completionDataRef.current = null;
+    isCompletionPendingRef.current = false;
+    finalMessageIdRef.current = null;
+    isProcessingCompletionRef.current = false;
+
+    // Only clear streaming state if it's still active
+    setStreamingState((prev) => {
+      if (prev.isActive) {
+        return {
+          messageId: null,
+          content: '',
+          citations: [],
+          isActive: false,
+        };
+      }
+      return prev;
+    });
   }, []);
+
+  const finalizeStreamingWithCompletion = useCallback(
+    (messageId: string, completionData: any) => {
+      // Mark that we're processing completion
+      isProcessingCompletionRef.current = true;
+
+      if (completionData?.conversation) {
+        const finalBotMessage = completionData.conversation.messages
+          .filter((msg: any) => msg.messageType === 'bot_response')
+          .pop();
+
+        if (finalBotMessage) {
+          const formattedFinalMessage = formatMessage(finalBotMessage);
+          if (formattedFinalMessage) {
+            // Store the final message ID for reference
+            finalMessageIdRef.current = finalBotMessage._id;
+
+            // Apply the final message content with all proper formatting and citations
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === messageId
+                  ? {
+                      ...formattedFinalMessage,
+                      id: finalBotMessage._id,
+                      content: formattedFinalMessage.content,
+                      citations: formattedFinalMessage.citations || [],
+                    }
+                  : msg
+              )
+            );
+
+            // Update streaming state to show completion
+            setStreamingState((prev) => ({
+              ...prev,
+              messageId: finalBotMessage._id,
+              content: formattedFinalMessage.content,
+              citations: formattedFinalMessage.citations || [],
+              isActive: false, 
+            }));
+          }
+        }
+      }
+
+      // Clean up after completion
+      setTimeout(() => {
+        isCompletionPendingRef.current = false;
+        completionDataRef.current = null;
+        isProcessingCompletionRef.current = false;
+
+        // Now safe to clear streaming
+        setTimeout(() => {
+          clearStreaming();
+        }, 100);
+      }, 100);
+    },
+    [formatMessage, clearStreaming]
+  );
+
+  const processChunkQueue = useCallback(
+    (messageId: string, citations: CustomCitation[]) => {
+      if (!isStreamingActiveRef.current && !isCompletionPendingRef.current) {
+        if (streamingIntervalRef.current) {
+          clearInterval(streamingIntervalRef.current);
+          streamingIntervalRef.current = null;
+        }
+        return;
+      }
+
+      // If no more chunks to process
+      if (pendingChunksRef.current.length === 0) {
+        // If completion is pending, finalize now
+        if (isCompletionPendingRef.current && completionDataRef.current) {
+          if (streamingIntervalRef.current) {
+            clearInterval(streamingIntervalRef.current);
+            streamingIntervalRef.current = null;
+          }
+
+          // Apply final message
+          setTimeout(() => {
+            finalizeStreamingWithCompletion(messageId, completionDataRef.current);
+          }, COMPLETION_DELAY);
+
+          return;
+        }
+
+        // No completion pending, just stop the interval
+        if (streamingIntervalRef.current) {
+          clearInterval(streamingIntervalRef.current);
+          streamingIntervalRef.current = null;
+        }
+        return;
+      }
+
+      // Process the next chunk
+      const nextChunk = pendingChunksRef.current.shift();
+      if (nextChunk) {
+        displayedContentRef.current += nextChunk;
+
+        // Update the streaming state
+        setStreamingState((prev) => ({
+          ...prev,
+          messageId,
+          content: displayedContentRef.current,
+          citations,
+          isActive: true,
+        }));
+
+        // Update the messages array
+        setMessages((prevMessages) => {
+          const messageIndex = prevMessages.findIndex((msg) => msg.id === messageId);
+          if (messageIndex === -1) return prevMessages;
+
+          const updatedMessages = [...prevMessages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
+            content: displayedContentRef.current,
+            citations,
+            updatedAt: new Date(),
+          };
+          return updatedMessages;
+        });
+      }
+    },
+    [finalizeStreamingWithCompletion]
+  );
+
+  const startChunkStreaming = useCallback(
+    (messageId: string, citations: CustomCitation[]) => {
+      if (streamingIntervalRef.current) {
+        clearInterval(streamingIntervalRef.current);
+      }
+
+      streamingIntervalRef.current = setInterval(() => {
+        processChunkQueue(messageId, citations);
+      }, TYPING_SPEED);
+    },
+    [processChunkQueue]
+  );
+
+  const updateStreamingContent = useCallback(
+    (messageId: string, newChunk: string, citations: CustomCitation[] = []) => {
+      if (!isStreamingActiveRef.current) {
+        // Start new streaming session
+        accumulatedContentRef.current = '';
+        displayedContentRef.current = '';
+        pendingChunksRef.current = [];
+        isStreamingActiveRef.current = true;
+        completionDataRef.current = null;
+        isCompletionPendingRef.current = false;
+        finalMessageIdRef.current = null;
+        isProcessingCompletionRef.current = false;
+      }
+
+      if (newChunk && newChunk.trim()) {
+        const cleanedChunk = newChunk
+          .replace(/\\n/g, '\n')
+          .replace(/\*\*(\d+)\*\*/g, '[$1]')
+          .replace(/\*\*([^*]+)\*\*/g, '**$1**');
+
+        pendingChunksRef.current.push(cleanedChunk);
+      }
+
+      if (!streamingIntervalRef.current) {
+        startChunkStreaming(messageId, citations);
+      }
+    },
+    [startChunkStreaming]
+  );
+
+  const updateStatus = useCallback((message: string) => {
+    setStatusMessage(message);
+    setShowStatus(true);
+  }, []);
+
+  const streamingContextValue: StreamingContextType = useMemo(
+    () => ({
+      streamingState,
+      updateStreamingContent,
+      clearStreaming,
+    }),
+    [streamingState, updateStreamingContent, clearStreaming]
+  );
+
+  const parseSSELine = (line: string): { event?: string; data?: any } | null => {
+    if (line.startsWith('event: ')) {
+      return { event: line.substring(7).trim() };
+    }
+    if (line.startsWith('data: ')) {
+      try {
+        const data = JSON.parse(line.substring(6).trim());
+        return { data };
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const createStreamingController = (
+    reader: ReadableStreamDefaultReader<Uint8Array>
+  ): StreamingController => ({
+    abort: () => {
+      reader.cancel().catch(console.error);
+    },
+  });
+
+  const createStreamingMessage = useCallback((messageId: string) => {
+    const streamingMessage: FormattedMessage = {
+      type: 'bot',
+      content: '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      id: messageId,
+      contentFormat: 'MARKDOWN',
+      followUpQuestions: [],
+      citations: [],
+      confidence: '',
+      messageType: 'bot_response',
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, streamingMessage]);
+  }, []);
+
+  const handleStreamingEvent = useCallback(
+    async (
+      event: string,
+      data: any,
+      context: {
+        streamingBotMessageId: string;
+        isNewConversation: boolean;
+        hasCreatedMessage: boolean;
+        onConversationComplete: (conversation: Conversation) => void;
+        onMessageCreated: () => void;
+        onErrorReceived: () => void;
+      }
+    ): Promise<boolean> => {
+      const statusMsg = getEngagingStatusMessage(event, data);
+
+      if (statusMsg) {
+        updateStatus(statusMsg);
+      }
+
+      switch (event) {
+        case 'answer_chunk':
+          if (data.chunk) {
+            if (!context.hasCreatedMessage) {
+              createStreamingMessage(context.streamingBotMessageId);
+              context.onMessageCreated();
+            }
+
+            setShowStatus(false);
+            setStatusMessage('');
+
+            updateStreamingContent(context.streamingBotMessageId, data.chunk, data.citations || []);
+          }
+          return false;
+
+        case 'complete':
+          setShowStatus(false);
+          setStatusMessage('');
+
+          // Store completion data and mark as pending
+          completionDataRef.current = data;
+          isCompletionPendingRef.current = true;
+
+          // Mark that we're processing completion to prevent clearing
+          isProcessingCompletionRef.current = true;
+
+          // If there are no pending chunks, finalize immediately
+          if (pendingChunksRef.current.length === 0) {
+            setTimeout(() => {
+              finalizeStreamingWithCompletion(context.streamingBotMessageId, data);
+              if (data.conversation) {
+                context.onConversationComplete(data.conversation);
+              }
+            }, COMPLETION_DELAY);
+          }
+
+          return false;
+
+        case 'error': {
+          setShowStatus(false);
+          setStatusMessage('');
+
+          // Stop streaming on error
+          isStreamingActiveRef.current = false;
+          isProcessingCompletionRef.current = false;
+          clearStreaming();
+
+          const errorMessage = data.message || data.error || 'An error occurred';
+          if (!context.hasCreatedMessage) {
+            const errorMsg: FormattedMessage = {
+              type: 'bot',
+              content: errorMessage,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              id: context.streamingBotMessageId,
+              contentFormat: 'MARKDOWN',
+              followUpQuestions: [],
+              citations: [],
+              confidence: '',
+              messageType: 'error',
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, errorMsg]);
+            context.onMessageCreated();
+          } else {
+            setMessages((prevMessages) => {
+              const messageIndex = prevMessages.findIndex(
+                (msg) => msg.id === context.streamingBotMessageId
+              );
+              if (messageIndex !== -1) {
+                const updatedMessages = [...prevMessages];
+                updatedMessages[messageIndex] = {
+                  ...updatedMessages[messageIndex],
+                  content: errorMessage,
+                  messageType: 'error',
+                  updatedAt: new Date(),
+                };
+                return updatedMessages;
+              }
+              return prevMessages;
+            });
+          }
+          context.onErrorReceived();
+          return true;
+        }
+
+        default:
+          return false;
+      }
+    },
+    [
+      createStreamingMessage,
+      updateStreamingContent,
+      updateStatus,
+      clearStreaming,
+      finalizeStreamingWithCompletion,
+    ]
+  );
+
+  const handleStreamingComplete = useCallback(
+    async (
+      conversation: Conversation,
+      isNewConversation: boolean,
+      streamingBotMessageId: string
+    ): Promise<void> => {
+      if (isNewConversation) {
+        setSelectedChat(conversation);
+        setCurrentConversationId(conversation._id);
+        currentConversationIdRef.current = conversation._id;
+        setShouldRefreshSidebar(true);
+      }
+    },
+    []
+  );
+
+  const handleStreamingResponse = useCallback(
+    async (url: string, body: any, isNewConversation: boolean): Promise<void> => {
+      const streamingBotMessageId = `streaming-${Date.now()}`;
+
+      accumulatedContentRef.current = '';
+
+      const streamState = {
+        finalConversation: null as Conversation | null,
+        hasCreatedMessage: false,
+        hasReceivedError: false,
+      };
+
+      const callbacks = {
+        onConversationComplete: (conversation: Conversation) => {
+          streamState.finalConversation = conversation;
+        },
+        onMessageCreated: () => {
+          streamState.hasCreatedMessage = true;
+        },
+        onErrorReceived: () => {
+          streamState.hasReceivedError = true;
+        },
+      };
+
+      try {
+        const token = localStorage.getItem('jwt_access_token');
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('Failed to get response reader');
+        }
+
+        const controller = createStreamingController(reader);
+        setStreamingController(controller);
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentEvent = '';
+
+        const processLine = async (line: string): Promise<void> => {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) return;
+
+          const parsed = parseSSELine(trimmedLine);
+          if (!parsed) return;
+
+          if (parsed.event) {
+            currentEvent = parsed.event;
+          } else if (parsed.data && currentEvent) {
+            const errorReceived = await handleStreamingEvent(currentEvent, parsed.data, {
+              streamingBotMessageId,
+              isNewConversation,
+              hasCreatedMessage: streamState.hasCreatedMessage,
+              onConversationComplete: callbacks.onConversationComplete,
+              onMessageCreated: callbacks.onMessageCreated,
+              onErrorReceived: callbacks.onErrorReceived,
+            });
+
+            if (errorReceived) {
+              streamState.hasReceivedError = true;
+            }
+          }
+        };
+
+        const readNextChunk = async (): Promise<void> => {
+          const { done, value } = await reader.read();
+          if (done) return;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          await Promise.all(lines.map(processLine));
+          await readNextChunk();
+        };
+
+        await readNextChunk();
+
+        if (streamState.finalConversation && !streamState.hasReceivedError) {
+          await handleStreamingComplete(
+            streamState.finalConversation,
+            isNewConversation,
+            streamingBotMessageId
+          );
+        }
+      } catch (error) {
+        console.error('Streaming connection error:', error);
+        setShowStatus(false);
+        clearStreaming();
+        // Reset accumulated content on error
+        accumulatedContentRef.current = '';
+      } finally {
+        setStreamingController(null);
+      }
+    },
+    [handleStreamingEvent, handleStreamingComplete, clearStreaming]
+  );
+
+  const handleSendMessage = useCallback(
+    async (messageOverride?: string): Promise<void> => {
+      const trimmedInput =
+        typeof messageOverride === 'string' ? messageOverride.trim() : inputValue.trim();
+      if (!trimmedInput) return;
+      if (streamingController) {
+        streamingController.abort();
+      }
+      const wasCreatingNewConversation = currentConversationId === null;
+      const tempUserMessage: FormattedMessage = {
+        type: 'user',
+        content: trimmedInput,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        id: `temp-${Date.now()}`,
+        contentFormat: 'MARKDOWN',
+        followUpQuestions: [],
+        citations: [],
+        feedback: [],
+        messageType: 'user_query',
+        timestamp: new Date(),
+      };
+      if (typeof messageOverride === 'string' && showWelcome) {
+        setShowWelcome(false);
+      }
+      setInputValue('');
+      setMessages((prev) => [...prev, tempUserMessage]);
+      const streamingUrl = wasCreatingNewConversation
+        ? `${CONFIG.backendUrl}/api/v1/conversations/stream`
+        : `${CONFIG.backendUrl}/api/v1/conversations/${currentConversationId}/messages/stream`;
+      await handleStreamingResponse(
+        streamingUrl,
+        { query: trimmedInput },
+        wasCreatingNewConversation
+      );
+    },
+    [inputValue, currentConversationId, showWelcome, streamingController, handleStreamingResponse]
+  );
+
+  const handleNewChat = useCallback(() => {
+    if (streamingController) {
+      streamingController.abort();
+    }
+
+    // Force clear streaming even if completion is processing (user wants new chat)
+    isProcessingCompletionRef.current = false;
+    clearStreaming();
+
+    currentConversationIdRef.current = null;
+    setCurrentConversationId(null);
+    navigate('/');
+    setShowStatus(false);
+    setMessages([]);
+    setInputValue('');
+    setShouldRefreshSidebar(true);
+    setShowWelcome(true);
+    setSelectedChat(null);
+    accumulatedContentRef.current = '';
+  }, [navigate, streamingController, clearStreaming]);
+
+  const handleChatSelect = useCallback(
+    async (chat: Conversation) => {
+      if (!chat?._id) return;
+      if (streamingController) {
+        streamingController.abort();
+      }
+
+      // Force clear streaming even if completion is processing (user wants different chat)
+      isProcessingCompletionRef.current = false;
+      clearStreaming();
+
+      try {
+        setShowWelcome(false);
+        setCurrentConversationId(chat._id);
+        currentConversationIdRef.current = chat._id;
+        navigate(`/${chat._id}`);
+        setIsLoadingConversation(true);
+        setShowStatus(false);
+        setMessages([]);
+        accumulatedContentRef.current = '';
+
+        const response = await axios.get(`/api/v1/conversations/${chat._id}`);
+        const { conversation } = response.data;
+        if (conversation?.messages) {
+          const formattedMessages = conversation.messages
+            .map(formatMessage)
+            .filter(Boolean) as FormattedMessage[];
+          setMessages(formattedMessages);
+          setSelectedChat(conversation);
+        }
+      } catch (error) {
+        console.error('Error loading conversation:', error);
+        setMessages([]);
+      } finally {
+        setIsLoadingConversation(false);
+      }
+    },
+    [formatMessage, navigate, streamingController, clearStreaming]
+  );
+
   const resetViewerStates = () => {
     setTransitioning(true);
     setIsViewerReady(false);
     setPdfUrl(null);
     setFileBuffer(null);
     setHighlightedCitation(null);
-    // Delay clearing other states to ensure clean unmount
     setTimeout(() => {
       setOpenPdfView(false);
       setIsExcel(false);
@@ -242,7 +895,6 @@ const ChatInterface = () => {
 
   const handleLargePPTFile = (record: any) => {
     if (record.sizeInBytes / 1048576 > 5) {
-      console.log('PPT with large file size');
       throw new Error('Large fize size, redirecting to web page ');
     }
   };
@@ -251,15 +903,9 @@ const ChatInterface = () => {
     url: string,
     citation: CustomCitation,
     citations: CustomCitation[],
-    isExcelFile: boolean = false,
+    isExcelFile = false,
     bufferData?: ArrayBuffer
   ): Promise<void> => {
-    // setAggregatedCitations(citations);
-    // setPdfUrl(url);
-    // setOpenPdfView(true);
-    // console.log(aggregatedCitations);
-    // setShowQuestionDetails(true);
-    // // setDrawerOpen(false);
     const citationMeta = citation.metadata;
     setTransitioning(true);
     setIsViewerReady(false);
@@ -269,12 +915,14 @@ const ChatInterface = () => {
     setFileBuffer(null);
     setPdfUrl(null);
     setHighlightedCitation(citation || null);
+
     try {
       const recordId = citationMeta?.recordId;
       const response = await axios.get(`/api/v1/knowledgebase/record/${recordId}`);
       const { record } = response.data;
       const { externalRecordId } = record;
       const fileName = record.recordName;
+
       if (record.origin === ORIGIN.UPLOAD) {
         try {
           const downloadResponse = await axios.get(
@@ -282,7 +930,6 @@ const ChatInterface = () => {
             { responseType: 'blob' }
           );
 
-          // Read the blob response as text to check if it's JSON with signedUrl
           const reader = new FileReader();
           const textPromise = new Promise<string>((resolve) => {
             reader.onload = () => {
@@ -303,13 +950,11 @@ const ChatInterface = () => {
           }
 
           try {
-            // Try to parse as JSON to check for signedUrl property
             const jsonData = JSON.parse(text);
             if (jsonData && jsonData.signedUrl) {
               setPdfUrl(jsonData.signedUrl);
             }
           } catch (e) {
-            // Case 2: Local storage - Return buffer
             const bufferReader = new FileReader();
             const arrayBufferPromise = new Promise<ArrayBuffer>((resolve) => {
               bufferReader.onload = () => {
@@ -320,27 +965,20 @@ const ChatInterface = () => {
 
             const buffer = await arrayBufferPromise;
             setFileBuffer(buffer);
-            // if (['pptx', 'ppt'].includes(citationMeta?.extension)) {
-
-            // }
           }
         } catch (error) {
           console.error('Error downloading document:', error);
           setSnackbar({
             open: true,
-            // Provide a clear message about what's happening
             message: 'Failed to load preview. Redirecting to the original document shortly...',
-            severity: 'info', // Use 'info' or 'warning' for redirection notice
+            severity: 'info',
           });
           let webUrl = record.fileRecord?.webUrl || record.mailRecord?.webUrl;
 
-          // Keep the URL fix logic (though less likely needed for non-UPLOAD here, better safe)
           if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
             const baseUrl = `${window.location.protocol}//${window.location.host}`;
             webUrl = baseUrl + webUrl;
           }
-
-          console.log(`Attempting to redirect to webUrl: ${webUrl}`);
 
           setTimeout(() => {
             onClosePdf();
@@ -350,7 +988,6 @@ const ChatInterface = () => {
             if (webUrl) {
               try {
                 window.open(webUrl, '_blank', 'noopener,noreferrer');
-                console.log('Opened document in new tab');
               } catch (openError) {
                 console.error('Error opening new tab:', openError);
                 setSnackbar({
@@ -402,7 +1039,7 @@ const ChatInterface = () => {
             );
           }
           if (!connectorResponse) return;
-          // Extract filename from content-disposition header
+
           let filename = record.recordName || `document-${recordId}`;
           const contentDisposition = connectorResponse.headers['content-disposition'];
           if (contentDisposition) {
@@ -412,11 +1049,9 @@ const ChatInterface = () => {
             }
           }
 
-          // Convert blob directly to ArrayBuffer
           const bufferReader = new FileReader();
           const arrayBufferPromise = new Promise<ArrayBuffer>((resolve, reject) => {
             bufferReader.onload = () => {
-              // Create a copy of the buffer to prevent detachment issues
               const originalBuffer = bufferReader.result as ArrayBuffer;
               const bufferCopy = originalBuffer.slice(0);
               resolve(bufferCopy);
@@ -433,19 +1068,15 @@ const ChatInterface = () => {
           console.error('Error downloading document:', err);
           setSnackbar({
             open: true,
-            // Provide a clear message about what's happening
             message: 'Failed to load preview. Redirecting to the original document shortly...',
-            severity: 'info', // Use 'info' or 'warning' for redirection notice
+            severity: 'info',
           });
           let webUrl = record.fileRecord?.webUrl || record.mailRecord?.webUrl;
 
-          // Keep the URL fix logic (though less likely needed for non-UPLOAD here, better safe)
           if (record.origin === 'UPLOAD' && webUrl && !webUrl.startsWith('http')) {
             const baseUrl = `${window.location.protocol}//${window.location.host}`;
             webUrl = baseUrl + webUrl;
           }
-
-          console.log(`Attempting to redirect to webUrl: ${webUrl}`);
 
           setTimeout(() => {
             onClosePdf();
@@ -455,7 +1086,6 @@ const ChatInterface = () => {
             if (webUrl) {
               try {
                 window.open(webUrl, '_blank', 'noopener,noreferrer');
-                console.log('Opened document in new tab');
               } catch (openError) {
                 console.error('Error opening new tab:', openError);
                 setSnackbar({
@@ -479,16 +1109,12 @@ const ChatInterface = () => {
       }
     } catch (err) {
       console.error('Failed to fetch document:', err);
-      // setSnackbar({
-      //   open: true,
-      //   message: err.message.includes('fetch failed') ? 'Failed to fetch document' : err.message,
-      //   severity: 'error',
-      // });
       setTimeout(() => {
         onClosePdf();
       }, 500);
       return;
     }
+
     setTransitioning(true);
     setDrawerOpen(false);
     setOpenPdfView(true);
@@ -500,7 +1126,6 @@ const ChatInterface = () => {
     setIsExcel(isExcelOrCSV);
     setIsPdf(['pptx', 'ppt', 'pdf'].includes(citationMeta?.extension));
 
-    // Allow component to mount
     setTimeout(() => {
       setIsViewerReady(true);
       setTransitioning(false);
@@ -508,239 +1133,11 @@ const ChatInterface = () => {
   };
 
   const onClosePdf = (): void => {
-    // setOpenPdfView(false);
-    // setIsExcel(false);
-    // setShowQuestionDetails(false);
-
-    // setTimeout(() => {
-    //   setPdfUrl(null);
-    //   setAggregatedCitations([]);
-    // }, 50); // Match this with your transition duration
     resetViewerStates();
     setFileBuffer(null);
     setHighlightedCitation(null);
   };
 
-  // Also update the toggleCitations function to handle citation state more explicitly
-  const toggleCitations = useCallback((index: number): void => {
-    setExpandedCitations((prev) => {
-      const newState = { ...prev };
-      newState[index] = !prev[index];
-      return newState;
-    });
-  }, []);
-
-  const MemoizedChatMessagesArea = React.memo(ChatMessagesArea);
-  const MemoizedWelcomeMessage = React.memo(WelcomeMessage);
-
-  // Handle new chat creation
-  const handleNewChat = useCallback((): void => {
-    // First apply the critical state changes that would affect routing
-    setPendingResponseConversationId(null);
-    setActiveRequestTracker({ current: null, type: null });
-    currentConversationIdRef.current = null;
-    setCurrentConversationId(null);
-    navigate('/');
-
-    // Then use setTimeout to delay non-critical UI updates
-    // This helps prevent multiple rapid state changes causing flickering
-    setTimeout(() => {
-      setMessages([]);
-      setInputValue('');
-      setExpandedCitations({});
-      setShouldRefreshSidebar(true);
-      setConversationStatus({});
-      setShowWelcome(true);
-      setLoadingConversations({});
-      setIsLoadingConversation(false);
-      setSelectedChat(null);
-      setFileBuffer(null);
-      setOpenPdfView(false);
-    }, 0);
-  }, [navigate]);
-
-  const handleSendMessage = useCallback(
-    async (messageOverride?: string): Promise<void> => {
-      let trimmedInput = '';
-
-      if (typeof messageOverride === 'string') {
-        // Message is coming from WelcomeMessage or a direct call
-        trimmedInput = messageOverride.trim();
-      } else {
-        // Message is coming from the regular ChatInput
-        trimmedInput = inputValue.trim();
-      }
-      if (!trimmedInput) return;
-      const conversationKey = currentConversationId || 'new';
-      const requestConversationId = currentConversationId;
-      const wasCreatingNewConversation = currentConversationId === null;
-
-      // Track this request as active
-      const requestId = `${Date.now()}-${Math.random()}`;
-      setActiveRequestTracker({
-        current: requestId,
-        type: currentConversationId ? 'continue' : 'create',
-      });
-
-      setLoadingConversations((prev) => ({
-        ...prev,
-        [conversationKey]: true,
-      }));
-
-      const tempUserMessage = {
-        type: 'user',
-        content: trimmedInput,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        id: `temp-${Date.now()}`,
-        contentFormat: 'MARKDOWN',
-        followUpQuestions: [],
-        citations: [],
-        feedback: [],
-        messageType: 'user_query',
-        timestamp: new Date(),
-      };
-      // Clear input based on source
-      if (typeof messageOverride === 'string' && showWelcome) {
-        // This was the first message from WelcomeScreen
-        setShowWelcome(false);
-        // The WelcomeMessage's internal TextInput clears itself.
-      }
-      try {
-        setInputValue('');
-        setMessages((prev) => [...prev, tempUserMessage]);
-        const messageToSend = trimmedInput;
-
-        let response;
-        let conversation: any;
-
-        if (!currentConversationId) {
-          // Create new conversation
-          response = await axios.post<{ conversation: Conversation }>(
-            '/api/v1/conversations/create',
-            {
-              query: messageToSend,
-            }
-          );
-
-          if (!response?.data?.conversation) {
-            throw new Error('Invalid response format');
-          }
-
-          conversation = response.data.conversation;
-          const convId = conversation._id;
-
-          // FIXED: Remove the confusing duplicate checks and set state immediately
-          if (wasCreatingNewConversation) {
-            setSelectedChat(conversation);
-            setCurrentConversationId(convId);
-            currentConversationIdRef.current = convId;
-            setShouldRefreshSidebar(true);
-            // navigate(`/${convId}`);
-
-            if (conversation.status) {
-              setConversationStatus((prev) => ({
-                ...prev,
-                [convId]: conversation.status,
-              }));
-            }
-
-            // If conversation is already complete, update messages immediately
-            if (conversation.status === 'Complete') {
-              const allMessages = conversation.messages
-                .map(formatMessage)
-                .filter(Boolean) as FormattedMessage[];
-
-              setMessages(allMessages);
-            }
-          }
-        } else {
-          // Continue existing conversation
-          response = await axios.post<{ conversation: Conversation }>(
-            `/api/v1/conversations/${currentConversationId}/messages`,
-            { query: messageToSend }
-          );
-
-          if (!response?.data?.conversation?.messages) {
-            throw new Error('Invalid response format');
-          }
-
-          conversation = response.data.conversation;
-          const responseConversationId = conversation._id;
-
-          // FIXED: Simplified condition - just check if we're still on the same conversation
-          if (
-            currentConversationIdRef.current === responseConversationId &&
-            currentConversationId === responseConversationId
-          ) {
-            if (conversation.status) {
-              setConversationStatus((prev) => ({
-                ...prev,
-                [responseConversationId]: conversation.status,
-              }));
-            }
-
-            // If conversation is complete, update messages immediately
-            if (conversation.status === 'Complete') {
-              const allMessages = conversation.messages
-                .map(formatMessage)
-                .filter(Boolean) as FormattedMessage[];
-
-              setMessages(allMessages);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error:', error);
-
-        // Only show error if this request is still active
-        if (
-          (requestConversationId === currentConversationId &&
-            requestConversationId === currentConversationIdRef.current) ||
-          (wasCreatingNewConversation && !currentConversationId)
-        ) {
-          const errorMessage: FormattedMessage = {
-            type: 'bot',
-            content: 'Sorry, I encountered an error processing your request.',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            id: `error-${Date.now()}`,
-            contentFormat: 'MARKDOWN',
-            followUpQuestions: [],
-            citations: [],
-            confidence: '',
-            messageType: 'bot_response',
-            timestamp: new Date(),
-          };
-
-          setMessages((prev) => [...prev, errorMessage]);
-          if (wasCreatingNewConversation && !currentConversationId) {
-            // User was trying to create a new conversation and it failed
-            // No need to navigate away, just stay in the "new conversation" state
-            setCurrentConversationId(null);
-            currentConversationIdRef.current = null;
-          }
-        }
-      } finally {
-        // Clear loading states
-        setLoadingConversations((prev) => ({
-          ...prev,
-          [conversationKey]: false,
-        }));
-
-        // Clear active request tracker if this was the active request
-        if (activeRequestTracker?.current === requestId) {
-          setActiveRequestTracker({
-            current: null,
-            type: null,
-          });
-        }
-      }
-    },
-    [inputValue, currentConversationId, formatMessage, activeRequestTracker, showWelcome]
-  );
-
-  // Update handleRegenerateMessage
   const handleRegenerateMessage = useCallback(
     async (messageId: string): Promise<void> => {
       if (!currentConversationId || !messageId) return;
@@ -756,48 +1153,39 @@ const ChatInterface = () => {
           throw new Error('Invalid response format');
         }
 
-        // Format all messages from response
         const allMessages = response.data.conversation.messages
           .map(formatMessage)
           .filter(Boolean) as FormattedMessage[];
 
-        // Find the regenerated message - it should be the last bot message
         const regeneratedMessage = allMessages.filter((msg) => msg.type === 'bot').pop();
 
         if (!regeneratedMessage) {
           throw new Error('No regenerated message found in response');
         }
 
-        // Update messages by replacing only the regenerated message while keeping all others
         setMessages((prevMessages) =>
           prevMessages.map((msg) => {
-            // Only replace the message that was regenerated
             if (msg.id === messageId) {
               return {
                 ...regeneratedMessage,
-                // Keep any existing metadata/state that shouldn't be changed
-                createdAt: msg.createdAt, // Preserve original timestamp to maintain order
+                createdAt: msg.createdAt,
               };
             }
             return msg;
           })
         );
 
-        // Update citation states
         setExpandedCitations((prevStates) => {
           const newStates = { ...prevStates };
           const messageIndex = messages.findIndex((msg) => msg.id === messageId);
           if (messageIndex !== -1) {
-            // Safely check citations array existence and length
             const hasCitations =
               regeneratedMessage.citations && regeneratedMessage.citations.length > 0;
-            // Preserve existing citation state or initialize to false
             newStates[messageIndex] = hasCitations ? prevStates[messageIndex] || false : false;
           }
           return newStates;
         });
       } catch (error) {
-        // Show error in place of regenerated message while preserving others
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
             msg.id === messageId
@@ -816,86 +1204,10 @@ const ChatInterface = () => {
     [currentConversationId, formatMessage, messages]
   );
 
-  const handleChatSelect = useCallback(
-    async (chat: Conversation) => {
-      if (!chat?._id) return;
-
-      try {
-        // Critical state changes first
-        setShowWelcome(false);
-        setCurrentConversationId(chat._id);
-        currentConversationIdRef.current = chat._id;
-        navigate(`/${chat._id}`);
-        setIsLoadingConversation(true);
-
-        // Clear other states
-        setActiveRequestTracker({ current: null, type: null });
-        setLoadingConversations({});
-        setConversationStatus({});
-        setPendingResponseConversationId(null);
-
-        // Reset UI state with slight delay
-        setTimeout(() => {
-          setMessages([]);
-          setExpandedCitations({});
-          setOpenPdfView(false);
-        }, 0);
-
-        // Get conversation details
-        const response = await axios.get(`/api/v1/conversations/${chat._id}`);
-        const { conversation } = response.data;
-
-        if (!conversation || !Array.isArray(conversation.messages)) {
-          throw new Error('Invalid conversation data');
-        }
-
-        // Only proceed if we're still viewing this conversation
-        if (currentConversationIdRef.current === chat._id) {
-          if (conversation.status) {
-            setConversationStatus((prev) => ({
-              ...prev,
-              [chat._id]: conversation.status,
-            }));
-          }
-
-          // Set complete conversation data
-          setSelectedChat(conversation);
-
-          // Format messages and preserve full data structure
-          const formattedMessages = conversation.messages
-            .map(formatMessage)
-            .filter(Boolean) as FormattedMessage[];
-
-          // Initialize citation states for all bot messages with citations
-          const citationStates: ExpandedCitationsState = {};
-          formattedMessages.forEach((msg, idx) => {
-            if (msg.type === 'bot' && msg.citations && msg.citations.length > 0) {
-              citationStates[idx] = false;
-            }
-          });
-
-          setMessages(formattedMessages);
-          setExpandedCitations(citationStates);
-        }
-      } catch (error) {
-        console.error('Error loading conversation:', error);
-        setSelectedChat(null);
-        setCurrentConversationId(null);
-        currentConversationIdRef.current = null;
-        setMessages([]);
-        setExpandedCitations({});
-      } finally {
-        setIsLoadingConversation(false);
-      }
-    },
-    [formatMessage, navigate]
-  );
-
   const handleSidebarRefreshComplete = useCallback(() => {
     setShouldRefreshSidebar(false);
   }, []);
 
-  // Handle feedback submission
   const handleFeedbackSubmit = useCallback(
     async (messageId: string, feedback: any) => {
       if (!currentConversationId || !messageId) return;
@@ -912,33 +1224,15 @@ const ChatInterface = () => {
     [currentConversationId]
   );
 
-  const handleInputChange = useCallback(
-    (input: string | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-      let newValue: string;
-      if (typeof input === 'string') {
-        newValue = input;
-      } else if (
-        input &&
-        typeof input === 'object' &&
-        'target' in input &&
-        input.target &&
-        'value' in input.target
-      ) {
-        newValue = input.target.value;
-      } else {
-        return;
+  useEffect(
+    () => () => {
+      if (streamingController) {
+        streamingController.abort();
       }
-      setInputValue(newValue);
+      clearStreaming();
     },
-    []
+    [streamingController, clearStreaming]
   );
-
-  // const nputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-  //   // Make sure you are using event.target.value directly
-  //   // without any reversal logic.
-  //   console.log(event);
-  //   setInputValue(event.target.value);
-  // };
 
   useEffect(() => {
     if (conversationId && conversationId !== currentConversationId) {
@@ -946,317 +1240,247 @@ const ChatInterface = () => {
     }
   }, [conversationId, handleChatSelect, currentConversationId]);
 
-  // Add this useEffect to check conversation status periodically
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
-
-    const checkConversationStatus = async () => {
-      const inProgressConversations = Object.entries(conversationStatus)
-        .filter(([_, status]) => status === 'Inprogress')
-        .map(([id]) => id);
-
-      if (inProgressConversations.length > 0) {
-        const promises = inProgressConversations.map(async (convId) => {
-          try {
-            // Capture the current conversation ID at the start of this request
-            const currentId = currentConversationIdRef.current;
-
-            const response = await axios.get(`/api/v1/conversations/${convId}`);
-            const { conversation } = response.data;
-
-            if (conversation?.status) {
-              setConversationStatus((prev) => ({
-                ...prev,
-                [convId]: conversation.status,
-              }));
-
-              // Handle when conversation becomes complete
-              if (conversation.status === 'Complete') {
-                // Triple check: the conversation ID must match what we captured initially,
-                // what's currently in the ref, and the state
-                if (
-                  convId === currentId &&
-                  convId === currentConversationIdRef.current &&
-                  convId === currentConversationId
-                ) {
-                  const formattedMessages = conversation.messages
-                    .map(formatMessage)
-                    .filter(Boolean) as FormattedMessage[];
-
-                  setMessages(formattedMessages);
-                }
-              }
-            }
-          } catch (error) {
-            console.error(`Failed to check status for conversation ${convId}:`, error);
-          }
-        });
-
-        // Wait for all checks to complete
-        await Promise.all(promises);
+  useEffect(
+    () => () => {
+      if (streamingController) {
+        streamingController.abort();
       }
-    };
+    },
+    [streamingController]
+  );
 
-    // Check every 3 seconds if there are any 'Inprogress' conversations
-    if (Object.values(conversationStatus).includes('Inprogress')) {
-      intervalId = setInterval(checkConversationStatus, 3000);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [conversationStatus, currentConversationId, formatMessage]);
+  const MemoizedChatMessagesArea = useMemo(() => React.memo(ChatMessagesArea), []);
+  const MemoizedWelcomeMessage = useMemo(() => React.memo(WelcomeMessage), []);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        width: '100%',
-        height: '90vh',
-        overflow: 'hidden',
-      }}
-    >
-      {!isDrawerOpen && (
-        <Tooltip title="Open Sidebar" placement="right">
-          <StyledOpenButton
-            onClick={() => setDrawerOpen(true)}
-            size="small"
-            aria-label="Open sidebar"
-          >
-            <Icon icon={menuIcon} fontSize="medium" />
-          </StyledOpenButton>
-        </Tooltip>
-      )}
-      {isDrawerOpen && (
-        <Box
-          sx={{
-            width: DRAWER_WIDTH,
-            borderRight: 1,
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}
-        >
-          <ChatSidebar
-            onClose={() => setDrawerOpen(false)}
-            onChatSelect={handleChatSelect}
-            onNewChat={handleNewChat}
-            selectedId={currentConversationId}
-            shouldRefresh={shouldRefreshSidebar}
-            onRefreshComplete={handleSidebarRefreshComplete}
-          />
-        </Box>
-      )}
-
+    <StreamingContext.Provider value={streamingContextValue}>
       <Box
         sx={{
-          display: 'grid',
-          gridTemplateColumns: openPdfView ? '1fr 2fr' : '1fr',
+          display: 'flex',
           width: '100%',
-          gap: 2,
-          transition: 'grid-template-columns 0.3s ease',
+          height: '90vh',
+          overflow: 'hidden',
         }}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0,
-            height: '90vh',
-            borderRight: openPdfView ? 1 : 0,
-            borderColor: 'divider',
-            marginLeft: isDrawerOpen ? 0 : 4,
-            position: 'relative',
-          }}
-        >
-          {showWelcome ? (
-            <MemoizedWelcomeMessage
-              key="welcome-screen" // Key helps React manage this component better
-              onSubmit={(message: string) => handleSendMessage(message)}
-              isLoading={isLoading}
-            />
-          ) : (
-            <>
-              <MemoizedChatMessagesArea
-                key={`chat-area-${currentConversationId || 'new'}`} // Key based on conversation ID
-                messages={messages}
-                isLoading={isCurrentConversationLoading() || isCurrentConversationThinking()}
-                expandedCitations={expandedCitations}
-                onToggleCitations={toggleCitations}
-                onRegenerateMessage={handleRegenerateMessage}
-                onFeedbackSubmit={handleFeedbackSubmit}
-                conversationId={currentConversationId}
-                isLoadingConversation={isLoadingConversation}
-                onViewPdf={onViewPdf}
-                // Add these new props:
-                // inputValue={inputValue}
-                // onInputChange={handleInputChange}
-                // onSubmit={handleSendMessage}
-                // showWelcome={showWelcome}
-              />
-
-              <Box
-                sx={{
-                  flexShrink: 0,
-                  borderTop: 1,
-                  borderColor: 'divider',
-                  backgroundColor:
-                    theme.palette.mode === 'dark'
-                      ? alpha(theme.palette.background.paper, 0.5)
-                      : theme.palette.background.paper,
-                  mt: 'auto',
-                  py: 1.5,
-                  minWidth: '95%',
-                  mx: 'auto',
-                  borderRadius: 2,
-                }}
-              >
-                <ChatInput
-                  // value={inputValue}
-                  // onChange={handleInputChange}
-                  onSubmit={handleSendMessage}
-                  isLoading={isCurrentConversationLoading()}
-                />
-              </Box>
-            </>
-          )}
-        </Box>
-
-        {/* PDF Viewer */}
-        {/* PDF Viewer */}
-        {openPdfView && (
+        {!isDrawerOpen && (
+          <Tooltip title="Open Sidebar" placement="right">
+            <StyledOpenButton
+              onClick={() => setDrawerOpen(true)}
+              size="small"
+              aria-label="Open sidebar"
+            >
+              <Icon icon={menuIcon} fontSize="medium" />
+            </StyledOpenButton>
+          </Tooltip>
+        )}
+        {isDrawerOpen && (
           <Box
             sx={{
-              height: '90vh',
+              width: DRAWER_WIDTH,
+              borderRight: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
               overflow: 'hidden',
+              flexShrink: 0,
+            }}
+          >
+            <ChatSidebar
+              onClose={() => setDrawerOpen(false)}
+              onChatSelect={handleChatSelect}
+              onNewChat={handleNewChat}
+              selectedId={currentConversationId}
+              shouldRefresh={shouldRefreshSidebar}
+              onRefreshComplete={handleSidebarRefreshComplete}
+            />
+          </Box>
+        )}
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: openPdfView ? '1fr 2fr' : '1fr',
+            width: '100%',
+            gap: 2,
+            transition: 'grid-template-columns 0.3s ease',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0,
+              height: '90vh',
+              borderRight: openPdfView ? 1 : 0,
+              borderColor: 'divider',
+              marginLeft: isDrawerOpen ? 0 : 4,
               position: 'relative',
-              bgcolor: 'background.default',
-              '& > div': {
-                height: '100%',
-                width: '100%',
+            }}
+          >
+            {showWelcome ? (
+              <MemoizedWelcomeMessage
+                key="welcome-screen"
+                onSubmit={handleSendMessage}
+                isLoading={streamingState.isActive}
+              />
+            ) : (
+              <>
+                <MemoizedChatMessagesArea
+                  messages={messages}
+                  isLoading={streamingState.isActive}
+                  onRegenerateMessage={handleRegenerateMessage}
+                  onFeedbackSubmit={handleFeedbackSubmit}
+                  conversationId={currentConversationId}
+                  isLoadingConversation={isLoadingConversation}
+                  onViewPdf={onViewPdf}
+                  currentStatus={statusMessage}
+                  isStatusVisible={showStatus}
+                />
+
+                {/* <Box
+                  sx={{
+                    flexShrink: 0,
+                    borderTop: 1,
+                    borderColor: 'divider',
+                    // backgroundColor:
+                    //   theme.palette.mode === 'dark'
+                    //     ? alpha(theme.palette.background.paper, 0.5)
+                    //     : theme.palette.background.paper,
+                    mt: 'auto',
+                    // py: 1.5,
+                    minWidth: '95%',
+                    mx: 'auto',
+                    borderRadius: 2,
+                  }}
+                > */}
+                  <ChatInput onSubmit={handleSendMessage} isLoading={streamingState.isActive} />
+                {/* </Box> */}
+              </>
+            )}
+          </Box>
+
+          {/* PDF Viewer remains the same */}
+          {openPdfView && (
+            <Box
+              sx={{
+                height: '90vh',
+                overflow: 'hidden',
+                position: 'relative',
+                bgcolor: 'background.default',
+                '& > div': {
+                  height: '100%',
+                  width: '100%',
+                },
+              }}
+            >
+              {transitioning && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <CircularProgress />
+                </Box>
+              )}
+
+              {isViewerReady &&
+                (pdfUrl || fileBuffer) &&
+                aggregatedCitations &&
+                (isExcel ? (
+                  <ExcelViewer
+                    key="excel-viewer"
+                    citations={aggregatedCitations}
+                    fileUrl={pdfUrl}
+                    excelBuffer={fileBuffer}
+                    highlightCitation={highlightedCitation}
+                    onClosePdf={onClosePdf}
+                  />
+                ) : isDocx ? (
+                  <DocxHighlighterComp
+                    key="docx-viewer"
+                    url={pdfUrl}
+                    buffer={fileBuffer}
+                    citations={aggregatedCitations}
+                    highlightCitation={highlightedCitation}
+                    renderOptions={{
+                      breakPages: true,
+                      renderHeaders: true,
+                      renderFooters: true,
+                    }}
+                    onClosePdf={onClosePdf}
+                  />
+                ) : isMarkdown ? (
+                  <MarkdownViewer
+                    key="markdown-viewer"
+                    url={pdfUrl}
+                    buffer={fileBuffer}
+                    citations={aggregatedCitations}
+                    highlightCitation={highlightedCitation}
+                    onClosePdf={onClosePdf}
+                  />
+                ) : isHtml ? (
+                  <HtmlViewer
+                    key="html-viewer"
+                    url={pdfUrl}
+                    buffer={fileBuffer}
+                    citations={aggregatedCitations}
+                    highlightCitation={highlightedCitation}
+                    onClosePdf={onClosePdf}
+                  />
+                ) : isTextFile ? (
+                  <TextViewer
+                    key="text-viewer"
+                    url={pdfUrl}
+                    buffer={fileBuffer}
+                    citations={aggregatedCitations}
+                    highlightCitation={highlightedCitation}
+                    onClosePdf={onClosePdf}
+                  />
+                ) : (
+                  <PdfHighlighterComp
+                    key="pdf-viewer"
+                    pdfUrl={pdfUrl}
+                    pdfBuffer={fileBuffer}
+                    citations={aggregatedCitations}
+                    highlightCitation={highlightedCitation}
+                    onClosePdf={onClosePdf}
+                  />
+                ))}
+            </Box>
+          )}
+        </Box>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          sx={{ mt: 6 }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{
+              width: '100%',
+              borderRadius: 0.75,
+              boxShadow: theme.shadows[3],
+              '& .MuiAlert-icon': {
+                fontSize: '1.2rem',
               },
             }}
           >
-            {transitioning && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  bgcolor: 'background.paper',
-                }}
-              >
-                <CircularProgress />
-              </Box>
-            )}
-
-            {/* Render viewer with citations */}
-            {isViewerReady &&
-              (pdfUrl || fileBuffer) &&
-              aggregatedCitations &&
-              // !transitioning &&
-              (isExcel ? (
-                <ExcelViewer
-                  key="excel-viewer"
-                  citations={aggregatedCitations}
-                  fileUrl={pdfUrl}
-                  excelBuffer={fileBuffer}
-                  highlightCitation={highlightedCitation}
-                  onClosePdf={onClosePdf}
-                />
-              ) : isDocx ? (
-                <DocxHighlighterComp
-                  key="docx-viewer"
-                  url={pdfUrl}
-                  buffer={fileBuffer}
-                  citations={aggregatedCitations}
-                  highlightCitation={highlightedCitation}
-                  renderOptions={{
-                    breakPages: true,
-                    renderHeaders: true,
-                    renderFooters: true,
-                  }}
-                  onClosePdf={onClosePdf}
-                />
-              ) : isMarkdown ? (
-                <MarkdownViewer
-                  key="markdown-viewer"
-                  url={pdfUrl}
-                  buffer={fileBuffer}
-                  citations={aggregatedCitations}
-                  highlightCitation={highlightedCitation}
-                  onClosePdf={onClosePdf}
-                />
-              ) : isHtml ? (
-                <HtmlViewer
-                  key="html-viewer"
-                  url={pdfUrl}
-                  buffer={fileBuffer}
-                  citations={aggregatedCitations}
-                  highlightCitation={highlightedCitation}
-                  onClosePdf={onClosePdf}
-                />
-              ) : isTextFile ? (
-                <TextViewer
-                  key="text-viewer"
-                  url={pdfUrl}
-                  buffer={fileBuffer}
-                  citations={aggregatedCitations}
-                  highlightCitation={highlightedCitation}
-                  onClosePdf={onClosePdf}
-                />
-              ) : (
-                <PdfHighlighterComp
-                  key="pdf-viewer"
-                  pdfUrl={pdfUrl}
-                  pdfBuffer={fileBuffer}
-                  citations={aggregatedCitations}
-                  highlightCitation={highlightedCitation}
-                  onClosePdf={onClosePdf}
-                />
-              ))}
-            {/* <StyledCloseButton
-              onClick={onClosePdf}
-              startIcon={<Icon icon={closeIcon} />}
-              size="small"
-            >
-              Close
-            </StyledCloseButton> */}
-          </Box>
-        )}
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        sx={{ mt: 6 }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{
-            width: '100%',
-            borderRadius: 0.75,
-            boxShadow: theme.shadows[3],
-            '& .MuiAlert-icon': {
-              fontSize: '1.2rem',
-            },
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+    </StreamingContext.Provider>
   );
 };
 

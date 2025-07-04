@@ -1,23 +1,17 @@
-// components/chat-message-area.tsx
-import type {
-  Metadata,
-  CustomCitation,
-  FormattedMessage,
-  ExpandedCitationsState,
-} from 'src/types/chat-bot';
+import type { CustomCitation, FormattedMessage } from 'src/types/chat-bot';
 
-import React, { useMemo, useState, useEffect, useCallback, useLayoutEffect } from 'react';
-import { Box, Fade, Stack, Typography, CircularProgress, useTheme } from '@mui/material';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { Box, Fade, Stack, Typography, useTheme, alpha, IconButton, Tooltip } from '@mui/material';
+import { Icon } from '@iconify/react';
+import arrowUpIcon from '@iconify-icons/mdi/arrow-up';
+import arrowDownIcon from '@iconify-icons/mdi/arrow-down';
 import { createScrollableContainerStyle } from '../utils/styles/scrollbar';
 
 import ChatMessage from './chat-message';
-import WelcomeMessage from './welcome-message';
 
 type ChatMessagesAreaProps = {
   messages: FormattedMessage[];
   isLoading: boolean;
-  expandedCitations: ExpandedCitationsState;
-  onToggleCitations: (index: number) => void;
   onRegenerateMessage: (messageId: string) => Promise<void>;
   onFeedbackSubmit: (messageId: string, feedback: any) => Promise<void>;
   conversationId: string | null;
@@ -29,22 +23,17 @@ type ChatMessagesAreaProps = {
     isExcelFile?: boolean,
     buffer?: ArrayBuffer
   ) => void;
-  // New props for handling input in welcome screen
-  // inputValue: string;
-  // onInputChange: (e: string | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  // onSubmit: () => Promise<void>;
-  // showWelcome: boolean;
+  currentStatus?: string;
+  isStatusVisible?: boolean;
 };
 
 type ProcessingIndicatorProps = {
-  isLoadingConversation: boolean;
+  displayText: string;
 };
 
 type MessageWithControlsProps = {
   message: FormattedMessage;
   index: number;
-  isExpanded: boolean;
-  onToggleCitations: (index: number) => void;
   onViewPdf: (
     url: string,
     citation: CustomCitation,
@@ -58,336 +47,369 @@ type MessageWithControlsProps = {
   showRegenerate: boolean;
 };
 
-// Loading states for different scenarios
-const ProcessingIndicator = ({ isLoadingConversation }: ProcessingIndicatorProps) => (
-  <Fade in={Boolean(true)}>
-    <Stack
-      direction="row"
-      spacing={2}
-      alignItems="center"
-      sx={{
-        py: 2,
-        px: 3,
-        borderRadius: 2,
-        bgcolor: 'background.paper',
-        boxShadow: '0 2px 12px rgba(0, 0, 0, 0.03)',
-        border: '1px solid',
-        borderColor: 'divider',
-        maxWidth: '300px',
-      }}
-    >
-      <Box sx={{ position: 'relative', width: 20, height: 20 }}>
-        <CircularProgress size={20} thickness={4} sx={{ color: 'primary.main' }} />
-      </Box>
-      <Typography
-        variant="body2"
-        sx={{
-          color: 'text.secondary',
-          fontSize: '0.875rem',
-          fontWeight: 500,
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        {isLoadingConversation ? 'Loading Conversation...' : 'Thinking...'}
-      </Typography>
-    </Stack>
-  </Fade>
-);
+const ProcessingIndicator = React.memo(({ displayText }: ProcessingIndicatorProps) => {
+  const theme = useTheme();
 
-// ChatMessagesArea.tsx - updated version with specific fix
+  const renderAnimation = () => {
+    if (!displayText) return 'thinking';
+    if (displayText.includes('🔍') || displayText.toLowerCase().includes('search')) {
+      return 'searching';
+    }
+    return 'processing';
+  };
+
+  const getAnimationType = () => {
+    if (!displayText) return 'thinking';
+    if (displayText.includes('🔍') || displayText.toLowerCase().includes('search')) {
+      return 'searching';
+    }
+    return 'processing';
+  };
+
+  return (
+    <Fade in timeout={200}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
+        <Stack
+          direction="row"
+          spacing={1.5}
+          alignItems="center"
+          sx={{
+            py: 1,
+            px: 2,
+            borderRadius: '12px',
+            bgcolor:
+              theme.palette.mode === 'dark'
+                ? alpha(theme.palette.background.paper, 0.7)
+                : alpha(theme.palette.background.default, 0.9),
+            backdropFilter: 'blur(4px)',
+            boxShadow: theme.shadows[2],
+            border: '1px solid',
+            borderColor: theme.palette.divider,
+          }}
+        >
+          <Box sx={{ minWidth: 20, height: 20, display: 'flex', alignItems: 'center' }}>
+            {/* This is a simplified animation part */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {[0, 1, 2].map((i) => (
+                <Box
+                  key={i}
+                  sx={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: '50%',
+                    bgcolor: 'text.secondary',
+                    animation: `bounce 1.4s ease-in-out ${i * 0.16}s infinite`,
+                    '@keyframes bounce': {
+                      '0%, 80%, 100%': { transform: 'scale(0.8)', opacity: 0.5 },
+                      '40%': { transform: 'scale(1)', opacity: 1 },
+                    },
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+          <Typography
+            variant="body2"
+            sx={{ fontSize: '0.8rem', fontWeight: 500, color: 'text.secondary' }}
+          >
+            {displayText}
+          </Typography>
+        </Stack>
+      </Box>
+    </Fade>
+  );
+});
 
 const ChatMessagesArea = ({
   messages,
   isLoading,
-  expandedCitations,
-  onToggleCitations,
   onRegenerateMessage,
   onFeedbackSubmit,
   conversationId,
   isLoadingConversation,
   onViewPdf,
-  // inputValue,
-  // onInputChange,
-  // onSubmit,
-  // showWelcome,
+  currentStatus,
+  isStatusVisible,
 }: ChatMessagesAreaProps) => {
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement | null>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const prevMessagesLength = React.useRef(messages.length);
+  const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Critical: Track whether we're in a 'sending message' state to prevent scroll jumps
-  const isSendingMessage = React.useRef(false);
-  const lastScrollTopRef = React.useRef(0);
+  // NEW: Scroll button states
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
-  // Remove sorting and use messages directly to maintain order
   const displayMessages = useMemo(() => messages, [messages]);
 
-  // Find the last bot message for regeneration
+  const hasStreamingContent = useMemo(() => {
+    if (displayMessages.length === 0) return false;
+    const lastMessage = displayMessages[displayMessages.length - 1];
+    return lastMessage?.type === 'bot' && lastMessage?.id?.startsWith('streaming-');
+  }, [displayMessages]);
+
   const canRegenerateMessage = useCallback(
     (message: FormattedMessage) => {
       const botMessages = messages.filter((msg) => msg.type === 'bot');
       const lastBotMessage = botMessages[botMessages.length - 1];
       return (
         message.type === 'bot' &&
-        message.messageType !== 'error' &&
         message.id === lastBotMessage?.id &&
-        !message.id.startsWith('error-')
+        !message.id.startsWith('streaming-')
       );
     },
     [messages]
   );
 
-  // NEW: Function to explicitly preserve scroll position
-  const preserveScrollPosition = useCallback(() => {
-    if (messagesContainerRef.current) {
-      // Save current position
-      lastScrollTopRef.current = messagesContainerRef.current.scrollTop;
-
-      // Immediately set it back (prevents browser from resetting)
-      requestAnimationFrame(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = lastScrollTopRef.current;
-        }
-      });
-    }
-  }, []);
-
-  // FIXED: Don't let the scroll change on normal user input
-  const handleScroll = useCallback(
-    (e: React.UIEvent<HTMLDivElement>) => {
-      if (isSendingMessage.current) {
-        // If we're sending a message, prevent any scroll position changes
-        preserveScrollPosition();
-        return;
-      }
-
-      if (!messagesContainerRef.current) return;
-
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
-
-      // Update last known position
-      lastScrollTopRef.current = scrollTop;
-
-      // If we're close to the bottom (within 150px), enable auto-scrolling
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
-      setShouldAutoScroll(isNearBottom);
-    },
-    [preserveScrollPosition]
-  );
-
-  // New function to immediately scroll to bottom without animations
-  // This prevents the visible "jump" effect
-  const immediateScrollToBottom = useCallback(() => {
-    if (!messagesEndRef.current || !messagesContainerRef.current) return;
-
-    // Use instant scroll (no animation) to prevent visible jumps
-    messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
-
-    // Update our saved position
-    if (messagesContainerRef.current) {
-      lastScrollTopRef.current = messagesContainerRef.current.scrollTop;
-    }
-  }, []);
-
-  // Smooth scroll for non-critical operations
-  const smoothScrollToBottom = useCallback(() => {
-    if (!messagesEndRef.current) return;
-
-    messagesEndRef.current.scrollIntoView({
-      behavior: 'smooth',
-      block: 'end',
+  const scrollToBottomSmooth = useCallback(() => {
+    if (!messagesEndRef.current || !shouldAutoScroll) return;
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     });
+  }, [shouldAutoScroll]);
+
+  const scrollToBottomImmediate = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
   }, []);
 
-  // CRITICAL: Execute this immediately before any render
-  // to temporarily disable scroll updates
-  useLayoutEffect(() => {
-    // Only preserve position during active sending
-    if (isSendingMessage.current) {
-      preserveScrollPosition();
-    }
-  });
+  // NEW: Scroll to top function
+  const scrollToTop = useCallback(() => {
+    if (!messagesContainerRef.current) return;
+    messagesContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
-  // IMPORTANT: This setup ensures scroll position is maintained when messages array changes
+  // NEW: Scroll to bottom function (manual)
+  const scrollToBottom = useCallback(() => {
+    if (!messagesEndRef.current) return;
+    messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+    const isNearTop = scrollTop < 150;
+
+    setShouldAutoScroll(isNearBottom);
+
+    // NEW: Show/hide scroll buttons based on position
+    setShowScrollToTop(scrollTop > 200);
+    setShowScrollToBottom(!isNearBottom && scrollHeight > clientHeight + 400);
+  }, []);
+
   useEffect(() => {
-    const isNewMessage = messages.length > prevMessagesLength.current;
-
-    // CRITICAL: For new messages, we need to handle scroll properly
-    if (isNewMessage) {
+    if (messages.length > prevMessagesLength.current) {
       const latestMessage = messages[messages.length - 1];
-      const isUserMessage = latestMessage?.type === 'user';
-
-      if (isUserMessage) {
-        // When sending a message, we initially prevent scroll jumps
-        isSendingMessage.current = true;
-
-        // First, preserve position
-        preserveScrollPosition();
-
-        // Then, after a tiny delay (to allow render to complete), jump to bottom
-        requestAnimationFrame(() => {
-          immediateScrollToBottom();
-
-          // Clear sending flag after we've handled it
-          setTimeout(() => {
-            isSendingMessage.current = false;
-          }, 100);
-        });
-      } else if (shouldAutoScroll) {
-        // For bot messages, use smooth scroll if user hasn't scrolled up
-        requestAnimationFrame(() => {
-          smoothScrollToBottom();
-        });
+      if (latestMessage?.type === 'user' && shouldAutoScroll) {
+        setTimeout(scrollToBottomImmediate, 50);
       }
     }
-
     prevMessagesLength.current = messages.length;
-  }, [
-    messages,
-    shouldAutoScroll,
-    immediateScrollToBottom,
-    smoothScrollToBottom,
-    preserveScrollPosition,
-  ]);
+  }, [messages, shouldAutoScroll, scrollToBottomImmediate]);
 
-  // Scroll to bottom when loading completes
   useEffect(() => {
-    if (!isLoading && shouldAutoScroll) {
-      requestAnimationFrame(() => {
-        smoothScrollToBottom();
-      });
+    if (hasStreamingContent && shouldAutoScroll) {
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = setTimeout(scrollToBottomSmooth, 100);
+      return () => {
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      };
     }
-  }, [isLoading, shouldAutoScroll, smoothScrollToBottom]);
+    return undefined;
+  }, [hasStreamingContent, shouldAutoScroll, scrollToBottomSmooth]);
 
-  // Handle conversation changes
   useEffect(() => {
     if (conversationId) {
       setShouldAutoScroll(true);
-      requestAnimationFrame(() => {
-        immediateScrollToBottom();
-      });
+      if (displayMessages.length > 0) setTimeout(scrollToBottomImmediate, 100);
     }
-  }, [conversationId, immediateScrollToBottom]);
+  }, [conversationId, displayMessages.length, scrollToBottomImmediate]);
 
-  const shouldShowLoadingIndicator = (isLoading || isLoadingConversation) && messages.length > 0;
-  const theme = useTheme();
+  const shouldShowLoadingIndicator = useMemo(() => {
+    if (hasStreamingContent) return false;
+    if (isLoadingConversation && messages.length === 0) return true;
+    if (isStatusVisible && currentStatus) return true;
 
-  const scrollableStyles = createScrollableContainerStyle(theme);
-  // Custom hook to enforce scroll position during critical renders
-  useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-
-    // Function to ensure we maintain scroll during updates
-    const maintainScrollPosition = () => {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = lastScrollTopRef.current;
+    // NEW: Check if last message is from user (waiting for bot response)
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.type === 'user' && !hasStreamingContent) {
+        return true;
       }
-    };
-
-    // Set up interval to enforce position during rapid updates
-    if (isSendingMessage.current) {
-      timer = setInterval(maintainScrollPosition, 10);
     }
 
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, []);
+    return false;
+  }, [
+    isLoadingConversation,
+    currentStatus,
+    isStatusVisible,
+    hasStreamingContent,
+    messages,
+  ]);
+
+  const indicatorText = useMemo(() => {
+    if (isLoadingConversation && messages.length === 0) return 'Loading conversation...';
+    if (currentStatus) return currentStatus;
+
+    // NEW: Show processing message when last message is from user
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.type === 'user' && !isLoadingConversation) {
+        return 'Processing your request...';
+      }
+    }
+
+    return '';
+  }, [isLoadingConversation, currentStatus, messages]);
+
+  const theme = useTheme();
+  const scrollableStyles = createScrollableContainerStyle(theme);
+
+  useEffect(
+    () => () => {
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    },
+    []
+  );
 
   return (
     <Box
-      ref={messagesContainerRef}
-      onScroll={handleScroll}
       sx={{
+        position: 'relative',
         flexGrow: 1,
-        overflow: 'auto',
-        p: 3,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
-        // Critical: Remove any automatic scroll behavior
-        scrollBehavior: 'auto',
-        scrollPaddingBottom: '100px',
-        ...scrollableStyles,
       }}
     >
-      {isLoadingConversation && conversationId && messages.length === 0 ? (
-        // Centered loading indicator
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '100%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <ProcessingIndicator isLoadingConversation={isLoadingConversation} />
-        </Box>
-      ) : (
+      <Box
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        sx={{
+          flexGrow: 1,
+          overflow: 'auto',
+          p: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          ...scrollableStyles,
+        }}
+      >
         <Box
           sx={{
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
-            // justifyContent: showWelcome ? 'center' : 'flex-start',
             height: '100%',
             position: 'relative',
           }}
         >
-          {/* {showWelcome ? (
-            <WelcomeMessage
-              inputValue={inputValue}
-              onInputChange={onInputChange}
-              onSubmit={onSubmit}
-              isLoading={isLoading}
+          <Box sx={{ minHeight: 4 }} />
+          {displayMessages.map((message, index) => (
+            <MessageWithControls
+              key={`msg-${message.id}`}
+              message={message}
+              index={index}
+              onRegenerate={onRegenerateMessage}
+              onFeedbackSubmit={onFeedbackSubmit}
+              conversationId={conversationId}
+              showRegenerate={canRegenerateMessage(message)}
+              onViewPdf={onViewPdf}
             />
-          ) : (
-          )} */}
-            <>
-              {/* Force minimum height at top to prevent scroll jump */}
-              <Box sx={{ minHeight: 4 }} />
-
-              {displayMessages.map((message, index) => (
-                <MessageWithControls
-                  key={`msg-${message.id}`}
-                  message={message}
-                  index={index}
-                  isExpanded={expandedCitations[index]}
-                  onToggleCitations={() => onToggleCitations(index)}
-                  onRegenerate={onRegenerateMessage}
-                  onFeedbackSubmit={onFeedbackSubmit}
-                  conversationId={conversationId}
-                  showRegenerate={canRegenerateMessage(message)}
-                  onViewPdf={onViewPdf}
-                />
-              ))}
-
-              {shouldShowLoadingIndicator && (
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-start' }}>
-                  <ProcessingIndicator isLoadingConversation={false} />
-                </Box>
-              )}
-
-              {/* Enhanced scroll anchor with proper height */}
-              <Box sx={{ minHeight: 20 }} />
-              <div
-                ref={messagesEndRef}
-                style={{
-                  float: 'left',
-                  clear: 'both',
-                  height: 1,
-                  width: '100%',
-                }}
-              />
-            </>
+          ))}
+          {/* FIX: Render the indicator in the flow with the correct text */}
+          {shouldShowLoadingIndicator && (
+            <Box sx={{ mt: 1, mb: 4 }}>
+              <ProcessingIndicator displayText={indicatorText} />
+            </Box>
+          )}
+          <Box sx={{ minHeight: 20 }} />
+          <div
+            ref={messagesEndRef}
+            style={{ float: 'left', clear: 'both', height: 1, width: '100%' }}
+          />
         </Box>
-      )}
+      </Box>
+
+      {/* NEW: Scroll to Top Button */}
+      <Fade in={showScrollToTop} timeout={200}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 20,
+            right: 20,
+            zIndex: 10,
+          }}
+        >
+          <Tooltip title="Scroll to top" placement="left">
+            <IconButton
+              onClick={scrollToTop}
+              sx={{
+                backgroundColor: (themeVal) => alpha(themeVal.palette.background.paper, 0.9),
+                border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                backdropFilter: 'blur(8px)',
+                boxShadow: (themeVal) => themeVal.shadows[4],
+                width: 36,
+                height: 36,
+                '&:hover': {
+                  backgroundColor: (themeVal) => alpha(themeVal.palette.background.paper, 1),
+                  transform: 'translateY(-2px)',
+                  boxShadow: (themeVal) => themeVal.shadows[8],
+                },
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <Icon
+                icon={arrowUpIcon}
+                width={16}
+                height={16}
+                color={theme.palette.text.secondary}
+              />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Fade>
+
+      {/* NEW: Scroll to Bottom Button */}
+      <Fade in={showScrollToBottom} timeout={200}>
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 20,
+            right: 20,
+            zIndex: 10,
+          }}
+        >
+          <Tooltip title="Scroll to bottom" placement="left">
+            <IconButton
+              onClick={scrollToBottom}
+              sx={{
+                backgroundColor: (themeVal) => alpha(themeVal.palette.background.paper, 0.9),
+                border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                backdropFilter: 'blur(8px)',
+                boxShadow: (themeVal) => themeVal.shadows[4],
+                width: 36,
+                height: 36,
+                '&:hover': {
+                  backgroundColor: (themeVal) => alpha(themeVal.palette.background.paper, 1),
+                  transform: 'translateY(-2px)',
+                  boxShadow: (themeVal) => themeVal.shadows[8],
+                },
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <Icon
+                icon={arrowDownIcon}
+                width={16}
+                height={16}
+                color={theme.palette.text.secondary}
+              />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Fade>
     </Box>
   );
 };
@@ -396,8 +418,6 @@ const MessageWithControls = React.memo(
   ({
     message,
     index,
-    isExpanded,
-    onToggleCitations,
     onRegenerate,
     onFeedbackSubmit,
     conversationId,
@@ -416,12 +436,10 @@ const MessageWithControls = React.memo(
     };
 
     return (
-      <Box sx={{ mb: 2,  }}>
+      <Box sx={{ mb: 2 }}>
         <ChatMessage
           message={message}
           index={index}
-          isExpanded={isExpanded}
-          onToggleCitations={onToggleCitations}
           onRegenerate={handleRegenerate}
           onFeedbackSubmit={onFeedbackSubmit}
           conversationId={conversationId}
