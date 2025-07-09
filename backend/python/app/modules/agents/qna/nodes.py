@@ -9,9 +9,10 @@ from app.modules.agents.qna.chat_state import ChatState
 from app.modules.qna.prompt_templates import qna_prompt
 from app.utils.citations import process_citations
 from app.utils.query_transform import setup_query_transformation
+from app.utils.streaming import stream_llm_response
 
 
-# 1. Decomposition Node (FIXED - made async compatible)
+# 1. Decomposition Node (OPTIMIZED - reduced streaming overhead)
 async def decompose_query_node(
     state: ChatState,
 ) -> ChatState:
@@ -20,7 +21,11 @@ async def decompose_query_node(
         logger = state["logger"]
         llm = state["llm"]
 
-        if not state["should_decompose"]:
+        # Only send streaming event if streaming service exists and is needed
+        if state.get("streaming_service") and not state["quick_mode"]:
+            state["streaming_service"].send_event("status", {"status": "decomposing", "message": "Decomposing query..."})
+
+        if state["quick_mode"]:
             state["decomposed_queries"] = [{"query": state["query"]}]
             return state
 
@@ -45,7 +50,7 @@ async def decompose_query_node(
         state["error"] = {"status_code": 400, "detail": str(e)}
         return state
 
-# 2. Query Transformation Node (FIXED - made async compatible)
+# 2. Query Transformation Node (OPTIMIZED - parallel processing)
 async def transform_query_node(
     state: ChatState
 ) -> ChatState:
@@ -54,18 +59,28 @@ async def transform_query_node(
         logger = state["logger"]
         llm = state["llm"]
 
+        # Only send streaming event if streaming service exists
+        if state.get("streaming_service"):
+            state["streaming_service"].send_event("status", {"status": "transforming", "message": "Transforming queries..."})
+
         rewrite_chain, expansion_chain = setup_query_transformation(llm=llm)
 
         transformed_queries = []
         expanded_queries_set = set()
 
+        # Process all queries in parallel for better performance
+        query_tasks = []
         for query_dict in state["decomposed_queries"]:
             query = query_dict.get("query")
-
-            # Run query transformations in parallel
-            rewritten_query, expanded_queries = await asyncio.gather(
-                rewrite_chain.ainvoke(query), expansion_chain.ainvoke(query)
+            task = asyncio.gather(
+                rewrite_chain.ainvoke(query),
+                expansion_chain.ainvoke(query)
             )
+            query_tasks.append((query, task))
+
+        # Wait for all transformations to complete
+        for query, task in query_tasks:
+            rewritten_query, expanded_queries = await task
 
             # Process rewritten query
             if rewritten_query.strip():
@@ -93,7 +108,7 @@ async def transform_query_node(
         state["error"] = {"status_code": 400, "detail": str(e)}
         return state
 
-# 3. Document Retrieval Node (FIXED - made async compatible)
+# 3. Document Retrieval Node (OPTIMIZED - simplified)
 async def retrieve_documents_node(
     state: ChatState,
 ) -> ChatState:
@@ -102,6 +117,10 @@ async def retrieve_documents_node(
         logger = state["logger"]
         retrieval_service = state["retrieval_service"]
         arango_service = state["arango_service"]
+
+        # Only send streaming event if streaming service exists
+        if state.get("streaming_service"):
+            state["streaming_service"].send_event("status", {"status": "retrieving", "message": "Retrieving documents..."})
 
         if state.get("error"):
             return state
@@ -138,7 +157,7 @@ async def retrieve_documents_node(
         state["error"] = {"status_code": 400, "detail": str(e)}
         return state
 
-# 4. User Data Node (FIXED - made async compatible)
+# 4. User Data Node (OPTIMIZED - conditional execution)
 async def get_user_info_node(
     state: ChatState,
 ) -> ChatState:
@@ -147,13 +166,15 @@ async def get_user_info_node(
         logger = state["logger"]
         arango_service = state["arango_service"]
 
+        # Skip if there's an error or user info is not needed
         if state.get("error") or not state["send_user_info"]:
             return state
 
-        user_info = await arango_service.get_user_by_user_id(state["user_id"])
-        org_info = await arango_service.get_document(
-            state["org_id"], CollectionNames.ORGS.value
-        )
+        # Fetch user and org info in parallel
+        user_task = arango_service.get_user_by_user_id(state["user_id"])
+        org_task = arango_service.get_document(state["org_id"], CollectionNames.ORGS.value)
+
+        user_info, org_info = await asyncio.gather(user_task, org_task)
 
         state["user_info"] = user_info
         state["org_info"] = org_info
@@ -163,7 +184,7 @@ async def get_user_info_node(
         # Don't fail the whole process if user info can't be fetched
         return state
 
-# 5. Reranker Node (FIXED - made async compatible)
+# 5. Reranker Node (OPTIMIZED - simplified)
 async def rerank_results_node(
     state: ChatState,
 ) -> ChatState:
@@ -171,6 +192,10 @@ async def rerank_results_node(
     try:
         logger = state["logger"]
         reranker_service = state["reranker_service"]
+
+        # Only send streaming event if streaming service exists
+        if state.get("streaming_service"):
+            state["streaming_service"].send_event("status", {"status": "reranking", "message": "Reranking results..."})
 
         if state.get("error"):
             return state
@@ -186,8 +211,8 @@ async def rerank_results_node(
                 seen_ids.add(result_id)
                 flattened_results.append(result)
 
-        # Rerank if we have multiple results
-        if len(flattened_results) > 1:
+        # Rerank if we have multiple results and not in quick mode
+        if len(flattened_results) > 1 and not state["quick_mode"]:
             final_results = await reranker_service.rerank(
                 query=state["query"],  # Use original query for final ranking
                 documents=flattened_results,
@@ -204,7 +229,7 @@ async def rerank_results_node(
         state["error"] = {"status_code": 400, "detail": str(e)}
         return state
 
-# 6. Prompt Creation Node (no async needed)
+# 6. Prompt Creation Node (OPTIMIZED - simplified)
 def prepare_prompt_node(
     state: ChatState,
 ) -> ChatState:
@@ -261,7 +286,7 @@ def prepare_prompt_node(
         state["error"] = {"status_code": 400, "detail": str(e)}
         return state
 
-# 7. Answer Generation Node (FIXED - made async compatible)
+# 7. Answer Generation Node (OPTIMIZED - simplified streaming)
 async def generate_answer_node(
     state: ChatState,
 ) -> ChatState:
@@ -270,15 +295,38 @@ async def generate_answer_node(
         logger = state["logger"]
         llm = state["llm"]
 
+        # Only send streaming event if streaming service exists
+        if state.get("streaming_service"):
+            state["streaming_service"].send_event("status", {"status": "generating", "message": "Generating answer..."})
+
         if state.get("error"):
             return state
 
-        # Make async LLM call
-        response = await llm.ainvoke(state["messages"])
-        # Process citations
-        processed_response = process_citations(response, state["final_results"])
+        # Check if we should stream the response
+        if state.get("streaming_service"):
+            # Stream the LLM response similar to chatbot
+            full_response = ""
+            async for chunk in stream_llm_response(llm, state["messages"], state["final_results"]):
+                if chunk["event"] == "answer_chunk":
+                    # Send chunk to client
+                    state["streaming_service"].send_event("answer_chunk", chunk["data"])
+                    full_response += chunk["data"]["chunk"]
+                elif chunk["event"] == "complete":
+                    # Final response with citations
+                    state["streaming_service"].send_event("complete", chunk["data"])
+                    full_response = chunk["data"]["answer"]
+                    break
+                elif chunk["event"] == "error":
+                    state["error"] = {"status_code": 400, "detail": chunk["data"]["error"]}
+                    return state
 
-        state["response"] = processed_response
+            state["response"] = full_response
+        else:
+            # Non-streaming fallback
+            response = await llm.ainvoke(state["messages"])
+            processed_response = process_citations(response, state["final_results"])
+            state["response"] = processed_response
+
         return state
     except Exception as e:
         logger.error(f"Error in answer generation node: {str(e)}", exc_info=True)
