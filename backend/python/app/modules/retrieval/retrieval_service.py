@@ -1,4 +1,5 @@
 import asyncio
+import time
 from typing import Any, Dict, List, Optional, Union
 
 from langchain.chat_models.base import BaseChatModel
@@ -553,7 +554,10 @@ class RetrievalService:
             for query in queries
         ]
 
+        start_time = time.monotonic()
         search_results = await asyncio.gather(*search_tasks)
+        elapsed = time.monotonic() - start_time
+        self.logger.debug(f"VectorDB lookup for {len(queries)} queries took {elapsed:.3f} seconds.")
 
         # Deduplicate results
         for results in search_results:
