@@ -27,10 +27,10 @@ class SyncProgress:
 
 
 class ISyncService(ABC):
-    """Base interface for synchronization operations"""
+    """Base interface for synchronization operations for a data source"""
 
     @abstractmethod
-    async def initialize(self, sync_config: Dict[str, Any]) -> bool:
+    async def initialize(self, org_id: str, sync_config: Dict[str, Any] = None) -> bool:
         """Initialize the sync service"""
         pass
 
@@ -40,31 +40,36 @@ class ISyncService(ABC):
         pass
 
     @abstractmethod
-    async def start_sync(self, sync_config: Dict[str, Any]) -> str:
+    async def init_sync(self, org_id: str) -> bool:
+        """Initial sync"""
+        pass
+
+    @abstractmethod
+    async def start_sync(self, org_id: str, sync_config: Dict[str, Any] = None) -> bool:
         """Start a sync operation"""
         pass
 
     @abstractmethod
-    async def pause_sync(self, sync_id: str) -> bool:
+    async def pause_sync(self, org_id: str, sync_id: str = None) -> bool:
         """Pause a sync operation"""
         pass
 
     @abstractmethod
-    async def resume_sync(self, sync_id: str) -> bool:
+    async def resume_sync(self, org_id: str, sync_id: str = None) -> bool:
         """Resume a sync operation"""
         pass
 
     @abstractmethod
-    async def stop_sync(self, sync_id: str) -> bool:
+    async def stop_sync(self, org_id: str, sync_id: str = None) -> bool:
         """Stop a sync operation"""
         pass
 
     @abstractmethod
-    async def get_sync_progress(self, sync_id: str) -> SyncProgress:
+    async def get_sync_progress(self, org_id: str, sync_id: str = None) -> SyncProgress:
         """Get sync progress"""
         pass
 
     @abstractmethod
-    async def get_sync_history(self, limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_sync_history(self, org_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """Get sync history"""
         pass
