@@ -1,5 +1,6 @@
 
 import os
+from enum import Enum
 from typing import Any, Dict
 
 from langchain.chat_models.base import BaseChatModel
@@ -9,9 +10,43 @@ from app.config.utils.named_constants.ai_models_named_constants import (
     AZURE_EMBEDDING_API_VERSION,
     DEFAULT_EMBEDDING_MODEL,
     AzureOpenAILLM,
-    EmbeddingProvider,
-    LLMProvider,
 )
+
+
+class EmbeddingProvider(Enum):
+    ANTHROPIC = "anthropic"
+    AWS_BEDROCK = "bedrock"
+    AZURE_OPENAI = "azureOpenAI"
+    COHERE = "cohere"
+    DEFAULT = "default"
+    FIREWORKS = "fireworks"
+    GEMINI = "gemini"
+    HUGGING_FACE = "huggingFace"
+    JINA_AI = "jinaAI"
+    MISTRAL = "mistral"
+    OLLAMA = "ollama"
+    OPENAI = "openAI"
+    OPENAI_COMPATIBLE = "openAICompatible"
+    SENTENCE_TRANSFOMERS = "sentenceTransformers"
+    TOGETHER = "together"
+    VERTEX_AI = "vertexAI"
+    VOYAGE = "voyage"
+
+class LLMProvider(Enum):
+    ANTHROPIC = "anthropic"
+    AWS_BEDROCK = "bedrock"
+    AZURE_OPENAI = "azureOpenAI"
+    COHERE = "cohere"
+    FIREWORKS = "fireworks"
+    GEMINI = "gemini"
+    GROQ = "groq"
+    MISTRAL = "mistral"
+    OLLAMA = "ollama"
+    OPENAI = "openAI"
+    OPENAI_COMPATIBLE = "openAICompatible"
+    TOGETHER = "together"
+    VERTEX_AI = "vertexAI"
+    XAI = "xai"
 
 
 def get_default_embedding_model() -> Embeddings:
@@ -49,6 +84,18 @@ def get_embedding_model(provider: str, config: Dict[str, Any]) -> Embeddings:
             cohere_api_key=configuration['apiKey'],
         )
 
+
+    elif provider == EmbeddingProvider.DEFAULT.value:
+        return get_default_embedding_model()
+
+    elif provider == EmbeddingProvider.FIREWORKS.value:
+        from langchain_fireworks import FireworksEmbeddings
+        return FireworksEmbeddings(
+            model=configuration['model'],
+            api_key=configuration['apiKey'],
+            base_url=configuration['endpoint'],
+        )
+
     elif provider == EmbeddingProvider.GEMINI.value:
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
@@ -80,6 +127,23 @@ def get_embedding_model(provider: str, config: Dict[str, Any]) -> Embeddings:
             model_kwargs=model_kwargs,
             encode_kwargs=encode_kwargs
         )
+
+    elif provider == EmbeddingProvider.JINA_AI.value:
+        from langchain_community.embeddings.jina import JinaEmbeddings
+
+        return JinaEmbeddings(
+            model=configuration['model'],
+            jina_api_key=configuration['apiKey'],
+        )
+
+    elif provider == EmbeddingProvider.MISTRAL.value:
+        from langchain_mistralai import MistralAIEmbeddings
+
+        return MistralAIEmbeddings(
+            model=configuration['model'],
+            api_key=configuration['apiKey'],
+        )
+
 
     elif provider == EmbeddingProvider.OLLAMA.value:
         from langchain_ollama import OllamaEmbeddings
@@ -118,8 +182,22 @@ def get_embedding_model(provider: str, config: Dict[str, Any]) -> Embeddings:
             base_url=configuration['endpoint'],
         )
 
-    elif provider == EmbeddingProvider.DEFAULT.value:
-        return get_default_embedding_model()
+    elif provider == EmbeddingProvider.TOGETHER.value:
+        from langchain_together import TogetherEmbeddings
+
+        return TogetherEmbeddings(
+            model=configuration['model'],
+            api_key=configuration['apiKey'],
+            base_url=configuration['endpoint'],
+        )
+
+    elif provider == EmbeddingProvider.VOYAGE.value:
+        from langchain_voyageai import VoyageAIEmbeddings
+
+        return VoyageAIEmbeddings(
+            model=configuration['model'],
+            api_key=configuration['apiKey'],
+        )
 
     raise ValueError(f"Unsupported embedding config type: {provider}")
 
