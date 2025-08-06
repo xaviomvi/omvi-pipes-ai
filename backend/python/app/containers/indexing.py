@@ -1,5 +1,4 @@
 
-from arango import ArangoClient
 from dependency_injector import containers, providers
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
@@ -13,6 +12,7 @@ from app.config.utils.named_constants.arangodb_constants import (
     ExtensionTypes,
     QdrantCollectionNames,
 )
+from app.containers.container import BaseAppContainer
 from app.core.ai_arango_service import ArangoService
 from app.core.redis_scheduler import RedisScheduler
 from app.events.events import EventProcessor
@@ -36,32 +36,21 @@ from app.utils.logger import create_logger
 load_dotenv(override=True)
 
 
-class IndexingAppContainer(containers.DeclarativeContainer):
-    """Dependency injection container for the application."""
+class IndexingAppContainer(BaseAppContainer):
+    """Dependency injection container for the indexing application."""
 
-    # Log when container is initialized
+    # Override logger with service-specific name
     logger = providers.Singleton(create_logger, "indexing_service")
 
-    logger().info("🚀 Initializing IndexingAppContainer")
-
-    # Core services that don't depend on account type
+    # Override config_service to use the service-specific logger
     config_service = providers.Singleton(ConfigurationService, logger=logger)
 
-    async def _fetch_arango_host(config_service) -> str:
-        """Fetch ArangoDB host URL from etcd asynchronously."""
-        arango_config = await config_service.get_config(
-            config_node_constants.ARANGODB.value
-        )
-        return arango_config["url"]
-
-    async def _create_arango_client(config_service) -> ArangoClient:
-        """Async factory method to initialize ArangoClient."""
-        # TODO: Remove this IndexingAppContainer usage
-        hosts = await IndexingAppContainer._fetch_arango_host(config_service)
-        return ArangoClient(hosts=hosts)
-
+    # Override arango_client and redis_client to use the service-specific config_service
     arango_client = providers.Resource(
-        _create_arango_client, config_service=config_service
+        BaseAppContainer._create_arango_client, config_service=config_service
+    )
+    redis_client = providers.Resource(
+        BaseAppContainer._create_redis_client, config_service=config_service
     )
 
     # First create an async factory for the connected ArangoService
@@ -246,7 +235,7 @@ class IndexingAppContainer(containers.DeclarativeContainer):
         redis_scheduler=redis_scheduler,
     )
 
-    # Wire everything up
+    # Indexing-specific wiring configuration
     wiring_config = containers.WiringConfiguration(
         modules=[
             "app.indexing_main",
