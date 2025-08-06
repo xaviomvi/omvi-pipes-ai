@@ -36,13 +36,13 @@ from app.utils.logger import create_logger
 load_dotenv(override=True)
 
 
-class AppContainer(containers.DeclarativeContainer):
+class IndexingAppContainer(containers.DeclarativeContainer):
     """Dependency injection container for the application."""
 
     # Log when container is initialized
     logger = providers.Singleton(create_logger, "indexing_service")
 
-    logger().info("🚀 Initializing AppContainer")
+    logger().info("🚀 Initializing IndexingAppContainer")
 
     # Core services that don't depend on account type
     config_service = providers.Singleton(ConfigurationService, logger=logger)
@@ -56,7 +56,8 @@ class AppContainer(containers.DeclarativeContainer):
 
     async def _create_arango_client(config_service) -> ArangoClient:
         """Async factory method to initialize ArangoClient."""
-        hosts = await AppContainer._fetch_arango_host(config_service)
+        # TODO: Remove this IndexingAppContainer usage
+        hosts = await IndexingAppContainer._fetch_arango_host(config_service)
         return ArangoClient(hosts=hosts)
 
     arango_client = providers.Resource(
@@ -254,7 +255,7 @@ class AppContainer(containers.DeclarativeContainer):
         ]
     )
 
-async def initialize_container(container: AppContainer) -> bool:
+async def initialize_container(container: IndexingAppContainer) -> bool:
     """Initialize container resources"""
     logger = container.logger()
     logger.info("🚀 Initializing application resources")
