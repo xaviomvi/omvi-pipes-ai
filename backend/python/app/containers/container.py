@@ -6,11 +6,8 @@ from dependency_injector import containers, providers  # type: ignore
 from redis import asyncio as aioredis  # type: ignore
 from redis.asyncio import Redis  # type: ignore
 
-from app.config.configuration_service import (
-    ConfigurationService,
-    RedisConfig,
-    config_node_constants,
-)
+from app.config.configuration_service import ConfigurationService
+from app.config.constants.service import RedisConfig, config_node_constants
 from app.utils.logger import create_logger
 
 T = TypeVar("T", bound="BaseAppContainer")

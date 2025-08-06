@@ -3,15 +3,16 @@ from dependency_injector import containers, providers
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 
-from app.config.configuration_service import (
-    ConfigurationService,
-    RedisConfig,
-    config_node_constants,
-)
-from app.config.utils.named_constants.arangodb_constants import (
+from app.config.configuration_service import ConfigurationService
+from app.config.constants.arangodb import (
     ExtensionTypes,
     QdrantCollectionNames,
 )
+from app.config.constants.service import (
+    RedisConfig,
+    config_node_constants,
+)
+from app.config.providers.etcd.etcd3_encrypted_store import Etcd3EncryptedKeyValueStore
 from app.containers.container import BaseAppContainer
 from app.core.ai_arango_service import ArangoService
 from app.core.redis_scheduler import RedisScheduler
@@ -43,7 +44,8 @@ class IndexingAppContainer(BaseAppContainer):
     logger = providers.Singleton(create_logger, "indexing_service")
 
     # Override config_service to use the service-specific logger
-    config_service = providers.Singleton(ConfigurationService, logger=logger)
+    key_value_store = providers.Singleton(Etcd3EncryptedKeyValueStore, logger=logger)
+    config_service = providers.Singleton(ConfigurationService, logger=logger, key_value_store=key_value_store)
 
     # Override arango_client and redis_client to use the service-specific config_service
     arango_client = providers.Resource(
@@ -54,9 +56,9 @@ class IndexingAppContainer(BaseAppContainer):
     )
 
     # First create an async factory for the connected ArangoService
-    async def _create_arango_service(logger, arango_client, config) -> ArangoService:
+    async def _create_arango_service(logger, arango_client, config_service: ConfigurationService) -> ArangoService:
         """Async factory to create and connect ArangoService"""
-        service = ArangoService(logger, arango_client, config)
+        service = ArangoService(logger, arango_client, config_service)
         await service.connect()
         return service
 
@@ -64,7 +66,7 @@ class IndexingAppContainer(BaseAppContainer):
         _create_arango_service,
         logger=logger,
         arango_client=arango_client,
-        config=config_service,
+        config_service=config_service,
     )
 
     # Vector search service
@@ -101,7 +103,7 @@ class IndexingAppContainer(BaseAppContainer):
     )
 
     # Indexing pipeline
-    async def _create_indexing_pipeline(logger, config_service, arango_service, qdrant_client) -> IndexingPipeline:
+    async def _create_indexing_pipeline(logger, config_service: ConfigurationService, arango_service, qdrant_client) -> IndexingPipeline:
         """Async factory for IndexingPipeline"""
         pipeline = IndexingPipeline(
             logger=logger,
@@ -121,7 +123,7 @@ class IndexingAppContainer(BaseAppContainer):
     )
 
     # Domain extraction service - depends on arango_service
-    async def _create_domain_extractor(logger, arango_service, config_service) -> DomainExtractor:
+    async def _create_domain_extractor(logger, arango_service, config_service: ConfigurationService) -> DomainExtractor:
         """Async factory for DomainExtractor"""
         extractor = DomainExtractor(logger, arango_service, config_service)
         # Add any necessary async initialization
@@ -156,7 +158,7 @@ class IndexingAppContainer(BaseAppContainer):
     # Processor - depends on domain_extractor, indexing_pipeline, and arango_service
     async def _create_processor(
         logger,
-        config_service,
+        config_service: ConfigurationService,
         domain_extractor,
         indexing_pipeline,
         arango_service,
@@ -201,7 +203,7 @@ class IndexingAppContainer(BaseAppContainer):
     )
 
     # Redis scheduler
-    async def _create_redis_scheduler(logger, config_service) -> RedisScheduler:
+    async def _create_redis_scheduler(logger, config_service: ConfigurationService) -> RedisScheduler:
         """Async factory for RedisScheduler"""
         redis_config = await config_service.get_config(
             config_node_constants.REDIS.value
@@ -216,7 +218,7 @@ class IndexingAppContainer(BaseAppContainer):
     )
 
     # Kafka consumer with async initialization
-    async def _create_kafka_consumer(logger, config_service, event_processor, redis_scheduler) -> KafkaConsumerManager:
+    async def _create_kafka_consumer(logger, config_service: ConfigurationService, event_processor, redis_scheduler) -> KafkaConsumerManager:
         """Async factory for KafkaConsumerManager"""
         consumer = KafkaConsumerManager(
             logger=logger,

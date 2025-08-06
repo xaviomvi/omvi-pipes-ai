@@ -1,8 +1,12 @@
 from dependency_injector import containers, providers
 from qdrant_client import QdrantClient
 
-from app.config.configuration_service import ConfigurationService, config_node_constants
-from app.config.utils.named_constants.arangodb_constants import QdrantCollectionNames
+from app.config.configuration_service import ConfigurationService
+from app.config.constants.arangodb import (
+    QdrantCollectionNames,
+)
+from app.config.constants.service import config_node_constants
+from app.config.providers.etcd.etcd3_encrypted_store import Etcd3EncryptedKeyValueStore
 from app.containers.container import BaseAppContainer
 from app.modules.reranker.reranker import RerankerService
 from app.modules.retrieval.retrieval_arango import ArangoService
@@ -17,8 +21,10 @@ class QueryAppContainer(BaseAppContainer):
     # Override logger with service-specific name
     logger = providers.Singleton(create_logger, "query_service")
 
+    key_value_store = providers.Singleton(Etcd3EncryptedKeyValueStore, logger=logger)
+
     # Override config_service to use the service-specific logger
-    config_service = providers.Singleton(ConfigurationService, logger=logger)
+    config_service = providers.Singleton(ConfigurationService, logger=logger, key_value_store=key_value_store)
 
     # Override arango_client and redis_client to use the service-specific config_service
     arango_client = providers.Resource(
@@ -29,9 +35,9 @@ class QueryAppContainer(BaseAppContainer):
     )
 
     # First create an async factory for the connected ArangoService
-    async def _create_arango_service(logger, arango_client, config) -> ArangoService:
+    async def _create_arango_service(logger, arango_client, config_service: ConfigurationService) -> ArangoService:
         """Async factory to create and connect ArangoService"""
-        service = ArangoService(logger, arango_client, config)
+        service = ArangoService(logger, arango_client, config_service)
         await service.connect()
         return service
 
@@ -39,7 +45,7 @@ class QueryAppContainer(BaseAppContainer):
         _create_arango_service,
         logger=logger,
         arango_client=arango_client,
-        config=config_service,
+        config_service=config_service,
     )
 
     # Vector search service
@@ -76,7 +82,7 @@ class QueryAppContainer(BaseAppContainer):
     )
 
     # Vector search service
-    async def _create_retrieval_service(config_service, logger, qdrant_client) -> RetrievalService:
+    async def _create_retrieval_service(config_service: ConfigurationService, logger, qdrant_client) -> RetrievalService:
         """Async factory for RetrievalService"""
         service = RetrievalService(
             logger=logger,

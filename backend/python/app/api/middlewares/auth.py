@@ -4,7 +4,8 @@ from dependency_injector.wiring import inject
 from fastapi import HTTPException, Request, status
 from jose import JWTError, jwt
 
-from app.config.configuration_service import ConfigurationService, config_node_constants
+from app.config.configuration_service import ConfigurationService
+from app.config.constants.service import config_node_constants
 
 
 async def get_config_service(request: Request) -> ConfigurationService:

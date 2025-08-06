@@ -7,7 +7,7 @@ from jinja2 import Template
 from pydantic import BaseModel
 
 from app.config.configuration_service import ConfigurationService
-from app.config.utils.named_constants.arangodb_constants import (
+from app.config.constants.arangodb import (
     AccountType,
     CollectionNames,
 )
