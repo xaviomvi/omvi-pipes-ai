@@ -575,7 +575,7 @@ async def refresh_google_workspace_user_credentials(org_id, arango_service, logg
         logger.debug("🔄 Checking refresh status of credentials for user")
 
 
-class AppContainer(containers.DeclarativeContainer):
+class ConnectorAppContainer(containers.DeclarativeContainer):
     """Dependency injection container for the application."""
 
     # Add locks for cache access
@@ -586,8 +586,7 @@ class AppContainer(containers.DeclarativeContainer):
     logger = providers.Singleton(create_logger, "connector_service")
 
     # Log when container is initialized
-    logger().info("🚀 Initializing AppContainer")
-    logger().info("🔧 Environment: dev")
+    logger().info("🚀 Initializing ConnectorAppContainer")
 
     # Core services that don't depend on account type
     config_service = providers.Singleton(ConfigurationService, logger=logger)

@@ -9,13 +9,13 @@ from fastapi.responses import JSONResponse
 
 from app.config.configuration_service import DefaultEndpoints, config_node_constants
 from app.config.utils.named_constants.http_status_code_constants import HttpStatusCode
-from app.setups.indexing_setup import AppContainer, initialize_container
+from app.setups.indexing_setup import IndexingAppContainer, initialize_container
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
-container = AppContainer()
+container = IndexingAppContainer()
 container_lock = asyncio.Lock()
 
-async def get_initialized_container() -> AppContainer:
+async def get_initialized_container() -> IndexingAppContainer:
     """Dependency provider for initialized container"""
     if not hasattr(get_initialized_container, "initialized"):
         async with container_lock:
