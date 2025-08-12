@@ -99,6 +99,7 @@ class CollectionNames(Enum):
     LINKS = "links"
     MAILS = "mails"
     MESSAGES = "messages"
+    WEBPAGES = "webpages"
 
     # Users and groups
     PEOPLE = "people"
@@ -187,6 +188,7 @@ class MimeTypes(Enum):
     BIN = "application/octet-stream"
     NOTION_TEXT = "notion/text"
     NOTION_PAGE_COMMENT_TEXT = "notion/pageCommentText"
+    HTML = "text/html"
 
 
 class ProgressStatus(Enum):

@@ -133,7 +133,7 @@ class FileRecord(Record):
     sha1_hash: Optional[str] = None
     sha256_hash: Optional[str] = None
 
-    def to_arango_file_record(self) -> Dict:
+    def to_arango_record(self) -> Dict:
         return {
             "_key": self.id,
             "orgId": self.org_id,
@@ -231,7 +231,7 @@ class MailRecord(Record):
     bcc_emails: Optional[List[str]] = None
 
 
-    def to_arango_mail_record(self) -> Dict:
+    def to_arango_record(self) -> Dict:
         return {
             "_key": self.id,
             "orgId": self.org_id,
@@ -253,10 +253,6 @@ class MailRecord(Record):
         }
 
 class WebpageRecord(Record):
-    webpage_url: Optional[str] = None
-    webpage_title: Optional[str] = None
-    webpage_description: Optional[str] = None
-
 
     def to_kafka_record(self) -> Dict:
         return {
@@ -264,10 +260,17 @@ class WebpageRecord(Record):
             "orgId": self.org_id,
             "recordName": self.record_name,
             "recordType": self.record_type.value,
+            "mimeType": self.mime_type,
             "createdAtTimestamp": self.created_at,
             "updatedAtTimestamp": self.updated_at,
             "sourceCreatedAtTimestamp": self.source_created_at,
             "sourceLastModifiedTimestamp": self.source_updated_at,
+        }
+
+    def to_arango_record(self) -> Dict:
+        return {
+            "_key": self.id,
+            "orgId": self.org_id,
         }
 
 class RecordGroup(BaseModel):
@@ -316,11 +319,13 @@ class User(BaseModel):
     updated_at: int = Field(default=get_epoch_timestamp_in_ms(), description="Epoch timestamp in milliseconds of the user update")
     source_created_at: Optional[int] = Field(default=None, description="Epoch timestamp in milliseconds of the user creation in the source system")
     source_updated_at: Optional[int] = Field(default=None, description="Epoch timestamp in milliseconds of the user update in the source system")
+    org_id: str = Field(default="", description="Unique identifier for the organization")
 
     @staticmethod
     def from_arango_base_user(arango_base_user: Dict) -> "User":
         return User(
             id=arango_base_user["_key"],
+            org_id=arango_base_user["orgId"],
             email=arango_base_user["email"],
             name=arango_base_user["fullName"],
             created_at=arango_base_user["createdAtTimestamp"],
