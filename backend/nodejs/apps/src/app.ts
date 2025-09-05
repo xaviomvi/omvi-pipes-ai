@@ -39,6 +39,7 @@ import { StorageContainer } from './modules/storage/container/storage.container'
 import { NotificationContainer } from './modules/notification/container/notification.container';
 import {
   loadAppConfig,
+  AppConfig,
 } from './modules/tokens_manager/config/config';
 import { NotificationService } from './modules/notification/service/notification.service';
 import {
@@ -178,7 +179,7 @@ export class Application {
         .inSingletonScope();
 
       // Configure Express
-      this.configureMiddleware();
+      this.configureMiddleware(appConfig);
       this.configureRoutes();
       this.setupSwagger();
       this.configureErrorHandling();
@@ -204,9 +205,20 @@ export class Application {
     }
   }
 
-  private configureMiddleware(): void {
+  private configureMiddleware(appConfig: AppConfig): void {
     const isDev = process.env.NODE_ENV !== 'production';
     // Security middleware - configure helmet once with all options
+    const envConnectSrcs = process.env.CSP_CONNECT_SRCS?.split(',').filter(Boolean) ?? [];
+    const connectSrc = [
+      ...new Set([
+        "'self'",
+        'https://login.microsoftonline.com',
+        'https://graph.microsoft.com',
+        ...envConnectSrcs,
+        appConfig.connectorPublicUrl,
+      ]),
+    ].filter(Boolean);
+
     this.app.use(helmet({
       crossOriginOpenerPolicy: { policy: "unsafe-none" }, // Required for MSAL popup
       contentSecurityPolicy: {
@@ -221,13 +233,7 @@ export class Application {
             ]),
             ...(isDev ? ["'unsafe-inline'", "'unsafe-eval'"] : [])
           ],
-          connectSrc: [
-            "'self'",
-            ...(process.env.CSP_CONNECT_SRCS?.split(',') ?? [
-              "https://login.microsoftonline.com",
-              "https://graph.microsoft.com",
-            ]),
-          ],
+          connectSrc: connectSrc,
           objectSrc: ["'self'", "data:", "blob:"], // PDF rendering
           frameSrc: ["'self'", "blob:"], // PDF rendering in frames
           workerSrc: ["'self'", "blob:"], // PDF.js workers
