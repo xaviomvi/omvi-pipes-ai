@@ -3,7 +3,7 @@ import asyncio
 import os
 
 from app.sources.client.microsoft.microsoft import GraphMode, MSGraphClient, MSGraphClientWithClientIdSecretConfig
-from app.sources.external.microsoft.one_drive.one_drive import OneDriveDataSource, OneDriveResponse
+from app.sources.external.microsoft.outlook.outlook import OutlookDataSource, OutlookResponse
 
 async def main():
     tenant_id = os.getenv("AZURE_TENANT_ID")
@@ -18,24 +18,18 @@ async def main():
         mode=GraphMode.APP)
     print(client)
     print("****************************")
-    one_drive_data_source: OneDriveDataSource = OneDriveDataSource(client)
-    print("one_drive_data_source:", one_drive_data_source)
-    print("Getting drive...")
+    outlook_data_source: OutlookDataSource = OutlookDataSource(client)
+    print("outlook_data_source:", outlook_data_source)
+    print("Getting messages...")
     print("****************************")
-    user_id_or_upn = "your_user_id_or_upn"
-    response: OneDriveResponse = await one_drive_data_source.users_list_drives(user_id=user_id_or_upn)
+    user_id_or_upn = "x"
+    response: OutlookResponse = await outlook_data_source.users_list_messages(user_id=user_id_or_upn)
     print(response.data)
     print(response.error)
     print(response.success)
 
-    #getting drive with select and expand
-    response: OneDriveResponse = await one_drive_data_source.users_list_drives(user_id=user_id_or_upn, select=["id", "name", "createdBy"])
-    print(response.data)
-    print(response.error)
-    print(response.success)
-
-
-    response: OneDriveResponse = await one_drive_data_source.users_get_drives(user_id=user_id_or_upn, drive_id="xyz")
+    #getting messages with select and expand
+    response: OutlookResponse = await outlook_data_source.users_list_messages(user_id=user_id_or_upn, select=["id", "subject", "from", "receivedDateTime"])
     print(response.data)
     print(response.error)
     print(response.success)
@@ -43,3 +37,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+#users_list_messages
