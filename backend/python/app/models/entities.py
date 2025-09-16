@@ -73,9 +73,7 @@ class Record(BaseModel):
     fetch_signed_url: Optional[str] = None
     # Content blocks
     block_containers: BlocksContainer = Field(default_factory=BlocksContainer, description="List of block containers in this record")
-
     semantic_metadata: Optional[SemanticMetadata] = None
-
     # Relationships
     parent_record_id: Optional[str] = None
     child_record_ids: Optional[List[str]] = Field(default_factory=list)
