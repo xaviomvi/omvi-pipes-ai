@@ -287,6 +287,7 @@ async def askAIStream(
             else:
                 final_results = flattened_results
 
+
             final_results = sorted(final_results, key=lambda x: (x['virtual_record_id'], x['block_index']))
             # Prepare user context
             if send_user_info:
@@ -332,15 +333,15 @@ async def askAIStream(
                 elif conversation.get("role") == "bot_response":
                     messages.append({"role": "assistant", "content": conversation.get("content")})
 
-            citation_to_index = {}
-            content = get_message_content(final_results, virtual_record_id_to_result, user_data, query_info.query,citation_to_index)
+
+            content = get_message_content(final_results, virtual_record_id_to_result, user_data, query_info.query)
             messages.append({"role": "user", "content": content})
 
 
             yield create_sse_event("status", {"status": "generating", "message": "Generating AI response..."})
 
             # Stream LLM response with real-time answer updates
-            async for stream_event in stream_llm_response(llm, messages, final_results,citation_to_index):
+            async for stream_event in stream_llm_response(llm, messages, final_results):
                 event_type = stream_event["event"]
                 event_data = stream_event["data"]
                 yield create_sse_event(event_type, event_data)
@@ -468,6 +469,8 @@ async def askAI(
         else:
             final_results = flattened_results
 
+
+
         final_results = sorted(final_results, key=lambda x: (x['virtual_record_id'], x['block_index']))
 
         # Prepare the template with the final results
@@ -519,15 +522,14 @@ async def askAI(
                 messages.append(
                     {"role": "assistant", "content": conversation.get("content")}
                 )
-        citation_to_index = {}
-        content = get_message_content(final_results, virtual_record_id_to_result, user_data, query_info.query,citation_to_index)
+        content = get_message_content(final_results, virtual_record_id_to_result, user_data, query_info.query)
         messages.append({"role": "user", "content": content})
 
         # Add current query with context
         # Make async LLM call
         response = await llm.ainvoke(messages)
         # Process citations and return response
-        return process_citations(response, final_results,citation_to_index)
+        return process_citations(response, final_results)
 
     except HTTPException as he:
         # Re-raise HTTP exceptions with their original status codes
