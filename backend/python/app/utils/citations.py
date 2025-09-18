@@ -102,13 +102,13 @@ def normalize_citations_and_chunks(answer_text: str, final_results: List[Dict[st
                 for child in child_results:
                     child_block_index = child.get("block_index")
                     flattened_final_results.append(child)
-                    block_number_to_index[f"R{record_number}-{child_block_index}"] = i
+                    block_number_to_index[f"R{record_number}-{child_block_index}"] = len(flattened_final_results) - 1
             else:
                 flattened_final_results.append(doc)
-                block_number_to_index[f"R{record_number}-{block_index}"] = i
+                block_number_to_index[f"R{record_number}-{block_index}"] = len(flattened_final_results) - 1
         else:
             flattened_final_results.append(doc)
-            block_number_to_index[f"R{record_number}-{block_index}"] = i
+            block_number_to_index[f"R{record_number}-{block_index}"] = len(flattened_final_results) - 1
 
     # Create mapping from old citation keys to new sequential numbers
     for i, old_citation_key in enumerate(unique_citations):

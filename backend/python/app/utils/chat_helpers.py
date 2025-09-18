@@ -19,7 +19,6 @@ from app.utils.mimetype_to_extension import get_extension_from_mimetype
 
 
 async def get_flattened_results(result_set: List[Dict[str, Any]], blob_store: BlobStorage, org_id: str, is_multimodal_llm: bool, virtual_record_id_to_result: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
-
     flattened_results = []
     seen_chunks = set()
     adjacent_chunks = {}
@@ -41,12 +40,12 @@ async def get_flattened_results(result_set: List[Dict[str, Any]], blob_store: Bl
 
         if virtual_record_id not in virtual_record_id_to_result:
             adjacent_chunks[virtual_record_id] = []
-            await get_blocks(meta,virtual_record_id,virtual_record_id_to_result,blob_store,org_id)
+            await get_record(meta,virtual_record_id,virtual_record_id_to_result,blob_store,org_id)
 
         index = meta.get("blockIndex")
         is_block_group = meta.get("isBlockGroup")
         if is_block_group:
-           chunk_id = f"{virtual_record_id}-{index}-block_group"
+            chunk_id = f"{virtual_record_id}-{index}-block_group"
         else:
             chunk_id = f"{virtual_record_id}-{index}"
 
@@ -98,9 +97,8 @@ async def get_flattened_results(result_set: List[Dict[str, Any]], blob_store: Bl
             result["block_index"] = first_block_index
             if first_block_index is not None:
                 adjacent_chunks[virtual_record_id].append(first_block_index-1)
-                last_block_index = children[-1].get("block_index") if children and len(children) > 1 else None
-                if last_block_index is not None:
-                    adjacent_chunks[virtual_record_id].append(last_block_index+1)
+                last_block_index = children[-1].get("block_index")
+                adjacent_chunks[virtual_record_id].append(last_block_index+1)
 
                 is_large_table = checkForLargeTable(table_markdown)
                 table_summary = table_data.get("table_summary","")
@@ -109,13 +107,13 @@ async def get_flattened_results(result_set: List[Dict[str, Any]], blob_store: Bl
                     rows_to_be_included[f"{virtual_record_id}_{index}"]=[]
                     continue
                 else:
+                    child_results=[]
                     for child in children:
                         child_block_index = child.get("block_index")
                         child_id = f"{virtual_record_id}-{child_block_index}"
                         if child_id in seen_chunks:
                             continue
                         seen_chunks.add(child_id)
-                        child_results=[]
                         if child_block_index < len(blocks):
                             child_block = blocks[child_block_index]
                             row_text = child_block.get("data", {}).get("row_natural_language_text", "")
@@ -148,7 +146,6 @@ async def get_flattened_results(result_set: List[Dict[str, Any]], blob_store: Bl
         enhanced_metadata = get_enhanced_metadata(record,block,meta)
         result["metadata"] = enhanced_metadata
         flattened_results.append(result)
-
 
     for key,rows_to_be_included_list in rows_to_be_included.items():
         virtual_record_id,block_group_index = key.split("_")
@@ -358,7 +355,7 @@ def extract_bounding_boxes(citation_metadata) -> List[Dict[str, float]]:
         except Exception as e:
             raise e
 
-async def get_blocks(meta: Dict[str, Any],virtual_record_id: str,virtual_record_id_to_result: Dict[str, Dict[str, Any]],blob_store: BlobStorage,org_id: str) -> None:
+async def get_record(meta: Dict[str, Any],virtual_record_id: str,virtual_record_id_to_result: Dict[str, Dict[str, Any]],blob_store: BlobStorage,org_id: str) -> None:
     try:
         record = await blob_store.get_record_from_storage(virtual_record_id=virtual_record_id, org_id=org_id)
         if record:

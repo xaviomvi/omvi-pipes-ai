@@ -271,6 +271,7 @@ async def askAIStream(
             blob_store = BlobStorage(logger=logger, config_service=config_service, arango_service=arango_service)
             virtual_record_id_to_result = {}
             flattened_results = []
+
             flattened_results = await get_flattened_results(result_set, blob_store, org_id, is_multimodal_llm,virtual_record_id_to_result)
             yield create_sse_event("results_ready", {"total_results": len(flattened_results)})
 

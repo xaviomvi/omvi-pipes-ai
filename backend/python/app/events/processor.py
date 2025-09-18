@@ -24,8 +24,6 @@ from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 
 def convert_record_dict_to_record(record_dict: dict) -> Record:
-
-    # Map the database fields to Record model fields
     conn_name_value = record_dict.get("connectorName")
     try:
         connector_name = (
@@ -34,15 +32,12 @@ def convert_record_dict_to_record(record_dict: dict) -> Record:
             else Connectors.KNOWLEDGE_BASE
         )
     except ValueError:
-        # Fallback to KB if an unexpected value is present
         connector_name = Connectors.KNOWLEDGE_BASE
-
     origin_value = record_dict.get("origin", OriginTypes.UPLOAD.value)
     try:
         origin = OriginTypes(origin_value)
     except ValueError:
         origin = OriginTypes.UPLOAD
-
     mime_value = record_dict.get("mimeType")
     mime_type = None
     if mime_value is not None:
@@ -50,7 +45,6 @@ def convert_record_dict_to_record(record_dict: dict) -> Record:
             mime_type = MimeTypes(mime_value)
         except ValueError:
             mime_type = None
-
     record = Record(
         id=record_dict.get("_key"),
         org_id=record_dict.get("orgId"),
@@ -70,7 +64,6 @@ def convert_record_dict_to_record(record_dict: dict) -> Record:
         external_revision_id=record_dict.get("externalRevisionId"),
         connector_name=connector_name,
     )
-
     return record
 
 class Processor:
@@ -1018,127 +1011,20 @@ class Processor:
             self.logger.debug("📊 Processing Excel content")
             llm, _ = await get_llm(self.config_service)
             parser = self.parsers[ExtensionTypes.XLSX.value]
-            excel_result = parser.parse(excel_binary)
-
-            # Extract domain metadata from text content
-            self.logger.info("🎯 Extracting domain metadata")
-            if excel_result["text_content"]:
-                try:
-                    self.logger.info("🎯 Extracting metadata from Excel content")
-                    metadata = await self.domain_extractor.extract_metadata(
-                        excel_result["text_content"], orgId
-                    )
-                    record = await self.domain_extractor.save_metadata_to_db(
-                        orgId, recordId, metadata, virtual_record_id
-                    )
-                    file = await self.arango_service.get_document(
-                        recordId, CollectionNames.FILES.value
-                    )
-                    # Convert datetime objects to strings
-                    domain_metadata = {
-                        k: (v.isoformat() if isinstance(v, datetime) else v)
-                        for k, v in {**record, **file}.items()
-                    }
-                except Exception as e:
-                    self.logger.error(f"❌ Error extracting metadata: {str(e)}")
-                    domain_metadata = None
-
-            # Format content for output
-            formatted_content = ""
-            numbered_items = []
-            sentence_data = []
-
-            # Process each sheet
-            self.logger.debug("📝 Processing sheets")
-            for sheet_idx, sheet_name in enumerate(excel_result["sheet_names"], 1):
-                sheet_data = await parser.process_sheet_with_summaries(llm, sheet_name)
-                if sheet_data is None:
-                    continue
-                # Add sheet entry
-                sheet_entry = {
-                    "number": f"S{sheet_idx}",
-                    "name": sheet_data["sheet_name"],
-                    "type": "sheet",
-                    "row_count": len(sheet_data["tables"]),
-                    "column_count": max(
-                        (len(table["headers"]) for table in sheet_data["tables"]),
-                        default=0,
-                    ),
-                }
-                numbered_items.append(sheet_entry)
-
-                # Format content and sentence data
-                formatted_content += f"\n[Sheet]: {sheet_data['sheet_name']}\n"
-
-                for table in sheet_data["tables"]:
-                    formatted_content += f"\nTable Summary: {table['summary']}\n"
-                    for row in table["rows"]:
-                        # Convert datetime objects in row_data to strings
-                        row_data = {
-                            k: (v.isoformat() if isinstance(v, datetime) else v)
-                            for k, v in row["raw_data"].items()
-                        }
-                        formatted_content += f"Row Data: {row_data}\n"
-                        formatted_content += (
-                            f"Natural Text: {row['natural_language_text']}\n"
-                        )
-
-                        block_num = [int(row["row_num"])] if row["row_num"] else [0]
-
-                        # Add processed rows to sentence data
-                        sentence_data.append(
-                            {
-                                "text": row["natural_language_text"],
-                                "metadata": {
-                                    **(
-                                        {
-                                            k: (
-                                                v.isoformat()
-                                                if isinstance(v, datetime)
-                                                else v
-                                            )
-                                            for k, v in domain_metadata.items()
-                                        }
-                                    ),
-                                    "recordId": recordId,
-                                    "sheetName": sheet_name,
-                                    "sheetNum": sheet_idx,
-                                    "blockNum": block_num,
-                                    "blockType": "table_row",
-                                    "blockText": json.dumps(row_data),
-                                    "virtualRecordId": virtual_record_id,
-                                },
-                            }
-                        )
-            # Index sentences if available
-            if sentence_data:
-                self.logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
-                pipeline = self.indexing_pipeline
-                await pipeline.index_documents(sentence_data, merge_documents=False)
-            # Prepare metadata
-            self.logger.debug("📋 Preparing metadata")
-            metadata = {
-                "recordId": recordId,
-                "recordName": recordName,
-                "orgId": orgId,
-                "version": version,
-                "source": source,
-                "domain_metadata": {
-                    k: (v.isoformat() if isinstance(v, datetime) else v)
-                    for k, v in excel_result.get("metadata", {}).items()
-                },
-                "sheet_count": len(excel_result["sheets"]),
-                "total_rows": excel_result["total_rows"],
-                "total_cells": excel_result["total_cells"],
-            }
-            self.logger.info("✅ Excel processing completed successfully")
-            return {
-                "excel_result": excel_result,
-                "formatted_content": formatted_content,
-                "numbered_items": numbered_items,
-                "metadata": metadata,
-            }
-
+            blocks_containers = await parser.parse(excel_binary, llm)
+            record = await self.arango_service.get_document(
+                recordId, CollectionNames.RECORDS.value
+            )
+            if record is None:
+                self.logger.error(f"❌ Record {recordId} not found in database")
+                raise Exception(f"Record {recordId} not found in graph db")
+            record = convert_record_dict_to_record(record)
+            record.block_containers = blocks_containers
+            record.virtual_record_id = virtual_record_id
+            ctx = TransformContext(record=record)
+            pipeline = IndexingPipeline(document_extraction=self.document_extraction, sink_orchestrator=self.sink_orchestrator)
+            await pipeline.apply(ctx)
+            self.logger.info("✅ Excel processing completed successfully.")
         except Exception as e:
             self.logger.error(f"❌ Error processing Excel document: {str(e)}")
             raise
@@ -1358,145 +1244,27 @@ class Processor:
             # Initialize HTML parser and parse content
             self.logger.debug("📄 Processing HTML content")
             parser = self.parsers[ExtensionTypes.HTML.value]
-            html_result = parser.parse_string(html_content)
+            html_bytes = parser.parse_string(html_content)
+            processor = DoclingProcessor(logger=self.logger,config=self.config_service)
+            record_name = recordName if recordName.endswith(".html") else f"{recordName}.html"
+            block_containers = await processor.load_document(record_name, html_bytes)
+            if block_containers is False:
+                raise Exception("Failed to process HTML document. It might contain scanned pages.")
 
-            # Get the full document structure
-            doc_dict = html_result.export_to_dict()
-            self.logger.debug("📑 Document structure processed")
-
-            # Process content in reading order
-            self.logger.debug("📑 Processing document structure in reading order")
-            ordered_content = self._process_content_in_order(doc_dict)
-
-            # Extract text in reading order
-            text_content = "\n".join(
-                item["text"].strip() for item in ordered_content if item["text"].strip()
+            record = await self.arango_service.get_document(
+                recordId, CollectionNames.RECORDS.value
             )
-
-            # Extract domain metadata
-            self.logger.info("🎯 Extracting domain metadata")
-            domain_metadata = None
-            if text_content:
-                try:
-                    self.logger.info("🎯 Extracting metadata from HTML content")
-                    metadata = await self.domain_extractor.extract_metadata(
-                        text_content, orgId
-                    )
-                    record = await self.domain_extractor.save_metadata_to_db(
-                        orgId, recordId, metadata, virtual_record_id
-                    )
-                    if recordType == RecordType.FILE.value:
-                        file = await self.arango_service.get_document(
-                            recordId, CollectionNames.FILES.value
-                        )
-                        domain_metadata = {**record, **file}
-                    else:
-                        domain_metadata = record
-
-                except Exception as e:
-                    self.logger.error(f"❌ Error extracting metadata: {str(e)}")
-                    domain_metadata = None
-
-            # Create sentence data for indexing
-            self.logger.debug("📑 Creating semantic sentences")
-            sentence_data = []
-
-            # Keep track of previous items for context
-            context_window = []
-            context_window_size = 3  # Number of previous items to include for context
-
-            for idx, item in enumerate(ordered_content, 1):
-                if item["text"].strip():
-                    context = item["context"]
-
-                    # Create context text from previous items
-                    previous_context = " ".join(
-                        [prev["text"].strip() for prev in context_window]
-                    )
-
-                    # Current item's context with previous items
-                    full_context = {
-                        "previous": previous_context,
-                        "current": item["text"].strip(),
-                    }
-
-                    sentence_data.append(
-                        {
-                            "text": item["text"].strip(),
-                            "metadata": {
-                                **(domain_metadata or {}),
-                                "recordName": recordName,
-                                "recordId": recordId,
-                                "blockType": context.get("label", "text"),
-                                "blockNum": [idx],
-                                "blockText": json.dumps(full_context),
-                                "virtualRecordId": virtual_record_id,
-                                "mimeType": MimeTypes.HTML.value,
-                                "connectorName": source,
-                                "origin": origin,
-                                "recordType": recordType,
-                            },
-                        }
-                    )
-
-                    # Update context window
-                    context_window.append(item)
-                    if len(context_window) > context_window_size:
-                        context_window.pop(0)
-
-            # Index sentences if available
-            if sentence_data:
-                self.logger.debug(f"📑 Indexing {len(sentence_data)} sentences")
-                pipeline = self.indexing_pipeline
-                await pipeline.index_documents(sentence_data)
-
-            # Prepare metadata
-            metadata = {
-                "recordId": recordId,
-                "recordName": recordName,
-                "orgId": orgId,
-                "version": version,
-                "source": source,
-                "domain_metadata": domain_metadata,
-                "document_info": {
-                    "schema_name": doc_dict.get("schema_name"),
-                    "version": doc_dict.get("version"),
-                    "name": doc_dict.get("name"),
-                    "origin": doc_dict.get("origin"),
-                },
-                "structure_info": {
-                    "text_count": len(doc_dict.get("texts", [])),
-                    "group_count": len(doc_dict.get("groups", [])),
-                    "list_count": len(
-                        [
-                            item
-                            for item in ordered_content
-                            if item.get("context", {}).get("list_info")
-                        ]
-                    ),
-                    "heading_count": len(
-                        [
-                            item
-                            for item in ordered_content
-                            if item.get("context", {}).get("label") == "heading"
-                        ]
-                    ),
-                },
-            }
-
-            self.logger.info("✅ HTML processing completed successfully")
-            return {
-                "html_result": {
-                    "document_structure": {
-                        "body": doc_dict.get("body"),
-                        "groups": doc_dict.get("groups", []),
-                    },
-                    "metadata": domain_metadata,
-                },
-                "formatted_content": text_content,
-                "numbered_items": ordered_content,
-                "metadata": metadata,
-            }
+            if record is None:
+                self.logger.error(f"❌ Record {recordId} not found in database")
+                raise Exception(f"Record {recordId} not found in graph db")
+            record = convert_record_dict_to_record(record)
+            record.block_containers = block_containers
+            record.virtual_record_id = virtual_record_id
+            ctx = TransformContext(record=record)
+            pipeline = IndexingPipeline(document_extraction=self.document_extraction, sink_orchestrator=self.sink_orchestrator)
+            await pipeline.apply(ctx)
+            self.logger.info("✅ HTML processing completed successfully using docling")
+            return
 
         except Exception as e:
             self.logger.error(f"❌ Error processing HTML document: {str(e)}")
@@ -1547,163 +1315,26 @@ class Processor:
             # Initialize Markdown parser
             self.logger.debug("📄 Processing Markdown content")
             parser = self.parsers[ExtensionTypes.MD.value]
-            md_result = parser.parse_string(md_content)
-            # Get the full document structure
-            doc_dict = md_result.export_to_dict()
+            md_bytes = parser.parse_string(md_content)
+            processor = DoclingProcessor(logger=self.logger,config=self.config_service)
+            block_containers = await processor.load_document(f"{recordName}.md", md_bytes)
+            if block_containers is False:
+                raise Exception("Failed to process MD document. It might contain scanned pages.")
 
-            # Extract text content from all text elements
-            text_content = "\n".join(
-                text_item.get("text", "").strip()
-                for text_item in doc_dict.get("texts", [])
-                if text_item.get("text", "").strip()
+            record = await self.arango_service.get_document(
+                recordId, CollectionNames.RECORDS.value
             )
-
-            # Extract domain metadata from content
-            self.logger.info("🎯 Extracting domain metadata")
-            domain_metadata = None
-            if text_content:
-                try:
-                    metadata = await self.domain_extractor.extract_metadata(
-                        text_content, orgId
-                    )
-                    record = await self.domain_extractor.save_metadata_to_db(
-                        orgId, recordId, metadata, virtual_record_id
-                    )
-                    file = await self.arango_service.get_document(
-                        recordId, CollectionNames.FILES.value
-                    )
-                    domain_metadata = {**record, **file}
-                except Exception as e:
-                    self.logger.error(f"❌ Error extracting metadata: {str(e)}")
-                    domain_metadata = None
-
-            # Format content for output
-            formatted_content = ""
-            numbered_items = []
-
-            # Process text items for numbering and formatting
-            self.logger.debug("📝 Processing text items")
-            for idx, item in enumerate(doc_dict.get("texts", []), 1):
-                if item.get("text", "").strip():
-                    # Create item entry with metadata
-                    item_entry = {
-                        "number": idx,
-                        "content": item["text"].strip(),
-                        "type": item.get("label", "text"),
-                        "level": item.get("level"),
-                        "parent_ref": item.get("parent", {}).get("$ref"),
-                        "children_refs": [
-                            child.get("$ref") for child in item.get("children", [])
-                        ],
-                        "code_language": (
-                            item.get("language")
-                            if item.get("label") == "code"
-                            else None
-                        ),
-                    }
-                    numbered_items.append(item_entry)
-                    formatted_content += f"[{idx}] {item['text'].strip()}\n\n"
-
-            # Create sentence data for indexing
-            self.logger.debug("📑 Creating semantic sentences")
-            sentence_data = []
-
-            # Keep track of previous items for context
-            context_window = []
-            context_window_size = 3  # Number of previous items to include for context
-
-            for idx, item in enumerate(doc_dict.get("texts", []), 1):
-                # Create context text from previous items
-                previous_context = " ".join(
-                    [prev.get("text", "").strip() for prev in context_window]
-                )
-
-                # Current item's context with previous items
-                full_context = {
-                    "previous": previous_context,
-                    "current": item["text"].strip(),
-                }
-
-                sentence_data.append(
-                    {
-                        "text": item["text"].strip(),
-                        "metadata": {
-                            **(domain_metadata or {}),
-                            "recordId": recordId,
-                            "blockType": item.get("label", "text"),
-                            "blockNum": [idx],
-                            "blockText": json.dumps(full_context),
-                            "virtualRecordId": virtual_record_id,
-                            "codeLanguage": (
-                                item.get("language")
-                                if item.get("label") == "code"
-                                else None
-                            ),
-                        },
-                    }
-                )
-
-                # Update context window
-                context_window.append(item)
-                if len(context_window) > context_window_size:
-                    context_window.pop(0)
-
-            # Index sentences if available
-            if sentence_data:
-                pipeline = self.indexing_pipeline
-                await pipeline.index_documents(sentence_data)
-
-            # Prepare metadata
-            self.logger.debug("📋 Preparing metadata")
-            metadata = {
-                "recordId": recordId,
-                "recordName": recordName,
-                "orgId": orgId,
-                "version": version,
-                "source": source,
-                "domain_metadata": domain_metadata,
-                "document_info": {
-                    "schema_name": doc_dict.get("schema_name"),
-                    "version": doc_dict.get("version"),
-                    "name": doc_dict.get("name"),
-                    "origin": doc_dict.get("origin"),
-                },
-                "structure_info": {
-                    "text_count": len(doc_dict.get("texts", [])),
-                    "group_count": len(doc_dict.get("groups", [])),
-                    "table_count": len(doc_dict.get("tables", [])),
-                    "code_block_count": len(
-                        [
-                            item
-                            for item in doc_dict.get("texts", [])
-                            if item.get("label") == "code"
-                        ]
-                    ),
-                    "heading_count": len(
-                        [
-                            item
-                            for item in doc_dict.get("texts", [])
-                            if item.get("label") == "heading"
-                        ]
-                    ),
-                },
-            }
-
-            self.logger.info("✅ Markdown processing completed successfully")
-            return {
-                "md_result": {
-                    "items": numbered_items,
-                    "document_structure": {
-                        "body": doc_dict.get("body"),
-                        "groups": doc_dict.get("groups"),
-                    },
-                    "metadata": domain_metadata,
-                },
-                "formatted_content": formatted_content,
-                "numbered_items": numbered_items,
-                "metadata": metadata,
-            }
-
+            if record is None:
+                self.logger.error(f"❌ Record {recordId} not found in database")
+                raise Exception(f"Record {recordId} not found in graph db")
+            record = convert_record_dict_to_record(record)
+            record.block_containers = block_containers
+            record.virtual_record_id = virtual_record_id
+            ctx = TransformContext(record=record)
+            pipeline = IndexingPipeline(document_extraction=self.document_extraction, sink_orchestrator=self.sink_orchestrator)
+            await pipeline.apply(ctx)
+            self.logger.info("✅ MD processing completed successfully using docling")
+            return
         except Exception as e:
             self.logger.error(f"❌ Error processing Markdown document: {str(e)}")
             raise
