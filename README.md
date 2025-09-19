@@ -61,6 +61,9 @@
   <a href="https://x.com/PipesHub">
     <img src="https://img.shields.io/twitter/follow/PipesHub?style=social" alt="Twitter Follow">
   </a>
+  <a href="https://www.linkedin.com/company/pipeshub/" target="_blank">
+    <img src="https://img.shields.io/badge/LinkedIn-Follow-blue?logo=linkedin&logoColor=white&style=flat-square" alt="Follow on LinkedIn">
+  </a>
 </p>
 
 <!--Intro-->
@@ -86,7 +89,7 @@ Beyond search, our platform allows enterprises to create custom apps and AI agen
   <a href="https://youtu.be/nQcMHxORWtY">
     <img src="https://img.youtube.com/vi/nQcMHxORWtY/0.jpg" alt="PipesHub Workplace AI" width="600" style="border-radius:10px"/>
     <br>
-    <img src="https://img.shields.io/badge/Watch%20Video-red?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube"/>
+    <img src="https://img.shields.io/badge/Watch%20Video-FF0000?style=plastic&logo=youtube&logoColor=white" alt="Watch Video">
   </a>
 </p>
 
