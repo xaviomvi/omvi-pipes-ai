@@ -16,12 +16,15 @@
 
 <!--Links in Readme-->
 <p align="center">
-<a href="https://docs.pipeshub.com/" target="_blank">
-    <img src="https://img.shields.io/badge/docs-view-blue?style=for-the-badge" alt="Documentation">
-</a>
-<a href="https://discord.com/invite/K5RskzJBm2" target="_blank">
-     <img src="https://img.shields.io/badge/discord-join-red?logo=discord&logoColor=white&style=for-the-badge" alt="Discord">
-</a>
+  <a href="https://docs.pipeshub.com/" target="_blank">
+    <img src="https://img.shields.io/badge/Docs-View-informational?style=flat-square&logo=readthedocs&logoColor=white" 
+        alt="Docs" style="height:28px;">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://discord.com/invite/K5RskzJBm2" target="_blank">
+    <img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" 
+        alt="Discord" style="height:28px;">
+  </a>
 </p>
 
 <p align="center">
@@ -80,8 +83,8 @@ Beyond search, our platform allows enterprises to create custom apps and AI agen
 #### Your Workplace, Our AI.
 
 <p align="center">
-  <a href="https://youtu.be/PJ_b7IFhnsc">
-    <img src="https://img.youtube.com/vi/PJ_b7IFhnsc/maxresdefault.jpg" alt="PipesHub Workplace AI" width="600" style="border-radius:10px"/>
+  <a href="https://youtu.be/nQcMHxORWtY">
+    <img src="https://img.youtube.com/vi/nQcMHxORWtY/0.jpg" alt="PipesHub Workplace AI" width="600" style="border-radius:10px"/>
     <br>
     <img src="https://img.shields.io/badge/Watch%20Video-red?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube"/>
   </a>
