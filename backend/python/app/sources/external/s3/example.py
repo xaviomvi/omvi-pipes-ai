@@ -10,7 +10,7 @@ from app.sources.client.s3.s3 import S3Client, S3AccessKeyConfig, S3Response
 from app.sources.external.s3.s3 import S3DataSource
 
 async def main():
-    # Replace with your Notion integration token
+    # S3 credentials
     ACCESS_KEY = os.getenv("S3_ACCESS_KEY_ID")
     SECRET_KEY = os.getenv("S3_SECRET_ACCESS")
     REGION = os.getenv("S3_REGION")
