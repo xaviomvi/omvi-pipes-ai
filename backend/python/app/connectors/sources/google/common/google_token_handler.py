@@ -66,10 +66,14 @@ class GoogleTokenHandler:
         try:
             config = await self._get_connector_config(app_key)
             creds = (config or {}).get("credentials") or {}
-            creds['clientId'] = (config.get("auth", {}).get("clientId"))
-            creds['clientSecret'] = (config.get("auth", {}).get("clientSecret"))
-            if creds and creds.get(CredentialKeys.ACCESS_TOKEN.value):
-                return creds
+            # Do not persist client secrets under credentials in storage; only enrich the returned view
+            auth_cfg = (config or {}).get("auth", {}) or {}
+            if creds:
+                # Return a merged view including client info for SDK constructors
+                merged = dict(creds)
+                merged['clientId'] = auth_cfg.get("clientId")
+                merged['clientSecret'] = auth_cfg.get("clientSecret")
+                return merged
         except Exception as e:
             self.logger.error(f"❌ Failed to get individual token for {app_name}: {str(e)}")
             raise
@@ -93,8 +97,6 @@ class GoogleTokenHandler:
                 raise Exception(f"Connector config missing for {app_name}")
 
             credentials = (config or {}).get("credentials") or {}
-            credentials['clientId'] = (config.get("auth", {}).get("clientId"))
-            credentials['clientSecret'] = (config.get("auth", {}).get("clientSecret"))
             refresh_token = credentials.get("refresh_token")
             if not refresh_token:
                 # Nothing to refresh; rely on existing access token
@@ -131,7 +133,7 @@ class GoogleTokenHandler:
             finally:
                 await provider.close()
 
-            # Persist updated credentials back to etcd
+            # Persist updated credentials back to etcd (only token fields)
             config["credentials"] = new_token.to_dict()
             await self.config_service.set_config(config_key, config)
 
