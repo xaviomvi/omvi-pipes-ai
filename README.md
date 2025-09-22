@@ -28,7 +28,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/pipeshub-ai/pipeshub-ai">
+  <a href="https://github.com/pipeshub-ai/pipeshub-ai/stargazers">
     <img src="https://img.shields.io/github/stars/pipeshub-ai/pipeshub-ai?style=social" alt="GitHub Repo stars">
   </a>
   &nbsp;
