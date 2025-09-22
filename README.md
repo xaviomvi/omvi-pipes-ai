@@ -75,9 +75,9 @@ Beyond search, our platform allows enterprises to create custom apps and AI agen
 
 <h2>High Level Architecture Diagram</h2>
   <img
-    width="700"
-    height="500"
-    src="https://raw.githubusercontent.com/pipeshub-ai/media-assets/refs/heads/main/images/Architecture%20Diagram.svg"
+    width="800"
+    height="1200"
+    src="https://raw.githubusercontent.com/pipeshub-ai/media-assets/refs/heads/main/images/ad.jpg"
     alt="PipesHub System Architecture"
   />
 
