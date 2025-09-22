@@ -22,7 +22,7 @@
   </a>
   &nbsp;&nbsp;
   <a href="https://discord.com/invite/K5RskzJBm2" target="_blank">
-    <img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" 
+    <img src="https://img.shields.io/discord/1359557598222745670?label=Discord&logo=discord&logoColor=white&style=flat-square" 
         alt="Discord" style="height:28px;">
   </a>
 </p>
