@@ -503,7 +503,7 @@ def checkForLargeTable(markdown: str) -> bool:
     return len(words) > MAX_WORDS_IN_TABLE_THRESHOLD
 
 
-def get_message_content(flattened_results: List[Dict[str, Any]], virtual_record_id_to_result: Dict[str, Any], user_data: str, query: str) -> str:
+def get_message_content(flattened_results: List[Dict[str, Any]], virtual_record_id_to_result: Dict[str, Any], user_data: str, query: str, logger) -> str:
     content = []
 
     template = Template(qna_prompt_instructions_1)
@@ -609,4 +609,5 @@ def get_message_content(flattened_results: List[Dict[str, Any]], virtual_record_
         "text": f"</record>\n</context>\n\n{qna_prompt_instructions_2}"
     })
 
+    logger.debug(f"content: {content}")
     return content

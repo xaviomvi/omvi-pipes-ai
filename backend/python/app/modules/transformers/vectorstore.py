@@ -32,6 +32,7 @@ from app.utils.llm import get_llm
 from app.utils.time_conversion import get_epoch_timestamp_in_ms
 
 LENGTH_THRESHOLD = 2
+OUTPUT_DIMENSION = 1024
 
 class VectorStore(Transformer):
 
@@ -264,6 +265,7 @@ class VectorStore(Transformer):
                 model_names = [name.strip() for name in configuration["model"].split(",") if name.strip()]
                 model_name = model_names[0]
                 dense_embeddings = get_embedding_model(provider, config)
+
                 is_multimodal = config.get("isMultimodal")
             # Get the embedding dimensions from the model
             try:
@@ -392,7 +394,8 @@ class VectorStore(Transformer):
                                 model=self.cohere_embedding_model_name,
                                 input_type="image",
                                 embedding_types=["float"],
-                                inputs=[image_input]
+                                inputs=[image_input],
+                                output_dimension=OUTPUT_DIMENSION
                             )
                         except Exception as cohere_error:
                             # Skip images that exceed provider limits or any bad input; continue with others
