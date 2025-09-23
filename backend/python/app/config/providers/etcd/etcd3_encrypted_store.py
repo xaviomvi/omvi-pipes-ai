@@ -4,6 +4,7 @@ import os
 from typing import Callable, Dict, Generic, List, Optional, TypeVar, Union
 
 import dotenv
+import etcd3
 
 from app.config.constants.service import config_node_constants
 from app.config.constants.store_type import StoreType
@@ -52,6 +53,13 @@ class Etcd3EncryptedKeyValueStore(KeyValueStore[T], Generic[T]):
 
 
         self.logger.debug("✅ KeyValueStore initialized successfully")
+
+    @property
+    def client(self) -> Optional[etcd3.client]:
+        """Expose the underlying ETCD client for watchers and diagnostics."""
+
+        return getattr(self.store, "client", None)
+
 
     def _create_store(self) -> Etcd3DistributedKeyValueStore:
         self.logger.debug("🔧 Creating ETCD store configuration...")
