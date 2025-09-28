@@ -137,18 +137,18 @@ def main() -> None:
         names = [i.login for i in (invitations_res.data or [])]
         print("invitations:", names)
     
-    # List Dependabot alerts
-    alerts_res = ds.list_dependabot_alerts(owner, repo)
-    print_result("List Dependabot Alerts", alerts_res)
-    if alerts_res.success:
-        names = [a.number for a in (alerts_res.data or [])]
-        print("alerts:", names)
+    # # List Dependabot alerts
+    # alerts_res = ds.list_dependabot_alerts(owner, repo)
+    # print_result("List Dependabot Alerts", alerts_res)
+    # if alerts_res.success:
+    #     names = [a.number for a in (alerts_res.data or [])]
+    #     print("alerts:", names)
         
-    # Get Dependabot alert
-    alert_res = ds.get_dependabot_alert(owner, repo, 1)
-    print_result("Get Dependabot Alert", alert_res)
-    if alert_res.success:
-        print("alert:", alert_res.data)
+    # # Get Dependabot alert
+    # alert_res = ds.get_dependabot_alert(owner, repo, 1)
+    # print_result("Get Dependabot Alert", alert_res)
+    # if alert_res.success:
+    #     print("alert:", alert_res.data)
         
 
 if __name__ == "__main__":

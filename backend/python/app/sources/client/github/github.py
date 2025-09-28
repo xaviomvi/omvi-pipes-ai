@@ -1,21 +1,21 @@
-from dataclasses import asdict, dataclass
-from typing import Any
+from dataclasses import Field
+from typing import Any, Optional
 
 from github import Auth, Github
+from pydantic import BaseModel  # type: ignore
 
 from app.sources.client.iclient import IClient
 
 
 # Standardized Github API response wrapper
-@dataclass
-class GitHubResponse:
+class GitHubResponse(BaseModel):
     success: bool
-    data: dict[str, Any] | None = None
-    error: str | None = None
-    message: str | None = None
+    data: Optional[Any] = None
+    error: Optional[str] = None
+    message: Optional[str] = None
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    def to_dict(self) -> dict[str, Any]: # type: ignore
+        return self.model_dump()
 
 
 # Auth holder clients
@@ -23,9 +23,9 @@ class GitHubClientViaToken:
     def __init__(
         self,
         token: str,
-        base_url: str | None = None,
-        timeout: float | None = None,
-        per_page: int | None = None,
+        base_url: Optional[str] = None,
+        timeout: Optional[float] = None,
+        per_page: Optional[int] = None,
     ) -> None:
         self.token = token
         self.base_url = base_url
@@ -52,18 +52,15 @@ class GitHubClientViaToken:
             raise RuntimeError("Client not initialized. Call create_client() first.")
         return self._sdk
 
-    def get_base_url(self) -> str | None:
+    def get_base_url(self) -> Optional[str]:
         return self.base_url
 
 
-@dataclass
-class GitHubConfig:
+class GitHubConfig(BaseModel):
     token: str
-    base_url: str | None = (
-        None  # e.g. "https://ghe.example.com/api/v3" for GH Enterprise
-    )
-    timeout: float | None = None
-    per_page: int | None = None
+    base_url: Optional[str] = Field(default=None, description='e.g. "https://ghe.example.com/api/v3" for GH Enterprise')
+    timeout: Optional[float] = None
+    per_page: Optional[int] = None
 
     def create_client(self) -> GitHubClientViaToken:
         return GitHubClientViaToken(
