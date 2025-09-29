@@ -1,8 +1,7 @@
-from dataclasses import Field
 from typing import Any, Optional
 
 from github import Auth, Github
-from pydantic import BaseModel  # type: ignore
+from pydantic import BaseModel, Field  # type: ignore
 
 from app.sources.client.iclient import IClient
 
