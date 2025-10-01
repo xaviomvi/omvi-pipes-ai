@@ -117,7 +117,7 @@ class QdrantService(IVectorDBService):
                 host=qdrant_config.get("host"), # type: ignore
                 port=qdrant_config.get("port"), # type: ignore
                 api_key=qdrant_config.get("apiKey"), # type: ignore
-                prefer_grpc=True,
+                prefer_grpc=False,
                 https=False,
                 timeout=180,
             )
